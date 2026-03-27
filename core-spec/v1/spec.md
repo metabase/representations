@@ -1814,9 +1814,9 @@ serdes/meta:
 
 ## Transform
 
-A transform generates a table in the database by running a query. Transforms allow materializing query results as persistent database tables. Transform entities are stored under `collections/transforms/`. Transform jobs and tags are stored separately under the top-level `transforms/` directory.
+A transform generates a table in the database by running a query or Python script. Transforms allow materializing results as persistent database tables. Transform entities are stored under `collections/transforms/`. Transform jobs and tags are stored separately under the top-level `transforms/` directory.
 
-The `source` wraps a query that produces the data. See [MBQL Query](#mbql-query) for query syntax. The `target` specifies where the resulting table is written.
+The `source` defines how data is produced — either an MBQL/native query (`type: query`) or a Python script (`type: python`). The `target` specifies where the resulting table is written.
 
 ### Schema
 
@@ -1825,17 +1825,77 @@ The `source` wraps a query that produces the data. See [MBQL Query](#mbql-query)
 | `name` | string | Yes | Transform name |
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
-| `source` | object | Yes | Source query wrapped in `type: query` |
+| `source` | object | Yes | Source definition — query or Python (see below) |
 | `target` | object | Yes | Target table: `database` (Database FK), `type` (`"table"`), `schema`, `name` |
 | `serdes/meta` | array | Yes | Identity path with `model: Transform` |
 | `description` | string | No | Description |
 | `collection_id` | string | No | Collection FK (entity_id) |
+| `source_database_id` | string | No | Database FK (database name) |
 | `tags` | array | No | Transform tags (see below) |
 | `created_at` | string | No | ISO 8601 timestamp |
 
+### Query Source
+
+When `source.type` is `query`, the source wraps an MBQL or native query. See [MBQL Query](#mbql-query) for query syntax.
+
+```yaml
+source:
+  type: query
+  query:
+    database: Sample Database
+    type: query
+    query:
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+```
+
+### Python Source
+
+When `source.type` is `python`, the source contains a Python script that receives source tables as pandas DataFrames and must return a DataFrame as the result.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | `"python"` |
+| `body` | string | Yes | Python source code |
+| `source-tables` | array | Yes | Source tables available to the script |
+| `source-database` | integer | No | Source database ID |
+| `source-incremental-strategy` | object | No | Incremental execution strategy |
+
+Each entry in `source-tables`:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `alias` | string | Yes | Variable name for the table in Python |
+| `database_id` | integer | Yes | Database ID |
+| `schema` | string | No | Schema name |
+| `table` | string | No | Table name |
+| `table_id` | integer | No | Metabase table ID |
+
+```yaml
+source:
+  type: python
+  body: |-
+    import pandas as pd
+    def transform(products):
+        return products.groupby('CATEGORY').agg(
+            count=('ID', 'count'),
+            avg_price=('PRICE', 'mean')
+        ).reset_index()
+  source-tables:
+  - alias: products
+    database_id: 1
+    schema: PUBLIC
+    table: PRODUCTS
+  source-database: 1
+```
+
+Python libraries (see [PythonLibrary](#pythonlibrary)) are available as imports within the script.
+
 ### Transform Tags
 
-Tags categorize transforms for scheduling and organization:
+Tags categorize transforms for scheduling and organization. Each tag association on a transform references a TransformTag by its entity_id:
 
 ```yaml
 tags:
@@ -1846,6 +1906,46 @@ tags:
   - id: TUtH6I5SqautNtUZoZ6Ti
     model: TransformTransformTag
 ```
+
+### TransformTag
+
+A transform tag is a label for categorizing transforms. Tags can be built-in (`hourly`, `daily`, `weekly`, `monthly`) or custom. Stored in `transforms/transform_tags/`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entity_id` | string | Yes | NanoID identifier |
+| `name` | string | Yes | Tag name (e.g., `"hourly"`, `"custom-etl"`) |
+| `serdes/meta` | array | Yes | Identity path with `model: TransformTag` |
+| `built_in_type` | string | No | Built-in category: `"hourly"`, `"daily"`, `"weekly"`, `"monthly"`, or `null` for custom |
+| `created_at` | string | No | ISO 8601 timestamp |
+
+### TransformJob
+
+A transform job is a scheduled task that executes transforms matching specific tags. Stored in `transforms/transform_jobs/`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entity_id` | string | Yes | NanoID identifier |
+| `name` | string | Yes | Job name (e.g., `"Hourly job"`) |
+| `schedule` | string | Yes | Cron expression (e.g., `"0 0 * * * ? *"`) |
+| `serdes/meta` | array | Yes | Identity path with `model: TransformJob` |
+| `description` | string | No | Human-readable description |
+| `built_in_type` | string | No | Built-in category: `"hourly"`, `"daily"`, `"weekly"`, `"monthly"`, or `null` for custom |
+| `ui_display_type` | string | No | `"cron/builder"` or `null` |
+| `job_tags` | array | No | References to TransformTags this job executes |
+| `created_at` | string | No | ISO 8601 timestamp |
+
+### PythonLibrary
+
+A shared Python source file available to transforms. Stored in `python_libraries/`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entity_id` | string | Yes | NanoID identifier |
+| `path` | string | Yes | Python file path (e.g., `"common.py"`) |
+| `source` | string | Yes | Python source code |
+| `serdes/meta` | array | Yes | Identity path with `model: PythonLibrary` |
+| `created_at` | string | No | ISO 8601 timestamp |
 
 ### Example
 
