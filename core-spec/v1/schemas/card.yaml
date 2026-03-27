@@ -23,14 +23,16 @@ properties:
   display:
     type: string
     description: Visualization type
-    examples:
+    enum:
       - table
       - bar
       - line
+      - area
+      - row
       - pie
       - scalar
-      - row
-      - area
+      - smartscalar
+      - number
       - combo
       - pivot
       - funnel
@@ -39,7 +41,15 @@ properties:
       - waterfall
       - progress
       - gauge
-      - number
+      - object
+      - list
+      - heading
+      - text
+      - link
+      - iframe
+      - action
+      - sankey
+      - boxplot
   creator_id:
     type: string
     description: User FK (email address)
@@ -131,14 +141,50 @@ properties:
         description: MBQL query (when type is "query")
         properties:
           source-table:
-            type: array
-            description: Table FK [database, schema, table]
-            items:
-              type:
-                - string
-                - "null"
-            minItems: 3
-            maxItems: 3
+            description: >
+              Data source. Either a Table FK array [database, schema, table]
+              for physical tables, or a Card entity_id string for saved
+              questions/models.
+            oneOf:
+              - type: array
+                description: Table FK [database, schema, table]
+                items:
+                  type:
+                    - string
+                    - "null"
+                minItems: 3
+                maxItems: 3
+              - type: string
+                description: Card entity_id (NanoID) referencing a saved card/model
+                pattern: "^[A-Za-z0-9_-]{21}$"
+          source-query:
+            type: object
+            description: >
+              Nested MBQL query used as the data source instead of a table.
+              Has the same structure as a top-level MBQL query. Fields from
+              the inner query's results are referenced by column name (string)
+              rather than a Field FK. Can be nested to arbitrary depth.
+            properties:
+              source-table:
+                description: Table FK or Card entity_id (same as top-level source-table)
+              source-query:
+                type: object
+                description: Further nested source query
+              filter: {}
+              aggregation:
+                type: array
+              breakout:
+                type: array
+              expressions:
+                type: object
+              order-by:
+                type: array
+              limit:
+                type:
+                  - integer
+                  - "null"
+              joins:
+                type: array
           joins:
             type: array
             description: Join clauses

@@ -63,14 +63,25 @@ properties:
             description: MBQL query
             properties:
               source-table:
-                type: array
-                description: Table FK [database, schema, table]
-                items:
-                  type:
-                    - string
-                    - "null"
-                minItems: 3
-                maxItems: 3
+                description: >
+                  Data source. Either a Table FK array [database, schema, table]
+                  for physical tables, or a Card entity_id string for saved
+                  questions/models.
+                oneOf:
+                  - type: array
+                    items:
+                      type:
+                        - string
+                        - "null"
+                    minItems: 3
+                    maxItems: 3
+                  - type: string
+                    pattern: "^[A-Za-z0-9_-]{21}$"
+              source-query:
+                type: object
+                description: >
+                  Nested MBQL query used as the data source. Same structure
+                  as a top-level MBQL query.
               joins:
                 type: array
                 description: Join clauses

@@ -116,18 +116,28 @@ properties:
       $ref: "#/$defs/parameter"
   tabs:
     type: array
-    description: Dashboard tabs for organizing content
+    description: >
+      Dashboard tabs for organizing content into separate pages.
+      Each dashcard can be assigned to a tab via dashboard_tab_id.
+      Deleting a tab deletes all dashcards assigned to it.
     items:
       type: object
+      required:
+        - entity_id
+        - name
+        - position
       properties:
-        id:
-          type: integer
-        name:
-          type: string
         entity_id:
           type: string
+          description: NanoID identifier
+          pattern: "^[A-Za-z0-9_-]{21}$"
+        name:
+          type: string
+          description: Tab name
         position:
           type: integer
+          description: Display order (ascending)
+          minimum: 0
   dashcards:
     type: array
     description: Dashboard cards placed on the grid
@@ -226,7 +236,8 @@ $defs:
   dashcard:
     type: object
     description: >
-      A dashboard card that places a card (question) on the dashboard grid.
+      A dashboard card that places a card (question) on the 24-column
+      dashboard grid. Constraint: col + size_x <= 24. Cards cannot overlap.
     required:
       - entity_id
       - card_id
@@ -245,19 +256,21 @@ $defs:
         description: Card FK (entity_id of the referenced card)
       row:
         type: integer
-        description: Grid row position
+        description: Grid row position (0+)
         minimum: 0
       col:
         type: integer
-        description: Grid column position
+        description: Grid column position (0-23)
         minimum: 0
+        maximum: 23
       size_x:
         type: integer
-        description: Width in grid units
+        description: Width in grid units (1-24, col + size_x <= 24)
         minimum: 1
+        maximum: 24
       size_y:
         type: integer
-        description: Height in grid units
+        description: Height in grid units (1+)
         minimum: 1
       action_id:
         type:
@@ -267,9 +280,8 @@ $defs:
       dashboard_tab_id:
         type:
           - string
-          - integer
           - "null"
-        description: Tab FK
+        description: Tab entity_id, null for untabbed cards
       inline_parameters:
         type: array
         description: Inline parameter overrides
