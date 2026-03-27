@@ -1,9 +1,5 @@
 name: Product Summary
 entity_id: rT5vWxYz1aBcDeFgHiJkL
-description: Materialized summary of product counts and average prices by category
-created_at: '2025-01-15T12:00:00.000000Z'
-creator_id: admin@example.com
-collection_id: null
 source:
   type: query
   query:
@@ -30,7 +26,6 @@ source:
           - PRODUCTS
           - CATEGORY
         - null
-source_database_id: Sample Database
 target:
   database: Sample Database
   type: table

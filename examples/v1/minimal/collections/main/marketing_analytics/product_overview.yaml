@@ -1,28 +1,7 @@
 name: Product Overview
 entity_id: f1C68pznmrpN1F5xFDj6d
-description: Overview of products by category with average price and rating
-created_at: '2025-01-15T10:30:00.000000Z'
 creator_id: admin@example.com
 display: table
-archived: false
-archived_directly: false
-type: question
-collection_id: M-Q4pcV0qkiyJ0kiSWECl
-collection_preview: true
-collection_position: null
-query_type: null
-database_id: Sample Database
-table_id:
-- Sample Database
-- PUBLIC
-- PRODUCTS
-enable_embedding: false
-embedding_params: null
-embedding_type: null
-made_public_by_id: null
-public_uuid: null
-parameters: []
-parameter_mappings: []
 dataset_query:
   database: Sample Database
   type: query
@@ -58,13 +37,7 @@ dataset_query:
     - - desc
       - - aggregation
         - 0
-result_metadata: null
 visualization_settings: {}
-metabase_version: v1.58.0
-card_schema: 23
-source_card_id: null
-dashboard_id: null
-document_id: null
 serdes/meta:
 - id: f1C68pznmrpN1F5xFDj6d
   label: product_overview
