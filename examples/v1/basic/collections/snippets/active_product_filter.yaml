@@ -1,0 +1,13 @@
+name: Active Product Filter
+entity_id: WyQWnT23PF-SfbYLROllJ
+description: Filters to only products created in the last year with rating above 3
+created_at: '2025-01-15T09:00:00.000000Z'
+creator_id: admin@example.com
+archived: false
+collection_id: null
+content: "CREATED_AT >= DATEADD('year', -1, CURRENT_TIMESTAMP) AND RATING > 3.0"
+template_tags: {}
+serdes/meta:
+- id: WyQWnT23PF-SfbYLROllJ
+  label: active_product_filter
+  model: NativeQuerySnippet

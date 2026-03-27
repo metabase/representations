@@ -1,0 +1,24 @@
+name: Widget Products
+entity_id: aB3kLmN9pQrStUvWxYz1a
+description: Products in the Widget category
+created_at: '2025-01-15T09:30:00.000000Z'
+creator_id: admin@example.com
+archived: false
+definition:
+  source-table:
+  - Sample Database
+  - PUBLIC
+  - PRODUCTS
+  filter:
+  - =
+  - - field
+    - - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      - CATEGORY
+    - null
+  - Widget
+serdes/meta:
+- id: aB3kLmN9pQrStUvWxYz1a
+  label: widget_products
+  model: Segment

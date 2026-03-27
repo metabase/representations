@@ -1,0 +1,21 @@
+name: Average Product Price
+entity_id: xK7mPqR2sT4uVwXyZ9a1b
+description: Average price across all products
+created_at: '2025-01-15T09:30:00.000000Z'
+creator_id: admin@example.com
+archived: false
+definition:
+  database: Sample Database
+  query:
+    aggregation:
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - base-type: type/Float
+serdes/meta:
+- id: xK7mPqR2sT4uVwXyZ9a1b
+  label: average_product_price
+  model: Measure

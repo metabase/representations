@@ -1,0 +1,19 @@
+name: Marketing Analytics
+entity_id: M-Q4pcV0qkiyJ0kiSWECl
+description: Reports for the marketing team
+slug: marketing_analytics
+created_at: '2025-01-15T10:00:00.000000Z'
+archived: false
+type: null
+parent_id: null
+personal_owner_id: null
+namespace: null
+authority_level: null
+archive_operation_id: null
+archived_directly: null
+is_remote_synced: false
+is_sample: false
+serdes/meta:
+- id: M-Q4pcV0qkiyJ0kiSWECl
+  label: marketing_analytics
+  model: Collection

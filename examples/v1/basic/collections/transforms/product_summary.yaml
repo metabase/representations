@@ -1,0 +1,42 @@
+name: Product Summary
+entity_id: rT5vWxYz1aBcDeFgHiJkL
+description: Materialized summary of product counts and average prices by category
+created_at: '2025-01-15T12:00:00.000000Z'
+creator_id: admin@example.com
+collection_id: null
+source:
+  type: query
+  query:
+    database: Sample Database
+    type: query
+    query:
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      aggregation:
+      - - count
+      - - avg
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+          - base-type: type/Float
+      breakout:
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+source_database_id: Sample Database
+target:
+  database: Sample Database
+  type: table
+  schema: PUBLIC
+  name: product_summary
+serdes/meta:
+- id: rT5vWxYz1aBcDeFgHiJkL
+  label: product_summary
+  model: Transform
