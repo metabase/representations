@@ -6,6 +6,21 @@ This repository contains the specification and examples for the Metabase Represe
 
 ## Contents
 
-- **[core-spec/v1/spec.md](core-spec/v1/spec.md)** — Full specification (v1.0.0) covering entity keys, folder structure, MBQL and native queries, parameters, and all entity types (collections, cards, dashboards, segments, measures, transforms, snippets).
+- **[core-spec/v1/spec.md](core-spec/v1/spec.md)** — Full specification (v1.0.0) covering entity keys, folder structure, MBQL and native queries, parameters, and all entity types.
 - **[core-spec/v1/schemas/](core-spec/v1/schemas/)** — YAML schemas (JSON Schema format) for each entity type.
-- **[examples/v1/](examples/v1/)** — Complete examples with collections, questions, dashboards, snippets, transforms, segments, and measures using the Sample Database.
+- **[examples/v1/](examples/v1/)** — Complete examples using the Sample Database.
+
+## Entity Types
+
+| Entity | Description |
+|--------|-------------|
+| Collection | Folder-like container for organizing content |
+| Card | Question, model, or metric — holds an MBQL or native query |
+| Dashboard | Grid layout of cards with filter parameters and tabs |
+| Segment | Saved filter definition scoped to a table |
+| Measure | Saved aggregation definition scoped to a table |
+| Transform | Materializes query or Python script results into a database table |
+| Snippet | Reusable SQL fragment for native queries |
+| TransformTag | Label for categorizing transforms (built-in or custom) |
+| TransformJob | Scheduled job that executes tagged transforms |
+| PythonLibrary | Shared Python source file available to Python transforms |

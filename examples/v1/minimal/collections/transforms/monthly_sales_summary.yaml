@@ -1,0 +1,27 @@
+name: Monthly Sales Summary
+entity_id: nAtQrY7xLmPdKfWvBcEsH
+source:
+  type: query
+  query:
+    database: Sample Database
+    type: native
+    native:
+      query: |-
+        SELECT
+          DATE_TRUNC('month', o.CREATED_AT) AS month,
+          p.CATEGORY,
+          COUNT(*) AS order_count,
+          SUM(o.TOTAL) AS total_revenue
+        FROM ORDERS o
+        JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+        GROUP BY 1, 2
+      template-tags: {}
+target:
+  database: Sample Database
+  type: table
+  schema: PUBLIC
+  name: monthly_sales_summary
+serdes/meta:
+- id: nAtQrY7xLmPdKfWvBcEsH
+  label: monthly_sales_summary
+  model: Transform

@@ -1,0 +1,36 @@
+name: Customer Scoring
+entity_id: pYtH0nTrAnSfOrMeXaMpL
+source:
+  type: python
+  body: |-
+    import pandas as pd
+
+    def transform(orders, people):
+        customer_stats = orders.groupby('USER_ID').agg(
+            order_count=('ID', 'count'),
+            total_spent=('TOTAL', 'sum'),
+            first_order=('CREATED_AT', 'min'),
+            last_order=('CREATED_AT', 'max')
+        ).reset_index()
+        result = customer_stats.merge(people, left_on='USER_ID', right_on='ID')
+        result['score'] = (result['total_spent'] / result['order_count']).round(2)
+        return result[['USER_ID', 'NAME', 'EMAIL', 'order_count', 'total_spent', 'score']]
+  source-tables:
+  - alias: orders
+    database_id: 1
+    schema: PUBLIC
+    table: ORDERS
+  - alias: people
+    database_id: 1
+    schema: PUBLIC
+    table: PEOPLE
+  source-database: 1
+target:
+  database: Sample Database
+  type: table
+  schema: PUBLIC
+  name: customer_scoring
+serdes/meta:
+- id: pYtH0nTrAnSfOrMeXaMpL
+  label: customer_scoring
+  model: Transform
