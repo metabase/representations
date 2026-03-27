@@ -51,10 +51,11 @@ properties:
           aggregation:
             type: array
             description: >
-              Aggregation clauses. Each clause is [function, field_ref].
-              Functions: count, sum, avg, min, max, distinct, cum-sum, cum-count.
-              count does not require a field reference.
-              Field reference: [field, [db, schema, table, field], options].
+              Aggregation clauses. Each clause is [function, ...args].
+              Functions: count, sum, avg, min, max, distinct, cum-count,
+              cum-sum, stddev, var, median, percentile, count-where,
+              sum-where, share. Can also reference other saved measures
+              via [measure, entity_id].
             items:
               type: array
   created_at:

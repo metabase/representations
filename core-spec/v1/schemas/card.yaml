@@ -216,7 +216,12 @@ properties:
             description: Filter as MBQL clause
           aggregation:
             type: array
-            description: Aggregation clauses
+            description: >
+              Aggregation clauses. Each clause is [function, ...args] where
+              function is count, sum, avg, min, max, distinct, cum-count,
+              cum-sum, stddev, var, median, percentile, count-where,
+              sum-where, share, or metric. A metric clause references a
+              saved metric card: [metric, entity_id].
           breakout:
             type: array
             description: Breakout (GROUP BY) clauses

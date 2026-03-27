@@ -4,7 +4,7 @@
 
 ## Overview
 
-Metabase serialization (SerDes) exports instance configuration as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
+Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
 This specification covers user-created content entities. Database metadata entities (Database, Table, Field) are synced from connected databases and are outside the scope of this specification; they appear here only as foreign key references within user content.
 
@@ -32,6 +32,20 @@ Metabase uses two ways of identifying entities: `entity_id` (NanoID) and natural
 ### NanoID
 
 `entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable.
+
+Generate a NanoID in Bash:
+
+```bash
+head -c 21 /dev/urandom | base64 | tr -dc 'A-Za-z0-9_-' | head -c 21
+```
+
+Generate a NanoID in Python:
+
+```python
+import secrets, string
+alphabet = string.ascii_letters + string.digits + '_-'
+''.join(secrets.choice(alphabet) for _ in range(21))
+```
 
 ### Foreign Key References
 
@@ -695,6 +709,24 @@ aggregation:
       - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
       - null
     - Widget
+```
+
+#### Metric and Measure References
+
+A `metric` clause references a saved metric (a card with `type: metric`) by its entity_id:
+
+```yaml
+aggregation:
+- - metric
+  - f1C68pznmrpN1F5xFDj6d           # entity_id of a metric card
+```
+
+A `measure` clause references a saved measure by its entity_id. Measures can reference other measures but cannot reference metrics:
+
+```yaml
+aggregation:
+- - measure
+  - xK7mPqR2sT4uVwXyZ9a1b           # entity_id of a saved measure
 ```
 
 ---
