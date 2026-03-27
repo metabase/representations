@@ -1,0 +1,6 @@
+entity_id: hourlyhourlyhourlyxxx
+name: hourly
+serdes/meta:
+- id: hourlyhourlyhourlyxxx
+  label: hourly
+  model: TransformTag

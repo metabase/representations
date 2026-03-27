@@ -1,0 +1,7 @@
+entity_id: RognTgBT2fXaxoQh4ws7z
+name: Hourly job
+schedule: 0 0 * * * ? *
+serdes/meta:
+- id: RognTgBT2fXaxoQh4ws7z
+  label: hourly_job
+  model: TransformJob
