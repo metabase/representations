@@ -1,0 +1,149 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Transform
+description: >
+  Generates a table in the database by running a query. Transforms allow
+  materializing query results as persistent database tables.
+type: object
+required:
+  - name
+  - entity_id
+  - creator_id
+  - source
+  - target
+  - serdes/meta
+properties:
+  name:
+    type: string
+    description: Transform name
+  entity_id:
+    type: string
+    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
+    pattern: "^[A-Za-z0-9_-]{21}$"
+  creator_id:
+    type: string
+    description: User FK (email address)
+    format: email
+  description:
+    type:
+      - string
+      - "null"
+    description: Human-readable description
+  collection_id:
+    type:
+      - string
+      - "null"
+    description: Collection FK (entity_id), null for root collection
+  source:
+    type: object
+    description: Source query that produces the data
+    required:
+      - type
+      - query
+    properties:
+      type:
+        type: string
+        const: query
+      query:
+        type: object
+        description: Dataset query (MBQL or native)
+        required:
+          - database
+          - type
+        properties:
+          database:
+            type: string
+            description: Database FK (database name)
+          type:
+            type: string
+            enum:
+              - query
+              - native
+          query:
+            type: object
+            description: MBQL query
+            properties:
+              source-table:
+                type: array
+                description: Table FK [database, schema, table]
+                items:
+                  type:
+                    - string
+                    - "null"
+                minItems: 3
+                maxItems: 3
+              joins:
+                type: array
+                description: Join clauses
+              expressions:
+                type: object
+                description: Named computed columns
+                additionalProperties: true
+              filter:
+                description: Filter clause
+              aggregation:
+                type: array
+                description: Aggregation clauses
+              breakout:
+                type: array
+                description: Breakout (GROUP BY) clauses
+              order-by:
+                type: array
+                description: Order-by clauses
+              limit:
+                type:
+                  - integer
+                  - "null"
+                description: Row limit
+          native:
+            type: object
+            description: Native SQL query
+            properties:
+              query:
+                type: string
+              template-tags:
+                type: object
+  target:
+    type: object
+    description: Where the resulting table is written
+    required:
+      - database
+      - type
+      - name
+    properties:
+      database:
+        type: string
+        description: Database FK (database name)
+      type:
+        type: string
+        description: Target type
+        const: table
+      schema:
+        type:
+          - string
+          - "null"
+        description: Target schema name
+      name:
+        type: string
+        description: Target table name
+  created_at:
+    type: string
+    description: ISO 8601 timestamp
+    format: date-time
+  serdes/meta:
+    type: array
+    description: Identity path for serialization
+    items:
+      type: object
+      required:
+        - id
+        - model
+      properties:
+        id:
+          type: string
+          description: Entity identifier (matches entity_id)
+        label:
+          type: string
+          description: Slugified name
+        model:
+          type: string
+          const: Transform

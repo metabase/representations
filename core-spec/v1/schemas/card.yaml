@@ -1,0 +1,392 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Card
+description: >
+  A Question, Model, or Metric in Metabase. Cards are the primary way to save
+  and share queries. Each card holds a dataset_query (MBQL or native).
+type: object
+required:
+  - name
+  - entity_id
+  - display
+  - creator_id
+  - dataset_query
+  - visualization_settings
+  - serdes/meta
+properties:
+  name:
+    type: string
+    description: Card name
+  entity_id:
+    type: string
+    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
+    pattern: "^[A-Za-z0-9_-]{21}$"
+  display:
+    type: string
+    description: Visualization type
+    examples:
+      - table
+      - bar
+      - line
+      - pie
+      - scalar
+      - row
+      - area
+      - combo
+      - pivot
+      - funnel
+      - map
+      - scatter
+      - waterfall
+      - progress
+      - gauge
+      - number
+  creator_id:
+    type: string
+    description: User FK (email address)
+    format: email
+  description:
+    type:
+      - string
+      - "null"
+    description: Human-readable description
+  archived:
+    type: boolean
+    description: Whether archived
+    default: false
+  archived_directly:
+    type: boolean
+    description: Archived directly vs. inherited
+    default: false
+  type:
+    type: string
+    description: Card type
+    enum:
+      - question
+      - model
+      - metric
+    default: question
+  collection_id:
+    type:
+      - string
+      - "null"
+    description: Collection FK (entity_id), null for root collection
+  collection_position:
+    type:
+      - integer
+      - "null"
+    description: Position within collection
+  collection_preview:
+    type: boolean
+    description: Show preview in collection view
+    default: true
+  dashboard_id:
+    type:
+      - string
+      - "null"
+    description: Dashboard FK (entity_id)
+  document_id:
+    type:
+      - string
+      - "null"
+    description: Document FK (entity_id)
+  database_id:
+    type:
+      - string
+      - "null"
+    description: Database FK (database name), should match database in dataset_query
+  table_id:
+    description: Table FK [database, schema, table], should match source-table in query
+    oneOf:
+      - type: array
+        items:
+          type:
+            - string
+            - "null"
+        minItems: 3
+        maxItems: 3
+      - type: "null"
+  source_card_id:
+    type:
+      - string
+      - "null"
+    description: Card FK (entity_id) for source card
+  dataset_query:
+    type: object
+    description: Query definition (MBQL or native)
+    required:
+      - database
+      - type
+    properties:
+      database:
+        type: string
+        description: Database FK (database name)
+      type:
+        type: string
+        description: Query type
+        enum:
+          - query
+          - native
+      query:
+        type: object
+        description: MBQL query (when type is "query")
+        properties:
+          source-table:
+            type: array
+            description: Table FK [database, schema, table]
+            items:
+              type:
+                - string
+                - "null"
+            minItems: 3
+            maxItems: 3
+          joins:
+            type: array
+            description: Join clauses
+            items:
+              type: object
+              properties:
+                source-table:
+                  type: array
+                  description: Table FK of joined table
+                condition:
+                  description: Join condition as MBQL clause
+                alias:
+                  type: string
+                  description: Join alias
+                strategy:
+                  type: string
+                  enum:
+                    - left-join
+                    - right-join
+                    - inner-join
+                    - full-join
+                fields:
+                  description: '"all", "none", or list of field clauses'
+          expressions:
+            type: object
+            description: Named computed columns as MBQL clauses
+            additionalProperties: true
+          filter:
+            description: Filter as MBQL clause
+          aggregation:
+            type: array
+            description: Aggregation clauses
+          breakout:
+            type: array
+            description: Breakout (GROUP BY) clauses
+          order-by:
+            type: array
+            description: Order-by clauses
+          limit:
+            type:
+              - integer
+              - "null"
+            description: Row limit
+      native:
+        type: object
+        description: Native SQL query (when type is "native")
+        required:
+          - query
+        properties:
+          query:
+            type: string
+            description: SQL query string
+          template-tags:
+            type: object
+            description: Template tag definitions
+            additionalProperties:
+              type: object
+              required:
+                - type
+                - name
+                - id
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - text
+                    - number
+                    - date
+                    - boolean
+                    - dimension
+                    - time-grouping
+                    - card
+                    - snippet
+                    - table
+                name:
+                  type: string
+                id:
+                  type: string
+                  format: uuid
+                display-name:
+                  type: string
+                default: {}
+                dimension:
+                  description: Field FK for dimension type
+                widget-type:
+                  type: string
+                  description: Filter widget type for dimension type
+                card-id:
+                  type: string
+                  description: Card entity_id for card type
+                snippet-name:
+                  type: string
+                  description: Snippet name for snippet type
+                snippet-id:
+                  type: string
+                  description: Snippet entity_id for snippet type
+  visualization_settings:
+    type: object
+    description: Display settings (can be empty {})
+    additionalProperties: true
+  parameters:
+    type: array
+    description: Native query parameters
+    items:
+      $ref: "#/$defs/parameter"
+  parameter_mappings:
+    type: array
+    description: Parameter mappings (unused, always empty)
+    items: {}
+  result_metadata:
+    description: Query result column metadata
+    type:
+      - array
+      - "null"
+  enable_embedding:
+    type: boolean
+    description: Embedding enabled
+    default: false
+  embedding_params:
+    type:
+      - object
+      - "null"
+    description: Embedding parameter configuration
+  embedding_type:
+    type:
+      - string
+      - "null"
+    description: Embedding type
+    enum:
+      - null
+      - sdk
+      - standalone
+  public_uuid:
+    type:
+      - string
+      - "null"
+    description: Public sharing UUID
+    format: uuid
+  made_public_by_id:
+    type:
+      - string
+      - "null"
+    description: User FK (email) who made this public
+  metabase_version:
+    type:
+      - string
+      - "null"
+    description: Metabase version that created the card
+  card_schema:
+    type:
+      - integer
+      - "null"
+    description: Internal card schema version (should not be changed manually)
+  query_type:
+    type:
+      - string
+      - "null"
+    description: Query type
+    enum:
+      - null
+      - query
+      - native
+  created_at:
+    type: string
+    description: ISO 8601 timestamp
+    format: date-time
+  serdes/meta:
+    type: array
+    description: Identity path for serialization
+    items:
+      type: object
+      required:
+        - id
+        - model
+      properties:
+        id:
+          type: string
+          description: Entity identifier (matches entity_id)
+        label:
+          type: string
+          description: Slugified name
+        model:
+          type: string
+          const: Card
+
+$defs:
+  parameter:
+    type: object
+    description: A filter control parameter
+    required:
+      - id
+      - name
+      - slug
+      - type
+    properties:
+      id:
+        type: string
+        description: UUID identifier
+        format: uuid
+      name:
+        type: string
+        description: Display name
+      slug:
+        type: string
+        description: URL-friendly identifier
+      type:
+        type: string
+        description: >
+          Filter widget type: string/=, string/!=, string/contains,
+          string/starts-with, string/ends-with, number/=, number/!=,
+          number/>=, number/<=, number/between, date/single, date/range,
+          date/month-year, date/quarter-year, date/relative, date/all-options,
+          temporal-unit, id
+      default:
+        description: Default value (type depends on filter type)
+      required:
+        type: boolean
+        description: Whether a value is required
+      sectionId:
+        type: string
+        description: Parameter section grouping
+      temporal_units:
+        type: array
+        description: Allowed temporal units (for temporal-unit type)
+        items:
+          type: string
+          enum:
+            - minute
+            - hour
+            - day
+            - week
+            - month
+            - quarter
+            - year
+      values_query_type:
+        type: string
+        enum:
+          - list
+          - search
+          - none
+      values_source_type:
+        type:
+          - string
+          - "null"
+        enum:
+          - null
+          - card
+          - static-list
+      values_source_config:
+        type: object
+        additionalProperties: true
