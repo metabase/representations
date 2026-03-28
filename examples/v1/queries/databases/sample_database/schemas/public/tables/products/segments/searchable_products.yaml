@@ -1,0 +1,59 @@
+name: Searchable Products
+entity_id: yZptbJRR3S8L9S9r0ZF8M
+creator_id: admin@example.com
+description: Products with non-empty title containing "awesome", vendor starting with "A"
+definition:
+  database: Sample Database
+  query:
+    filter:
+    - and
+    - - not-empty
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+    - - contains
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - awesome
+      - case-sensitive: false
+    - - starts-with
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
+      - A
+    - - does-not-contain
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - discontinued
+      - case-sensitive: false
+    - - ends-with
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - EAN
+        - null
+      - "0"
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+  type: query
+serdes/meta:
+- id: yZptbJRR3S8L9S9r0ZF8M
+  label: searchable_products
+  model: Segment

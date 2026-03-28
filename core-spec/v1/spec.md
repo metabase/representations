@@ -1223,7 +1223,7 @@ Compiled SQL (value `month`): `SELECT DATE_TRUNC('month', CREATED_AT) AS created
 
 ### `card`
 
-Reference a saved card (question) as a CTE subquery using `{{#entity_id-card_name}}` syntax. Metabase replaces the tag with the card's query wrapped in a `WITH` clause.
+Reference a saved card (question) as a CTE subquery using `{{#<numeric_id>-<slug>}}` syntax. The SQL template uses the card's numeric ID; the `card-id` property stores the card's entity_id (NanoID) for portability. Metabase replaces the tag with the card's query wrapped in a `WITH` clause.
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
@@ -1233,11 +1233,11 @@ Note: `default` and `required` are not applicable for card tags.
 
 ```yaml
 native:
-  query: "SELECT * FROM {{#f1C68pznmrpN1F5xFDj6d-products_question}} WHERE PRICE > 50"
+  query: "SELECT * FROM {{#42-products_question}} WHERE PRICE > 50"
   template-tags:
-    "#f1C68pznmrpN1F5xFDj6d-products_question":
+    "#42-products_question":
       type: card
-      name: "#f1C68pznmrpN1F5xFDj6d-products_question"
+      name: "#42-products_question"
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Products Question
       card-id: f1C68pznmrpN1F5xFDj6d
@@ -1246,8 +1246,8 @@ native:
 Compiled SQL (assuming the card's query is `SELECT * FROM PUBLIC.PRODUCTS`):
 
 ```sql
-WITH f1C68pznmrpN1F5xFDj6d_products_question AS (SELECT * FROM PUBLIC.PRODUCTS)
-SELECT * FROM f1C68pznmrpN1F5xFDj6d_products_question WHERE PRICE > 50
+WITH products_question AS (SELECT * FROM PUBLIC.PRODUCTS)
+SELECT * FROM products_question WHERE PRICE > 50
 ```
 
 ---
@@ -1860,7 +1860,7 @@ When `source.type` is `python`, the source contains a Python script that receive
 | `type` | string | Yes | `"python"` |
 | `body` | string | Yes | Python source code |
 | `source-tables` | array | Yes | Source tables available to the script |
-| `source-database` | integer | No | Source database ID |
+| `source-database` | string | No | Database FK (database name) |
 | `source-incremental-strategy` | object | No | Incremental execution strategy |
 
 Each entry in `source-tables`:
@@ -1868,7 +1868,7 @@ Each entry in `source-tables`:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `alias` | string | Yes | Variable name for the table in Python |
-| `database_id` | integer | Yes | Database ID |
+| `database_id` | string | Yes | Database FK (database name) |
 | `schema` | string | No | Schema name |
 | `table` | string | No | Table name |
 | `table_id` | integer | No | Metabase table ID |
@@ -1885,10 +1885,10 @@ source:
         ).reset_index()
   source-tables:
   - alias: products
-    database_id: 1
+    database_id: Sample Database
     schema: PUBLIC
     table: PRODUCTS
-  source-database: 1
+  source-database: Sample Database
 ```
 
 Python libraries (see [PythonLibrary](#pythonlibrary)) are available as imports within the script.

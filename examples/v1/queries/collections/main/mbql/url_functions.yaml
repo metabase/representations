@@ -1,0 +1,51 @@
+name: "URL Functions"
+entity_id: uwAeNRHymXTD1G_7lWV1d
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PEOPLE
+    expressions:
+      Source Host:
+      - host
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - SOURCE
+        - null
+      Source Domain:
+      - domain
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - SOURCE
+        - null
+      Source Subdomain:
+      - subdomain
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - SOURCE
+        - null
+      Source Path:
+      - path
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - SOURCE
+        - null
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: uwAeNRHymXTD1G_7lWV1d
+  label: url_functions
+  model: Card

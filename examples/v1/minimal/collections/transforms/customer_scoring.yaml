@@ -1,5 +1,5 @@
 name: Customer Scoring
-entity_id: pYtH0nTrAnSfOrMeXaMpL
+entity_id: DjT4tuBMigXE22NcJoPyV
 source:
   type: python
   body: |-
@@ -17,20 +17,20 @@ source:
         return result[['USER_ID', 'NAME', 'EMAIL', 'order_count', 'total_spent', 'score']]
   source-tables:
   - alias: orders
-    database_id: 1
+    database_id: Sample Database
     schema: PUBLIC
     table: ORDERS
   - alias: people
-    database_id: 1
+    database_id: Sample Database
     schema: PUBLIC
     table: PEOPLE
-  source-database: 1
+  source-database: Sample Database
 target:
   database: Sample Database
   type: table
   schema: PUBLIC
   name: customer_scoring
 serdes/meta:
-- id: pYtH0nTrAnSfOrMeXaMpL
+- id: DjT4tuBMigXE22NcJoPyV
   label: customer_scoring
   model: Transform

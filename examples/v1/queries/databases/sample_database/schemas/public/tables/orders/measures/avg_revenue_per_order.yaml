@@ -1,0 +1,21 @@
+name: Average Revenue Per Order
+entity_id: dc8eiyLh9S0IKwV_UuvTz
+creator_id: admin@example.com
+description: Uses Total Revenue and Order Count measures
+definition:
+  database: Sample Database
+  query:
+    aggregation:
+    - - measure
+      - 8WteUpyQQqObrxLv4KQ-j
+    - - measure
+      - DBap2523KuN4Lt-cYrUjF
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+  type: query
+serdes/meta:
+- id: dc8eiyLh9S0IKwV_UuvTz
+  label: avg_revenue_per_order
+  model: Measure

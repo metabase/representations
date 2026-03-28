@@ -1,0 +1,72 @@
+name: "Conditional Aggregations"
+entity_id: irROiaJoSsiXPKGxwWvWY
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - count-where
+      - - ">"
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+          - null
+        - 100
+    - - sum-where
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+      - - ">"
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - DISCOUNT
+          - null
+        - 0
+    - - distinct-where
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - USER_ID
+        - null
+      - - ">"
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+          - null
+        - 50
+    - - share
+      - - not-null
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - DISCOUNT
+          - null
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: quarter
+visualization_settings: {}
+serdes/meta:
+- id: irROiaJoSsiXPKGxwWvWY
+  label: conditional_aggregations
+  model: Card

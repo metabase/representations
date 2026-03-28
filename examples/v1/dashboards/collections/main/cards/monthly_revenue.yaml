@@ -1,0 +1,32 @@
+name: Monthly Revenue
+entity_id: x61UtCMCuBNjw0TEFQeWG
+creator_id: admin@example.com
+display: line
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings: {}
+serdes/meta:
+- id: x61UtCMCuBNjw0TEFQeWG
+  label: monthly_revenue
+  model: Card

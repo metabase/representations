@@ -1,0 +1,32 @@
+name: Monthly Average Order
+entity_id: irROiaJoSsiXPKGxwWvWY
+creator_id: admin@example.com
+display: line
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings: {}
+serdes/meta:
+- id: irROiaJoSsiXPKGxwWvWY
+  label: monthly_avg_order
+  model: Card

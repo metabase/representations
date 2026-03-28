@@ -240,7 +240,6 @@ $defs:
       dashboard grid. Constraint: col + size_x <= 24. Cards cannot overlap.
     required:
       - entity_id
-      - card_id
       - row
       - col
       - size_x
@@ -252,8 +251,10 @@ $defs:
         description: NanoID identifier
         pattern: "^[A-Za-z0-9_-]{21}$"
       card_id:
-        type: string
-        description: Card FK (entity_id of the referenced card)
+        type:
+          - string
+          - "null"
+        description: Card FK (entity_id of the referenced card), null for virtual cards (text, heading, link, iframe, action, placeholder)
       row:
         type: integer
         description: Grid row position (0+)

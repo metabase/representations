@@ -1,0 +1,46 @@
+name: "Nested Query"
+entity_id: 1t9TE-8T-AlaM19nx3yQV
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-query:
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      aggregation:
+      - - count
+      - - sum
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+          - base-type: type/Float
+      breakout:
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - USER_ID
+        - null
+    filter:
+    - ">"
+    - - field
+      - count
+      - base-type: type/Integer
+    - 5
+    order-by:
+    - - desc
+      - - field
+        - sum
+        - base-type: type/Float
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: 1t9TE-8T-AlaM19nx3yQV
+  label: nested_query
+  model: Card

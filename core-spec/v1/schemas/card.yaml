@@ -260,7 +260,7 @@ properties:
                     - date
                     - boolean
                     - dimension
-                    - time-grouping
+                    - temporal-unit
                     - card
                     - snippet
                     - table

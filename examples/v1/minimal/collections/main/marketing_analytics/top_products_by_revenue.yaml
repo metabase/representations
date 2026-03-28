@@ -1,5 +1,5 @@
 name: Top Products by Revenue
-entity_id: nAtIvEqUeRyExAmPlE123
+entity_id: FTxpeL9vY5pyb6Lc6lCDK
 creator_id: admin@example.com
 display: bar
 dataset_query:
@@ -26,6 +26,6 @@ dataset_query:
         default: Widget
 visualization_settings: {}
 serdes/meta:
-- id: nAtIvEqUeRyExAmPlE123
+- id: FTxpeL9vY5pyb6Lc6lCDK
   label: top_products_by_revenue
   model: Card

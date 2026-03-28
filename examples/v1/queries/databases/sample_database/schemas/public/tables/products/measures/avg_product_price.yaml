@@ -1,0 +1,23 @@
+name: Average Product Price
+entity_id: xK7mPqR2sT4uVwXyZ9a1b
+creator_id: admin@example.com
+definition:
+  database: Sample Database
+  query:
+    aggregation:
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - base-type: type/Float
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+  type: query
+serdes/meta:
+- id: xK7mPqR2sT4uVwXyZ9a1b
+  label: avg_product_price
+  model: Measure

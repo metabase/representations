@@ -1,0 +1,23 @@
+name: Total Revenue
+entity_id: 8WteUpyQQqObrxLv4KQ-j
+creator_id: admin@example.com
+definition:
+  database: Sample Database
+  query:
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+  type: query
+serdes/meta:
+- id: 8WteUpyQQqObrxLv4KQ-j
+  label: total_revenue
+  model: Measure

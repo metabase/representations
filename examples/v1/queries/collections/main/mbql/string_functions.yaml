@@ -1,0 +1,122 @@
+name: "String Functions"
+entity_id: HeLFZSVb4Jm25p4tWfVP9
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    expressions:
+      Title and Category:
+      - concat
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - " ("
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+      - ")"
+      First 10 Chars:
+      - substring
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - 1
+      - 10
+      Cleaned Vendor:
+      - replace
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
+      - Inc.
+      - Incorporated
+      EAN Prefix:
+      - regex-match-first
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - EAN
+        - null
+      - "^\\d{3}"
+      Category First Word:
+      - split-part
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - " "
+      - 1
+      Trimmed Title:
+      - trim
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      Left Trimmed:
+      - ltrim
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      Right Trimmed:
+      - rtrim
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      Upper Category:
+      - upper
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+      Lower Title:
+      - lower
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      Title Length:
+      - length
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: HeLFZSVb4Jm25p4tWfVP9
+  label: string_functions
+  model: Card

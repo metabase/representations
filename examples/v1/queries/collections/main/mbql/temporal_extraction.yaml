@@ -1,0 +1,121 @@
+name: "Temporal Extraction"
+entity_id: bDK7jyPszEHzHh4aG4_SV
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    expressions:
+      Order Year:
+      - get-year
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Order Quarter:
+      - get-quarter
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Order Month:
+      - get-month
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Order Day:
+      - get-day
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Order Hour:
+      - get-hour
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Order Minute:
+      - get-minute
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Order Second:
+      - get-second
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Day of Week ISO:
+      - get-day-of-week
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - iso
+      Week Number:
+      - get-week
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - us
+      Month Name:
+      - month-name
+      - - get-month
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+          - null
+      Quarter Name:
+      - quarter-name
+      - - get-quarter
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+          - null
+      Day Name:
+      - day-name
+      - - get-day-of-week
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+          - null
+        - us
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: bDK7jyPszEHzHh4aG4_SV
+  label: temporal_extraction
+  model: Card

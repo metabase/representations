@@ -1,0 +1,68 @@
+name: "Null, Empty, and String Filters"
+entity_id: ZvHEBpdFQ-VSvem16KCkL
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    filter:
+    - and
+    - - not-null
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+    - - not-empty
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
+    - - contains
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - widget
+      - case-sensitive: false
+    - - does-not-contain
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
+      - LLC
+    - - starts-with
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - Awesome
+      - Incredible
+    - - ends-with
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - EAN
+        - null
+      - "0"
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: ZvHEBpdFQ-VSvem16KCkL
+  label: null_and_string_filters
+  model: Card

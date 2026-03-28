@@ -1,0 +1,58 @@
+name: "Temporal and Logical Filters"
+entity_id: BMx-SlSPsSfGSKaEgOzn0
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    filter:
+    - or
+    - - time-interval
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - -30
+      - day
+    - - and
+      - - ">"
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+          - null
+        - - absolute-datetime
+          - '2024-01-01'
+          - day
+      - - "<"
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+          - null
+        - - relative-datetime
+          - 0
+          - day
+    - - not
+      - - is-null
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - DISCOUNT
+          - null
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: BMx-SlSPsSfGSKaEgOzn0
+  label: temporal_and_logical_filters
+  model: Card

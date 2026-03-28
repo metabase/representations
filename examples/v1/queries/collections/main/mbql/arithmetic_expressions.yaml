@@ -1,0 +1,81 @@
+name: "Arithmetic Expressions"
+entity_id: 1O_2jSo2fD6m3Qr6My7aa
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    expressions:
+      Subtotal Plus Tax:
+      - +
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - SUBTOTAL
+        - null
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TAX
+        - null
+      Profit:
+      - -
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - null
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TAX
+        - null
+      Tax Rate:
+      - /
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TAX
+        - null
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - SUBTOTAL
+        - null
+      Double Quantity:
+      - "*"
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - QUANTITY
+        - null
+      - 2
+      Due Date:
+      - +
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - - interval
+        - 30
+        - day
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: 1O_2jSo2fD6m3Qr6My7aa
+  label: arithmetic_expressions
+  model: Card

@@ -1,0 +1,46 @@
+name: "Window Function - Offset"
+entity_id: ErQY8K5Tep4xBc3VY_-1e
+creator_id: admin@example.com
+display: line
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+    expressions:
+      Previous Month Revenue:
+      - offset
+      - - aggregation
+        - 0
+      - -1
+      Revenue Change:
+      - -
+      - - aggregation
+        - 0
+      - - offset
+        - - aggregation
+          - 0
+        - -1
+visualization_settings: {}
+serdes/meta:
+- id: ErQY8K5Tep4xBc3VY_-1e
+  label: window_offset
+  model: Card

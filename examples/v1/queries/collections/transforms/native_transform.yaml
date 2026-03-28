@@ -1,5 +1,5 @@
-name: Monthly Sales Summary
-entity_id: w7EfUbsxLA7kXBHVXgeaZ
+name: Product Revenue Report
+entity_id: 7JwIkkAG-06-nsl4jzsaq
 source:
   type: query
   query:
@@ -8,20 +8,20 @@ source:
     native:
       query: |-
         SELECT
-          DATE_TRUNC('month', o.CREATED_AT) AS month,
           p.CATEGORY,
-          COUNT(*) AS order_count,
-          SUM(o.TOTAL) AS total_revenue
+          COUNT(DISTINCT o.ID) AS order_count,
+          SUM(o.TOTAL) AS total_revenue,
+          AVG(o.TOTAL) AS avg_order_value
         FROM ORDERS o
         JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
-        GROUP BY 1, 2
+        GROUP BY p.CATEGORY
       template-tags: {}
 target:
   database: Sample Database
   type: table
   schema: PUBLIC
-  name: monthly_sales_summary
+  name: product_revenue_report
 serdes/meta:
-- id: w7EfUbsxLA7kXBHVXgeaZ
-  label: monthly_sales_summary
+- id: 7JwIkkAG-06-nsl4jzsaq
+  label: product_revenue_report
   model: Transform

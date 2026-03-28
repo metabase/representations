@@ -1,0 +1,25 @@
+name: "Metric, Measure, and Segment References"
+entity_id: kBjQ5VXJ5z3vYSW72J6qa
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    aggregation:
+    - - metric
+      - IW8kbqZVaMxdGtCM2F4U6
+    - - measure
+      - xK7mPqR2sT4uVwXyZ9a1b
+    filter:
+    - segment
+    - aB3kLmN9pQrStUvWxYz1a
+visualization_settings: {}
+serdes/meta:
+- id: kBjQ5VXJ5z3vYSW72J6qa
+  label: metric_measure_segment_refs
+  model: Card

@@ -1,0 +1,55 @@
+name: "Comparison Filters"
+entity_id: 8kTL-8IzNdWMtXfaMPZaE
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    filter:
+    - and
+    - - between
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      - 10
+      - 200
+    - - ">"
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+      - 3
+    - - "!="
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+      - Doohickey
+    - - =
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+      - Widget
+      - Gadget
+      - Gizmo
+    limit: 20
+visualization_settings: {}
+serdes/meta:
+- id: 8kTL-8IzNdWMtXfaMPZaE
+  label: comparison_filters
+  model: Card

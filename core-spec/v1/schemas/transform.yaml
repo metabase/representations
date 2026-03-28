@@ -218,8 +218,8 @@ $defs:
               type: string
               description: Variable name for the table in Python
             database_id:
-              type: integer
-              description: Database ID
+              type: string
+              description: Database FK (database name)
             schema:
               type:
                 - string
@@ -234,8 +234,8 @@ $defs:
                 - "null"
               description: Metabase table ID
       source-database:
-        type: integer
-        description: Source database ID
+        type: string
+        description: Database FK (database name)
       source-incremental-strategy:
         type: object
         description: Incremental execution strategy

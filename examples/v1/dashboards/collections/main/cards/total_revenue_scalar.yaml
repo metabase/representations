@@ -1,0 +1,26 @@
+name: Total Revenue
+entity_id: IW8kbqZVaMxdGtCM2F4U6
+creator_id: admin@example.com
+display: scalar
+type: metric
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+visualization_settings: {}
+serdes/meta:
+- id: IW8kbqZVaMxdGtCM2F4U6
+  label: total_revenue_scalar
+  model: Card

@@ -1,0 +1,28 @@
+name: Premium Widgets
+entity_id: 2hxhoN3HrQJIaWc5umpBn
+creator_id: admin@example.com
+description: Widget products priced above $50 — refines the Widget Products segment
+definition:
+  database: Sample Database
+  query:
+    filter:
+    - and
+    - - segment
+      - aB3kLmN9pQrStUvWxYz1a
+    - - ">"
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      - 50
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+  type: query
+serdes/meta:
+- id: 2hxhoN3HrQJIaWc5umpBn
+  label: premium_widgets
+  model: Segment

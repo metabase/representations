@@ -1,0 +1,45 @@
+name: "Native Query - Variables"
+entity_id: 2u10n8GV6u0LFYrq8yV5p
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: native
+  native:
+    query: |-
+      SELECT *
+      FROM ORDERS
+      WHERE TOTAL > {{min_total}}
+        AND CREATED_AT > {{after_date}}
+        AND USER_ID = {{user_id}}
+        AND {{is_active}}
+    template-tags:
+      min_total:
+        type: number
+        name: min_total
+        id: aa000001-0000-0000-0000-000000000001
+        display-name: Minimum Total
+        default: 50
+        required: true
+      after_date:
+        type: date
+        name: after_date
+        id: aa000002-0000-0000-0000-000000000002
+        display-name: After Date
+        default: '2024-01-01'
+      user_id:
+        type: text
+        name: user_id
+        id: aa000003-0000-0000-0000-000000000003
+        display-name: User ID
+      is_active:
+        type: boolean
+        name: is_active
+        id: aa000004-0000-0000-0000-000000000004
+        display-name: Is Active
+        default: true
+visualization_settings: {}
+serdes/meta:
+- id: 2u10n8GV6u0LFYrq8yV5p
+  label: native_variables
+  model: Card

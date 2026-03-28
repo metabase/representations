@@ -1,0 +1,17 @@
+name: Products Table
+entity_id: 8kTL-8IzNdWMtXfaMPZaE
+creator_id: admin@example.com
+display: table
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+visualization_settings: {}
+serdes/meta:
+- id: 8kTL-8IzNdWMtXfaMPZaE
+  label: products_table
+  model: Card
