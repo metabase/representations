@@ -1,0 +1,7 @@
+name: monthly
+entity_id: sRFvbrt43CuRpaOO_k4Md
+built_in_type: monthly
+serdes/meta:
+- id: sRFvbrt43CuRpaOO_k4Md
+  label: monthly
+  model: TransformTag

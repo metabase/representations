@@ -1,0 +1,17 @@
+name: Weekly job
+entity_id: T3vxmES-bebIIRDTC25LA
+description: Executes transforms tagged with 'weekly' every Sunday at midnight
+built_in_type: weekly
+schedule: 0 0 0 ? * 1 *
+ui_display_type: cron/builder
+job_tags:
+- entity_id: 8z4pmEOoTHEWITGUt1VmS
+  position: 0
+  tag_id: 2tl4eTWpg-rR0QgapiLVN
+  serdes/meta:
+  - id: 8z4pmEOoTHEWITGUt1VmS
+    model: TransformJobTransformTag
+serdes/meta:
+- id: T3vxmES-bebIIRDTC25LA
+  label: weekly_job
+  model: TransformJob

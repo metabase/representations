@@ -1932,8 +1932,29 @@ A transform job is a scheduled task that executes transforms matching specific t
 | `description` | string | No | Human-readable description |
 | `built_in_type` | string | No | Built-in category: `"hourly"`, `"daily"`, `"weekly"`, `"monthly"`, or `null` for custom |
 | `ui_display_type` | string | No | `"cron/builder"` or `null` |
-| `job_tags` | array | No | References to TransformTags this job executes |
+| `job_tags` | array | No | Tag associations (see below) |
 | `created_at` | string | No | ISO 8601 timestamp |
+
+Each entry in `job_tags` connects the job to a TransformTag:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entity_id` | string | Yes | NanoID of this job-tag association |
+| `tag_id` | string | Yes | TransformTag entity_id |
+| `position` | integer | Yes | Ordering position |
+| `serdes/meta` | array | Yes | Identity path with `model: TransformJobTransformTag` |
+
+```yaml
+job_tags:
+- entity_id: BPhRX8sTqcG5tZrXKeQuP
+  position: 0
+  tag_id: mXacguzCHQ5bBhqQPt3kd        # entity_id of the "daily" tag
+  serdes/meta:
+  - id: BPhRX8sTqcG5tZrXKeQuP
+    model: TransformJobTransformTag
+```
+
+A job can reference multiple tags. Transforms tagged with any of the job's tags will be executed when the job runs.
 
 ### PythonLibrary
 
