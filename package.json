@@ -2,13 +2,16 @@
   "name": "@metabase/representations",
   "version": "1.0.0",
   "private": true,
+  "bin": {
+    "representations": "src/cli.js"
+  },
   "scripts": {
-    "schema-check": "bun run bin/schema-check.js"
+    "lint": "bun run src/cli.js lint --folder examples/v1"
   },
   "dependencies": {
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
-    "js-yaml": "^4.1.0",
-    "glob": "^11.0.1"
+    "glob": "^11.0.1",
+    "js-yaml": "^4.1.0"
   }
 }

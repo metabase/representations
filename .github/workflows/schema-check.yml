@@ -17,4 +17,4 @@ jobs:
 
       - run: bun install
 
-      - run: bun run schema-check
+      - run: bun run src/cli.js lint --folder examples/v1
