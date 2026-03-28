@@ -20,8 +20,8 @@ This specification covers user-created content entities. Database metadata entit
 8. [Dashboard](#dashboard)
 9. [Segment](#segment)
 10. [Measure](#measure)
-11. [Transform](#transform)
-12. [Snippet](#snippet)
+11. [Snippet](#snippet)
+12. [Transform](#transform)
 
 ---
 
@@ -1812,6 +1812,44 @@ serdes/meta:
 
 ---
 
+## Snippet
+
+A snippet is a reusable SQL fragment that can be referenced in native queries using `{{snippet: Snippet Name}}`. Snippets are stored under `collections/snippets/`, organized by snippet collection hierarchy.
+
+### Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Snippet name (used in `{{snippet: Name}}` references) |
+| `entity_id` | string | Yes | NanoID identifier |
+| `creator_id` | string | Yes | User FK (email) |
+| `content` | string | Yes | SQL content of the snippet |
+| `serdes/meta` | array | Yes | Identity path with `model: NativeQuerySnippet` |
+| `description` | string | No | Description |
+| `archived` | boolean | No | Whether archived (default: `false`) |
+| `collection_id` | string | No | Collection FK (entity_id) — snippets collection |
+| `template_tags` | map | No | Template tag definitions (usually empty `{}`) |
+| `created_at` | string | No | ISO 8601 timestamp |
+
+### Example
+
+```yaml
+name: Active Order Filter
+entity_id: xK7mPqR2sT4uVwXyZ9a1b
+creator_id: internal@metabase.com
+content: "STATUS = 'active' AND TOTAL > 0"
+description: Filter for active orders with positive totals
+archived: false
+collection_id: Y6d4QwJgGKw-X1tRh3ir2
+template_tags: {}
+serdes/meta:
+- id: xK7mPqR2sT4uVwXyZ9a1b
+  label: active_order_filter
+  model: NativeQuerySnippet
+```
+
+---
+
 ## Transform
 
 A transform generates a table in the database by running a query or Python script. Transforms allow materializing results as persistent database tables. Transform entities are stored under `collections/transforms/`. Transform jobs and tags are stored separately under the top-level `transforms/` directory.
@@ -1994,44 +2032,6 @@ serdes/meta:
 - id: rT5vWxYz1aBcDeFgHiJkL
   label: product_summary
   model: Transform
-```
-
----
-
-## Snippet
-
-A snippet is a reusable SQL fragment that can be referenced in native queries using `{{snippet: Snippet Name}}`. Snippets are stored under `collections/snippets/`, organized by snippet collection hierarchy.
-
-### Schema
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | string | Yes | Snippet name (used in `{{snippet: Name}}` references) |
-| `entity_id` | string | Yes | NanoID identifier |
-| `creator_id` | string | Yes | User FK (email) |
-| `content` | string | Yes | SQL content of the snippet |
-| `serdes/meta` | array | Yes | Identity path with `model: NativeQuerySnippet` |
-| `description` | string | No | Description |
-| `archived` | boolean | No | Whether archived (default: `false`) |
-| `collection_id` | string | No | Collection FK (entity_id) — snippets collection |
-| `template_tags` | map | No | Template tag definitions (usually empty `{}`) |
-| `created_at` | string | No | ISO 8601 timestamp |
-
-### Example
-
-```yaml
-name: Active Order Filter
-entity_id: xK7mPqR2sT4uVwXyZ9a1b
-creator_id: internal@metabase.com
-content: "STATUS = 'active' AND TOTAL > 0"
-description: Filter for active orders with positive totals
-archived: false
-collection_id: Y6d4QwJgGKw-X1tRh3ir2
-template_tags: {}
-serdes/meta:
-- id: xK7mPqR2sT4uVwXyZ9a1b
-  label: active_order_filter
-  model: NativeQuerySnippet
 ```
 
 ---

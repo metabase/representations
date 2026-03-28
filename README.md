@@ -19,8 +19,8 @@ This repository contains the specification and examples for the Metabase Represe
 | Dashboard | Grid layout of cards with filter parameters and tabs |
 | Segment | Saved filter definition scoped to a table |
 | Measure | Saved aggregation definition scoped to a table |
-| Transform | Materializes query or Python script results into a database table |
 | Snippet | Reusable SQL fragment for native queries |
+| Transform | Materializes query or Python script results into a database table |
 | TransformTag | Label for categorizing transforms (built-in or custom) |
 | TransformJob | Scheduled job that executes tagged transforms |
 | PythonLibrary | Shared Python source file available to Python transforms |
