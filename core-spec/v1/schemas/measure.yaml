@@ -35,19 +35,35 @@ properties:
   definition:
     type: object
     description: >
-      Aggregation definition with database reference and aggregation clause.
+      Aggregation definition in pMBQL format with database, type, and
+      query containing source-table and aggregation.
     required:
       - database
+      - type
       - query
     properties:
       database:
         type: string
         description: Database FK (database name)
+      type:
+        type: string
+        enum:
+          - query
       query:
         type: object
         required:
           - aggregation
+          - source-table
         properties:
+          source-table:
+            type: array
+            description: Table FK [database, schema, table]
+            items:
+              type:
+                - string
+                - "null"
+            minItems: 3
+            maxItems: 3
           aggregation:
             type: array
             description: >

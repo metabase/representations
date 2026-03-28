@@ -36,27 +36,42 @@ properties:
     type: object
     description: >
       Filter definition specifying the source table and filter criteria.
-      Uses MBQL filter syntax.
+      Uses pMBQL format with database, type, and query containing
+      source-table and filter.
     required:
-      - source-table
-      - filter
+      - database
+      - type
+      - query
     properties:
-      source-table:
-        type: array
-        description: Table FK [database, schema, table]
-        items:
-          type:
-            - string
-            - "null"
-        minItems: 3
-        maxItems: 3
-      filter:
-        description: >
-          MBQL filter clause. General form: [operator, field_ref, value].
-          Compound filters: [and/or, ...clauses].
-          Field reference: [field, [db, schema, table, field], options].
-          Operators: =, !=, <, >, <=, >=, is-null, not-null,
-          contains, starts-with, ends-with, between.
+      database:
+        type: string
+        description: Database FK (database name)
+      type:
+        type: string
+        enum:
+          - query
+      query:
+        type: object
+        required:
+          - source-table
+          - filter
+        properties:
+          source-table:
+            type: array
+            description: Table FK [database, schema, table]
+            items:
+              type:
+                - string
+                - "null"
+            minItems: 3
+            maxItems: 3
+          filter:
+            description: >
+              MBQL filter clause. General form: [operator, field_ref, value].
+              Compound filters: [and/or, ...clauses].
+              Field reference: [field, [db, schema, table, field], options].
+              Operators: =, !=, <, >, <=, >=, is-null, not-null,
+              contains, starts-with, ends-with, between.
   created_at:
     type: string
     description: ISO 8601 timestamp
