@@ -1,0 +1,36 @@
+name: Monthly Revenue Changes (Waterfall)
+entity_id: kJWYpTzyc9ow-75HjyIhf
+creator_id: admin@example.com
+display: waterfall
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings:
+  "waterfall.increase_color": "#88BF4D"
+  "waterfall.decrease_color": "#EF8C8C"
+  "waterfall.total_color": "#509EE3"
+  "waterfall.show_total": true
+serdes/meta:
+- id: kJWYpTzyc9ow-75HjyIhf
+  label: waterfall
+  model: Card

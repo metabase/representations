@@ -1,0 +1,159 @@
+name: Click Behavior Examples
+entity_id: c0R_gvn90vURE5hdxK3f0
+creator_id: admin@example.com
+parameters:
+- id: e0000001-0000-0000-0000-000000000001
+  name: Category
+  slug: category
+  type: string/=
+dashcards:
+- entity_id: qaAe9ro4JL3ahgLLne-jG
+  card_id: Wo5d6IV8lb63wex29uh6H
+  row: 0
+  col: 0
+  size_x: 18
+  size_y: 9
+  parameter_mappings:
+  - card_id: Wo5d6IV8lb63wex29uh6H
+    parameter_id: e0000001-0000-0000-0000-000000000001
+    target:
+    - dimension
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+      - null
+  series: []
+  visualization_settings:
+    click_behavior:
+      type: crossfilter
+      parameterMapping:
+        e0000001-0000-0000-0000-000000000001:
+          id: e0000001-0000-0000-0000-000000000001
+          source:
+            id: CATEGORY
+            name: Category
+            type: column
+          target:
+            id: e0000001-0000-0000-0000-000000000001
+            type: parameter
+  serdes/meta:
+  - id: c0R_gvn90vURE5hdxK3f0
+    model: Dashboard
+  - id: qaAe9ro4JL3ahgLLne-jG
+    model: DashboardCard
+- entity_id: iMNmMMABHvbbiVT3ufez6
+  card_id: UEWVldEEZ-3sYUjjN54qz
+  row: 0
+  col: 18
+  size_x: 6
+  size_y: 9
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    click_behavior:
+      type: link
+      linkType: url
+      linkTemplate: "https://example.com/reports/monthly?month={{CREATED_AT}}&revenue={{sum}}"
+      linkTextTemplate: "View {{CREATED_AT}} report"
+  serdes/meta:
+  - id: c0R_gvn90vURE5hdxK3f0
+    model: Dashboard
+  - id: iMNmMMABHvbbiVT3ufez6
+    model: DashboardCard
+- entity_id: RasgF0LvnoJlu7ModLrqv
+  card_id: dYD1j3pQtJdctg8duByUL
+  row: 9
+  col: 0
+  size_x: 12
+  size_y: 8
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    click_behavior:
+      type: link
+      linkType: dashboard
+      targetId: c0R_gvn90vURE5hdxK3f0
+      parameterMapping:
+        e0000001-0000-0000-0000-000000000001:
+          id: e0000001-0000-0000-0000-000000000001
+          source:
+            id: CATEGORY
+            name: Category
+            type: column
+          target:
+            id: e0000001-0000-0000-0000-000000000001
+            type: parameter
+  serdes/meta:
+  - id: c0R_gvn90vURE5hdxK3f0
+    model: Dashboard
+  - id: RasgF0LvnoJlu7ModLrqv
+    model: DashboardCard
+- entity_id: NSyK1LJldomowKbt0HpuE
+  card_id: ciG63nSLHKRTImt5iWEte
+  row: 9
+  col: 12
+  size_x: 12
+  size_y: 8
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    click_behavior:
+      type: link
+      linkType: question
+      targetId: Wo5d6IV8lb63wex29uh6H
+      parameterMapping:
+        category-dim:
+          id: category-dim
+          source:
+            id: CATEGORY
+            name: Category
+            type: column
+          target:
+            id: category-dim
+            type: dimension
+            dimension:
+            - dimension
+            - - field
+              - - Sample Database
+                - PUBLIC
+                - PRODUCTS
+                - CATEGORY
+              - null
+  serdes/meta:
+  - id: c0R_gvn90vURE5hdxK3f0
+    model: Dashboard
+  - id: NSyK1LJldomowKbt0HpuE
+    model: DashboardCard
+- entity_id: 22fVE_Vw58LFBfyr0l8oi
+  card_id: Wo5d6IV8lb63wex29uh6H
+  row: 17
+  col: 0
+  size_x: 18
+  size_y: 9
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    column_settings:
+      '["name","TITLE"]':
+        click_behavior:
+          type: link
+          linkType: url
+          linkTemplate: "https://example.com/products/{{TITLE}}"
+      '["name","VENDOR"]':
+        click_behavior:
+          type: link
+          linkType: url
+          linkTemplate: "https://example.com/vendors/{{VENDOR}}"
+          linkTextTemplate: "View {{VENDOR}}"
+  serdes/meta:
+  - id: c0R_gvn90vURE5hdxK3f0
+    model: Dashboard
+  - id: 22fVE_Vw58LFBfyr0l8oi
+    model: DashboardCard
+tabs: []
+serdes/meta:
+- id: c0R_gvn90vURE5hdxK3f0
+  label: click_behaviors
+  model: Dashboard

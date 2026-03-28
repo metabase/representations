@@ -1,0 +1,29 @@
+name: Sales Funnel
+entity_id: mkKa6jf-QsuCRnaPOIsYh
+creator_id: admin@example.com
+display: funnel
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    aggregation:
+    - - count
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+      - null
+visualization_settings:
+  "funnel.dimension": CATEGORY
+  "funnel.metric": count
+  "funnel.type": funnel
+serdes/meta:
+- id: mkKa6jf-QsuCRnaPOIsYh
+  label: funnel
+  model: Card

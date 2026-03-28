@@ -14,14 +14,16 @@ This specification covers user-created content entities. Database metadata entit
 2. [Folder Structure](#folder-structure)
 3. [MBQL Query](#mbql-query)
 4. [Native Query](#native-query)
-5. [Parameter](#parameter)
-6. [Collection](#collection)
-7. [Card](#card)
-8. [Dashboard](#dashboard)
-9. [Segment](#segment)
-10. [Measure](#measure)
-11. [Snippet](#snippet)
-12. [Transform](#transform)
+5. [Visualization Settings](#visualization-settings)
+6. [Click Behavior](#click-behavior)
+7. [Parameter](#parameter)
+8. [Collection](#collection)
+9. [Card](#card)
+10. [Dashboard](#dashboard)
+11. [Segment](#segment)
+12. [Measure](#measure)
+13. [Snippet](#snippet)
+14. [Transform](#transform)
 
 ---
 
@@ -1323,6 +1325,432 @@ native:
 ```
 
 Compiled SQL (with `PUBLIC.PRODUCTS` selected): `SELECT * FROM PUBLIC.PRODUCTS`
+
+---
+
+## Visualization Settings
+
+Visualization settings control how query results are displayed. They are stored in the `visualization_settings` field of Cards and DashboardCards. DashboardCard visualization settings override the card's own settings and can additionally include click behaviors.
+
+### Common Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `column_settings` | map | Per-column formatting keyed by column reference string |
+| `"dashcard.background"` | boolean | Show/hide dashcard background (dashcards only) |
+
+### Graph Settings
+
+Apply to `line`, `bar`, `area`, `combo`, `scatter`, `waterfall`, `row`, `boxplot` displays.
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"graph.show_values"` | boolean | Show values on data points |
+| `"graph.label_values_frequency"` | string | Value label frequency: `"fit"`, `"all"` |
+| `"graph.show_stack_values"` | string | `"total"`, `"individual"`, `"all"` |
+| `"graph.x_axis.title_text"` | string | X-axis title |
+| `"graph.x_axis.scale"` | string | `"ordinal"`, `"histogram"`, `"timeseries"`, `"linear"`, `"pow"`, `"log"` |
+| `"graph.x_axis.axis_enabled"` | boolean/string | `true`, `false`, `"compact"`, `"rotate-45"`, `"rotate-90"` |
+| `"graph.y_axis.title_text"` | string | Y-axis title |
+| `"graph.y_axis.scale"` | string | `"linear"`, `"pow"`, `"log"` |
+| `"graph.y_axis.auto_range"` | boolean | Auto-scale Y axis |
+| `"graph.y_axis.min"` | number | Y-axis minimum (when auto_range is false) |
+| `"graph.y_axis.max"` | number | Y-axis maximum |
+| `"graph.show_goal"` | boolean | Show goal line |
+| `"graph.goal_value"` | number | Goal line value |
+| `"graph.goal_label"` | string | Goal line label |
+| `"graph.show_trendline"` | boolean | Show trend line |
+| `"graph.dimensions"` | array | Dimension column names |
+| `"graph.metrics"` | array | Metric column names |
+| `"graph.series_order"` | array | Series display order |
+| `"graph.max_categories_enabled"` | boolean | Limit number of categories |
+| `"graph.max_categories"` | number | Maximum categories shown |
+| `"graph.other_category_aggregation_fn"` | string | `"sum"`, `"avg"`, `"min"`, `"max"` |
+| `"stackable.stack_type"` | string | `null`, `"stacked"`, `"normalized"` |
+
+### Series Settings
+
+Per-series overrides keyed by series name:
+
+```yaml
+series_settings:
+  Revenue:
+    display: line
+    color: "#509EE3"
+    "line.style": solid           # "solid", "dashed", "dotted"
+    "line.size": normal           # "S", "M", "L"
+    "line.interpolate": linear    # "linear", "cardinal", "step-before", "step-after"
+    "line.missing": interpolate   # "interpolate", "zero", "none"
+    "line.marker_enabled": true
+    axis: left                    # "left", "right"
+    show_series_values: true
+```
+
+### Table Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"table.columns"` | array | Column order and visibility — each entry: `{name, fieldRef, enabled}` |
+| `"table.column_formatting"` | array | Conditional formatting rules |
+| `"table.cell_column"` | string | Column to use for cell values (in pivot mode) |
+| `"table.pivot"` | boolean | Enable pivot mode |
+| `"table.pivot_column"` | string | Column to pivot on |
+
+### Conditional Formatting
+
+Each rule in `"table.column_formatting"`:
+
+```yaml
+table.column_formatting:
+- columns:
+  - Total
+  type: single                    # "single" or "range"
+  operator: ">"                   # "=", "!=", "<", ">", "<=", ">=", "is-null", "not-null"
+  value: 100
+  color: "#84BB4C"
+  highlight_row: false
+- columns:
+  - Rating
+  type: range
+  colors:
+  - "#ED6E6E"
+  - "#F9CF48"
+  - "#84BB4C"
+  min_type: custom                # "min", "max", "custom"
+  min_value: 1
+  max_type: custom
+  max_value: 5
+```
+
+### Pivot Table Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"pivot_table.column_split"` | object | `{rows: [...column_names], columns: [...column_names], values: [...column_names]}` |
+| `"pivot_table.collapsed_rows"` | object | `{rows: [...collapsed_keys], value: []}` |
+| `"pivot_table.show_row_totals"` | boolean | Show row totals |
+| `"pivot_table.show_column_totals"` | boolean | Show column totals |
+
+### Pie Chart Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"pie.dimension"` | string | Dimension column |
+| `"pie.metric"` | string | Metric column |
+| `"pie.show_legend"` | boolean | Show legend |
+| `"pie.show_total"` | boolean | Show total in center |
+| `"pie.percent_visibility"` | string | `"off"`, `"legend"`, `"inside"`, `"both"` |
+| `"pie.slice_threshold"` | number | Minimum percentage to show as separate slice |
+| `"pie.colors"` | object | Color map keyed by dimension value |
+
+### Scalar / Number Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"scalar.field"` | string | Field to display |
+| `"scalar.switch_positive_negative"` | boolean | Invert positive/negative colors |
+| `"scalar.compact_primary_number"` | string | `"auto"`, `"yes"`, `"no"` |
+
+### Smart Scalar Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"scalar.comparisons"` | array | Comparison definitions (see below) |
+
+Comparison types:
+
+```yaml
+scalar.comparisons:
+- id: comp1
+  type: previousPeriod            # vs. previous time period
+- id: comp2
+  type: previousValue             # vs. previous value
+- id: comp3
+  type: periodsAgo                # vs. N periods ago
+  value: 12
+- id: comp4
+  type: staticNumber              # vs. fixed number
+  value: 1000
+  label: Target
+```
+
+### Gauge Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"gauge.segment_colors"` | array | Segment colors |
+| `"gauge.segments"` | array | Gauge segments with `min`, `max`, `color`, `label` |
+
+### Map Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"map.type"` | string | `"region"`, `"pin"`, `"grid"` |
+| `"map.latitude_column"` | string | Latitude column name |
+| `"map.longitude_column"` | string | Longitude column name |
+| `"map.metric_column"` | string | Metric column for coloring |
+| `"map.region"` | string | Region map identifier |
+| `"map.colors"` | array | Color scale |
+| `"map.zoom"` | number | Initial zoom level |
+| `"map.center_latitude"` | number | Center latitude |
+| `"map.center_longitude"` | number | Center longitude |
+| `"map.pin_type"` | string | `"tiles"`, `"markers"`, `"heat"` |
+
+### Funnel Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"funnel.dimension"` | string | Dimension column |
+| `"funnel.metric"` | string | Metric column |
+| `"funnel.type"` | string | `"funnel"` or `"bar"` |
+| `"funnel.rows"` | array | Row order definitions |
+
+### Waterfall Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"waterfall.increase_color"` | string | Color for increases |
+| `"waterfall.decrease_color"` | string | Color for decreases |
+| `"waterfall.total_color"` | string | Color for total bar |
+| `"waterfall.show_total"` | boolean | Show total bar |
+
+### Sankey Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"sankey.source"` | string | Source column |
+| `"sankey.target"` | string | Target column |
+| `"sankey.value"` | string | Value column |
+| `"sankey.node_align"` | string | `"left"`, `"right"`, `"center"`, `"justify"` |
+| `"sankey.show_edge_labels"` | boolean | Show labels on edges |
+
+### BoxPlot Settings
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"boxplot.whisker_type"` | string | `"min-max"`, `"tukey"`, `"percentile"` |
+| `"boxplot.points_mode"` | string | `"none"`, `"outliers"`, `"all"` |
+| `"boxplot.show_mean"` | boolean | Show mean marker |
+
+### Column Settings
+
+Per-column formatting stored in `column_settings`, keyed by column reference (e.g., `["ref",["field",123,null]]` stringified, or `["name","COLUMN_NAME"]`):
+
+```yaml
+column_settings:
+  '["name","TOTAL"]':
+    number_style: currency
+    currency: USD
+    currency_style: symbol        # "symbol", "code", "name"
+    number_separators: ".,"       # decimal + thousands separator
+    decimals: 2
+    scale: 1                      # multiply values by this factor
+    prefix: ""
+    suffix: ""
+    column_title: "Total Revenue"
+  '["name","CREATED_AT"]':
+    date_style: "MMMM D, YYYY"   # moment.js format
+    date_separator: "/"
+    date_abbreviate: false
+    time_enabled: null            # null, "minutes", "seconds", "milliseconds"
+    time_style: "h:mm A"         # "HH:mm", "h:mm A", etc.
+  '["name","EMAIL"]':
+    view_as: link                 # "link", "image", "email", "auto"
+    link_text: "Send email"
+    link_url: "mailto:{{value}}"
+```
+
+### Virtual Card Settings
+
+For dashcards with `card_id: null`:
+
+```yaml
+# Heading
+visualization_settings:
+  virtual_card:
+    display: heading
+  text: "Section Title"
+
+# Text (markdown)
+visualization_settings:
+  virtual_card:
+    display: text
+  text: "**Bold** and _italic_ markdown content"
+
+# Link (URL)
+visualization_settings:
+  virtual_card:
+    display: link
+  link:
+    url: "https://example.com"
+
+# Link (entity reference)
+visualization_settings:
+  virtual_card:
+    display: link
+  link:
+    entity:
+      id: f1C68pznmrpN1F5xFDj6d
+      model: question              # "question", "dashboard", "collection", "database", "table"
+
+# iFrame
+visualization_settings:
+  virtual_card:
+    display: iframe
+  iframe: '<iframe src="https://example.com/embed"></iframe>'
+
+# Action button
+visualization_settings:
+  virtual_card:
+    display: action
+  "button.label": "Run Action"
+  "button.variant": primary        # "primary", "danger"
+  actionDisplayType: button        # "button", "form"
+
+# Placeholder
+visualization_settings:
+  virtual_card:
+    display: placeholder
+```
+
+---
+
+## Click Behavior
+
+Click behaviors define what happens when a user clicks on a dashboard card or a specific column within a table. They are stored in `visualization_settings.click_behavior` on dashcards, or per-column in `visualization_settings.column_settings[column].click_behavior`.
+
+### Click Behavior Types
+
+| Type | Description |
+|------|-------------|
+| `actionMenu` | Default drill-through menu (no explicit config needed) |
+| `crossfilter` | Filter the dashboard using the clicked value |
+| `link` | Navigate to a URL, question, or dashboard |
+| `action` | Execute a writeback action (insert, update, delete) |
+
+### Crossfilter
+
+Maps clicked column values to dashboard parameters to filter other cards:
+
+```yaml
+click_behavior:
+  type: crossfilter
+  parameterMapping:
+    a1b2c3d4-uuid-of-param:
+      id: a1b2c3d4-uuid-of-param
+      source:
+        id: CATEGORY
+        name: Category
+        type: column
+      target:
+        id: a1b2c3d4-uuid-of-param
+        type: parameter
+```
+
+### Link to URL
+
+Navigate to an arbitrary URL. Supports template variables:
+
+- `{{column_name}}` — value of the clicked row's column
+- `{{filter:parameter_name}}` — dashboard parameter value
+
+```yaml
+click_behavior:
+  type: link
+  linkType: url
+  linkTemplate: "https://example.com/orders/{{ORDER_ID}}?status={{filter:status}}"
+  linkTextTemplate: "View Order {{ORDER_ID}}"
+```
+
+### Link to Dashboard
+
+Navigate to another dashboard, optionally mapping values to the target dashboard's parameters:
+
+```yaml
+click_behavior:
+  type: link
+  linkType: dashboard
+  targetId: Q_jD-f-9clKLFZ2TfUG2h     # entity_id of target dashboard
+  parameterMapping:
+    target-param-uuid:
+      id: target-param-uuid
+      source:
+        id: USER_ID
+        name: User ID
+        type: column
+      target:
+        id: target-param-uuid
+        type: parameter
+```
+
+### Link to Question
+
+Navigate to another question/card:
+
+```yaml
+click_behavior:
+  type: link
+  linkType: question
+  targetId: f1C68pznmrpN1F5xFDj6d     # entity_id of target card
+  parameterMapping:
+    target-dimension:
+      id: target-dimension
+      source:
+        id: PRODUCT_ID
+        name: Product ID
+        type: column
+      target:
+        id: target-dimension
+        type: dimension
+        dimension:
+        - dimension
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - ID
+          - null
+```
+
+### Action
+
+Execute a writeback action:
+
+```yaml
+# Insert action
+click_behavior:
+  type: action
+  actionType: insert
+  tableId: 42
+
+# Update action
+click_behavior:
+  type: action
+  actionType: update
+  objectDetailDashCardId: 7
+
+# Delete action
+click_behavior:
+  type: action
+  actionType: delete
+  objectDetailDashCardId: 7
+```
+
+### Parameter Mapping Structure
+
+Each entry in `parameterMapping`:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Parameter ID or dimension reference |
+| `source` | object | Where the value comes from |
+| `source.id` | string | Column name or parameter ID |
+| `source.name` | string | Display name |
+| `source.type` | string | `"column"` or `"parameter"` |
+| `target` | object | Where the value goes |
+| `target.id` | string | Target parameter ID or dimension |
+| `target.type` | string | `"parameter"`, `"dimension"`, or `"variable"` |
+| `target.dimension` | array | Field reference (for dimension targets) |
 
 ---
 

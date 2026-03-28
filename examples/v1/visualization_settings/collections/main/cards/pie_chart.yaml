@@ -1,0 +1,37 @@
+name: Orders by Category (Pie)
+entity_id: dYD1j3pQtJdctg8duByUL
+creator_id: admin@example.com
+display: pie
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    aggregation:
+    - - count
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+      - null
+visualization_settings:
+  "pie.dimension": CATEGORY
+  "pie.metric": count
+  "pie.show_legend": true
+  "pie.show_total": true
+  "pie.percent_visibility": both
+  "pie.slice_threshold": 2.5
+  "pie.colors":
+    Widget: "#509EE3"
+    Gadget: "#88BF4D"
+    Gizmo: "#F9CF48"
+    Doohickey: "#ED6E6E"
+serdes/meta:
+- id: dYD1j3pQtJdctg8duByUL
+  label: pie_chart
+  model: Card
