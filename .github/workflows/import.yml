@@ -35,31 +35,38 @@ jobs:
 
       - name: Complete Metabase setup
         run: |
+          # Get setup token
+          SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
+
           # Create admin user and get session token
+          SETUP_PAYLOAD=$(jq -n \
+            --arg token "$SETUP_TOKEN" \
+            '{
+              token: $token,
+              user: {
+                email: "admin@test.com",
+                password: "Metabase123!",
+                first_name: "Admin",
+                last_name: "User",
+                site_name: "Import Test"
+              },
+              prefs: {
+                site_name: "Import Test",
+                site_locale: "en",
+                allow_tracking: false
+              }
+            }')
+
           SESSION=$(curl -sf http://localhost:3000/api/setup -X POST \
             -H 'Content-Type: application/json' \
-            -d '{
-              "token": "'$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]")'",
-              "user": {
-                "email": "admin@test.com",
-                "password": "Metabase123!",
-                "first_name": "Admin",
-                "last_name": "User",
-                "site_name": "Import Test"
-              },
-              "prefs": {
-                "site_name": "Import Test",
-                "site_locale": "en",
-                "allow_tracking": false
-              }
-            }' | jq -r '.id')
-          echo "SESSION=$SESSION" >> "$GITHUB_ENV"
+            -d "$SETUP_PAYLOAD" | jq -r '.id')
 
           # Create an API key for import
           API_KEY=$(curl -sf http://localhost:3000/api/api-key \
             -H "X-Metabase-Session: $SESSION" \
             -H 'Content-Type: application/json' \
-            -d '{"name": "import-key", "group_id": 2}' | jq -r '.unmasked_key')
+            -d '{"name":"import-key","group_id":2}' | jq -r '.unmasked_key')
+
           echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
       - name: Create import archive
