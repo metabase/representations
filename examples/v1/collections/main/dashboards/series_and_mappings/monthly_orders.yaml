@@ -3,7 +3,7 @@ entity_id: dShCrdMnthlyOrdrs0001
 creator_id: admin@example.com
 display: line
 collection_id: cOlDaShBoArDs0ExAmPlx
-dashboard_id: 8xFV0XmZs2olbGKXWenfS
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

@@ -2,6 +2,7 @@ name: "Null, Empty, and String Filters"
 entity_id: ZvHEBpdFQ-VSvem16KCkL
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

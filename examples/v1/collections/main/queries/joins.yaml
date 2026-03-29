@@ -2,6 +2,7 @@ name: "Joins - Strategies and Compound Conditions"
 entity_id: wpW9JO5MsHQd0-7WrR7gN
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

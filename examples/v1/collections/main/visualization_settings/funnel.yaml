@@ -2,6 +2,7 @@ name: Sales Funnel
 entity_id: mkKa6jf-QsuCRnaPOIsYh
 creator_id: admin@example.com
 display: funnel
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

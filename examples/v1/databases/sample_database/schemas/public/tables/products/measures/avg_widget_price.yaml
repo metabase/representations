@@ -2,20 +2,26 @@ name: Average Widget Price
 entity_id: K7cMzOau9SI2h8hCx936w
 creator_id: admin@example.com
 description: Average price of Widget products — uses Widget Products segment and Average Product Price measure
+table_id:
+- Sample Database
+- PUBLIC
+- PRODUCTS
 definition:
   database: Sample Database
+  type: query
   query:
-    aggregation:
-    - - measure
-      - xK7mPqR2sT4uVwXyZ9a1b
-    filter:
-    - segment
-    - aB3kLmN9pQrStUvWxYz1a
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-  type: query
+    aggregation:
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - base-type: type/Float
 serdes/meta:
 - id: K7cMzOau9SI2h8hCx936w
   label: avg_widget_price

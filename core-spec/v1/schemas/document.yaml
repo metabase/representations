@@ -20,16 +20,16 @@ properties:
     $ref: "common.yaml#/$defs/entity_id"
   creator_id:
     $ref: "common.yaml#/$defs/user_id"
-  description:
-    type:
-      - string
-      - "null"
-    description: Human-readable description
   document:
     description: >
       Document content as a ProseMirror AST. The root node has type "doc"
       with an array of content nodes.
     $ref: "#/$defs/node"
+  description:
+    type:
+      - string
+      - "null"
+    description: Human-readable description
   content_type:
     type: string
     description: Document content MIME type
@@ -94,27 +94,8 @@ $defs:
   node:
     type: object
     description: >
-      A ProseMirror document node (recursive). Nodes form a tree: each node
-      has a type and optionally content (child nodes), attrs (node-specific
-      properties), text (for text nodes), and marks (inline formatting).
-
-      Common node types:
-        doc           — root node, always the top-level type
-        paragraph     — text block
-        text          — inline text content (has text property)
-        heading       — heading block (attrs: level 1-6)
-        blockquote    — quoted text block
-        codeBlock     — code block
-        bulletList    — unordered list (contains listItem nodes)
-        orderedList   — ordered list (contains listItem nodes)
-        listItem      — list item (contains paragraph or other blocks)
-        image         — image embed (attrs: src, alt, title)
-        cardEmbed     — embedded card/query (attrs: id = card entity_id)
-        smartLink     — reference to another entity (attrs: entityId, model)
-        table         — data table (contains tableRow nodes)
-        hardBreak     — line break within a paragraph
-
-      Card embeds reference cards by entity_id in the serialized form.
+      A ProseMirror document node (recursive). Nodes form a tree with
+      type-specific structure enforced via if/then.
     required:
       - type
     properties:
@@ -128,30 +109,151 @@ $defs:
           $ref: "#/$defs/node"
       attrs:
         type: object
-        description: >
-          Node-specific attributes. Varies by type:
-            heading: {level: 1-6}
-            image: {src, alt, title}
-            cardEmbed: {id (card entity_id), name}
-            smartLink: {entityId, model}
-        additionalProperties: true
+        description: Node-specific attributes
       text:
         type: string
         description: Text content (only for text nodes)
       marks:
         type: array
-        description: >
-          Inline formatting marks applied to text nodes:
-          bold, italic, code, link, underline, strike.
+        description: Inline formatting marks on text nodes
         items:
-          type: object
-          required:
-            - type
+          $ref: "#/$defs/mark"
+    allOf:
+      # --- cardEmbed: requires attrs.id as [{model: Card, id: entity_id}] ---
+      - if:
           properties:
             type:
-              type: string
-              description: Mark type
+              const: cardEmbed
+        then:
+          required:
+            - attrs
+          properties:
             attrs:
               type: object
-              description: Mark attributes (e.g., href for link marks)
-              additionalProperties: true
+              required:
+                - id
+              properties:
+                id:
+                  type: array
+                  description: "Card reference path"
+                  items:
+                    type: object
+                    required:
+                      - model
+                      - id
+                    properties:
+                      model:
+                        type: string
+                        const: Card
+                      id:
+                        $ref: "common.yaml#/$defs/entity_id"
+                    additionalProperties: false
+                  minItems: 1
+                  maxItems: 1
+                name:
+                  type:
+                    - string
+                    - "null"
+              additionalProperties: false
+      # --- heading: requires attrs.level 1-6 ---
+      - if:
+          properties:
+            type:
+              const: heading
+        then:
+          required:
+            - attrs
+          properties:
+            attrs:
+              type: object
+              required:
+                - level
+              properties:
+                level:
+                  type: integer
+                  minimum: 1
+                  maximum: 6
+              additionalProperties: false
+      # --- image: requires attrs.src ---
+      - if:
+          properties:
+            type:
+              const: image
+        then:
+          required:
+            - attrs
+          properties:
+            attrs:
+              type: object
+              required:
+                - src
+              properties:
+                src:
+                  type: string
+                alt:
+                  type:
+                    - string
+                    - "null"
+                title:
+                  type:
+                    - string
+                    - "null"
+              additionalProperties: false
+      # --- smartLink: requires attrs.entityId and attrs.model ---
+      - if:
+          properties:
+            type:
+              const: smartLink
+        then:
+          required:
+            - attrs
+          properties:
+            attrs:
+              type: object
+              required:
+                - entityId
+                - model
+              properties:
+                entityId:
+                  type: array
+                  description: Entity reference path
+                  items:
+                    type: object
+                    required:
+                      - model
+                      - id
+                    properties:
+                      model:
+                        type: string
+                      id:
+                        type: string
+                    additionalProperties: false
+                model:
+                  type: string
+                  description: Entity model (card, dashboard, collection, etc.)
+              additionalProperties: false
+      # --- text: requires text field, no attrs ---
+      - if:
+          properties:
+            type:
+              const: text
+        then:
+          required:
+            - text
+
+  mark:
+    type: object
+    description: Inline formatting mark on a text node.
+    required:
+      - type
+    properties:
+      type:
+        type: string
+        description: "Mark type: bold, italic, code, link, underline, strike"
+      attrs:
+        type: object
+        description: Mark attributes (e.g., href for link marks)
+        properties:
+          href:
+            type: string
+        additionalProperties: true

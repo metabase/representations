@@ -2,6 +2,7 @@ name: "Metric, Measure, and Segment References"
 entity_id: kBjQ5VXJ5z3vYSW72J6qa
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

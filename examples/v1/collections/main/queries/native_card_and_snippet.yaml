@@ -2,6 +2,7 @@ name: "Native Query - Card and Snippet References"
 entity_id: HiBFSt0BNx5s5MxVDLLKB
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: native

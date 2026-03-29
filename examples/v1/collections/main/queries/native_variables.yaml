@@ -2,6 +2,7 @@ name: "Native Query - Variables"
 entity_id: 2u10n8GV6u0LFYrq8yV5p
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: native

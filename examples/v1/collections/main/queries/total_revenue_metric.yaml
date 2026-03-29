@@ -3,6 +3,7 @@ entity_id: IW8kbqZVaMxdGtCM2F4U6
 creator_id: admin@example.com
 display: scalar
 type: metric
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

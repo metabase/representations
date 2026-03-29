@@ -2,6 +2,7 @@ name: Products Table (Formatted)
 entity_id: Wo5d6IV8lb63wex29uh6H
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

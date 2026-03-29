@@ -16,7 +16,9 @@ document:
           text: "This document provides an overview of product performance metrics. The embedded query below shows aggregated stats by category."
     - type: cardEmbed
       attrs:
-        id: cRdCaTbReAkDoWn0ExMp1
+        id:
+          - model: Card
+            id: cRdCaTbReAkDoWn0ExMp1
         name: Category Breakdown
     - type: paragraph
       content:
@@ -25,7 +27,7 @@ document:
         - type: text
           text: Widget
           marks:
-            - type: bold
+          - type: bold
         - type: text
           text: " category dominates in total revenue."
     - type: heading
@@ -67,9 +69,9 @@ document:
         - type: text
           text: Product Dashboard
           marks:
-            - type: link
-              attrs:
-                href: /dashboard/Q_jD-f-9clKLFZ2TfUG2h
+          - type: link
+            attrs:
+              href: /dashboard/Q_jD-f-9clKLFZ2TfUG2h
     - type: blockquote
       content:
         - type: paragraph
@@ -77,7 +79,7 @@ document:
             - type: text
               text: "Note: All figures reflect the trailing 12-month period."
               marks:
-                - type: italic
+              - type: italic
 content_type: "application/json+vnd.prose-mirror"
 collection_id: null
 archived: false

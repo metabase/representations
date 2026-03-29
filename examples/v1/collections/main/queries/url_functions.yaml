@@ -2,6 +2,7 @@ name: "URL Functions"
 entity_id: uwAeNRHymXTD1G_7lWV1d
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

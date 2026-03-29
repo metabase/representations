@@ -2,6 +2,7 @@ name: "Source Card Reference"
 entity_id: gt4OaWYAuDWRHn5Irnd4h
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

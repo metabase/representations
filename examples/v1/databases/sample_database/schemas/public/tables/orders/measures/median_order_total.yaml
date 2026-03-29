@@ -1,9 +1,18 @@
 name: Median Order Total
 entity_id: d4G5fMj5smJ17Nd0dvE2A
 creator_id: admin@example.com
+table_id:
+- Sample Database
+- PUBLIC
+- ORDERS
 definition:
   database: Sample Database
+  type: query
   query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
     aggregation:
     - - median
       - - field
@@ -12,11 +21,6 @@ definition:
           - ORDERS
           - TOTAL
         - base-type: type/Float
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-  type: query
 serdes/meta:
 - id: d4G5fMj5smJ17Nd0dvE2A
   label: median_order_total

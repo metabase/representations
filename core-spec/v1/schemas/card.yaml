@@ -9,6 +9,7 @@ required:
   - entity_id
   - display
   - creator_id
+  - database_id
   - dataset_query
   - visualization_settings
   - serdes/meta
@@ -50,6 +51,18 @@ properties:
       - boxplot
   creator_id:
     $ref: "common.yaml#/$defs/user_id"
+  database_id:
+    type:
+      - string
+      - "null"
+    description: Database FK (database name), should match database in dataset_query
+  dataset_query:
+    description: Query definition (MBQL or native)
+    $ref: "query.yaml"
+  visualization_settings:
+    type: object
+    description: Display settings (can be empty {})
+    additionalProperties: true
   description:
     type:
       - string
@@ -103,11 +116,6 @@ properties:
     oneOf:
       - $ref: "common.yaml#/$defs/entity_id"
       - type: "null"
-  database_id:
-    type:
-      - string
-      - "null"
-    description: Database FK (database name), should match database in dataset_query
   table_id:
     description: Table FK, should match source-table in query
     oneOf:
@@ -118,13 +126,6 @@ properties:
     oneOf:
       - $ref: "common.yaml#/$defs/entity_id"
       - type: "null"
-  dataset_query:
-    description: Query definition (MBQL or native)
-    $ref: "query.yaml"
-  visualization_settings:
-    type: object
-    description: Display settings (can be empty {})
-    additionalProperties: true
   parameters:
     type: array
     description: Native query parameters

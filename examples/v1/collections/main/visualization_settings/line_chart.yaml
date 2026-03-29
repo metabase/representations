@@ -2,6 +2,7 @@ name: Revenue Over Time (Line)
 entity_id: UEWVldEEZ-3sYUjjN54qz
 creator_id: admin@example.com
 display: line
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

@@ -2,6 +2,7 @@ name: "Conditional and Type Conversion"
 entity_id: 1hsUzNOepulZo3Jamzd1R
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

@@ -2,6 +2,7 @@ name: Product Overview
 entity_id: f1C68pznmrpN1F5xFDj6d
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

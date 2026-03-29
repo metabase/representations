@@ -2,6 +2,7 @@ name: "Window Function - Offset"
 entity_id: ErQY8K5Tep4xBc3VY_-1e
 creator_id: admin@example.com
 display: line
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query
@@ -25,20 +26,6 @@ dataset_query:
         - ORDERS
         - CREATED_AT
       - temporal-unit: month
-    expressions:
-      Previous Month Revenue:
-      - offset
-      - - aggregation
-        - 0
-      - -1
-      Revenue Change:
-      - -
-      - - aggregation
-        - 0
-      - - offset
-        - - aggregation
-          - 0
-        - -1
 visualization_settings: {}
 serdes/meta:
 - id: ErQY8K5Tep4xBc3VY_-1e

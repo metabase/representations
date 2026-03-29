@@ -2,6 +2,7 @@ name: "Temporal Expressions"
 entity_id: DBBrqcMAmOO0sbM_CzM_Z
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

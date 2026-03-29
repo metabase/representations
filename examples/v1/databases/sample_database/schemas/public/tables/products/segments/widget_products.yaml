@@ -1,9 +1,18 @@
 name: Widget Products
 entity_id: aB3kLmN9pQrStUvWxYz1a
 creator_id: admin@example.com
+table_id:
+- Sample Database
+- PUBLIC
+- PRODUCTS
 definition:
   database: Sample Database
+  type: query
   query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
     filter:
     - =
     - - field
@@ -13,11 +22,6 @@ definition:
         - CATEGORY
       - null
     - Widget
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-  type: query
 serdes/meta:
 - id: aB3kLmN9pQrStUvWxYz1a
   label: widget_products

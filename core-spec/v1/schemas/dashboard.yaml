@@ -176,11 +176,6 @@ $defs:
     properties:
       entity_id:
         $ref: "common.yaml#/$defs/entity_id"
-      card_id:
-        description: Card FK, null for virtual cards (text, heading, link, iframe, action, placeholder)
-        oneOf:
-          - $ref: "common.yaml#/$defs/entity_id"
-          - type: "null"
       row:
         type: integer
         description: Grid row position (0+)
@@ -199,6 +194,11 @@ $defs:
         type: integer
         description: Height in grid units (1+)
         minimum: 1
+      card_id:
+        description: Card FK, null for virtual cards (text, heading, link, iframe, action, placeholder)
+        oneOf:
+          - $ref: "common.yaml#/$defs/entity_id"
+          - type: "null"
       action_id:
         description: Action FK
         oneOf:

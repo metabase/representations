@@ -1,5 +1,6 @@
 name: Product Summary
 entity_id: rT5vWxYz1aBcDeFgHiJkL
+source_database_id: Sample Database
 source:
   type: query
   query:

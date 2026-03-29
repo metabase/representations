@@ -1,5 +1,6 @@
 name: Monthly Sales Summary
 entity_id: w7EfUbsxLA7kXBHVXgeaZ
+source_database_id: Sample Database
 source:
   type: query
   query:

@@ -2,6 +2,7 @@ name: "Temporal Extraction"
 entity_id: bDK7jyPszEHzHh4aG4_SV
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

@@ -7,6 +7,7 @@ type: object
 required:
   - name
   - entity_id
+  - source_database_id
   - source
   - target
   - serdes/meta
@@ -16,23 +17,8 @@ properties:
     description: Transform name
   entity_id:
     $ref: "common.yaml#/$defs/entity_id"
-  creator_id:
-    $ref: "common.yaml#/$defs/user_id"
-  description:
-    type:
-      - string
-      - "null"
-    description: Human-readable description
-  collection_id:
-    description: Collection FK, null for root collection
-    oneOf:
-      - $ref: "common.yaml#/$defs/entity_id"
-      - type: "null"
   source_database_id:
-    type:
-      - string
-      - "null"
-    description: Database FK (database name)
+    $ref: "common.yaml#/$defs/database_id"
   source:
     description: >
       Source definition — either a query (type: query) or a Python script
@@ -60,6 +46,18 @@ properties:
       name:
         type: string
         description: Target table name
+  creator_id:
+    $ref: "common.yaml#/$defs/user_id"
+  description:
+    type:
+      - string
+      - "null"
+    description: Human-readable description
+  collection_id:
+    description: Collection FK, null for root collection
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   tags:
     type: array
     description: Transform tag associations

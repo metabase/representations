@@ -4,7 +4,7 @@ creator_id: internal@metabase.com
 display: bar
 type: question
 collection_id: cOlDoCuMeNtS0ExAmPlx2
-document_id: dOc1PrOdAnAlYsIsRpTx2
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

@@ -2,6 +2,7 @@ name: "String Functions"
 entity_id: HeLFZSVb4Jm25p4tWfVP9
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

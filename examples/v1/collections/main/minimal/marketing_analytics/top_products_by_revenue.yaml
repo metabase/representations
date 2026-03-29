@@ -2,6 +2,7 @@ name: Top Products by Revenue
 entity_id: FTxpeL9vY5pyb6Lc6lCDK
 creator_id: admin@example.com
 display: bar
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: native

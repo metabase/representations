@@ -1992,6 +1992,7 @@ A card represents a Question, Model, or Metric in Metabase. Cards are the primar
 | `entity_id` | string | Yes | NanoID identifier |
 | `display` | string | Yes | Visualization type (see below) |
 | `creator_id` | string | Yes | User FK (email) |
+| `database_id` | string | Yes | Database FK (database name) |
 | `dataset_query` | object | Yes | Query definition — MBQL or native |
 | `visualization_settings` | map | Yes | Display settings (can be empty `{}`) |
 | `serdes/meta` | array | Yes | Identity path with `model: Card` |
@@ -2004,7 +2005,6 @@ A card represents a Question, Model, or Metric in Metabase. Cards are the primar
 | `collection_preview` | boolean | No | Show preview in collection (default: `true`) |
 | `dashboard_id` | string | No | Dashboard FK (entity_id) |
 | `document_id` | string | No | Document FK (entity_id) |
-| `database_id` | string | No | Database FK (database name) |
 | `table_id` | array | No | Table FK matching source-table in query |
 | `source_card_id` | string | No | Card FK (entity_id) |
 | `parameters` | array | No | Card parameters (see [Parameter](#parameter)) |
@@ -2273,31 +2273,49 @@ The `document` field contains a recursive tree of nodes. The root node is always
 
 #### Node Types
 
-**Block nodes:**
-
-| Node Type | Description | Attributes |
-|-----------|-------------|------------|
-| `doc` | Root node | — |
-| `paragraph` | Text block | — |
-| `heading` | Heading block | `level` (1–6) |
-| `blockquote` | Quoted text | — |
-| `codeBlock` | Code block | — |
-| `bulletList` | Unordered list (contains `listItem` nodes) | — |
-| `orderedList` | Ordered list (contains `listItem` nodes) | — |
-| `listItem` | List item (contains paragraphs or other blocks) | — |
-| `image` | Image embed | `src`, `alt`, `title` |
-| `cardEmbed` | Embedded card/query | `id` (card entity_id), `name` |
-| `smartLink` | Reference to another entity | `entityId`, `model` |
-| `table` | Data table (contains `tableRow` nodes) | — |
-
-**Inline nodes:**
+**Block nodes (no attrs):**
 
 | Node Type | Description |
 |-----------|-------------|
-| `text` | Text content (uses `text` field, not `content`) |
-| `hardBreak` | Line break within a paragraph |
+| `doc` | Root node |
+| `paragraph` | Text block |
+| `blockquote` | Quoted text |
+| `codeBlock` | Code block |
+| `bulletList` | Unordered list (contains `listItem` nodes) |
+| `orderedList` | Ordered list (contains `listItem` nodes) |
+| `listItem` | List item (contains paragraphs or other blocks) |
+| `table` | Data table (contains `tableRow` nodes) |
 
-Card embeds reference cards by `entity_id` in the serialized form. The `id` attribute of a `cardEmbed` node is the card's NanoID.
+**Block nodes (with attrs):**
+
+| Node Type | Description | Required Attributes |
+|-----------|-------------|---------------------|
+| `heading` | Heading block | `level` (integer 1–6) |
+| `image` | Image embed | `src` (string). Optional: `alt`, `title` |
+| `cardEmbed` | Embedded card/query | `id` (card reference path, see below). Optional: `name` |
+| `smartLink` | Reference to another entity | `entityId` (entity reference path), `model` (string) |
+
+**Inline nodes:**
+
+| Node Type | Required Fields | Description |
+|-----------|-----------------|-------------|
+| `text` | `text` (string) | Inline text content. May have `marks` for formatting. |
+| `hardBreak` | — | Line break within a paragraph |
+
+#### Card Embed Reference Format
+
+The `id` attribute of a `cardEmbed` node is a **serdes path** — an array with exactly one entry containing `model: Card` and the card's entity_id:
+
+```yaml
+- type: cardEmbed
+  attrs:
+    id:
+    - model: Card
+      id: h5F2EjHsRd73Dqqh8sAtd
+    name: My Card
+```
+
+The `smartLink` node uses the same path format for `entityId`, but the `model` can be any entity type (card, dashboard, collection, table, etc.).
 
 ### Example
 
@@ -2320,7 +2338,9 @@ document:
       text: "Overview of product performance metrics."
   - type: cardEmbed
     attrs:
-      id: h5F2EjHsRd73Dqqh8sAtd
+      id:
+      - model: Card
+        id: h5F2EjHsRd73Dqqh8sAtd
       name: Basic Aggregations
   - type: bulletList
     content:
@@ -2361,7 +2381,8 @@ Segments are stored under their table's directory: `databases/{db_slug}/schemas/
 | `name` | string | Yes | Segment name |
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
-| `definition` | object | Yes | Filter definition with `source-table` and `filter` |
+| `table_id` | array | Yes | Table FK `[database, schema, table]` — must match `source-table` in definition |
+| `definition` | object | Yes | Filter definition with `database`, `type: query`, and `query` containing `source-table` and `filter` |
 | `serdes/meta` | array | Yes | Identity path with `model: Segment` |
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |
@@ -2373,9 +2394,16 @@ Segments are stored under their table's directory: `databases/{db_slug}/schemas/
 name: Widget products
 entity_id: aB3kLmN9pQrStUvWxYz1a
 creator_id: internal@metabase.com
+table_id:
+- Sample Database
+- PUBLIC
+- PRODUCTS
 definition:
-  source-table:
-  - Sample Database
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
   - PUBLIC
   - PRODUCTS
   filter:
@@ -2410,7 +2438,8 @@ Measures are stored under their table's directory: `databases/{db_slug}/schemas/
 | `name` | string | Yes | Measure name |
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
-| `definition` | object | Yes | Aggregation definition with `database` and `query.aggregation` |
+| `table_id` | array | Yes | Table FK `[database, schema, table]` — must match `source-table` in definition |
+| `definition` | object | Yes | Aggregation definition with `database`, `type: query`, and `query` containing `source-table` and exactly one `aggregation`. Measures cannot use `filter`. |
 | `serdes/meta` | array | Yes | Identity path with `model: Measure` |
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |
@@ -2422,9 +2451,18 @@ Measures are stored under their table's directory: `databases/{db_slug}/schemas/
 name: Total revenue
 entity_id: xK7mPqR2sT4uVwXyZ9a1b
 creator_id: internal@metabase.com
+table_id:
+- Sample Database
+- PUBLIC
+- ORDERS
 definition:
   database: Sample Database
+  type: query
   query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
     aggregation:
     - - sum
       - - field
@@ -2492,12 +2530,12 @@ The `source` defines how data is produced — either an MBQL/native query (`type
 | `name` | string | Yes | Transform name |
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
+| `source_database_id` | string | Yes | Database FK (database name) |
 | `source` | object | Yes | Source definition — query or Python (see below) |
 | `target` | object | Yes | Target table: `database` (Database FK), `type` (`"table"`), `schema`, `name` |
 | `serdes/meta` | array | Yes | Identity path with `model: Transform` |
 | `description` | string | No | Description |
 | `collection_id` | string | No | Collection FK (entity_id) |
-| `source_database_id` | string | No | Database FK (database name) |
 | `tags` | array | No | Transform tags (see below) |
 | `created_at` | string | No | ISO 8601 timestamp |
 

@@ -2,6 +2,7 @@ name: "Cumulative and Statistical Aggregations"
 entity_id: x61UtCMCuBNjw0TEFQeWG
 creator_id: admin@example.com
 display: line
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

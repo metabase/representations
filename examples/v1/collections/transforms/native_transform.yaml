@@ -1,5 +1,6 @@
 name: Product Revenue Report
 entity_id: 7JwIkkAG-06-nsl4jzsaq
+source_database_id: Sample Database
 source:
   type: query
   query:

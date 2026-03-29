@@ -1,6 +1,7 @@
 name: Hourly Product Stats
 entity_id: aWiR53tfmHEibiFGuIQeP
 creator_id: admin@example.com
+source_database_id: Sample Database
 source:
   type: query
   query:

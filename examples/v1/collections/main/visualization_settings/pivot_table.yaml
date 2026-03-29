@@ -2,6 +2,7 @@ name: Orders Pivot Table
 entity_id: BjwHr6elEuKQuL26BEgno
 creator_id: admin@example.com
 display: pivot
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

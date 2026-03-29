@@ -2,9 +2,18 @@ name: Recent Mid-Range Products
 entity_id: wdYkSSArR5ymVGa0pvb47
 creator_id: admin@example.com
 description: Products created in last year, priced 20-100, not null rating
+table_id:
+- Sample Database
+- PUBLIC
+- PRODUCTS
 definition:
   database: Sample Database
+  type: query
   query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
     filter:
     - and
     - - between
@@ -40,11 +49,6 @@ definition:
             - PRODUCTS
             - VENDOR
           - null
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-  type: query
 serdes/meta:
 - id: wdYkSSArR5ymVGa0pvb47
   label: recent_midrange

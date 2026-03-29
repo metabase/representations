@@ -2,6 +2,7 @@ name: "Comparison Filters"
 entity_id: 8kTL-8IzNdWMtXfaMPZaE
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

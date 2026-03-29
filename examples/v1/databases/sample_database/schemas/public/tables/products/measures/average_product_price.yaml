@@ -1,9 +1,18 @@
 name: Average Product Price
 entity_id: mSrAvgProdPrice00008x
 creator_id: admin@example.com
+table_id:
+- Sample Database
+- PUBLIC
+- PRODUCTS
 definition:
   database: Sample Database
+  type: query
   query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
     aggregation:
     - - avg
       - - field
@@ -12,11 +21,6 @@ definition:
           - PRODUCTS
           - PRICE
         - base-type: type/Float
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-  type: query
 serdes/meta:
 - id: mSrAvgProdPrice00008x
   label: average_product_price

@@ -1,9 +1,18 @@
 name: Product Count
 entity_id: 8kxQ2Wr7PmN5dLf3hYz9v
 creator_id: admin@example.com
+table_id:
+- Sample Database
+- PUBLIC
+- PRODUCTS
 definition:
   database: Sample Database
+  type: query
   query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
     aggregation:
     - - distinct
       - - field
@@ -12,11 +21,6 @@ definition:
           - PRODUCTS
           - ID
         - null
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-  type: query
 serdes/meta:
 - id: 8kxQ2Wr7PmN5dLf3hYz9v
   label: product_count

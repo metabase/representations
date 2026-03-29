@@ -2,6 +2,7 @@ name: "Nested Query"
 entity_id: 1t9TE-8T-AlaM19nx3yQV
 creator_id: admin@example.com
 display: table
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

@@ -2,6 +2,7 @@ name: "Geographic Filter (Inside)"
 entity_id: bK64P6yr9_Nx-A8S3PqOZ
 creator_id: admin@example.com
 display: map
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

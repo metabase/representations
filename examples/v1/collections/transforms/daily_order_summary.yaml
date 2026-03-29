@@ -1,6 +1,7 @@
 name: Daily Order Summary
 entity_id: 7XqqzlsonSq4KFyOvtrAm
 creator_id: admin@example.com
+source_database_id: Sample Database
 source:
   type: query
   query:

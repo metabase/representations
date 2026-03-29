@@ -110,7 +110,7 @@ dashcards:
     "button.label": Run Analysis
     "button.variant": primary
     actionDisplayType: button
-  action_id: WHpZ7YXjrrd-TvOOVIveL
+  action_id: null
   serdes/meta:
   - id: Ylbpm_iPeEYav_o0kpUVD
     model: Dashboard

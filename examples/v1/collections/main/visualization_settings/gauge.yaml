@@ -2,6 +2,7 @@ name: Revenue Gauge
 entity_id: GWrIQqjbzxysSCm8PLU5j
 creator_id: admin@example.com
 display: gauge
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query

@@ -2,6 +2,7 @@ name: "Native Query - Field Filter and Temporal Unit"
 entity_id: sk02d7sPWAk2TYH2Y7JhZ
 creator_id: admin@example.com
 display: line
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: native

@@ -2,9 +2,18 @@ name: Searchable Products
 entity_id: yZptbJRR3S8L9S9r0ZF8M
 creator_id: admin@example.com
 description: Products with non-empty title containing "awesome", vendor starting with "A"
+table_id:
+- Sample Database
+- PUBLIC
+- PRODUCTS
 definition:
   database: Sample Database
+  type: query
   query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
     filter:
     - and
     - - not-empty
@@ -48,11 +57,6 @@ definition:
           - EAN
         - null
       - "0"
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-  type: query
 serdes/meta:
 - id: yZptbJRR3S8L9S9r0ZF8M
   label: searchable_products
