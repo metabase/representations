@@ -9,26 +9,13 @@ jobs:
   import-test:
     runs-on: ubuntu-latest
 
-    env:
-      MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Pull Metabase
-        run: docker pull metabase/metabase-enterprise:latest
-
-      - name: Setup and import
+      - name: Start Metabase
         run: |
-          MB_DIR="$RUNNER_TEMP/metabase-data"
-          mkdir -p "$MB_DIR"
-
-          # Start Metabase to complete first-time setup
           docker run -d --name metabase \
-            -e MB_PREMIUM_EMBEDDING_TOKEN \
-            -e MB_DB_TYPE=h2 \
-            -e MB_DB_FILE=/data/metabase.mv \
-            -v "$MB_DIR:/data" \
+            -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
             -p 3000:3000 \
             metabase/metabase-enterprise:latest
 
@@ -39,32 +26,40 @@ jobs:
             done
           '
 
+      - name: Setup, create API key, and import
+        run: |
           # Complete first-time setup
           SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
-          curl -sf http://localhost:3000/api/setup -X POST \
+          SESSION=$(curl -sf http://localhost:3000/api/setup -X POST \
             -H 'Content-Type: application/json' \
             -d "$(jq -n --arg token "$SETUP_TOKEN" '{
               token: $token,
               user: {email:"admin@test.com", password:"Metabase123!", first_name:"Admin", last_name:"User", site_name:"Test"},
               prefs: {site_name:"Test", site_locale:"en", allow_tracking:false}
-            }')" > /dev/null
-          echo "Setup complete"
+            }')" | jq -r '.id')
+          echo "Setup complete (session: $SESSION)"
 
-          # Stop Metabase — H2 must be fully released before CLI import
-          docker stop metabase
-          docker rm metabase
+          # Create API key
+          API_KEY=$(curl -sf http://localhost:3000/api/api-key \
+            -H "X-Metabase-Session: $SESSION" \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"ci","group_id":2}' | jq -r '.unmasked_key')
+          echo "API key created"
 
-          # Verify H2 file exists
-          echo "Files in MB_DIR:"
-          ls -la "$MB_DIR"/
+          # Create import archive and POST it
+          tar czf /tmp/import.tgz -C examples/v1 .
 
-          # Run import against the same H2 database
-          docker run --rm \
-            -e MB_PREMIUM_EMBEDDING_TOKEN \
-            -e MB_DB_TYPE=h2 \
-            -e MB_DB_FILE=/data/metabase.mv \
-            -v "$MB_DIR:/data" \
-            -v "${{ github.workspace }}/examples/v1:/import" \
-            --entrypoint java \
-            metabase/metabase-enterprise:latest \
-            -jar /app/metabase.jar import /import
+          HTTP_CODE=$(curl -s -o /tmp/import-response.txt -w '%{http_code}' \
+            -X POST \
+            -H "X-API-Key: $API_KEY" \
+            -F 'file=@/tmp/import.tgz' \
+            'http://localhost:3000/api/ee/serialization/import')
+
+          cat /tmp/import-response.txt
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Import failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "Import succeeded"

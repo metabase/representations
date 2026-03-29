@@ -2670,11 +2670,7 @@ serdes/meta:
 - **1.0.0**: Initial release
   - Entity key system (NanoID and foreign key references)
   - Folder structure specification with namespace-based collection layout
-  - Collection, Card, Dashboard entities (with DashboardCard, Tabs, Grid, ParameterMapping, Series)
-  - Segment, Measure, Transform (with tags), Snippet entities
-  - Parameter system with types and targets
-  - MBQL query specification with nested queries, joins, all operators (filter, aggregation, expression)
-  - Native query specification with template tags (text, number, date, boolean, dimension, temporal-unit, card, snippet, table)
+  - Collection, Card, Dashboard, Document, Segment, Measure, Snippet, Transform, TransformJob, TransformTag, PythonLibrary
 
 ---
 
