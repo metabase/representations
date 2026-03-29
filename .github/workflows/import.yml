@@ -11,8 +11,6 @@ jobs:
 
     env:
       MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
-      MB_DB_TYPE: h2
-      MB_DB_FILE: /tmp/metabase
 
     steps:
       - uses: actions/checkout@v4
@@ -20,18 +18,20 @@ jobs:
       - name: Pull Metabase
         run: docker pull metabase/metabase-enterprise:latest
 
-      - name: Setup Metabase
+      - name: Setup and import
         run: |
-          # Start Metabase in background with shared H2 db
+          MB_DIR="$RUNNER_TEMP/metabase-data"
+          mkdir -p "$MB_DIR"
+
+          # Start Metabase to complete first-time setup
           docker run -d --name metabase \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
-            -e MB_DB_TYPE \
-            -e MB_DB_FILE=/app/db/metabase \
-            -v /tmp/metabase-db:/app/db \
+            -e MB_DB_TYPE=h2 \
+            -e MB_DB_FILE=/data/metabase \
+            -v "$MB_DIR:/data" \
             -p 3000:3000 \
             metabase/metabase-enterprise:latest
 
-          # Wait for it to be ready
           echo "Waiting for Metabase to start..."
           timeout 180 bash -c '
             until curl -sf http://localhost:3000/api/health | grep -q ok; do
@@ -41,36 +41,28 @@ jobs:
 
           # Complete first-time setup
           SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
-          SETUP_PAYLOAD=$(jq -n --arg token "$SETUP_TOKEN" '{
-            token: $token,
-            user: {
-              email: "admin@test.com",
-              password: "Metabase123!",
-              first_name: "Admin",
-              last_name: "User",
-              site_name: "Import Test"
-            },
-            prefs: {
-              site_name: "Import Test",
-              site_locale: "en",
-              allow_tracking: false
-            }
-          }')
           curl -sf http://localhost:3000/api/setup -X POST \
             -H 'Content-Type: application/json' \
-            -d "$SETUP_PAYLOAD" > /dev/null
+            -d "$(jq -n --arg token "$SETUP_TOKEN" '{
+              token: $token,
+              user: {email:"admin@test.com", password:"Metabase123!", first_name:"Admin", last_name:"User", site_name:"Test"},
+              prefs: {site_name:"Test", site_locale:"en", allow_tracking:false}
+            }')" > /dev/null
+          echo "Setup complete"
 
-          echo "Setup complete, stopping Metabase..."
+          # Stop Metabase — H2 must be fully released before CLI import
           docker stop metabase
           docker rm metabase
 
-      - name: Import into Metabase
-        run: |
+          # Verify H2 file exists
+          ls -la "$MB_DIR"/metabase.mv.db
+
+          # Run import against the same H2 database
           docker run --rm \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
-            -e MB_DB_TYPE \
-            -e MB_DB_FILE=/app/db/metabase \
-            -v /tmp/metabase-db:/app/db \
+            -e MB_DB_TYPE=h2 \
+            -e MB_DB_FILE=/data/metabase \
+            -v "$MB_DIR:/data" \
             -v "${{ github.workspace }}/examples/v1:/import" \
             --entrypoint java \
             metabase/metabase-enterprise:latest \
