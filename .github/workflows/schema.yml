@@ -1,4 +1,4 @@
-name: Lint
+name: Schema
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  schema-check:
+  schema-test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

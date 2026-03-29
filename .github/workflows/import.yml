@@ -20,12 +20,57 @@ jobs:
       - name: Pull Metabase
         run: docker pull metabase/metabase-enterprise:latest
 
+      - name: Setup Metabase
+        run: |
+          # Start Metabase in background with shared H2 db
+          docker run -d --name metabase \
+            -e MB_PREMIUM_EMBEDDING_TOKEN \
+            -e MB_DB_TYPE \
+            -e MB_DB_FILE=/app/db/metabase \
+            -v /tmp/metabase-db:/app/db \
+            -p 3000:3000 \
+            metabase/metabase-enterprise:latest
+
+          # Wait for it to be ready
+          echo "Waiting for Metabase to start..."
+          timeout 180 bash -c '
+            until curl -sf http://localhost:3000/api/health | grep -q ok; do
+              sleep 2
+            done
+          '
+
+          # Complete first-time setup
+          SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
+          SETUP_PAYLOAD=$(jq -n --arg token "$SETUP_TOKEN" '{
+            token: $token,
+            user: {
+              email: "admin@test.com",
+              password: "Metabase123!",
+              first_name: "Admin",
+              last_name: "User",
+              site_name: "Import Test"
+            },
+            prefs: {
+              site_name: "Import Test",
+              site_locale: "en",
+              allow_tracking: false
+            }
+          }')
+          curl -sf http://localhost:3000/api/setup -X POST \
+            -H 'Content-Type: application/json' \
+            -d "$SETUP_PAYLOAD" > /dev/null
+
+          echo "Setup complete, stopping Metabase..."
+          docker stop metabase
+          docker rm metabase
+
       - name: Import into Metabase
         run: |
           docker run --rm \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
             -e MB_DB_TYPE \
-            -e MB_DB_FILE \
+            -e MB_DB_FILE=/app/db/metabase \
+            -v /tmp/metabase-db:/app/db \
             -v "${{ github.workspace }}/examples/v1:/import" \
             --entrypoint java \
             metabase/metabase-enterprise:latest \
