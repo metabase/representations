@@ -1,0 +1,36 @@
+name: "Geographic Filter (Inside)"
+entity_id: bK64P6yr9_Nx-A8S3PqOZ
+creator_id: admin@example.com
+display: map
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PEOPLE
+    filter:
+    - inside
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PEOPLE
+        - LATITUDE
+      - null
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PEOPLE
+        - LONGITUDE
+      - null
+    - 40.8
+    - -74.1
+    - 40.6
+    - -73.9
+visualization_settings: {}
+serdes/meta:
+- id: bK64P6yr9_Nx-A8S3PqOZ
+  label: geographic_filter
+  model: Card

@@ -1,0 +1,21 @@
+name: Order Count
+entity_id: DBap2523KuN4Lt-cYrUjF
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- PUBLIC
+- ORDERS
+definition:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - count
+serdes/meta:
+- id: DBap2523KuN4Lt-cYrUjF
+  label: order_count
+  model: Measure

@@ -1,0 +1,69 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Parameter
+description: >
+  A filter control parameter for cards and dashboards. Parameters allow
+  users to interactively filter data via UI controls.
+
+type: object
+required:
+  - id
+  - name
+  - slug
+  - type
+properties:
+  id:
+    type: string
+    description: UUID identifier
+    format: uuid
+  name:
+    type: string
+    description: Display name
+  slug:
+    type: string
+    description: URL-friendly identifier
+  type:
+    type: string
+    description: >
+      Filter widget type: string/=, string/!=, string/contains,
+      string/starts-with, string/ends-with, number/=, number/!=,
+      number/>=, number/<=, number/between, date/single, date/range,
+      date/month-year, date/quarter-year, date/relative, date/all-options,
+      temporal-unit, id, boolean/=, category, location/city
+  default:
+    description: Default value (type depends on filter type)
+  required:
+    type: boolean
+    description: Whether a value is required
+  sectionId:
+    type: string
+    description: Parameter section grouping
+  temporal_units:
+    type: array
+    description: Allowed temporal units (for temporal-unit type)
+    items:
+      type: string
+      enum:
+        - minute
+        - hour
+        - day
+        - week
+        - month
+        - quarter
+        - year
+  values_query_type:
+    type: string
+    enum:
+      - list
+      - search
+      - none
+  values_source_type:
+    type:
+      - string
+      - "null"
+    enum:
+      - null
+      - card
+      - static-list
+  values_source_config:
+    type: object
+    additionalProperties: true

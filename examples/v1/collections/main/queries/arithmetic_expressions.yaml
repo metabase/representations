@@ -1,0 +1,54 @@
+name: "Arithmetic Expressions"
+entity_id: 1O_2jSo2fD6m3Qr6My7aa
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - SUBTOTAL
+        - base-type: type/Float
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TAX
+        - base-type: type/Float
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - QUANTITY
+        - base-type: type/Integer
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings: {}
+serdes/meta:
+- id: 1O_2jSo2fD6m3Qr6My7aa
+  label: arithmetic_expressions
+  model: Card

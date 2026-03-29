@@ -1,0 +1,38 @@
+name: Monthly Order Summary
+entity_id: 1fNzUt_CgppinjPk7pGKH
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    database: Sample Database
+    type: query
+    query:
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      aggregation:
+      - - count
+      - - sum
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+          - base-type: type/Float
+      breakout:
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - temporal-unit: month
+target:
+  database: Sample Database
+  type: table
+  schema: PUBLIC
+  name: monthly_order_summary
+serdes/meta:
+- id: 1fNzUt_CgppinjPk7pGKH
+  label: monthly_order_summary
+  model: Transform

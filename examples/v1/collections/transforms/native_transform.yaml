@@ -1,0 +1,28 @@
+name: Product Revenue Report
+entity_id: 7JwIkkAG-06-nsl4jzsaq
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    database: Sample Database
+    type: native
+    native:
+      query: |-
+        SELECT
+          p.CATEGORY,
+          COUNT(DISTINCT o.ID) AS order_count,
+          SUM(o.TOTAL) AS total_revenue,
+          AVG(o.TOTAL) AS avg_order_value
+        FROM ORDERS o
+        JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+        GROUP BY p.CATEGORY
+      template-tags: {}
+target:
+  database: Sample Database
+  type: table
+  schema: PUBLIC
+  name: product_revenue_report
+serdes/meta:
+- id: 7JwIkkAG-06-nsl4jzsaq
+  label: product_revenue_report
+  model: Transform

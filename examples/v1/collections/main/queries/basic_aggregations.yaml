@@ -1,0 +1,67 @@
+name: "Basic Aggregations"
+entity_id: h5F2EjHsRd73Dqqh8sAtd
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - count
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    - - min
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    - - max
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    - - distinct
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - PRODUCT_ID
+        - null
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+    order-by:
+    - - desc
+      - - aggregation
+        - 0
+    limit: 12
+visualization_settings: {}
+serdes/meta:
+- id: h5F2EjHsRd73Dqqh8sAtd
+  label: basic_aggregations
+  model: Card

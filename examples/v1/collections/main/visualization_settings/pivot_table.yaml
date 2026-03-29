@@ -1,0 +1,75 @@
+name: Orders Pivot Table
+entity_id: BjwHr6elEuKQuL26BEgno
+creator_id: admin@example.com
+display: pivot
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - count
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: quarter
+    joins:
+    - source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      condition:
+      - =
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - PRODUCT_ID
+        - null
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - ID
+        - null
+      alias: Products
+      strategy: left-join
+      fields: all
+visualization_settings:
+  "pivot_table.column_split":
+    rows:
+    - CATEGORY
+    columns:
+    - CREATED_AT
+    values:
+    - count
+    - sum
+  "pivot_table.show_row_totals": true
+  "pivot_table.show_column_totals": true
+  "pivot_table.collapsed_rows":
+    rows: []
+    value: []
+  column_settings:
+    '["name","sum"]':
+      number_style: currency
+      currency: USD
+      currency_style: symbol
+      decimals: 0
+serdes/meta:
+- id: BjwHr6elEuKQuL26BEgno
+  label: pivot_table
+  model: Card

@@ -1,0 +1,64 @@
+name: "Temporal Expressions"
+entity_id: DBBrqcMAmOO0sbM_CzM_Z
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    expressions:
+      Ship By:
+      - datetime-add
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - 7
+      - day
+      Week Before:
+      - datetime-subtract
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - 1
+      - week
+      Days Since Order:
+      - datetime-diff
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - - now
+      - day
+      Order in EST:
+      - convert-timezone
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - America/New_York
+      - UTC
+      Current Time:
+      - now
+      Today Date:
+      - today
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: DBBrqcMAmOO0sbM_CzM_Z
+  label: temporal_expressions
+  model: Card

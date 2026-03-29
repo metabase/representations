@@ -1,0 +1,25 @@
+name: Customer Locations (Map)
+entity_id: CI61cHgBAKPBEDTxhK8X3
+creator_id: admin@example.com
+display: map
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PEOPLE
+visualization_settings:
+  "map.type": pin
+  "map.latitude_column": LATITUDE
+  "map.longitude_column": LONGITUDE
+  "map.pin_type": markers
+  "map.zoom": 4
+  "map.center_latitude": 39.5
+  "map.center_longitude": -98.35
+serdes/meta:
+- id: CI61cHgBAKPBEDTxhK8X3
+  label: map_pins
+  model: Card

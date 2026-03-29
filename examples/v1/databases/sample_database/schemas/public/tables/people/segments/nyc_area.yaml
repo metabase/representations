@@ -1,0 +1,38 @@
+name: NYC Area People
+entity_id: D2R9JpvI8sMfYWqfPsTkx
+creator_id: admin@example.com
+description: People located within the NYC bounding box
+table_id:
+- Sample Database
+- PUBLIC
+- PEOPLE
+definition:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PEOPLE
+    filter:
+    - inside
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PEOPLE
+        - LATITUDE
+      - null
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PEOPLE
+        - LONGITUDE
+      - null
+    - 40.92
+    - -74.26
+    - 40.49
+    - -73.70
+serdes/meta:
+- id: D2R9JpvI8sMfYWqfPsTkx
+  label: nyc_area
+  model: Segment

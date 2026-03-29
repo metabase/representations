@@ -1,0 +1,104 @@
+name: "Joins - Strategies and Compound Conditions"
+entity_id: wpW9JO5MsHQd0-7WrR7gN
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    joins:
+    - source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      condition:
+      - =
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - PRODUCT_ID
+        - null
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - ID
+        - null
+      alias: Products
+      strategy: left-join
+      fields: all
+    - source-table:
+      - Sample Database
+      - PUBLIC
+      - PEOPLE
+      condition:
+      - =
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - USER_ID
+        - null
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - ID
+        - null
+      alias: People
+      strategy: inner-join
+      fields:
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - NAME
+        - join-alias: People
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - STATE
+        - join-alias: People
+    - source-table:
+      - Sample Database
+      - PUBLIC
+      - REVIEWS
+      condition:
+      - and
+      - - =
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - PRODUCT_ID
+          - null
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - REVIEWS
+            - PRODUCT_ID
+          - null
+      - - ">="
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - REVIEWS
+            - RATING
+          - null
+        - 4
+      alias: GoodReviews
+      strategy: left-join
+      fields: none
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: wpW9JO5MsHQd0-7WrR7gN
+  label: joins
+  model: Card

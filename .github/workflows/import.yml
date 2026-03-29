@@ -1,0 +1,65 @@
+name: Import
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  import-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start Metabase
+        run: |
+          docker run -d --name metabase \
+            -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
+            -p 3000:3000 \
+            metabase/metabase-enterprise:latest
+
+          echo "Waiting for Metabase to start..."
+          timeout 180 bash -c '
+            until curl -sf http://localhost:3000/api/health | grep -q ok; do
+              sleep 2
+            done
+          '
+
+      - name: Setup, create API key, and import
+        run: |
+          # Complete first-time setup
+          SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
+          SESSION=$(curl -sf http://localhost:3000/api/setup -X POST \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg token "$SETUP_TOKEN" '{
+              token: $token,
+              user: {email:"admin@test.com", password:"Metabase123!", first_name:"Admin", last_name:"User", site_name:"Test"},
+              prefs: {site_name:"Test", site_locale:"en", allow_tracking:false}
+            }')" | jq -r '.id')
+          echo "Setup complete (session: $SESSION)"
+
+          # Create API key
+          API_KEY=$(curl -sf http://localhost:3000/api/api-key \
+            -H "X-Metabase-Session: $SESSION" \
+            -H 'Content-Type: application/json' \
+            -d '{"name":"ci","group_id":2}' | jq -r '.unmasked_key')
+          echo "API key created"
+
+          # Create import archive and POST it
+          tar czf /tmp/import.tgz -C examples/v1 .
+
+          HTTP_CODE=$(curl -s -o /tmp/import-response.txt -w '%{http_code}' \
+            -X POST \
+            -H "X-API-Key: $API_KEY" \
+            -F 'file=@/tmp/import.tgz' \
+            'http://localhost:3000/api/ee/serialization/import')
+
+          cat /tmp/import-response.txt
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Import failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "Import succeeded"

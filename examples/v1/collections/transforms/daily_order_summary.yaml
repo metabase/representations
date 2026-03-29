@@ -1,0 +1,40 @@
+name: Daily Order Summary
+entity_id: 7XqqzlsonSq4KFyOvtrAm
+creator_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    database: Sample Database
+    type: native
+    native:
+      query: |-
+        SELECT
+          DATE_TRUNC('day', CREATED_AT) AS order_date,
+          COUNT(*) AS order_count,
+          SUM(TOTAL) AS total_revenue
+        FROM ORDERS
+        GROUP BY 1
+      template-tags: {}
+target:
+  database: Sample Database
+  type: table
+  schema: PUBLIC
+  name: daily_order_summary
+tags:
+- entity_id: qJU4-opN0IFLKDEdmXiYh
+  position: 0
+  tag_id: mXacguzCHQ5bBhqQPt3kd
+  serdes/meta:
+  - id: qJU4-opN0IFLKDEdmXiYh
+    model: TransformTransformTag
+- entity_id: hTtmHg0mopz6qzrEDukSm
+  position: 1
+  tag_id: 1uWng5tP1gyxr44PJ5FPb
+  serdes/meta:
+  - id: hTtmHg0mopz6qzrEDukSm
+    model: TransformTransformTag
+serdes/meta:
+- id: 7XqqzlsonSq4KFyOvtrAm
+  label: daily_order_summary
+  model: Transform

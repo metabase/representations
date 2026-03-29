@@ -1,0 +1,46 @@
+name: Hourly Product Stats
+entity_id: aWiR53tfmHEibiFGuIQeP
+creator_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    database: Sample Database
+    type: query
+    query:
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      aggregation:
+      - - count
+      - - avg
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+          - base-type: type/Float
+      breakout:
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+target:
+  database: Sample Database
+  type: table
+  schema: PUBLIC
+  name: hourly_product_stats
+tags:
+- entity_id: T3caSScVNDqFF8Q-EsM84
+  position: 0
+  tag_id: _POmgqW5lZfrnc0wezhrD
+  serdes/meta:
+  - id: T3caSScVNDqFF8Q-EsM84
+    model: TransformTransformTag
+serdes/meta:
+- id: aWiR53tfmHEibiFGuIQeP
+  label: hourly_product_stats
+  model: Transform

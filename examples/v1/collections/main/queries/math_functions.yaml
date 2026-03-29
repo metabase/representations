@@ -1,0 +1,87 @@
+name: "Math Functions"
+entity_id: jPrM-oh3r1BR42xSs4Ipj
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    expressions:
+      Absolute Discount:
+      - abs
+      - - -
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+          - null
+        - 50
+      Price Ceiling:
+      - ceil
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      Price Floor:
+      - floor
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      Rounded Price:
+      - round
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      Rating Squared:
+      - power
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+      - 2
+      Price Sqrt:
+      - sqrt
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      Price Exp:
+      - exp
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+      Price Log:
+      - log
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: jPrM-oh3r1BR42xSs4Ipj
+  label: math_functions
+  model: Card

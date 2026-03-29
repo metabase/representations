@@ -1,0 +1,45 @@
+name: Product Overview
+entity_id: f1C68pznmrpN1F5xFDj6d
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    aggregation:
+    - - count
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - base-type: type/Float
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+      - null
+    order-by:
+    - - desc
+      - - aggregation
+        - 0
+visualization_settings: {}
+serdes/meta:
+- id: f1C68pznmrpN1F5xFDj6d
+  label: product_overview
+  model: Card

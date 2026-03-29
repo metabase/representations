@@ -1,0 +1,35 @@
+name: Monthly Revenue
+entity_id: dShCrdMnthlyRevnu0002
+creator_id: admin@example.com
+display: line
+database_id: Sample Database
+dashboard_id: 8xFV0XmZs2olbGKXWenfS
+collection_id: cOlDaShBoArDs0ExAmPlx
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings: {}
+serdes/meta:
+- id: dShCrdMnthlyRevnu0002
+  label: monthly_revenue
+  model: Card

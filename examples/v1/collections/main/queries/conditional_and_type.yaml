@@ -1,0 +1,66 @@
+name: "Conditional and Type Conversion"
+entity_id: 1hsUzNOepulZo3Jamzd1R
+creator_id: admin@example.com
+display: table
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    expressions:
+      Price Tier:
+      - case
+      - - - - ">"
+            - - field
+              - - Sample Database
+                - PUBLIC
+                - PRODUCTS
+                - PRICE
+              - null
+            - 100
+          - Premium
+        - - - ">"
+            - - field
+              - - Sample Database
+                - PUBLIC
+                - PRODUCTS
+                - PRICE
+              - null
+            - 30
+          - Standard
+      - Budget
+      Effective Price:
+      - coalesce
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      - 0
+      Price as Text:
+      - text
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      Rating as Integer:
+      - integer
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+    limit: 10
+visualization_settings: {}
+serdes/meta:
+- id: 1hsUzNOepulZo3Jamzd1R
+  label: conditional_and_type
+  model: Card

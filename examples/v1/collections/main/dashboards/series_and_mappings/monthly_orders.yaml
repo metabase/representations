@@ -1,0 +1,29 @@
+name: Monthly Orders
+entity_id: dShCrdMnthlyOrdrs0001
+creator_id: admin@example.com
+display: line
+database_id: Sample Database
+dashboard_id: 8xFV0XmZs2olbGKXWenfS
+collection_id: cOlDaShBoArDs0ExAmPlx
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - count
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings: {}
+serdes/meta:
+- id: dShCrdMnthlyOrdrs0001
+  label: monthly_orders
+  model: Card

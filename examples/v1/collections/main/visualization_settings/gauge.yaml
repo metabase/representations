@@ -1,0 +1,39 @@
+name: Revenue Gauge
+entity_id: GWrIQqjbzxysSCm8PLU5j
+creator_id: admin@example.com
+display: gauge
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+visualization_settings:
+  "gauge.segments":
+  - min: 0
+    max: 50000
+    color: "#ED6E6E"
+    label: Low
+  - min: 50000
+    max: 150000
+    color: "#F9CF48"
+    label: Medium
+  - min: 150000
+    max: 300000
+    color: "#84BB4C"
+    label: High
+serdes/meta:
+- id: GWrIQqjbzxysSCm8PLU5j
+  label: gauge
+  model: Card

@@ -1,0 +1,33 @@
+name: "Window Function - Offset"
+entity_id: ErQY8K5Tep4xBc3VY_-1e
+creator_id: admin@example.com
+display: line
+database_id: Sample Database
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - sum
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings: {}
+serdes/meta:
+- id: ErQY8K5Tep4xBc3VY_-1e
+  label: window_offset
+  model: Card
