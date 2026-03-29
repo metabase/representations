@@ -1,8 +1,8 @@
-name: Total Revenue
-entity_id: IW8kbqZVaMxdGtCM2F4U6
+name: Monthly Revenue
+entity_id: dShCrdMnthlyRevnu0002
 creator_id: admin@example.com
-display: scalar
-type: metric
+display: line
+collection_id: cOlDaShBoArDs0ExAmPlx
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 dataset_query:
   database: Sample Database
@@ -20,8 +20,15 @@ dataset_query:
           - ORDERS
           - TOTAL
         - base-type: type/Float
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
 visualization_settings: {}
 serdes/meta:
-- id: IW8kbqZVaMxdGtCM2F4U6
-  label: total_revenue_scalar
+- id: dShCrdMnthlyRevnu0002
+  label: monthly_revenue
   model: Card

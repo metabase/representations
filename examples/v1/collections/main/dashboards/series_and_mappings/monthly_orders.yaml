@@ -1,7 +1,8 @@
-name: Monthly Cumulative Orders
-entity_id: ErQY8K5Tep4xBc3VY_-1e
+name: Monthly Orders
+entity_id: dShCrdMnthlyOrdrs0001
 creator_id: admin@example.com
 display: line
+collection_id: cOlDaShBoArDs0ExAmPlx
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 dataset_query:
   database: Sample Database
@@ -12,7 +13,7 @@ dataset_query:
     - PUBLIC
     - ORDERS
     aggregation:
-    - - cum-count
+    - - count
     breakout:
     - - field
       - - Sample Database
@@ -22,6 +23,6 @@ dataset_query:
       - temporal-unit: month
 visualization_settings: {}
 serdes/meta:
-- id: ErQY8K5Tep4xBc3VY_-1e
-  label: monthly_cumulative
+- id: dShCrdMnthlyOrdrs0001
+  label: monthly_orders
   model: Card

@@ -1,7 +1,8 @@
 name: Products Table
-entity_id: 8kTL-8IzNdWMtXfaMPZaE
+entity_id: dShCrdProdsTables0007
 creator_id: admin@example.com
 display: table
+collection_id: cOlDaShBoArDs0ExAmPlx
 dashboard_id: 7RZUq1g5o1C5ws_e3ppKf
 dataset_query:
   database: Sample Database
@@ -13,6 +14,6 @@ dataset_query:
     - PRODUCTS
 visualization_settings: {}
 serdes/meta:
-- id: 8kTL-8IzNdWMtXfaMPZaE
+- id: dShCrdProdsTables0007
   label: products_table
   model: Card

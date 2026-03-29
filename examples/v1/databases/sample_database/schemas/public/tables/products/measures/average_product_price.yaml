@@ -1,5 +1,5 @@
 name: Average Product Price
-entity_id: xK7mPqR2sT4uVwXyZ9a1b
+entity_id: mSrAvgProdPrice00008x
 creator_id: admin@example.com
 definition:
   database: Sample Database
@@ -18,6 +18,6 @@ definition:
     - PRODUCTS
   type: query
 serdes/meta:
-- id: xK7mPqR2sT4uVwXyZ9a1b
+- id: mSrAvgProdPrice00008x
   label: average_product_price
   model: Measure

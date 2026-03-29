@@ -1,7 +1,8 @@
-name: Monthly Revenue
-entity_id: x61UtCMCuBNjw0TEFQeWG
+name: Monthly Cumulative Orders
+entity_id: dShCrdMnthlyCumul0004
 creator_id: admin@example.com
 display: line
+collection_id: cOlDaShBoArDs0ExAmPlx
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 dataset_query:
   database: Sample Database
@@ -12,13 +13,7 @@ dataset_query:
     - PUBLIC
     - ORDERS
     aggregation:
-    - - sum
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
+    - - cum-count
     breakout:
     - - field
       - - Sample Database
@@ -28,6 +23,6 @@ dataset_query:
       - temporal-unit: month
 visualization_settings: {}
 serdes/meta:
-- id: x61UtCMCuBNjw0TEFQeWG
-  label: monthly_revenue
+- id: dShCrdMnthlyCumul0004
+  label: monthly_cumulative
   model: Card

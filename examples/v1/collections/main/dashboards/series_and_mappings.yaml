@@ -13,13 +13,13 @@ parameters:
 tabs: []
 dashcards:
 - entity_id: WNjyHH5uA36yKp9D7X7bw
-  card_id: h5F2EjHsRd73Dqqh8sAtd
+  card_id: dShCrdMnthlyOrdrs0001
   row: 0
   col: 0
   size_x: 12
   size_y: 6
   parameter_mappings:
-  - card_id: h5F2EjHsRd73Dqqh8sAtd
+  - card_id: dShCrdMnthlyOrdrs0001
     parameter_id: c0000001-0000-0000-0000-000000000001
     target:
     - dimension
@@ -29,7 +29,7 @@ dashcards:
         - PRODUCTS
         - CATEGORY
       - null
-  - card_id: h5F2EjHsRd73Dqqh8sAtd
+  - card_id: dShCrdMnthlyOrdrs0001
     parameter_id: c0000002-0000-0000-0000-000000000002
     target:
     - dimension
@@ -40,11 +40,11 @@ dashcards:
         - CREATED_AT
       - null
   series:
-  - card_id: x61UtCMCuBNjw0TEFQeWG
+  - card_id: dShCrdMnthlyRevnu0002
     position: 0
-  - card_id: irROiaJoSsiXPKGxwWvWY
+  - card_id: dShCrdMnthlyAvgOr0003
     position: 1
-  - card_id: ErQY8K5Tep4xBc3VY_-1e
+  - card_id: dShCrdMnthlyCumul0004
     position: 2
   visualization_settings:
     "graph.show_values": true
@@ -56,13 +56,13 @@ dashcards:
   - id: WNjyHH5uA36yKp9D7X7bw
     model: DashboardCard
 - entity_id: MyNhSS9N9C8B373tSlfaX
-  card_id: 2u10n8GV6u0LFYrq8yV5p
+  card_id: dShCrdNatveOrders0005
   row: 0
   col: 12
   size_x: 6
   size_y: 3
   parameter_mappings:
-  - card_id: 2u10n8GV6u0LFYrq8yV5p
+  - card_id: dShCrdNatveOrders0005
     parameter_id: c0000001-0000-0000-0000-000000000001
     target:
     - variable
@@ -76,7 +76,7 @@ dashcards:
   - id: MyNhSS9N9C8B373tSlfaX
     model: DashboardCard
 - entity_id: f9pAJKJNxCtrS93uIN7F4
-  card_id: IW8kbqZVaMxdGtCM2F4U6
+  card_id: dShCrdTtlRevScalr0006
   row: 6
   col: 0
   size_x: 6

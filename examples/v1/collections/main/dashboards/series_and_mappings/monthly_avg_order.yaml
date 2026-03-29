@@ -1,7 +1,8 @@
-name: Monthly Orders
-entity_id: h5F2EjHsRd73Dqqh8sAtd
+name: Monthly Average Order
+entity_id: dShCrdMnthlyAvgOr0003
 creator_id: admin@example.com
 display: line
+collection_id: cOlDaShBoArDs0ExAmPlx
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 dataset_query:
   database: Sample Database
@@ -12,7 +13,13 @@ dataset_query:
     - PUBLIC
     - ORDERS
     aggregation:
-    - - count
+    - - avg
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
     breakout:
     - - field
       - - Sample Database
@@ -22,6 +29,6 @@ dataset_query:
       - temporal-unit: month
 visualization_settings: {}
 serdes/meta:
-- id: h5F2EjHsRd73Dqqh8sAtd
-  label: monthly_orders
+- id: dShCrdMnthlyAvgOr0003
+  label: monthly_avg_order
   model: Card

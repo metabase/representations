@@ -34,7 +34,7 @@ Metabase uses two ways of identifying entities: `entity_id` (NanoID) and natural
 
 ### NanoID
 
-`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable.
+`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **globally unique** within an instance — no two entities may share the same `entity_id`, regardless of entity type.
 
 Generate a NanoID in Bash:
 
@@ -151,11 +151,13 @@ Every entity's logical position in the collection hierarchy is determined by its
 
 Dashboards and documents act as **containers** for cards: a card with `dashboard_id` set is owned by that dashboard, and a card with `document_id` set is owned by that document. Container-owned cards behave as if the dashboard or document were a subcollection:
 
-- **`collection_id`** — Places the entity in a collection. `null` means root collection.
+- **`collection_id`** — Places the entity in a collection. `null` means root collection. Must always be set, even when `dashboard_id` or `document_id` is set — it must match the `collection_id` of the parent dashboard or document.
 - **`dashboard_id`** — Nests the card under a dashboard. The card should only be used within that dashboard. To reuse a card outside its dashboard, unset `dashboard_id` and place it directly in a collection.
 - **`document_id`** — Nests the card under a document. Same semantics as `dashboard_id`: the card should only be used within that document.
 
 When a dashboard or document moves collections, all cards nested under it move too. A card should never have both `dashboard_id` and `document_id` set.
+
+On disk, cards nested under a dashboard or document are placed in a subfolder matching the parent's filename (e.g., `dashboards/my_dashboard/card.yaml` for a card with `dashboard_id` pointing to `dashboards/my_dashboard.yaml`).
 - Segments and measures live under their table's directory in the `databases/` tree.
 - Database, schema, and table folder names are slugified (e.g., `test-data (h2)` becomes `test_data__h2_`).
 - Slashes in names are escaped as `__SLASH__`, backslashes as `__BACKSLASH__`.
@@ -2250,14 +2252,31 @@ Cards can be nested under a document via `card.document_id`, similar to how card
 
 ### Document Nodes
 
-The `document` field contains a recursive tree of nodes. Each node has a `type` and optionally `content` (child nodes), `attrs` (node-specific properties), `text` (for text nodes), and `marks` (inline formatting).
+The `document` field contains a recursive tree of nodes. The root node is always `type: doc`.
 
-The root node is always `type: doc`.
+#### Node Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Node type name (see Node Types below) |
+| `content` | array | No | Child nodes (recursive) |
+| `attrs` | map | No | Node-specific attributes (see Node Types below) |
+| `text` | string | No | Text content (only for `text` nodes) |
+| `marks` | array | No | Inline formatting marks (only for `text` nodes) |
+
+#### Mark Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Mark type: `bold`, `italic`, `code`, `link`, `underline`, `strike` |
+| `attrs` | map | No | Mark attributes (e.g., `href` for `link` marks) |
+
+#### Node Types
 
 **Block nodes:**
 
-| Node Type | Description | Key Attributes |
-|-----------|-------------|----------------|
+| Node Type | Description | Attributes |
+|-----------|-------------|------------|
 | `doc` | Root node | — |
 | `paragraph` | Text block | — |
 | `heading` | Heading block | `level` (1–6) |
@@ -2275,10 +2294,8 @@ The root node is always `type: doc`.
 
 | Node Type | Description |
 |-----------|-------------|
-| `text` | Text content (has `text` property) |
+| `text` | Text content (uses `text` field, not `content`) |
 | `hardBreak` | Line break within a paragraph |
-
-**Marks** (inline formatting on text nodes): `bold`, `italic`, `code`, `link` (attrs: `href`), `underline`, `strike`.
 
 Card embeds reference cards by `entity_id` in the serialized form. The `id` attribute of a `cardEmbed` node is the card's NanoID.
 

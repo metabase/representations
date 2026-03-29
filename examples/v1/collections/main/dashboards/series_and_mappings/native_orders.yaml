@@ -1,7 +1,8 @@
 name: Native Orders Query
-entity_id: 2u10n8GV6u0LFYrq8yV5p
+entity_id: dShCrdNatveOrders0005
 creator_id: admin@example.com
 display: table
+collection_id: cOlDaShBoArDs0ExAmPlx
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 dataset_query:
   database: Sample Database
@@ -17,6 +18,6 @@ dataset_query:
         default: 50
 visualization_settings: {}
 serdes/meta:
-- id: 2u10n8GV6u0LFYrq8yV5p
+- id: dShCrdNatveOrders0005
   label: native_orders
   model: Card

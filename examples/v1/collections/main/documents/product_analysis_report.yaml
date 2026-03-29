@@ -16,8 +16,8 @@ document:
           text: "This document provides an overview of product performance metrics. The embedded query below shows aggregated stats by category."
     - type: cardEmbed
       attrs:
-        id: h5F2EjHsRd73Dqqh8sAtd
-        name: Basic Aggregations
+        id: cRdCaTbReAkDoWn0ExMp1
+        name: Category Breakdown
     - type: paragraph
       content:
         - type: text

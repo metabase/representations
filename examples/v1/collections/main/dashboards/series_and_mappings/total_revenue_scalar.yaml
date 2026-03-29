@@ -1,7 +1,9 @@
-name: Monthly Average Order
-entity_id: irROiaJoSsiXPKGxwWvWY
+name: Total Revenue
+entity_id: dShCrdTtlRevScalr0006
 creator_id: admin@example.com
-display: line
+display: scalar
+type: metric
+collection_id: cOlDaShBoArDs0ExAmPlx
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 dataset_query:
   database: Sample Database
@@ -12,22 +14,15 @@ dataset_query:
     - PUBLIC
     - ORDERS
     aggregation:
-    - - avg
+    - - sum
       - - field
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
         - base-type: type/Float
-    breakout:
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - CREATED_AT
-      - temporal-unit: month
 visualization_settings: {}
 serdes/meta:
-- id: irROiaJoSsiXPKGxwWvWY
-  label: monthly_avg_order
+- id: dShCrdTtlRevScalr0006
+  label: total_revenue_scalar
   model: Card
