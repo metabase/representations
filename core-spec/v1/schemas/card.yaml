@@ -17,9 +17,7 @@ properties:
     type: string
     description: Card name
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   display:
     type: string
     description: Visualization type
@@ -51,9 +49,7 @@ properties:
       - sankey
       - boxplot
   creator_id:
-    type: string
-    description: User FK (email address)
-    format: email
+    $ref: "common.yaml#/$defs/user_id"
   description:
     type:
       - string
@@ -76,10 +72,10 @@ properties:
       - metric
     default: question
   collection_id:
-    type:
-      - string
-      - "null"
-    description: Collection FK (entity_id), null for root collection
+    description: Collection FK, null for root collection
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   collection_position:
     type:
       - integer
@@ -90,202 +86,41 @@ properties:
     description: Show preview in collection view
     default: true
   dashboard_id:
-    type:
-      - string
-      - "null"
-    description: Dashboard FK (entity_id)
+    description: >
+      Dashboard FK. Nests this card under a dashboard as if the dashboard
+      were a container. Cards with dashboard_id set should only be used
+      within that dashboard. To reuse a card elsewhere, unset dashboard_id
+      and place the card directly in a collection.
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   document_id:
-    type:
-      - string
-      - "null"
-    description: Document FK (entity_id)
+    description: >
+      Document FK. Nests this card under a document as if the document
+      were a container. Cards with document_id set should only be used
+      within that document. To reuse a card elsewhere, unset document_id
+      and place the card directly in a collection.
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   database_id:
     type:
       - string
       - "null"
     description: Database FK (database name), should match database in dataset_query
   table_id:
-    description: Table FK [database, schema, table], should match source-table in query
+    description: Table FK, should match source-table in query
     oneOf:
-      - type: array
-        items:
-          type:
-            - string
-            - "null"
-        minItems: 3
-        maxItems: 3
+      - $ref: "common.yaml#/$defs/table_id"
       - type: "null"
   source_card_id:
-    type:
-      - string
-      - "null"
-    description: Card FK (entity_id) for source card
+    description: Source card FK
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   dataset_query:
-    type: object
     description: Query definition (MBQL or native)
-    required:
-      - database
-      - type
-    properties:
-      database:
-        type: string
-        description: Database FK (database name)
-      type:
-        type: string
-        description: Query type
-        enum:
-          - query
-          - native
-      query:
-        type: object
-        description: MBQL query (when type is "query")
-        properties:
-          source-table:
-            description: >
-              Data source. Either a Table FK array [database, schema, table]
-              for physical tables, or a Card entity_id string for saved
-              questions/models.
-            oneOf:
-              - type: array
-                description: Table FK [database, schema, table]
-                items:
-                  type:
-                    - string
-                    - "null"
-                minItems: 3
-                maxItems: 3
-              - type: string
-                description: Card entity_id (NanoID) referencing a saved card/model
-                pattern: "^[A-Za-z0-9_-]{21}$"
-          source-query:
-            type: object
-            description: >
-              Nested MBQL query used as the data source instead of a table.
-              Has the same structure as a top-level MBQL query. Fields from
-              the inner query's results are referenced by column name (string)
-              rather than a Field FK. Can be nested to arbitrary depth.
-            properties:
-              source-table:
-                description: Table FK or Card entity_id (same as top-level source-table)
-              source-query:
-                type: object
-                description: Further nested source query
-              filter: {}
-              aggregation:
-                type: array
-              breakout:
-                type: array
-              expressions:
-                type: object
-              order-by:
-                type: array
-              limit:
-                type:
-                  - integer
-                  - "null"
-              joins:
-                type: array
-          joins:
-            type: array
-            description: Join clauses
-            items:
-              type: object
-              properties:
-                source-table:
-                  type: array
-                  description: Table FK of joined table
-                condition:
-                  description: Join condition as MBQL clause
-                alias:
-                  type: string
-                  description: Join alias
-                strategy:
-                  type: string
-                  enum:
-                    - left-join
-                    - right-join
-                    - inner-join
-                    - full-join
-                fields:
-                  description: '"all", "none", or list of field clauses'
-          expressions:
-            type: object
-            description: Named computed columns as MBQL clauses
-            additionalProperties: true
-          filter:
-            description: Filter as MBQL clause
-          aggregation:
-            type: array
-            description: >
-              Aggregation clauses. Each clause is [function, ...args] where
-              function is count, sum, avg, min, max, distinct, cum-count,
-              cum-sum, stddev, var, median, percentile, count-where,
-              sum-where, share, or metric. A metric clause references a
-              saved metric card: [metric, entity_id].
-          breakout:
-            type: array
-            description: Breakout (GROUP BY) clauses
-          order-by:
-            type: array
-            description: Order-by clauses
-          limit:
-            type:
-              - integer
-              - "null"
-            description: Row limit
-      native:
-        type: object
-        description: Native SQL query (when type is "native")
-        required:
-          - query
-        properties:
-          query:
-            type: string
-            description: SQL query string
-          template-tags:
-            type: object
-            description: Template tag definitions
-            additionalProperties:
-              type: object
-              required:
-                - type
-                - name
-                - id
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - text
-                    - number
-                    - date
-                    - boolean
-                    - dimension
-                    - temporal-unit
-                    - card
-                    - snippet
-                    - table
-                name:
-                  type: string
-                id:
-                  type: string
-                  format: uuid
-                display-name:
-                  type: string
-                default: {}
-                dimension:
-                  description: Field FK for dimension type
-                widget-type:
-                  type: string
-                  description: Filter widget type for dimension type
-                card-id:
-                  type: string
-                  description: Card entity_id for card type
-                snippet-name:
-                  type: string
-                  description: Snippet name for snippet type
-                snippet-id:
-                  type: string
-                  description: Snippet entity_id for snippet type
+    $ref: "query.yaml"
   visualization_settings:
     type: object
     description: Display settings (can be empty {})
@@ -294,7 +129,7 @@ properties:
     type: array
     description: Native query parameters
     items:
-      $ref: "#/$defs/parameter"
+      $ref: "parameter.yaml"
   parameter_mappings:
     type: array
     description: Parameter mappings (unused, always empty)
@@ -329,10 +164,10 @@ properties:
     description: Public sharing UUID
     format: uuid
   made_public_by_id:
-    type:
-      - string
-      - "null"
-    description: User FK (email) who made this public
+    description: User who made this public
+    oneOf:
+      - $ref: "common.yaml#/$defs/user_id"
+      - type: "null"
   metabase_version:
     type:
       - string
@@ -374,70 +209,3 @@ properties:
         model:
           type: string
           const: Card
-
-$defs:
-  parameter:
-    type: object
-    description: A filter control parameter
-    required:
-      - id
-      - name
-      - slug
-      - type
-    properties:
-      id:
-        type: string
-        description: UUID identifier
-        format: uuid
-      name:
-        type: string
-        description: Display name
-      slug:
-        type: string
-        description: URL-friendly identifier
-      type:
-        type: string
-        description: >
-          Filter widget type: string/=, string/!=, string/contains,
-          string/starts-with, string/ends-with, number/=, number/!=,
-          number/>=, number/<=, number/between, date/single, date/range,
-          date/month-year, date/quarter-year, date/relative, date/all-options,
-          temporal-unit, id
-      default:
-        description: Default value (type depends on filter type)
-      required:
-        type: boolean
-        description: Whether a value is required
-      sectionId:
-        type: string
-        description: Parameter section grouping
-      temporal_units:
-        type: array
-        description: Allowed temporal units (for temporal-unit type)
-        items:
-          type: string
-          enum:
-            - minute
-            - hour
-            - day
-            - week
-            - month
-            - quarter
-            - year
-      values_query_type:
-        type: string
-        enum:
-          - list
-          - search
-          - none
-      values_source_type:
-        type:
-          - string
-          - "null"
-        enum:
-          - null
-          - card
-          - static-list
-      values_source_config:
-        type: object
-        additionalProperties: true

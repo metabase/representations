@@ -1,6 +1,0 @@
-entity_id: MVsZ5y7dc_rkXqi9IqBX0
-name: hourly
-serdes/meta:
-- id: MVsZ5y7dc_rkXqi9IqBX0
-  label: hourly
-  model: TransformTag

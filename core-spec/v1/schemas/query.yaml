@@ -1,0 +1,248 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Query
+description: >
+  A query definition in Metabase. Wraps either an MBQL structured query
+  or a native SQL query. The inner MBQL query supports recursive nesting
+  via source-query and recursive expression clauses.
+
+type: object
+required:
+  - database
+  - type
+properties:
+  database:
+    $ref: "common.yaml#/$defs/database_id"
+  type:
+    type: string
+    description: Query language type
+    enum:
+      - query
+      - native
+  query:
+    description: MBQL structured query (when type is "query")
+    $ref: "#/$defs/mbql_query"
+  native:
+    description: Native SQL query (when type is "native")
+    $ref: "#/$defs/native_query"
+
+$defs:
+  mbql_query:
+    type: object
+    description: >
+      An MBQL structured query. Supports recursive nesting via source-query
+      and recursive expression clauses for filter, aggregation, breakout,
+      expressions, and order-by.
+    properties:
+      source-table:
+        description: >
+          Data source. Either a Table FK array [database, schema, table]
+          for physical tables, or a Card entity_id string for saved
+          questions/models.
+        oneOf:
+          - description: Table FK [database, schema, table]
+            $ref: "common.yaml#/$defs/table_id"
+          - description: Card entity_id (NanoID) referencing a saved card/model
+            $ref: "common.yaml#/$defs/entity_id"
+      source-query:
+        description: >
+          Nested MBQL query used as the data source instead of a table.
+          Fields from the inner query are referenced by column name (string)
+          rather than a Field FK. Can be nested to arbitrary depth.
+        $ref: "#/$defs/mbql_query"
+      joins:
+        type: array
+        description: Join clauses
+        items:
+          $ref: "#/$defs/join"
+      expressions:
+        type: object
+        description: >
+          Named computed columns. Keys are column names, values are MBQL
+          expression clauses.
+        additionalProperties:
+          $ref: "#/$defs/expression"
+      filter:
+        description: >
+          Filter clause. Either a single comparison [op, field, value] or
+          a compound filter [and/or, ...clauses].
+        $ref: "#/$defs/expression"
+      aggregation:
+        type: array
+        description: >
+          Aggregation clauses. Each clause is [function, ...args] where
+          function is count, sum, avg, min, max, distinct, cum-count,
+          cum-sum, stddev, var, median, percentile, count-where, sum-where,
+          share, or metric. A metric clause references a saved metric card:
+          [metric, entity_id]. A measure clause: [measure, entity_id].
+        items:
+          $ref: "#/$defs/expression"
+      breakout:
+        type: array
+        description: Breakout (GROUP BY) clauses
+        items:
+          $ref: "#/$defs/expression"
+      order-by:
+        type: array
+        description: >
+          Order-by clauses. Each is [direction, expression] where direction
+          is "asc" or "desc".
+        items:
+          $ref: "#/$defs/expression"
+      limit:
+        type:
+          - integer
+          - "null"
+        description: Row limit
+
+  expression:
+    description: >
+      An MBQL expression clause (recursive). An expression is either a
+      literal value or an array [operator, ...args] where each arg can
+      itself be an expression. Common forms:
+        Field reference: [field, [db, schema, table, col], {base-type: ...}]
+        Arithmetic:      [+, expr, expr], [-, expr, expr]
+        Function call:   [concat, expr, ...], [datetime-add, expr, n, unit]
+        Comparison:      [=, expr, value], [between, expr, lo, hi]
+        Logical:         [and, clause, ...], [or, clause, ...], [not, clause]
+        Aggregation:     [count], [sum, expr], [avg, expr]
+        References:      [metric, entity_id], [measure, entity_id],
+                         [segment, entity_id], [aggregation, index]
+    oneOf:
+      - type: array
+        description: >
+          Clause: [operator, ...args]. First element is the operator/function
+          name. Remaining elements are arguments — field references, literal
+          values, option maps, or nested clauses.
+        items:
+          $ref: "#/$defs/expression_arg"
+        minItems: 1
+      - type: string
+        description: Literal string value or entity reference
+      - type: number
+        description: Literal number value
+      - type: boolean
+        description: Literal boolean value
+      - type: "null"
+
+  expression_arg:
+    description: >
+      An argument within an MBQL clause. Can be a literal value, a nested
+      clause array, or an options map.
+    oneOf:
+      - type: string
+      - type: number
+      - type: boolean
+      - type: "null"
+      - type: array
+        description: Nested clause or tuple (e.g., Field FK)
+        items:
+          $ref: "#/$defs/expression_arg"
+      - type: object
+        description: "Options map (e.g., {base-type: type/Integer})"
+
+  join:
+    type: object
+    description: A join clause combining data from another table or query.
+    properties:
+      source-table:
+        description: Table FK or Card entity_id of the joined data source
+        oneOf:
+          - description: Table FK [database, schema, table]
+            $ref: "common.yaml#/$defs/table_id"
+          - description: Card entity_id (NanoID)
+            $ref: "common.yaml#/$defs/entity_id"
+      condition:
+        description: Join condition as MBQL expression clause
+        $ref: "#/$defs/expression"
+      alias:
+        type: string
+        description: Join alias for referencing joined columns
+      strategy:
+        type: string
+        description: Join strategy
+        enum:
+          - left-join
+          - right-join
+          - inner-join
+          - full-join
+      fields:
+        description: >
+          Which fields to include from the joined table. "all" for all,
+          "none" for none, or an array of field reference clauses.
+        oneOf:
+          - type: string
+            enum:
+              - all
+              - none
+          - type: array
+            items:
+              $ref: "#/$defs/expression"
+
+  native_query:
+    type: object
+    description: A native SQL query with optional template tags for parameterization.
+    required:
+      - query
+    properties:
+      query:
+        type: string
+        description: SQL query string, may contain {{tag}} placeholders
+      template-tags:
+        type: object
+        description: >
+          Template tag definitions. Keys match {{tag}} placeholders in the
+          SQL query string.
+        additionalProperties:
+          $ref: "#/$defs/template_tag"
+
+  template_tag:
+    type: object
+    description: A template tag for parameterizing native SQL queries.
+    required:
+      - type
+      - name
+      - id
+    properties:
+      type:
+        type: string
+        description: Tag type
+        enum:
+          - text
+          - number
+          - date
+          - boolean
+          - dimension
+          - temporal-unit
+          - card
+          - snippet
+          - table
+      name:
+        type: string
+        description: Tag name (matches the {{name}} placeholder)
+      id:
+        type: string
+        description: UUID identifier
+        format: uuid
+      display-name:
+        type: string
+        description: Human-readable label
+      default:
+        description: Default value (type depends on tag type)
+      required:
+        type: boolean
+        description: Whether a value is required
+      dimension:
+        description: Field reference for dimension type
+        $ref: "#/$defs/expression"
+      widget-type:
+        type: string
+        description: Filter widget type (e.g., string/=, date/range)
+      card-id:
+        description: Card entity_id for card type tags
+        $ref: "common.yaml#/$defs/entity_id"
+      snippet-name:
+        type: string
+        description: Snippet name for snippet type tags
+      snippet-id:
+        description: Snippet entity_id for snippet type tags
+        $ref: "common.yaml#/$defs/entity_id"

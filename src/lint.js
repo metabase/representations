@@ -22,17 +22,28 @@ function getModel(doc) {
 export function lint({ version, folder }) {
   const schemasDir = resolve(PACKAGE_ROOT, `core-spec/${version}/schemas`);
 
-  // Load all schemas, keyed by model name
+  const ajv = new Ajv({ allErrors: true });
+  addFormats(ajv);
+
+  // Load all schemas — entity schemas (with serdes/meta model) are keyed by
+  // model name; shared sub-schemas (query.yaml, parameter.yaml, etc.) are
+  // registered by filename for $ref resolution.
   const schemas = {};
   for (const file of globSync("*.yaml", { cwd: schemasDir })) {
     const raw = yaml.load(readFileSync(resolve(schemasDir, file), "utf8"));
+    const { $schema, ...body } = raw;
     const model = extractModel(raw);
     if (model) {
-      schemas[model] = raw;
+      schemas[model] = body;
     } else {
-      console.error(`ERROR schemas/${file} — could not extract model name`);
-      process.exit(1);
+      ajv.addSchema(body, file);
     }
+  }
+
+  // Pre-compile validators for each entity schema
+  const validators = {};
+  for (const [model, schema] of Object.entries(schemas)) {
+    validators[model] = ajv.compile(schema);
   }
 
   // Find all YAML files in folder
@@ -66,17 +77,13 @@ export function lint({ version, folder }) {
       continue;
     }
 
-    const schema = schemas[model];
-    if (!schema) {
+    const validate = validators[model];
+    if (!validate) {
       console.error(`FAIL  ${relPath} — unknown model "${model}"`);
       failed++;
       continue;
     }
 
-    const ajv = new Ajv({ allErrors: true });
-    addFormats(ajv);
-    const { $schema, ...schemaBody } = schema;
-    const validate = ajv.compile(schemaBody);
     const valid = validate(doc);
 
     if (valid) {

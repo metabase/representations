@@ -14,13 +14,9 @@ properties:
     type: string
     description: Dashboard name
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   creator_id:
-    type: string
-    description: User FK (email address)
-    format: email
+    $ref: "common.yaml#/$defs/user_id"
   description:
     type:
       - string
@@ -35,10 +31,10 @@ properties:
     description: Archived directly vs. inherited
     default: false
   collection_id:
-    type:
-      - string
-      - "null"
-    description: Collection FK (entity_id), null for root collection
+    description: Collection FK, null for root collection
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   collection_position:
     type:
       - integer
@@ -85,10 +81,10 @@ properties:
     description: Public sharing UUID
     format: uuid
   made_public_by_id:
-    type:
-      - string
-      - "null"
-    description: User FK (email) who made this public
+    description: User who made this public
+    oneOf:
+      - $ref: "common.yaml#/$defs/user_id"
+      - type: "null"
   show_in_getting_started:
     type: boolean
     description: Show in getting started section
@@ -113,7 +109,7 @@ properties:
     type: array
     description: Dashboard filter parameters
     items:
-      $ref: "#/$defs/parameter"
+      $ref: "parameter.yaml"
   tabs:
     type: array
     description: >
@@ -128,9 +124,7 @@ properties:
         - position
       properties:
         entity_id:
-          type: string
-          description: NanoID identifier
-          pattern: "^[A-Za-z0-9_-]{21}$"
+          $ref: "common.yaml#/$defs/entity_id"
         name:
           type: string
           description: Tab name
@@ -167,72 +161,6 @@ properties:
           const: Dashboard
 
 $defs:
-  parameter:
-    type: object
-    description: A filter control parameter
-    required:
-      - id
-      - name
-      - slug
-      - type
-    properties:
-      id:
-        type: string
-        description: UUID identifier
-        format: uuid
-      name:
-        type: string
-        description: Display name
-      slug:
-        type: string
-        description: URL-friendly identifier
-      type:
-        type: string
-        description: >
-          Filter widget type: string/=, string/!=, string/contains,
-          string/starts-with, string/ends-with, number/=, number/!=,
-          number/>=, number/<=, number/between, date/single, date/range,
-          date/month-year, date/quarter-year, date/relative, date/all-options,
-          temporal-unit, id
-      default:
-        description: Default value (type depends on filter type)
-      required:
-        type: boolean
-        description: Whether a value is required
-      sectionId:
-        type: string
-        description: Parameter section grouping
-      temporal_units:
-        type: array
-        description: Allowed temporal units (for temporal-unit type)
-        items:
-          type: string
-          enum:
-            - minute
-            - hour
-            - day
-            - week
-            - month
-            - quarter
-            - year
-      values_query_type:
-        type: string
-        enum:
-          - list
-          - search
-          - none
-      values_source_type:
-        type:
-          - string
-          - "null"
-        enum:
-          - null
-          - card
-          - static-list
-      values_source_config:
-        type: object
-        additionalProperties: true
-
   dashcard:
     type: object
     description: >
@@ -247,14 +175,12 @@ $defs:
       - serdes/meta
     properties:
       entity_id:
-        type: string
-        description: NanoID identifier
-        pattern: "^[A-Za-z0-9_-]{21}$"
+        $ref: "common.yaml#/$defs/entity_id"
       card_id:
-        type:
-          - string
-          - "null"
-        description: Card FK (entity_id of the referenced card), null for virtual cards (text, heading, link, iframe, action, placeholder)
+        description: Card FK, null for virtual cards (text, heading, link, iframe, action, placeholder)
+        oneOf:
+          - $ref: "common.yaml#/$defs/entity_id"
+          - type: "null"
       row:
         type: integer
         description: Grid row position (0+)
@@ -274,15 +200,15 @@ $defs:
         description: Height in grid units (1+)
         minimum: 1
       action_id:
-        type:
-          - string
-          - "null"
-        description: Action FK (entity_id)
+        description: Action FK
+        oneOf:
+          - $ref: "common.yaml#/$defs/entity_id"
+          - type: "null"
       dashboard_tab_id:
-        type:
-          - string
-          - "null"
-        description: Tab entity_id, null for untabbed cards
+        description: Tab FK, null for untabbed cards
+        oneOf:
+          - $ref: "common.yaml#/$defs/entity_id"
+          - type: "null"
       inline_parameters:
         type: array
         description: Inline parameter overrides
@@ -331,8 +257,8 @@ $defs:
       - target
     properties:
       card_id:
-        type: string
-        description: Card FK (entity_id of the mapped card)
+        description: Card FK
+        $ref: "common.yaml#/$defs/entity_id"
       parameter_id:
         type: string
         description: UUID matching a dashboard parameter's id
@@ -354,8 +280,8 @@ $defs:
       - position
     properties:
       card_id:
-        type: string
-        description: Card FK (entity_id of the series card)
+        description: Card FK
+        $ref: "common.yaml#/$defs/entity_id"
       position:
         type: integer
         description: Display order (starting at 0)

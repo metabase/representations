@@ -11,9 +11,7 @@ required:
   - serdes/meta
 properties:
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   name:
     type: string
     description: Job name (e.g., "Daily job", "Hourly job")
@@ -55,14 +53,14 @@ properties:
       type: object
       properties:
         tag_id:
-          type: string
-          description: TransformTag entity_id
+          description: TransformTag FK
+          $ref: "common.yaml#/$defs/entity_id"
         position:
           type: integer
           description: Ordering position
         entity_id:
-          type: string
           description: NanoID of this job-tag association
+          $ref: "common.yaml#/$defs/entity_id"
         serdes/meta:
           type: array
           items:

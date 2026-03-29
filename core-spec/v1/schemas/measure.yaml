@@ -16,13 +16,9 @@ properties:
     type: string
     description: Measure name
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   creator_id:
-    type: string
-    description: User FK (email address)
-    format: email
+    $ref: "common.yaml#/$defs/user_id"
   description:
     type:
       - string
@@ -33,47 +29,30 @@ properties:
     description: Whether archived
     default: false
   definition:
-    type: object
     description: >
-      Aggregation definition in pMBQL format with database, type, and
-      query containing source-table and aggregation.
-    required:
-      - database
-      - type
-      - query
-    properties:
-      database:
-        type: string
-        description: Database FK (database name)
-      type:
-        type: string
-        enum:
-          - query
-      query:
-        type: object
+      Aggregation definition. Must use type: query with a physical table
+      source and at least one aggregation clause.
+    allOf:
+      - $ref: "query.yaml"
+      - type: object
         required:
-          - aggregation
-          - source-table
+          - database
+          - type
+          - query
         properties:
-          source-table:
-            type: array
-            description: Table FK [database, schema, table]
-            items:
-              type:
-                - string
-                - "null"
-            minItems: 3
-            maxItems: 3
-          aggregation:
-            type: array
-            description: >
-              Aggregation clauses. Each clause is [function, ...args].
-              Functions: count, sum, avg, min, max, distinct, cum-count,
-              cum-sum, stddev, var, median, percentile, count-where,
-              sum-where, share. Can also reference other saved measures
-              via [measure, entity_id].
-            items:
-              type: array
+          type:
+            const: query
+          query:
+            type: object
+            required:
+              - source-table
+              - aggregation
+            properties:
+              source-table:
+                description: >
+                  Table FK [database, schema, table]. Measures must reference
+                  a physical table, not a saved card/model.
+                $ref: "common.yaml#/$defs/table_id"
   created_at:
     type: string
     description: ISO 8601 timestamp

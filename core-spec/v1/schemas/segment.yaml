@@ -16,13 +16,9 @@ properties:
     type: string
     description: Segment name
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   creator_id:
-    type: string
-    description: User FK (email address)
-    format: email
+    $ref: "common.yaml#/$defs/user_id"
   description:
     type:
       - string
@@ -33,45 +29,30 @@ properties:
     description: Whether archived
     default: false
   definition:
-    type: object
     description: >
-      Filter definition specifying the source table and filter criteria.
-      Uses pMBQL format with database, type, and query containing
-      source-table and filter.
-    required:
-      - database
-      - type
-      - query
-    properties:
-      database:
-        type: string
-        description: Database FK (database name)
-      type:
-        type: string
-        enum:
-          - query
-      query:
-        type: object
+      Filter definition. Must use type: query with a physical table source
+      and a filter clause.
+    allOf:
+      - $ref: "query.yaml"
+      - type: object
         required:
-          - source-table
-          - filter
+          - database
+          - type
+          - query
         properties:
-          source-table:
-            type: array
-            description: Table FK [database, schema, table]
-            items:
-              type:
-                - string
-                - "null"
-            minItems: 3
-            maxItems: 3
-          filter:
-            description: >
-              MBQL filter clause. General form: [operator, field_ref, value].
-              Compound filters: [and/or, ...clauses].
-              Field reference: [field, [db, schema, table, field], options].
-              Operators: =, !=, <, >, <=, >=, is-null, not-null,
-              contains, starts-with, ends-with, between.
+          type:
+            const: query
+          query:
+            type: object
+            required:
+              - source-table
+              - filter
+            properties:
+              source-table:
+                description: >
+                  Table FK [database, schema, table]. Segments must reference
+                  a physical table, not a saved card/model.
+                $ref: "common.yaml#/$defs/table_id"
   created_at:
     type: string
     description: ISO 8601 timestamp

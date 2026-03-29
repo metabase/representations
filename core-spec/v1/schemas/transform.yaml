@@ -15,23 +15,19 @@ properties:
     type: string
     description: Transform name
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   creator_id:
-    type: string
-    description: User FK (email address)
-    format: email
+    $ref: "common.yaml#/$defs/user_id"
   description:
     type:
       - string
       - "null"
     description: Human-readable description
   collection_id:
-    type:
-      - string
-      - "null"
-    description: Collection FK (entity_id), null for root collection
+    description: Collection FK, null for root collection
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   source_database_id:
     type:
       - string
@@ -52,8 +48,7 @@ properties:
       - name
     properties:
       database:
-        type: string
-        description: Database FK (database name)
+        $ref: "common.yaml#/$defs/database_id"
       type:
         type: string
         const: table
@@ -72,11 +67,11 @@ properties:
       type: object
       properties:
         entity_id:
-          type: string
           description: NanoID of this tag association
+          $ref: "common.yaml#/$defs/entity_id"
         tag_id:
-          type: string
-          description: TransformTag entity_id
+          description: TransformTag FK
+          $ref: "common.yaml#/$defs/entity_id"
         position:
           type: integer
           description: Ordering position
@@ -125,66 +120,8 @@ $defs:
         type: string
         const: query
       query:
-        type: object
-        description: Dataset query (MBQL or native)
-        required:
-          - database
-          - type
-        properties:
-          database:
-            type: string
-            description: Database FK (database name)
-          type:
-            type: string
-            enum:
-              - query
-              - native
-          query:
-            type: object
-            description: MBQL query
-            properties:
-              source-table:
-                description: >
-                  Data source. Either a Table FK array [database, schema, table]
-                  for physical tables, or a Card entity_id string for saved
-                  questions/models.
-                oneOf:
-                  - type: array
-                    items:
-                      type:
-                        - string
-                        - "null"
-                    minItems: 3
-                    maxItems: 3
-                  - type: string
-                    pattern: "^[A-Za-z0-9_-]{21}$"
-              source-query:
-                type: object
-                description: Nested MBQL query used as the data source
-              joins:
-                type: array
-              expressions:
-                type: object
-                additionalProperties: true
-              filter: {}
-              aggregation:
-                type: array
-              breakout:
-                type: array
-              order-by:
-                type: array
-              limit:
-                type:
-                  - integer
-                  - "null"
-          native:
-            type: object
-            description: Native SQL query
-            properties:
-              query:
-                type: string
-              template-tags:
-                type: object
+        description: Query (MBQL or native)
+        $ref: "query.yaml"
       source-incremental-strategy:
         type: object
         description: Incremental execution strategy
@@ -218,8 +155,7 @@ $defs:
               type: string
               description: Variable name for the table in Python
             database_id:
-              type: string
-              description: Database FK (database name)
+              $ref: "common.yaml#/$defs/database_id"
             schema:
               type:
                 - string
@@ -234,8 +170,7 @@ $defs:
                 - "null"
               description: Metabase table ID
       source-database:
-        type: string
-        description: Database FK (database name)
+        $ref: "common.yaml#/$defs/database_id"
       source-incremental-strategy:
         type: object
         description: Incremental execution strategy

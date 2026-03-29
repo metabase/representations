@@ -1,0 +1,27 @@
+name: Monthly Cumulative Orders
+entity_id: ErQY8K5Tep4xBc3VY_-1e
+creator_id: admin@example.com
+display: line
+dashboard_id: 8xFV0XmZs2olbGKXWenfS
+dataset_query:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - cum-count
+    breakout:
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - temporal-unit: month
+visualization_settings: {}
+serdes/meta:
+- id: ErQY8K5Tep4xBc3VY_-1e
+  label: monthly_cumulative
+  model: Card

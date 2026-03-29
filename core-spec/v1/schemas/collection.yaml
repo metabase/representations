@@ -13,9 +13,7 @@ properties:
     type: string
     description: Collection name
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   description:
     type:
       - string
@@ -72,17 +70,16 @@ properties:
     description: Sample collection flag
     default: false
   parent_id:
-    type:
-      - string
-      - "null"
     description: >
-      Collection FK — entity_id of the parent collection,
-      or null for root-level collections.
+      Collection FK — parent collection, or null for root-level collections.
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   personal_owner_id:
-    type:
-      - string
-      - "null"
-    description: User FK (email) for personal collections
+    description: User FK for personal collections
+    oneOf:
+      - $ref: "common.yaml#/$defs/user_id"
+      - type: "null"
   created_at:
     type: string
     description: ISO 8601 timestamp

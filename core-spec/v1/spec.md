@@ -20,10 +20,11 @@ This specification covers user-created content entities. Database metadata entit
 8. [Collection](#collection)
 9. [Card](#card)
 10. [Dashboard](#dashboard)
-11. [Segment](#segment)
-12. [Measure](#measure)
-13. [Snippet](#snippet)
-14. [Transform](#transform)
+11. [Document](#document)
+12. [Segment](#segment)
+13. [Measure](#measure)
+14. [Snippet](#snippet)
+15. [Transform](#transform)
 
 ---
 
@@ -80,6 +81,8 @@ serdes/meta:
 
 ## Folder Structure
 
+**Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
+
 Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, and `transforms` holds transform entities. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
 ```
@@ -88,17 +91,17 @@ export-root/
 ├── collections/
 │   ├── main/                               # Main namespace (regular content)
 │   │   ├── {slug}.yaml                     # Entities in root collection
-│   │   └── {collection_slug}/              # A collection folder
-│   │       ├── {collection_slug}.yaml      # The collection's own definition
-│   │       ├── {card_slug}.yaml            # Cards, dashboards, timelines, etc.
+│   │   ├── {collection_slug}.yaml          # Collection definition (sibling of its folder)
+│   │   └── {collection_slug}/              # Collection contents
+│   │       ├── {card_slug}.yaml            # Cards, dashboards, documents, etc.
 │   │       ├── {dashboard_slug}.yaml       #   — all flat in the same folder
-│   │       └── {child_collection_slug}/    # Nested child collection
-│   │           ├── {child_collection_slug}.yaml
+│   │       ├── {child_slug}.yaml           # Child collection definition
+│   │       └── {child_slug}/              # Child collection contents
 │   │           └── ...
 │   ├── snippets/                           # Snippets namespace
 │   │   ├── {snippet_slug}.yaml             # Snippets in root snippet collection
-│   │   └── {collection_slug}/              # Snippet collection folder
-│   │       ├── {collection_slug}.yaml      # Collection definition (namespace: snippets)
+│   │   ├── {collection_slug}.yaml          # Snippet collection definition
+│   │   └── {collection_slug}/              # Snippet collection contents
 │   │       └── {snippet_slug}.yaml
 │   └── transforms/                         # Transforms namespace
 │       └── {transform_slug}.yaml
@@ -138,8 +141,21 @@ export-root/
 
 - Entity files are named `{slug}.yaml` where slug is the slugified entity name (lowercase, spaces to underscores).
 - Collection hierarchy is reflected in directory nesting within a namespace.
-- All entity types within a collection (cards, dashboards, timelines, metabots, documents) are stored flat in the same folder — no type-specific subdirectories.
+- A collection's definition file (`{slug}.yaml`) is placed **outside** its folder, as a sibling: e.g., `main/my_collection.yaml` defines the collection whose contents live in `main/my_collection/`.
+- All entity types within a collection (cards, dashboards, documents, etc.) are stored flat in the same folder — no type-specific subdirectories.
 - Collections are partitioned by namespace: `main/` for regular content, `snippets/` for SQL snippets, `transforms/` for transforms.
+
+### Entity Ownership and Containers
+
+Every entity's logical position in the collection hierarchy is determined by its `collection_id` field, not the folder structure on disk. The folder layout is for human organization only; Metabase imports entities based solely on their `collection_id`.
+
+Dashboards and documents act as **containers** for cards: a card with `dashboard_id` set is owned by that dashboard, and a card with `document_id` set is owned by that document. Container-owned cards behave as if the dashboard or document were a subcollection:
+
+- **`collection_id`** — Places the entity in a collection. `null` means root collection.
+- **`dashboard_id`** — Nests the card under a dashboard. The card should only be used within that dashboard. To reuse a card outside its dashboard, unset `dashboard_id` and place it directly in a collection.
+- **`document_id`** — Nests the card under a document. Same semantics as `dashboard_id`: the card should only be used within that document.
+
+When a dashboard or document moves collections, all cards nested under it move too. A card should never have both `dashboard_id` and `document_id` set.
 - Segments and measures live under their table's directory in the `databases/` tree.
 - Database, schema, and table folder names are slugified (e.g., `test-data (h2)` becomes `test_data__h2_`).
 - Slashes in names are escaped as `__SLASH__`, backslashes as `__BACKSLASH__`.
@@ -247,6 +263,67 @@ Field options (second argument) can be `null` or a map:
 | `temporal-unit` | string | Temporal bucketing unit (see [Temporal Units](#temporal-units)) |
 | `join-alias` | string | Alias of the join this field belongs to |
 | `binning` | map | Binning strategy (e.g., `{strategy: num-bins, num-bins: 10}`) |
+| `source-field` | array | Implicit join: FK field reference in the source table (see below) |
+| `source-field-name` | string | Implicit join: FK field by name, for nested queries |
+| `source-field-join-alias` | string | Implicit join: join-alias when the FK table is explicitly joined |
+
+#### Implicit Joins
+
+Fields from a related table can be referenced without an explicit `joins` clause by specifying how to traverse the foreign key relationship. This is called an **implicit join**.
+
+Use `source-field` to specify the FK field in the source table that links to the target table:
+
+```yaml
+# Get PRODUCTS.TITLE via ORDERS.PRODUCT_ID (implicit join)
+- field
+- - Sample Database
+  - PUBLIC
+  - PRODUCTS
+  - TITLE
+- source-field:
+  - field
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - PRODUCT_ID
+  - null
+```
+
+For **nested queries** (when `source-query` or `source-table` is a card entity_id), additionally set `source-field-name` to reference the FK column by its string name in the inner query's results. This is needed when the source query returns multiple fields that are both the same FK:
+
+```yaml
+- field
+- - Sample Database
+  - PUBLIC
+  - PRODUCTS
+  - TITLE
+- source-field:
+  - field
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - PRODUCT_ID
+  - null
+  source-field-name: PRODUCT_ID
+```
+
+When the source (FK) table is itself joined via an explicit `joins` clause, use `source-field-join-alias` to disambiguate which join the FK field comes from. The value must match the `alias` of the corresponding join:
+
+```yaml
+- field
+- - Sample Database
+  - PUBLIC
+  - PRODUCTS
+  - TITLE
+- source-field:
+  - field
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - PRODUCT_ID
+  - null
+  source-field-join-alias: Joined Orders
+```
 
 Expression references use the `expression` keyword:
 
@@ -2141,6 +2218,113 @@ serdes/meta:
 - id: Q_jD-f-9clKLFZ2TfUG2h
   label: orders_overview
   model: Dashboard
+```
+
+---
+
+## Document
+
+A document is a rich-text page that can contain prose, headings, lists, embedded cards/queries, and references to other entities. Documents use a [ProseMirror](https://prosemirror.net/)-compatible tree structure stored as JSON.
+
+Cards can be nested under a document via `card.document_id`, similar to how cards nest under dashboards. Embedded cards appear inline within the document content as `cardEmbed` nodes.
+
+### Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Document name (1-254 characters) |
+| `entity_id` | string | Yes | NanoID identifier |
+| `creator_id` | string | Yes | User FK (email) |
+| `document` | object | Yes | ProseMirror AST (see Document Nodes below) |
+| `serdes/meta` | array | Yes | Identity path with `model: Document` |
+| `content_type` | string | No | Always `"application/json+vnd.prose-mirror"` |
+| `description` | string | No | Description |
+| `collection_id` | string | No | Collection FK (entity_id) |
+| `collection_position` | integer | No | Position within collection |
+| `archived` | boolean | No | Whether archived (default: `false`) |
+| `archived_directly` | boolean | No | Archived directly vs. inherited |
+| `public_uuid` | string | No | Public sharing UUID |
+| `made_public_by_id` | string | No | User FK (email) |
+| `view_count` | integer | No | Number of times viewed |
+| `created_at` | string | No | ISO 8601 timestamp |
+
+### Document Nodes
+
+The `document` field contains a recursive tree of nodes. Each node has a `type` and optionally `content` (child nodes), `attrs` (node-specific properties), `text` (for text nodes), and `marks` (inline formatting).
+
+The root node is always `type: doc`.
+
+**Block nodes:**
+
+| Node Type | Description | Key Attributes |
+|-----------|-------------|----------------|
+| `doc` | Root node | — |
+| `paragraph` | Text block | — |
+| `heading` | Heading block | `level` (1–6) |
+| `blockquote` | Quoted text | — |
+| `codeBlock` | Code block | — |
+| `bulletList` | Unordered list (contains `listItem` nodes) | — |
+| `orderedList` | Ordered list (contains `listItem` nodes) | — |
+| `listItem` | List item (contains paragraphs or other blocks) | — |
+| `image` | Image embed | `src`, `alt`, `title` |
+| `cardEmbed` | Embedded card/query | `id` (card entity_id), `name` |
+| `smartLink` | Reference to another entity | `entityId`, `model` |
+| `table` | Data table (contains `tableRow` nodes) | — |
+
+**Inline nodes:**
+
+| Node Type | Description |
+|-----------|-------------|
+| `text` | Text content (has `text` property) |
+| `hardBreak` | Line break within a paragraph |
+
+**Marks** (inline formatting on text nodes): `bold`, `italic`, `code`, `link` (attrs: `href`), `underline`, `strike`.
+
+Card embeds reference cards by `entity_id` in the serialized form. The `id` attribute of a `cardEmbed` node is the card's NanoID.
+
+### Example
+
+```yaml
+name: Product Analysis Report
+entity_id: dOc1PrOdAnAlYsIsRpTx2
+creator_id: internal@metabase.com
+document:
+  type: doc
+  content:
+  - type: heading
+    attrs:
+      level: 1
+    content:
+    - type: text
+      text: Product Analysis Report
+  - type: paragraph
+    content:
+    - type: text
+      text: "Overview of product performance metrics."
+  - type: cardEmbed
+    attrs:
+      id: h5F2EjHsRd73Dqqh8sAtd
+      name: Basic Aggregations
+  - type: bulletList
+    content:
+    - type: listItem
+      content:
+      - type: paragraph
+        content:
+        - type: text
+          text: Revenue increased 15% quarter over quarter
+    - type: listItem
+      content:
+      - type: paragraph
+        content:
+        - type: text
+          text: Widget category remains the top performer
+content_type: "application/json+vnd.prose-mirror"
+collection_id: null
+serdes/meta:
+- id: dOc1PrOdAnAlYsIsRpTx2
+  label: product_analysis_report
+  model: Document
 ```
 
 ---

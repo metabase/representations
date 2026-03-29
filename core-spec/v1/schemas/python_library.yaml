@@ -11,9 +11,7 @@ required:
   - serdes/meta
 properties:
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   path:
     type: string
     description: Python file path (e.g., "common.py")

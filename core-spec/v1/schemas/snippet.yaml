@@ -15,13 +15,9 @@ properties:
     type: string
     description: "Snippet name (used in {{snippet: Name}} references)"
   entity_id:
-    type: string
-    description: NanoID identifier (21 characters, alphabet A-Za-z0-9_-)
-    pattern: "^[A-Za-z0-9_-]{21}$"
+    $ref: "common.yaml#/$defs/entity_id"
   creator_id:
-    type: string
-    description: User FK (email address)
-    format: email
+    $ref: "common.yaml#/$defs/user_id"
   content:
     type: string
     description: SQL content of the snippet (inlined when referenced)
@@ -35,10 +31,10 @@ properties:
     description: Whether archived
     default: false
   collection_id:
-    type:
-      - string
-      - "null"
-    description: Collection FK (entity_id) — snippets collection
+    description: Collection FK (snippets collection)
+    oneOf:
+      - $ref: "common.yaml#/$defs/entity_id"
+      - type: "null"
   template_tags:
     type: object
     description: Template tag definitions (usually empty)
