@@ -1,6 +1,7 @@
 name: Inline Parameters Dashboard
 entity_id: eUXWiB6QAXkOc7P1ozoat
 creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
 parameters:
 - id: d0000001-0000-0000-0000-000000000001
   name: Category

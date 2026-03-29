@@ -1,6 +1,7 @@
 name: All Parameter Types
 entity_id: thzuTON-F8WG6EcXTXrNK
 creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
 parameters:
 - id: a0000001-0000-0000-0000-000000000001
   name: Text Equals

@@ -1,6 +1,7 @@
 name: Tabbed Dashboard
 entity_id: 7RZUq1g5o1C5ws_e3ppKf
 creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
 width: full
 tabs:
 - entity_id: XcmNByL-bsDQ15jLHBUwr

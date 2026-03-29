@@ -1941,7 +1941,7 @@ target:
 
 ## Collection
 
-A collection is a folder-like container for organizing cards, dashboards, and other entities. Collection hierarchy is reflected in the directory structure.
+A collection is a folder-like container for organizing cards, dashboards, and other entities. Collection hierarchy is reflected in the directory structure. Subcollections must set `parent_id` to the entity_id of their parent collection.
 
 ### Schema
 
@@ -1964,17 +1964,27 @@ A collection is a folder-like container for organizing cards, dashboards, and ot
 
 ### Example
 
+**Root collection:**
+
 ```yaml
-name: Marketing Analytics
-entity_id: M-Q4pcV0qkiyJ0kiSWECl
-description: Reports for the marketing team
-slug: marketing_analytics
-namespace: null
-authority_level: official
-created_at: '2024-08-28T09:46:18.671622Z'
+name: Minimal
+entity_id: cOlMiNiMaL000ExAmPlx2
+slug: minimal
 serdes/meta:
-- id: M-Q4pcV0qkiyJ0kiSWECl
-  label: marketing_analytics
+- id: cOlMiNiMaL000ExAmPlx2
+  label: minimal
+  model: Collection
+```
+
+**Subcollection** (with `parent_id`):
+
+```yaml
+name: Reports
+entity_id: cOlRePorTs000ExAmPlx2
+parent_id: cOlMiNiMaL000ExAmPlx2
+serdes/meta:
+- id: cOlRePorTs000ExAmPlx2
+  label: reports
   model: Collection
 ```
 

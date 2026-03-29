@@ -1,6 +1,7 @@
 name: Click Behavior Examples
 entity_id: c0R_gvn90vURE5hdxK3f0
 creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
 parameters:
 - id: e0000001-0000-0000-0000-000000000001
   name: Category

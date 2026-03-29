@@ -1,6 +1,7 @@
 name: Series and Parameter Mappings
 entity_id: 8xFV0XmZs2olbGKXWenfS
 creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
 parameters:
 - id: c0000001-0000-0000-0000-000000000001
   name: Category

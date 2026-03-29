@@ -2,8 +2,9 @@ name: Monthly Average Order
 entity_id: dShCrdMnthlyAvgOr0003
 creator_id: admin@example.com
 display: line
-collection_id: cOlDaShBoArDs0ExAmPlx
 database_id: Sample Database
+dashboard_id: 8xFV0XmZs2olbGKXWenfS
+collection_id: cOlDaShBoArDs0ExAmPlx
 dataset_query:
   database: Sample Database
   type: query

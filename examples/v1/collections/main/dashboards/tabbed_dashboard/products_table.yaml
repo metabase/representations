@@ -2,8 +2,9 @@ name: Products Table
 entity_id: dShCrdProdsTables0007
 creator_id: admin@example.com
 display: table
-collection_id: cOlDaShBoArDs0ExAmPlx
 database_id: Sample Database
+dashboard_id: 7RZUq1g5o1C5ws_e3ppKf
+collection_id: cOlDaShBoArDs0ExAmPlx
 dataset_query:
   database: Sample Database
   type: query

@@ -1,6 +1,7 @@
 name: Virtual Cards Dashboard
 entity_id: Ylbpm_iPeEYav_o0kpUVD
 creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
 parameters: []
 tabs: []
 dashcards:

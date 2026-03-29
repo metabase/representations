@@ -3,8 +3,9 @@ entity_id: cRdCaTbReAkDoWn0ExMp1
 creator_id: internal@metabase.com
 display: bar
 type: question
-collection_id: cOlDoCuMeNtS0ExAmPlx2
 database_id: Sample Database
+document_id: dOc1PrOdAnAlYsIsRpTx2
+collection_id: cOlDoCuMeNtS0ExAmPlx2
 dataset_query:
   database: Sample Database
   type: query
