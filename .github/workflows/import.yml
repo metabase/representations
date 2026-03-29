@@ -11,83 +11,21 @@ jobs:
 
     env:
       MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
-
-    services:
-      metabase:
-        image: metabase/metabase-enterprise:latest
-        ports:
-          - 3000:3000
-        env:
-          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
+      MB_DB_TYPE: h2
+      MB_DB_FILE: /tmp/metabase
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for Metabase to be ready
-        run: |
-          echo "Waiting for Metabase to start..."
-          timeout 180 bash -c '
-            until curl -sf http://localhost:3000/api/health | grep -q ok; do
-              sleep 2
-            done
-          '
-          echo "Metabase is ready"
-
-      - name: Complete Metabase setup
-        run: |
-          # Get setup token
-          SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
-
-          # Create admin user and get session token
-          SETUP_PAYLOAD=$(jq -n \
-            --arg token "$SETUP_TOKEN" \
-            '{
-              token: $token,
-              user: {
-                email: "admin@test.com",
-                password: "Metabase123!",
-                first_name: "Admin",
-                last_name: "User",
-                site_name: "Import Test"
-              },
-              prefs: {
-                site_name: "Import Test",
-                site_locale: "en",
-                allow_tracking: false
-              }
-            }')
-
-          SESSION=$(curl -sf http://localhost:3000/api/setup -X POST \
-            -H 'Content-Type: application/json' \
-            -d "$SETUP_PAYLOAD" | jq -r '.id')
-
-          # Create an API key for import
-          API_KEY=$(curl -sf http://localhost:3000/api/api-key \
-            -H "X-Metabase-Session: $SESSION" \
-            -H 'Content-Type: application/json' \
-            -d '{"name":"import-key","group_id":2}' | jq -r '.unmasked_key')
-
-          echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
-
-      - name: Create import archive
-        run: tar czf /tmp/import.tgz -C examples/v1 .
+      - name: Pull Metabase
+        run: docker pull metabase/metabase-enterprise:latest
 
       - name: Import into Metabase
         run: |
-          RESPONSE=$(curl -sf -w "\n%{http_code}" \
-            -X POST \
-            -H "X-API-Key: $API_KEY" \
-            -F "file=@/tmp/import.tgz" \
-            "http://localhost:3000/api/ee/serialization/import")
-
-          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
-          BODY=$(echo "$RESPONSE" | head -n -1)
-
-          echo "$BODY"
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Import failed with HTTP $HTTP_CODE"
-            exit 1
-          fi
-
-          echo "Import succeeded"
+          docker run --rm \
+            -e MB_PREMIUM_EMBEDDING_TOKEN \
+            -e MB_DB_TYPE \
+            -e MB_DB_FILE \
+            -v "${{ github.workspace }}/examples/v1:/import" \
+            metabase/metabase-enterprise:latest \
+            import /import
