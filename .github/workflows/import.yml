@@ -27,7 +27,7 @@ jobs:
           docker run -d --name metabase \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
             -e MB_DB_TYPE=h2 \
-            -e MB_DB_FILE=/data/metabase \
+            -e MB_DB_FILE=/data/metabase.mv \
             -v "$MB_DIR:/data" \
             -p 3000:3000 \
             metabase/metabase-enterprise:latest
@@ -55,13 +55,14 @@ jobs:
           docker rm metabase
 
           # Verify H2 file exists
-          ls -la "$MB_DIR"/metabase.mv.db
+          echo "Files in MB_DIR:"
+          ls -la "$MB_DIR"/
 
           # Run import against the same H2 database
           docker run --rm \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
             -e MB_DB_TYPE=h2 \
-            -e MB_DB_FILE=/data/metabase \
+            -e MB_DB_FILE=/data/metabase.mv \
             -v "$MB_DIR:/data" \
             -v "${{ github.workspace }}/examples/v1:/import" \
             --entrypoint java \
