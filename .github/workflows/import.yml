@@ -27,5 +27,6 @@ jobs:
             -e MB_DB_TYPE \
             -e MB_DB_FILE \
             -v "${{ github.workspace }}/examples/v1:/import" \
+            --entrypoint java \
             metabase/metabase-enterprise:latest \
-            import /import
+            -jar /app/metabase.jar import /import
