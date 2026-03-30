@@ -725,6 +725,16 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
   - null
 - current
 - month
+
+# Last 30 days, offset by 1 month
+- relative-time-interval
+- - field
+  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - null
+- -30
+- day
+- -1
+- month
 ```
 
 #### Segment Reference
