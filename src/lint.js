@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { resolve, relative } from "path";
 import { globSync } from "glob";
 import yaml from "js-yaml";
-import Ajv from "ajv";
+import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 const PACKAGE_ROOT = resolve(import.meta.dirname, "..");
@@ -22,7 +22,7 @@ function getModel(doc) {
 export function lint({ version, folder }) {
   const schemasDir = resolve(PACKAGE_ROOT, `core-spec/${version}/schemas`);
 
-  const ajv = new Ajv({ allErrors: true });
+  const ajv = new Ajv({ allErrors: true, strictTuples: false });
   addFormats(ajv);
 
   // Load all schemas — entity schemas (with serdes/meta model) are keyed by

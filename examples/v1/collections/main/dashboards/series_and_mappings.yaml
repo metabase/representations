@@ -7,10 +7,12 @@ parameters:
   name: Category
   slug: category
   type: string/=
+  sectionId: string
 - id: c0000002-0000-0000-0000-000000000002
   name: Date Range
   slug: date_range
   type: date/range
+  sectionId: date
 tabs: []
 dashcards:
 - entity_id: WNjyHH5uA36yKp9D7X7bw
@@ -30,6 +32,7 @@ dashcards:
         - PRODUCTS
         - CATEGORY
       - null
+    - stage-number: 0
   - card_id: dShCrdMnthlyOrdrs0001
     parameter_id: c0000002-0000-0000-0000-000000000002
     target:

@@ -18,6 +18,7 @@ parameters:
   name: Category
   slug: category
   type: string/=
+  sectionId: string
 dashcards:
 - entity_id: _Bv8Qc16SHr8CtmMHBEub
   card_id: h5F2EjHsRd73Dqqh8sAtd

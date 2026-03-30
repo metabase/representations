@@ -17,14 +17,14 @@ This specification covers user-created content entities. Database metadata entit
 5. [Visualization Settings](#visualization-settings)
 6. [Click Behavior](#click-behavior)
 7. [Parameter](#parameter)
-8. [Collection](#collection)
-9. [Card](#card)
-10. [Dashboard](#dashboard)
-11. [Document](#document)
-12. [Segment](#segment)
-13. [Measure](#measure)
-14. [Snippet](#snippet)
-15. [Transform](#transform)
+8. [Collection](#collection-1)
+9. [Card](#card-1)
+10. [Dashboard](#dashboard-1)
+11. [Document](#document-1)
+12. [Segment](#segment-1)
+13. [Measure](#measure-1)
+14. [Snippet](#snippet-1)
+15. [Transform](#transform-1)
 
 ---
 
@@ -34,7 +34,7 @@ Metabase uses two ways of identifying entities: `entity_id` (NanoID) and natural
 
 ### NanoID
 
-`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **globally unique** within an instance — no two entities may share the same `entity_id`, regardless of entity type.
+`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **unique per entity type** within an instance — no two entities of the same type may share the same `entity_id`.
 
 Generate a NanoID in Bash:
 
@@ -58,13 +58,15 @@ User content entities reference database objects using natural keys:
 |-----------|--------|---------|
 | Database FK | database name | `"Sample Database"` |
 | Table FK | `[database, schema, table]` | `["Sample Database", "PUBLIC", "ORDERS"]` |
-| Field FK | `[database, schema, table, field]` | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
+| Field FK | `[database, schema, table, field, ...]` | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
 | Collection FK | entity_id of collection | `"M-Q4pcV0qkiyJ0kiSWECl"` |
 | Card FK | entity_id of card | `"f1C68pznmrpN1F5xFDj6d"` |
 | Dashboard FK | entity_id of dashboard | `"Q_jD-f-9clKLFZ2TfUG2h"` |
 | User FK | email address | `"internal@metabase.com"` |
 
 For schemaless databases, the schema component is `null` (e.g., `["My Database", null, "my_table"]`).
+
+For JSON-unfolded fields, the Field FK extends beyond 4 elements with the nested path: `["Sample Database", "PUBLIC", "EVENTS", "DATA", "user", "name"]` represents the JSON path `DATA.user.name`.
 
 ### SerDes Meta
 
@@ -83,7 +85,7 @@ serdes/meta:
 
 **Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
 
-Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, and `transforms` holds transform entities. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
+Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, and `transforms` holds transform entities. Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
 ```
 export-root/
@@ -124,10 +126,6 @@ export-root/
 │               │   └── {slug}.yaml
 │               └── measures/
 │                   └── {slug}.yaml
-├── actions/
-│   └── {slug}.yaml
-├── glossary/
-│   └── {term}.yaml
 ├── python_libraries/
 │   └── {slug}.yaml
 └── transforms/                             # Transform jobs and tags
@@ -157,7 +155,8 @@ Dashboards and documents act as **containers** for cards: a card with `dashboard
 
 When a dashboard or document moves collections, all cards nested under it move too. A card should never have both `dashboard_id` and `document_id` set.
 
-On disk, cards nested under a dashboard or document are placed in a subfolder matching the parent's filename (e.g., `dashboards/my_dashboard/card.yaml` for a card with `dashboard_id` pointing to `dashboards/my_dashboard.yaml`).
+On disk, cards nested under a dashboard or document are placed in a subfolder matching the parent's slug (e.g., `my_dashboard/card.yaml` as a sibling of `my_dashboard.yaml`, within the same collection folder).
+
 - Segments and measures live under their table's directory in the `databases/` tree.
 - Database, schema, and table folder names are slugified (e.g., `test-data (h2)` becomes `test_data__h2_`).
 - Slashes in names are escaped as `__SLASH__`, backslashes as `__BACKSLASH__`.
@@ -197,7 +196,7 @@ source-table:
 
 **Saved card/model as source:**
 
-When `source-table` is a string (NanoID), it references a saved card. Internally Metabase uses the `card__<id>` format; in serialization this is replaced with the card's entity_id. Fields from the card's results are referenced by column name (string) rather than a Field FK:
+When `source-table` is a string (NanoID), it references a saved card. Fields from the card's results are referenced by column name (string) rather than a Field FK:
 
 ```yaml
 database: Sample Database
@@ -262,9 +261,9 @@ Field options (second argument) can be `null` or a map:
 | Option | Type | Description |
 |--------|------|-------------|
 | `base-type` | string | Base type hint (e.g., `type/Float`, `type/Integer`) |
-| `temporal-unit` | string | Temporal bucketing unit (see [Temporal Units](#temporal-units)) |
+| `temporal-unit` | string | Temporal bucketing unit (see [Temporal Bucketing](#temporal-bucketing)) |
 | `join-alias` | string | Alias of the join this field belongs to |
-| `binning` | map | Binning strategy (e.g., `{strategy: num-bins, num-bins: 10}`) |
+| `binning` | map | Binning strategy (see [Binning](#binning)) |
 | `source-field` | array | Implicit join: FK field reference in the source table (see below) |
 | `source-field-name` | string | Implicit join: FK field by name, for nested queries |
 | `source-field-join-alias` | string | Implicit join: join-alias when the FK table is explicitly joined |
@@ -283,13 +282,13 @@ Use `source-field` to specify the FK field in the source table that links to the
   - PRODUCTS
   - TITLE
 - source-field:
-  - field
-  - - Sample Database
-    - PUBLIC
-    - ORDERS
-    - PRODUCT_ID
-  - null
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+  - PRODUCT_ID
 ```
+
+The `source-field` value is a raw Field FK (`[database, schema, table, field]`), not a field clause.
 
 For **nested queries** (when `source-query` or `source-table` is a card entity_id), additionally set `source-field-name` to reference the FK column by its string name in the inner query's results. This is needed when the source query returns multiple fields that are both the same FK:
 
@@ -300,12 +299,10 @@ For **nested queries** (when `source-query` or `source-table` is a card entity_i
   - PRODUCTS
   - TITLE
 - source-field:
-  - field
-  - - Sample Database
-    - PUBLIC
-    - ORDERS
-    - PRODUCT_ID
-  - null
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+  - PRODUCT_ID
   source-field-name: PRODUCT_ID
 ```
 
@@ -318,12 +315,10 @@ When the source (FK) table is itself joined via an explicit `joins` clause, use 
   - PRODUCTS
   - TITLE
 - source-field:
-  - field
-  - - Sample Database
-    - PUBLIC
-    - ORDERS
-    - PRODUCT_ID
-  - null
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+  - PRODUCT_ID
   source-field-join-alias: Joined Orders
 ```
 
@@ -509,15 +504,59 @@ order-by:
 limit: 10
 ```
 
-### Temporal Units
+### Temporal Bucketing
 
-Used in field options (`temporal-unit`), breakouts, and temporal operators.
+The `temporal-unit` field option groups a datetime column into time buckets. This is commonly used in breakouts to group results by month, quarter, etc.
 
-**Bucketing units:** `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
+**Bucketing units:** `default`, `millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
 
-**Extraction units:** `minute-of-hour`, `hour-of-day`, `day-of-week`, `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`.
+**Extraction units** (return an integer component): `minute-of-hour`, `hour-of-day`, `day-of-week`, `day-of-week-iso`, `day-of-month`, `day-of-year`, `week-of-year`, `week-of-year-iso`, `month-of-year`, `quarter-of-year`, `year-of-era`, `second-of-minute`.
 
-**Special:** `default`.
+```yaml
+# Breakout by month
+breakout:
+- - field
+  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - temporal-unit: month
+
+# Breakout by day of week
+breakout:
+- - field
+  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - temporal-unit: day-of-week
+```
+
+Bucketing units truncate the datetime (e.g., `month` groups `2024-03-15` into `2024-03-01`). Extraction units extract a numeric component (e.g., `day-of-week` returns 1–7).
+
+### Binning
+
+The `binning` field option groups a numeric or coordinate column into bins. This is commonly used in breakouts for histograms or geographic grids.
+
+Three strategies are available:
+
+| Strategy | Properties | Description |
+|----------|-----------|-------------|
+| `num-bins` | `num-bins` (integer) | Split into a fixed number of equal-width bins |
+| `bin-width` | `bin-width` (number) | Each bin has a fixed width |
+| `default` | — | Let Metabase choose an appropriate binning |
+
+```yaml
+# 10 equal bins
+breakout:
+- - field
+  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - binning:
+      strategy: num-bins
+      num-bins: 10
+
+# Bins of width 25
+breakout:
+- - field
+  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - binning:
+      strategy: bin-width
+      bin-width: 25
+```
 
 ---
 
@@ -621,7 +660,7 @@ Used in field options (`temporal-unit`), breakouts, and temporal operators.
 
 #### String
 
-All string filter operators accept an optional `case-sensitive` option (default: `true`). They are N-ary — multiple values are combined with OR.
+All string filter operators accept a `case-sensitive` option (default: `true`). They are N-ary — multiple values are combined with OR. When multiple values are present, the options map goes in the **second position** (after the operator, before the field).
 
 | Operator | Arguments | Description |
 |----------|-----------|-------------|
@@ -631,7 +670,7 @@ All string filter operators accept an optional `case-sensitive` option (default:
 | `ends-with` | 2+ string values | Ends with suffix |
 
 ```yaml
-# Case-insensitive contains
+# Single value, case-insensitive (options go last)
 - contains
 - - field
   - [Sample Database, PUBLIC, PRODUCTS, TITLE]
@@ -639,21 +678,36 @@ All string filter operators accept an optional `case-sensitive` option (default:
 - widget
 - case-sensitive: false
 
-# Starts with (multiple values = OR)
+# Multiple values (options map in second position, can be empty {})
 - starts-with
+- {}
 - - field
   - [Sample Database, PUBLIC, PEOPLE, NAME]
   - null
 - John
 - Jane
+
+# Multiple values, case-insensitive
+- starts-with
+- case-sensitive: false
+- - field
+  - [Sample Database, PUBLIC, PEOPLE, NAME]
+  - null
+- John
+- Jane
+- Charlie
 ```
 
 #### Temporal
 
 | Operator | Arguments | Description |
 |----------|-----------|-------------|
-| `time-interval` | temporal-field, n, unit | Relative time interval. `n` can be an integer, `:current`, `:last`, or `:next`. |
+| `time-interval` | temporal-field, n, unit | Relative time interval. `n` can be an integer, `current`, `last`, or `next`. |
 | `relative-time-interval` | temporal-field, value, bucket, offset-value, offset-bucket | Relative interval with offset |
+
+**Valid units** for `time-interval` and `relative-time-interval`: `millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year` (truncation units only).
+
+**Valid units** for `relative-datetime`: same as above, plus `default`.
 
 Options for `time-interval`: `{include-current: true/false}` (default: `false`).
 
@@ -792,6 +846,22 @@ aggregation:
     - Widget
 ```
 
+#### Named Aggregations
+
+Aggregations can have a custom display name using the `aggregation-options` wrapper:
+
+```yaml
+aggregation:
+- - aggregation-options
+  - - sum
+    - - field
+      - [Sample Database, PUBLIC, ORDERS, TOTAL]
+      - base-type: type/Float
+  - display-name: Total Revenue
+```
+
+The structure is `[aggregation-options, aggregation-clause, {display-name: "Name"}]`.
+
 #### Metric and Measure References
 
 A `metric` clause references a saved metric (a card with `type: metric`) by its entity_id:
@@ -819,15 +889,17 @@ aggregation:
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
 | `+` | 2+ numeric (or temporal + interval) | numeric / temporal | Addition |
-| `-` | 2+ numeric (or temporal − interval) | numeric / interval | Subtraction |
+| `-` | 1+ numeric (or temporal − interval) | numeric / interval | Subtraction (unary = negation) |
 | `*` | 2+ numeric | numeric | Multiplication |
 | `/` | 2+ numeric | float | Division (always returns float) |
+
+**Note:** The `-` operator must be quoted as `"-"` in YAML when it appears as the first element of a list, to avoid being parsed as a list indicator.
 
 ```yaml
 # Subtraction: TOTAL - TAX
 expressions:
   Profit:
-  - -
+  - "-"
   - - field
     - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - null
@@ -1026,6 +1098,7 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
 | `case` | pairs of [condition, value], optional default | value type | Conditional expression (if/then/else) |
+| `if` | same as `case` | value type | Alias for `case` |
 | `coalesce` | 2+ expressions | first non-null type | First non-null value |
 
 ```yaml
@@ -1078,6 +1151,10 @@ Used as values in filter clauses:
 |---------|-----------|-------------|
 | `absolute-datetime` | value, unit | Specific date/time (e.g., `2024-01-01`, `day`) |
 | `relative-datetime` | n, unit | Relative to now. `n` = integer or `current`. |
+
+**Units for `absolute-datetime`:** Any bucketing unit — truncation units (`millisecond` through `year`), extraction units (`minute-of-hour`, `day-of-week`, etc.), or `default`.
+
+**Units for `relative-datetime`:** Truncation units (`millisecond` through `year`) or `default`.
 
 ```yaml
 # Filter: created after Jan 1 2024
@@ -1244,7 +1321,7 @@ When no value is provided, the entire `WHERE {{tag}}` clause is omitted (the que
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `dimension` | array | Yes | Field FK as a field clause: `[field, [db, schema, table, field], options]` |
+| `dimension` | array | Yes | Field clause: `[field, Field FK, options]` (see [Field References](#field-references)) |
 | `widget-type` | string | Yes | Filter widget type — any value from [Parameter Types](#parameter-types) |
 | `default` | any | No | Default filter value |
 | `required` | boolean | No | Whether a value must be provided |
@@ -1284,7 +1361,7 @@ A temporal grouping variable. Metabase replaces the tag with a `DATE_TRUNC(unit,
 |----------|------|----------|-------------|
 | `default` | string | No | Default temporal unit (e.g., `month`) |
 | `dimension` | array | No | Field FK — the temporal column to group |
-| `alias` | string | No | SQL alias for the temporal expression |
+| `alias` | string | No | Name used to reference this expression in the SQL query (e.g., in `SELECT {{tag}} AS alias`) |
 
 ```yaml
 native:
@@ -1352,7 +1429,7 @@ native:
       type: snippet
       name: "snippet: Active Order Filter"
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
-      display-name: Snippet: Active Order Filter
+      display-name: "Snippet: Active Order Filter"
       snippet-name: Active Order Filter
       snippet-id: xK7mPqR2sT4uVwXyZ9a1b
 ```
@@ -1373,20 +1450,6 @@ Reference a table dynamically. The user selects a table from a dropdown and Meta
 |----------|------|----------|-------------|
 | `table-id` | array | Yes | Table FK `[database, schema, table]` |
 | `emit-alias` | boolean | No | Whether to emit the table name as an alias |
-| `source-filters` | array | No | Filters restricting which tables are available |
-
-Source filter structure:
-
-```yaml
-source-filters:
-- field-id:                    # Field FK
-  - Sample Database
-  - PUBLIC
-  - PRODUCTS
-  - CATEGORY
-  op: "="                      # Operator: =, !=, <, >, <=, >=
-  value: Widget
-```
 
 ```yaml
 native:
@@ -1469,7 +1532,7 @@ series_settings:
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| `"table.columns"` | array | Column order and visibility — each entry: `{name, fieldRef, enabled}` |
+| `"table.columns"` | array | Column order and visibility — each entry: `{name, enabled}` |
 | `"table.column_formatting"` | array | Conditional formatting rules |
 | `"table.cell_column"` | string | Column to use for cell values (in pivot mode) |
 | `"table.pivot"` | boolean | Enable pivot mode |
@@ -1613,7 +1676,7 @@ scalar.comparisons:
 
 ### Column Settings
 
-Per-column formatting stored in `column_settings`, keyed by column reference (e.g., `["ref",["field",123,null]]` stringified, or `["name","COLUMN_NAME"]`):
+Per-column formatting stored in `column_settings`, keyed by column name (e.g., `["name","COLUMN_NAME"]`):
 
 ```yaml
 column_settings:
@@ -1678,14 +1741,6 @@ visualization_settings:
     display: iframe
   iframe: '<iframe src="https://example.com/embed"></iframe>'
 
-# Action button
-visualization_settings:
-  virtual_card:
-    display: action
-  "button.label": "Run Action"
-  "button.variant": primary        # "primary", "danger"
-  actionDisplayType: button        # "button", "form"
-
 # Placeholder
 visualization_settings:
   virtual_card:
@@ -1705,7 +1760,6 @@ Click behaviors define what happens when a user clicks on a dashboard card or a 
 | `actionMenu` | Default drill-through menu (no explicit config needed) |
 | `crossfilter` | Filter the dashboard using the clicked value |
 | `link` | Navigate to a URL, question, or dashboard |
-| `action` | Execute a writeback action (insert, update, delete) |
 
 ### Crossfilter
 
@@ -1791,30 +1845,6 @@ click_behavior:
           - null
 ```
 
-### Action
-
-Execute a writeback action:
-
-```yaml
-# Insert action
-click_behavior:
-  type: action
-  actionType: insert
-  tableId: 42
-
-# Update action
-click_behavior:
-  type: action
-  actionType: update
-  objectDetailDashCardId: 7
-
-# Delete action
-click_behavior:
-  type: action
-  actionType: delete
-  objectDetailDashCardId: 7
-```
-
 ### Parameter Mapping Structure
 
 Each entry in `parameterMapping`:
@@ -1829,7 +1859,7 @@ Each entry in `parameterMapping`:
 | `target` | object | Where the value goes |
 | `target.id` | string | Target parameter ID or dimension |
 | `target.type` | string | `"parameter"`, `"dimension"`, or `"variable"` |
-| `target.dimension` | array | Field reference (for dimension targets) |
+| `target.dimension` | array | Parameter target (same format as dashboard parameter mapping targets — see [Parameter Targets](#parameter-targets)) |
 
 ---
 
@@ -1853,9 +1883,50 @@ On **cards**, parameters are typically empty `[]` for MBQL queries. For native q
 | `required` | boolean | No | Whether a value is required |
 | `sectionId` | string | No | Parameter section grouping |
 | `temporal_units` | array | No | Allowed temporal units (for `temporal-unit` type) |
-| `values_query_type` | string | No | `"list"`, `"search"`, or `"none"` |
-| `values_source_type` | string | No | `null`, `"card"`, or `"static-list"` |
-| `values_source_config` | map | No | Values source configuration |
+| `values_query_type` | string | No | `"list"`, `"search"`, or `"none"` — controls how values are fetched |
+| `values_source_type` | string | No | `null`, `"card"`, or `"static-list"` — where values come from |
+| `values_source_config` | map | No | Source configuration (see below) |
+
+### Values Source Configuration
+
+When `values_source_type` is `"static-list"`, the config provides inline values:
+
+```yaml
+values_source_type: static-list
+values_source_config:
+  values:
+  - [1, "One"]
+  - [2, "Two"]
+```
+
+When `values_source_type` is `"card"`, the config references a card:
+
+```yaml
+values_source_type: card
+values_source_config:
+  card_id: f1C68pznmrpN1F5xFDj6d
+  value_field:
+  - field
+  - - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    - ID
+  - null
+  label_field:
+  - field
+  - - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    - TITLE
+  - null
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `values` | array | Static list of `[value, label]` pairs (for `static-list`) |
+| `card_id` | string | Card entity_id to source values from (for `card`) |
+| `value_field` | array | Field clause for extracting values from card results |
+| `label_field` | array | Field clause for extracting display labels from card results |
 
 ### Parameter Types
 
@@ -1879,18 +1950,33 @@ On **cards**, parameters are typically empty `[]` for MBQL queries. For native q
 | `date/relative` | Relative date (e.g., "last 7 days") |
 | `date/all-options` | All date filter options |
 | `boolean/=` | Boolean equals |
-| `id` | ID filter |
-| `category` | Category filter |
-| `location/city` | City filter |
-| `location/state` | State filter |
-| `location/zip_code` | Zip code filter |
-| `location/country` | Country filter |
 | `temporal-unit` | Temporal unit selector |
 | `none` | No filter widget (unconfigured) |
 
+### sectionId
+
+The `sectionId` property restricts which columns are available for mapping in the UI. It is optional — when omitted, Metabase infers it from the parameter type.
+
+| sectionId | Available columns | Typical parameter types |
+|-----------|-------------------|------------------------|
+| `string` | Text columns | `string/=`, `string/!=`, `string/contains`, etc. |
+| `number` | Numeric columns | `number/=`, `number/!=`, `number/between`, etc. |
+| `date` | Date/time columns | `date/single`, `date/range`, `date/relative`, etc. |
+| `boolean` | Boolean columns | `boolean/=` |
+| `temporal-unit` | Temporal unit selector | `temporal-unit` |
+| `id` | Only PK and FK columns | `number/=` or `string/=` with `sectionId: id` |
+| `location` | Only location columns (country, city, etc.) | `string/=` with `sectionId: location` |
+
+Use `sectionId: id` to make a `number/=` or `string/=` parameter map only to primary key and foreign key columns. Use `sectionId: location` to restrict mapping to location-typed columns.
+
 ### Parameter Targets
 
-Parameter targets specify which column or variable a parameter maps to.
+Parameter targets specify which column or variable a parameter maps to. The outer wrapper is either `dimension` or `variable`:
+
+- **`dimension`** — for MBQL column references (`field`, `expression`) and for native template tags of type `dimension` or `temporal-unit`
+- **`variable`** — for native template tags of type `text`, `number`, `date`, or `boolean`
+
+An optional third element `{stage-number: N}` can specify which query stage the target belongs to (0 = first stage).
 
 **MBQL — field reference:**
 
@@ -1919,7 +2005,16 @@ target:
 - stage-number: 1
 ```
 
-**Native — dimension/temporal-unit variable:**
+**MBQL — expression reference:**
+
+```yaml
+target:
+- dimension
+- - expression
+  - Profit
+```
+
+**Native — field filter (`dimension`) or time grouping (`temporal-unit`) template tag:**
 
 ```yaml
 target:
@@ -1928,7 +2023,7 @@ target:
   - category_filter
 ```
 
-**Native — text/number/date/boolean variable:**
+**Native — other template tags (`text`, `number`, `date`, `boolean`):**
 
 ```yaml
 target:
@@ -2046,6 +2141,7 @@ entity_id: f1C68pznmrpN1F5xFDj6d
 display: table
 creator_id: internal@metabase.com
 type: question
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query
@@ -2145,15 +2241,14 @@ A dashboard card places a card (question) on the dashboard grid. Most dashboard 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `entity_id` | string | Yes | NanoID identifier |
-| `card_id` | string | Yes | Card FK (entity_id of the referenced card) |
+| `card_id` | string | No | Card FK (entity_id), `null` for virtual cards (text, heading, link, iframe, placeholder) |
 | `row` | integer | Yes | Grid row position (0+) |
 | `col` | integer | Yes | Grid column position (0–23) |
 | `size_x` | integer | Yes | Width in grid units (1–24) |
 | `size_y` | integer | Yes | Height in grid units (1+) |
 | `serdes/meta` | array | Yes | Identity path: Dashboard → DashboardCard |
-| `action_id` | string | No | Action FK (entity_id) |
 | `dashboard_tab_id` | string | No | Tab entity_id, `null` for untabbed |
-| `inline_parameters` | array | No | Inline parameter overrides |
+| `inline_parameters` | array | No | List of parameter UUIDs to display directly on this dashcard |
 | `parameter_mappings` | array | No | Parameter-to-card mappings (see below) |
 | `series` | array | No | Overlay series (see below) |
 | `visualization_settings` | map | No | Display settings |
@@ -2192,16 +2287,16 @@ parameters:
   slug: category
   type: string/=
 tabs:
-- entity_id: tAb1dEntIdHere12345
+- entity_id: tAb1dEntIdHere1234x5
   name: Overview
   position: 0
-- entity_id: tAb2dEntIdHere12345
+- entity_id: tAb2dEntIdHere1234x5
   name: Details
   position: 1
 dashcards:
 - entity_id: UkpFcfUZMZt9ehChwnrAO
   card_id: f1C68pznmrpN1F5xFDj6d
-  dashboard_tab_id: tAb1dEntIdHere12345
+  dashboard_tab_id: tAb1dEntIdHere1234x5
   row: 0
   col: 0
   size_x: 12
@@ -2295,6 +2390,9 @@ The `document` field contains a recursive tree of nodes. The root node is always
 | `orderedList` | Ordered list (contains `listItem` nodes) |
 | `listItem` | List item (contains paragraphs or other blocks) |
 | `table` | Data table (contains `tableRow` nodes) |
+| `tableRow` | Table row (contains `tableCell` or `tableHeader` nodes) |
+| `tableCell` | Table cell |
+| `tableHeader` | Table header cell |
 
 **Block nodes (with attrs):**
 
@@ -2414,17 +2512,17 @@ definition:
   query:
     source-table:
     - Sample Database
-  - PUBLIC
-  - PRODUCTS
-  filter:
-  - =
-  - - field
-    - - Sample Database
-      - PUBLIC
-      - PRODUCTS
-      - CATEGORY
-    - null
-  - Widget
+    - PUBLIC
+    - PRODUCTS
+    filter:
+    - =
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+      - null
+    - Widget
 serdes/meta:
 - id: aB3kLmN9pQrStUvWxYz1a
   label: widget_products
@@ -2689,6 +2787,7 @@ A shared Python source file available to transforms. Stored in `python_libraries
 name: Product summary
 entity_id: rT5vWxYz1aBcDeFgHiJkL
 creator_id: internal@metabase.com
+source_database_id: Sample Database
 source:
   type: query
   query:

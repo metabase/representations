@@ -14,7 +14,7 @@ dataset_query:
     expressions:
       Absolute Discount:
       - abs
-      - - -
+      - - "-"
         - - field
           - - Sample Database
             - PUBLIC
