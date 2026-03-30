@@ -20,13 +20,8 @@ dataset_query:
           - TOTAL
         - base-type: type/Float
     - - offset
-      - - sum
-        - - field
-          - - Sample Database
-            - PUBLIC
-            - ORDERS
-            - TOTAL
-          - base-type: type/Float
+      - - aggregation
+        - 0
       - -1
     breakout:
     - - field
