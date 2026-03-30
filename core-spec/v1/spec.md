@@ -1132,6 +1132,8 @@ expressions:
 
 #### Window Functions
 
+Window functions can only be used inside the `aggregation` clause.
+
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
 | `offset` | expression, n | same type | Value from n rows before (negative) or after (positive) |

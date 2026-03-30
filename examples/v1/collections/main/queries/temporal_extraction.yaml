@@ -114,6 +114,41 @@ dataset_query:
             - CREATED_AT
           - null
         - us
+      Day of Week Default:
+      - get-day-of-week
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Week Number Default:
+      - get-week
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Extracted Month:
+      - temporal-extract
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - month-of-year
+      Extracted Day of Week ISO:
+      - temporal-extract
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - day-of-week
+      - iso
     limit: 10
 visualization_settings: {}
 serdes/meta:

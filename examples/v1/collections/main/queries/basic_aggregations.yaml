@@ -41,6 +41,13 @@ dataset_query:
           - ORDERS
           - TOTAL
         - base-type: type/Float
+    - - count
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - PRODUCT_ID
+        - null
     - - distinct
       - - field
         - - Sample Database
@@ -48,6 +55,16 @@ dataset_query:
           - ORDERS
           - PRODUCT_ID
         - null
+    - - aggregation-options
+      - - sum
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+          - base-type: type/Float
+      - display-name: Total Revenue
+        name: total_revenue
     breakout:
     - - field
       - - Sample Database
@@ -59,6 +76,9 @@ dataset_query:
     - - desc
       - - aggregation
         - 0
+    - - asc
+      - - aggregation
+        - 1
     limit: 12
 visualization_settings: {}
 serdes/meta:

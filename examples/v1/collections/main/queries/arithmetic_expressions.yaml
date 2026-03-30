@@ -11,6 +11,58 @@ dataset_query:
     - Sample Database
     - PUBLIC
     - ORDERS
+    expressions:
+      Total Plus Tax:
+      - "+"
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - SUBTOTAL
+        - base-type: type/Float
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TAX
+        - base-type: type/Float
+      Price Difference:
+      - "-"
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - SUBTOTAL
+        - base-type: type/Float
+      Double Quantity:
+      - "*"
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - QUANTITY
+        - base-type: type/Integer
+      - 2
+      Per Unit Price:
+      - "/"
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+        - base-type: type/Float
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - QUANTITY
+        - base-type: type/Integer
     aggregation:
     - - sum
       - - field
