@@ -102,79 +102,13 @@ $defs:
       - type: number
       - type: boolean
       - type: "null"
-      # Field reference: [field, FK-or-name, options-or-null]
-      - type: array
-        prefixItems:
-          - const: field
-          - anyOf:
-              - description: Field FK
-                $ref: "common.yaml#/$defs/field_id"
-              - type: string
-                description: Column name (for nested queries)
-          - anyOf:
-              - type: object
-                description: Field options
-                properties:
-                  base-type:
-                    type: string
-                    description: Base type hint (e.g., type/Float, type/Integer)
-                  temporal-unit:
-                    $ref: "common.yaml#/$defs/datetime_bucketing_unit"
-                  join-alias:
-                    type: string
-                    description: Alias of the join this field belongs to
-                  binning:
-                    type: object
-                    description: >
-                      Binning strategy. Use {strategy: num-bins, num-bins: N}
-                      or {strategy: bin-width, bin-width: N} or {strategy: default}.
-                    required:
-                      - strategy
-                    properties:
-                      strategy:
-                        type: string
-                        enum: [default, num-bins, bin-width]
-                      num-bins:
-                        type: integer
-                        description: Number of bins (for num-bins strategy)
-                        minimum: 1
-                      bin-width:
-                        type: number
-                        description: Width of each bin (for bin-width strategy)
-                        exclusiveMinimum: 0
-                  source-field:
-                    description: FK field reference for implicit joins
-                    $ref: "common.yaml#/$defs/field_id"
-                  source-field-name:
-                    type: string
-                    description: FK field name for implicit joins in nested queries
-                  source-field-join-alias:
-                    type: string
-                    description: Join alias when FK table is explicitly joined
-              - type: "null"
-        minItems: 3
-        maxItems: 3
-      # Expression name ref: [expression, name]
-      - type: array
-        prefixItems:
-          - const: expression
-          - type: string
-        minItems: 2
-        maxItems: 2
-      # Aggregation index ref: [aggregation, index]
-      - type: array
-        prefixItems:
-          - const: aggregation
-          - type: integer
-        minItems: 2
-        maxItems: 2
-      # Entity refs: [metric/measure/segment, entity_id]
-      - type: array
-        prefixItems:
-          - enum: [metric, measure, segment]
-          - type: string
-        minItems: 2
-        maxItems: 2
+      # References (field, expression, aggregation, metric, measure, segment)
+      - $ref: "ref.yaml#/$defs/field_ref"
+      - $ref: "ref.yaml#/$defs/expression_ref"
+      - $ref: "ref.yaml#/$defs/aggregation_ref"
+      - $ref: "ref.yaml#/$defs/metric_ref"
+      - $ref: "ref.yaml#/$defs/measure_ref"
+      - $ref: "ref.yaml#/$defs/segment_ref"
       # Value literal: [value, literal, options]
       - type: array
         prefixItems:

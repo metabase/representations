@@ -206,7 +206,11 @@ $defs:
           - type: "null"
       inline_parameters:
         type: array
-        description: Inline parameter overrides
+        description: >
+          List of parameter IDs to display directly on this
+          dashcard instead of at the top of the dashboard.
+        items:
+          type: string
       parameter_mappings:
         type: array
         description: Connects dashboard parameters to card columns/variables
@@ -256,14 +260,9 @@ $defs:
         $ref: "common.yaml#/$defs/entity_id"
       parameter_id:
         type: string
-        description: UUID matching a dashboard parameter's id
-        format: uuid
+        description: ID matching a dashboard parameter's id
       target:
-        type: array
-        description: >
-          Parameter target. For MBQL: [dimension, [field, Field FK, opts]].
-          For native dimension: [dimension, [template-tag, tag_name]].
-          For native variable: [variable, [template-tag, tag_name]].
+        $ref: "parameter.yaml#/$defs/parameter_target"
 
   series:
     type: object

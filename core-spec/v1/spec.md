@@ -17,14 +17,14 @@ This specification covers user-created content entities. Database metadata entit
 5. [Visualization Settings](#visualization-settings)
 6. [Click Behavior](#click-behavior)
 7. [Parameter](#parameter)
-8. [Collection](#collection)
-9. [Card](#card)
-10. [Dashboard](#dashboard)
-11. [Document](#document)
-12. [Segment](#segment)
-13. [Measure](#measure)
-14. [Snippet](#snippet)
-15. [Transform](#transform)
+8. [Collection](#collection-1)
+9. [Card](#card-1)
+10. [Dashboard](#dashboard-1)
+11. [Document](#document-1)
+12. [Segment](#segment-1)
+13. [Measure](#measure-1)
+14. [Snippet](#snippet-1)
+15. [Transform](#transform-1)
 
 ---
 
@@ -126,10 +126,6 @@ export-root/
 │               │   └── {slug}.yaml
 │               └── measures/
 │                   └── {slug}.yaml
-├── actions/
-│   └── {slug}.yaml
-├── glossary/
-│   └── {term}.yaml
 ├── python_libraries/
 │   └── {slug}.yaml
 └── transforms/                             # Transform jobs and tags
@@ -159,7 +155,7 @@ Dashboards and documents act as **containers** for cards: a card with `dashboard
 
 When a dashboard or document moves collections, all cards nested under it move too. A card should never have both `dashboard_id` and `document_id` set.
 
-On disk, cards nested under a dashboard or document are placed in a subfolder matching the parent's filename (e.g., `dashboards/my_dashboard/card.yaml` for a card with `dashboard_id` pointing to `dashboards/my_dashboard.yaml`).
+On disk, cards nested under a dashboard or document are placed in a subfolder matching the parent's slug (e.g., `my_dashboard/card.yaml` as a sibling of `my_dashboard.yaml`, within the same collection folder).
 
 - Segments and measures live under their table's directory in the `databases/` tree.
 - Database, schema, and table folder names are slugified (e.g., `test-data (h2)` becomes `test_data__h2_`).
@@ -1325,7 +1321,7 @@ When no value is provided, the entire `WHERE {{tag}}` clause is omitted (the que
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `dimension` | array | Yes | Field FK as a field clause: `[field, [db, schema, table, field], options]` |
+| `dimension` | array | Yes | Field clause: `[field, Field FK, options]` (see [Field References](#field-references)) |
 | `widget-type` | string | Yes | Filter widget type — any value from [Parameter Types](#parameter-types) |
 | `default` | any | No | Default filter value |
 | `required` | boolean | No | Whether a value must be provided |
@@ -1433,7 +1429,7 @@ native:
       type: snippet
       name: "snippet: Active Order Filter"
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
-      display-name: Snippet: Active Order Filter
+      display-name: "Snippet: Active Order Filter"
       snippet-name: Active Order Filter
       snippet-id: xK7mPqR2sT4uVwXyZ9a1b
 ```
@@ -1745,14 +1741,6 @@ visualization_settings:
     display: iframe
   iframe: '<iframe src="https://example.com/embed"></iframe>'
 
-# Action button
-visualization_settings:
-  virtual_card:
-    display: action
-  "button.label": "Run Action"
-  "button.variant": primary        # "primary", "danger"
-  actionDisplayType: button        # "button", "form"
-
 # Placeholder
 visualization_settings:
   virtual_card:
@@ -1772,7 +1760,6 @@ Click behaviors define what happens when a user clicks on a dashboard card or a 
 | `actionMenu` | Default drill-through menu (no explicit config needed) |
 | `crossfilter` | Filter the dashboard using the clicked value |
 | `link` | Navigate to a URL, question, or dashboard |
-| `action` | Execute a writeback action (insert, update, delete) |
 
 ### Crossfilter
 
@@ -1856,30 +1843,6 @@ click_behavior:
             - PRODUCTS
             - ID
           - null
-```
-
-### Action
-
-Execute a writeback action:
-
-```yaml
-# Insert action
-click_behavior:
-  type: action
-  actionType: insert
-  tableId: 42
-
-# Update action
-click_behavior:
-  type: action
-  actionType: update
-  objectDetailDashCardId: 7
-
-# Delete action
-click_behavior:
-  type: action
-  actionType: delete
-  objectDetailDashCardId: 7
 ```
 
 ### Parameter Mapping Structure
@@ -2152,6 +2115,7 @@ entity_id: f1C68pznmrpN1F5xFDj6d
 display: table
 creator_id: internal@metabase.com
 type: question
+database_id: Sample Database
 dataset_query:
   database: Sample Database
   type: query
@@ -2251,14 +2215,14 @@ A dashboard card places a card (question) on the dashboard grid. Most dashboard 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `entity_id` | string | Yes | NanoID identifier |
-| `card_id` | string | Yes | Card FK (entity_id of the referenced card) |
+| `card_id` | string | No | Card FK (entity_id), `null` for virtual cards (text, heading, link, iframe, placeholder) |
 | `row` | integer | Yes | Grid row position (0+) |
 | `col` | integer | Yes | Grid column position (0–23) |
 | `size_x` | integer | Yes | Width in grid units (1–24) |
 | `size_y` | integer | Yes | Height in grid units (1+) |
 | `serdes/meta` | array | Yes | Identity path: Dashboard → DashboardCard |
 | `dashboard_tab_id` | string | No | Tab entity_id, `null` for untabbed |
-| `inline_parameters` | array | No | Inline parameter overrides |
+| `inline_parameters` | array | No | List of parameter UUIDs to display directly on this dashcard |
 | `parameter_mappings` | array | No | Parameter-to-card mappings (see below) |
 | `series` | array | No | Overlay series (see below) |
 | `visualization_settings` | map | No | Display settings |
@@ -2297,16 +2261,16 @@ parameters:
   slug: category
   type: string/=
 tabs:
-- entity_id: tAb1dEntIdHere12345
+- entity_id: tAb1dEntIdHere1234x5
   name: Overview
   position: 0
-- entity_id: tAb2dEntIdHere12345
+- entity_id: tAb2dEntIdHere1234x5
   name: Details
   position: 1
 dashcards:
 - entity_id: UkpFcfUZMZt9ehChwnrAO
   card_id: f1C68pznmrpN1F5xFDj6d
-  dashboard_tab_id: tAb1dEntIdHere12345
+  dashboard_tab_id: tAb1dEntIdHere1234x5
   row: 0
   col: 0
   size_x: 12
@@ -2400,6 +2364,9 @@ The `document` field contains a recursive tree of nodes. The root node is always
 | `orderedList` | Ordered list (contains `listItem` nodes) |
 | `listItem` | List item (contains paragraphs or other blocks) |
 | `table` | Data table (contains `tableRow` nodes) |
+| `tableRow` | Table row (contains `tableCell` or `tableHeader` nodes) |
+| `tableCell` | Table cell |
+| `tableHeader` | Table header cell |
 
 **Block nodes (with attrs):**
 
@@ -2519,17 +2486,17 @@ definition:
   query:
     source-table:
     - Sample Database
-  - PUBLIC
-  - PRODUCTS
-  filter:
-  - =
-  - - field
-    - - Sample Database
-      - PUBLIC
-      - PRODUCTS
-      - CATEGORY
-    - null
-  - Widget
+    - PUBLIC
+    - PRODUCTS
+    filter:
+    - =
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+      - null
+    - Widget
 serdes/meta:
 - id: aB3kLmN9pQrStUvWxYz1a
   label: widget_products
@@ -2794,6 +2761,7 @@ A shared Python source file available to transforms. Stored in `python_libraries
 name: Product summary
 entity_id: rT5vWxYz1aBcDeFgHiJkL
 creator_id: internal@metabase.com
+source_database_id: Sample Database
 source:
   type: query
   query:

@@ -1,5 +1,6 @@
 name: Monthly Order Summary
 entity_id: 1fNzUt_CgppinjPk7pGKH
+creator_id: admin@example.com
 source_database_id: Sample Database
 source:
   type: query

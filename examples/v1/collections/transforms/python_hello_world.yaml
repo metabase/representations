@@ -1,5 +1,6 @@
 name: Python Hello World
 entity_id: g2cRYwopfoL1BW9Y4n3wb
+creator_id: admin@example.com
 source_database_id: Sample Database
 source:
   type: python

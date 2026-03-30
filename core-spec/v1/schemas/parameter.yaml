@@ -84,3 +84,36 @@ properties:
       label_field:
         description: Field clause for extracting labels from card results
     additionalProperties: true
+
+$defs:
+  parameter_target:
+    description: >
+      Parameter target for dashboard parameter mappings.
+      For MBQL columns: [dimension, ref] where ref is a field, expression, or aggregation ref.
+      For native dimension tags: [dimension, [template-tag, tag_name]].
+      For native variable tags: [variable, [template-tag, tag_name]].
+    type: array
+    anyOf:
+      - prefixItems:
+          - const: dimension
+          - anyOf:
+              - $ref: "ref.yaml#/$defs/field_ref"
+              - $ref: "ref.yaml#/$defs/expression_ref"
+              - type: array
+                prefixItems:
+                  - const: template-tag
+                  - type: string
+                minItems: 2
+                maxItems: 2
+        minItems: 2
+        maxItems: 2
+      - prefixItems:
+          - const: variable
+          - type: array
+            prefixItems:
+              - const: template-tag
+              - type: string
+            minItems: 2
+            maxItems: 2
+        minItems: 2
+        maxItems: 2
