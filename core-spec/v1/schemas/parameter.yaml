@@ -83,4 +83,4 @@ properties:
         description: Field clause for extracting values from card results
       label_field:
         description: Field clause for extracting labels from card results
-    additionalProperties: false
+    additionalProperties: true

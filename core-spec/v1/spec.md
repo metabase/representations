@@ -621,7 +621,7 @@ Used in field options (`temporal-unit`), breakouts, and temporal operators.
 
 #### String
 
-All string filter operators accept an optional `case-sensitive` option (default: `true`). They are N-ary — multiple values are combined with OR.
+All string filter operators accept a `case-sensitive` option (default: `true`). They are N-ary — multiple values are combined with OR. When multiple values are present, the options map goes in the **second position** (after the operator, before the field).
 
 | Operator | Arguments | Description |
 |----------|-----------|-------------|
@@ -631,7 +631,7 @@ All string filter operators accept an optional `case-sensitive` option (default:
 | `ends-with` | 2+ string values | Ends with suffix |
 
 ```yaml
-# Case-insensitive contains (single value)
+# Single value, case-insensitive (options go last)
 - contains
 - - field
   - [Sample Database, PUBLIC, PRODUCTS, TITLE]
@@ -639,22 +639,24 @@ All string filter operators accept an optional `case-sensitive` option (default:
 - widget
 - case-sensitive: false
 
-# Starts with (multiple values = OR)
+# Multiple values (options map in second position, can be empty {})
 - starts-with
+- {}
 - - field
   - [Sample Database, PUBLIC, PEOPLE, NAME]
   - null
 - John
 - Jane
 
-# Multiple values with case-insensitive option (option goes last)
+# Multiple values, case-insensitive
 - starts-with
+- case-sensitive: false
 - - field
   - [Sample Database, PUBLIC, PEOPLE, NAME]
   - null
 - John
 - Jane
-- case-sensitive: false
+- Charlie
 ```
 
 #### Temporal

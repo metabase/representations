@@ -93,15 +93,102 @@ properties:
 $defs:
   node:
     type: object
-    description: >
-      A ProseMirror document node (recursive). Nodes form a tree with
-      type-specific structure enforced via if/then.
+    description: A ProseMirror document node (recursive).
     required:
       - type
+    anyOf:
+      # Block nodes without attrs
+      - properties:
+          type:
+            enum: [doc, paragraph, blockquote, codeBlock, bulletList, orderedList, listItem, table, tableRow, tableCell, tableHeader, hardBreak]
+      # heading
+      - properties:
+          type:
+            const: heading
+          attrs:
+            type: object
+            required:
+              - level
+            properties:
+              level:
+                type: integer
+                minimum: 1
+                maximum: 6
+        required: [type, attrs]
+      # image
+      - properties:
+          type:
+            const: image
+          attrs:
+            type: object
+            required:
+              - src
+            properties:
+              src:
+                type: string
+              alt:
+                type: [string, "null"]
+              title:
+                type: [string, "null"]
+        required: [type, attrs]
+      # cardEmbed
+      - properties:
+          type:
+            const: cardEmbed
+          attrs:
+            type: object
+            required:
+              - id
+            properties:
+              id:
+                type: array
+                description: "Card reference: [{model: Card, id: entity_id}]"
+                items:
+                  type: object
+                  required: [model, id]
+                  properties:
+                    model:
+                      type: string
+                      const: Card
+                    id:
+                      $ref: "common.yaml#/$defs/entity_id"
+                minItems: 1
+                maxItems: 1
+              name:
+                type: [string, "null"]
+        required: [type, attrs]
+      # smartLink
+      - properties:
+          type:
+            const: smartLink
+          attrs:
+            type: object
+            required: [entityId, model]
+            properties:
+              entityId:
+                type: array
+                description: Entity reference path
+                items:
+                  type: object
+                  required: [model, id]
+                  properties:
+                    model:
+                      type: string
+                    id:
+                      type: string
+              model:
+                type: string
+        required: [type, attrs]
+      # text
+      - properties:
+          type:
+            const: text
+          text:
+            type: string
+        required: [type, text]
     properties:
       type:
         type: string
-        description: Node type name
       content:
         type: array
         description: Child nodes (recursive)
@@ -109,137 +196,13 @@ $defs:
           $ref: "#/$defs/node"
       attrs:
         type: object
-        description: Node-specific attributes
       text:
         type: string
-        description: Text content (only for text nodes)
       marks:
         type: array
         description: Inline formatting marks on text nodes
         items:
           $ref: "#/$defs/mark"
-    allOf:
-      # --- cardEmbed: requires attrs.id as [{model: Card, id: entity_id}] ---
-      - if:
-          properties:
-            type:
-              const: cardEmbed
-        then:
-          required:
-            - attrs
-          properties:
-            attrs:
-              type: object
-              required:
-                - id
-              properties:
-                id:
-                  type: array
-                  description: "Card reference path"
-                  items:
-                    type: object
-                    required:
-                      - model
-                      - id
-                    properties:
-                      model:
-                        type: string
-                        const: Card
-                      id:
-                        $ref: "common.yaml#/$defs/entity_id"
-                    additionalProperties: false
-                  minItems: 1
-                  maxItems: 1
-                name:
-                  type:
-                    - string
-                    - "null"
-              additionalProperties: false
-      # --- heading: requires attrs.level 1-6 ---
-      - if:
-          properties:
-            type:
-              const: heading
-        then:
-          required:
-            - attrs
-          properties:
-            attrs:
-              type: object
-              required:
-                - level
-              properties:
-                level:
-                  type: integer
-                  minimum: 1
-                  maximum: 6
-              additionalProperties: false
-      # --- image: requires attrs.src ---
-      - if:
-          properties:
-            type:
-              const: image
-        then:
-          required:
-            - attrs
-          properties:
-            attrs:
-              type: object
-              required:
-                - src
-              properties:
-                src:
-                  type: string
-                alt:
-                  type:
-                    - string
-                    - "null"
-                title:
-                  type:
-                    - string
-                    - "null"
-              additionalProperties: false
-      # --- smartLink: requires attrs.entityId and attrs.model ---
-      - if:
-          properties:
-            type:
-              const: smartLink
-        then:
-          required:
-            - attrs
-          properties:
-            attrs:
-              type: object
-              required:
-                - entityId
-                - model
-              properties:
-                entityId:
-                  type: array
-                  description: Entity reference path
-                  items:
-                    type: object
-                    required:
-                      - model
-                      - id
-                    properties:
-                      model:
-                        type: string
-                      id:
-                        type: string
-                    additionalProperties: false
-                model:
-                  type: string
-                  description: Entity model (card, dashboard, collection, etc.)
-              additionalProperties: false
-      # --- text: requires text field, no attrs ---
-      - if:
-          properties:
-            type:
-              const: text
-        then:
-          required:
-            - text
 
   mark:
     type: object
