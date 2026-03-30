@@ -95,50 +95,466 @@ $defs:
         description: Row limit
 
   expression:
-    description: >
-      An MBQL expression clause (recursive). An expression is either a
-      literal value or an array [operator, ...args] where each arg can
-      itself be an expression. Common forms:
-        Field reference: [field, [db, schema, table, col], {base-type: ...}]
-        Arithmetic:      [+, expr, expr], [-, expr, expr]
-        Function call:   [concat, expr, ...], [datetime-add, expr, n, unit]
-        Comparison:      [=, expr, value], [between, expr, lo, hi]
-        Logical:         [and, clause, ...], [or, clause, ...], [not, clause]
-        Aggregation:     [count], [sum, expr], [avg, expr]
-        References:      [metric, entity_id], [measure, entity_id],
-                         [segment, entity_id], [aggregation, index]
-    oneOf:
+    description: An MBQL expression clause (recursive).
+    anyOf:
+      # Literal values
+      - type: string
+      - type: number
+      - type: boolean
+      - type: "null"
+      # Field reference: [field, FK-or-name, options-or-null]
       - type: array
-        description: >
-          Clause: [operator, ...args]. First element is the operator/function
-          name. Remaining elements are arguments — field references, literal
-          values, option maps, or nested clauses.
+        prefixItems:
+          - const: field
+          - anyOf:
+              - description: Field FK
+                $ref: "common.yaml#/$defs/field_id"
+              - type: string
+                description: Column name (for nested queries)
+          - anyOf:
+              - type: object
+                description: Field options
+                properties:
+                  base-type:
+                    type: string
+                    description: Base type hint (e.g., type/Float, type/Integer)
+                  temporal-unit:
+                    $ref: "common.yaml#/$defs/datetime_bucketing_unit"
+                  join-alias:
+                    type: string
+                    description: Alias of the join this field belongs to
+                  binning:
+                    type: object
+                    description: >
+                      Binning strategy. Use {strategy: num-bins, num-bins: N}
+                      or {strategy: bin-width, bin-width: N} or {strategy: default}.
+                    required:
+                      - strategy
+                    properties:
+                      strategy:
+                        type: string
+                        enum: [default, num-bins, bin-width]
+                      num-bins:
+                        type: integer
+                        description: Number of bins (for num-bins strategy)
+                        minimum: 1
+                      bin-width:
+                        type: number
+                        description: Width of each bin (for bin-width strategy)
+                        exclusiveMinimum: 0
+                  source-field:
+                    description: FK field reference for implicit joins
+                    $ref: "common.yaml#/$defs/field_id"
+                  source-field-name:
+                    type: string
+                    description: FK field name for implicit joins in nested queries
+                  source-field-join-alias:
+                    type: string
+                    description: Join alias when FK table is explicitly joined
+              - type: "null"
+        minItems: 3
+        maxItems: 3
+      # Expression name ref: [expression, name]
+      - type: array
+        prefixItems:
+          - const: expression
+          - type: string
+        minItems: 2
+        maxItems: 2
+      # Aggregation index ref: [aggregation, index]
+      - type: array
+        prefixItems:
+          - const: aggregation
+          - type: integer
+        minItems: 2
+        maxItems: 2
+      # Entity refs: [metric/measure/segment, entity_id]
+      - type: array
+        prefixItems:
+          - enum: [metric, measure, segment]
+          - type: string
+        minItems: 2
+        maxItems: 2
+      # Value literal: [value, literal, options]
+      - type: array
+        prefixItems:
+          - const: value
+        minItems: 2
+      # Variadic arithmetic: [+/-/*/div, expr, expr, ...] (- also supports unary negation)
+      - type: array
+        prefixItems:
+          - enum: ["+", "-", "*", "/"]
+          - $ref: "#/$defs/expression"
         items:
-          $ref: "#/$defs/expression_arg"
+          $ref: "#/$defs/expression"
+        minItems: 2
+      # Variadic logic: [and/or, expr, expr, ...]
+      - type: array
+        prefixItems:
+          - enum: [and, or]
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        items:
+          $ref: "#/$defs/expression"
+        minItems: 3
+      # Not: [not, expr]
+      - type: array
+        prefixItems:
+          - const: not
+          - $ref: "#/$defs/expression"
+        minItems: 2
+        maxItems: 2
+      # Comparison: [op, expr, value, ...]
+      - type: array
+        prefixItems:
+          - enum: ["=", "!=", "<", ">", "<=", ">="]
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        items:
+          $ref: "#/$defs/expression"
+        minItems: 3
+      # Between: [between, expr, min, max]
+      - type: array
+        prefixItems:
+          - const: between
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        minItems: 4
+        maxItems: 4
+      # Inside (geo bounding box): [inside, lat, lon, n, w, s, e]
+      - type: array
+        prefixItems:
+          - const: inside
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+          - type: number
+          - type: number
+          - type: number
+          - type: number
+        minItems: 7
+        maxItems: 7
+      # Null/empty checks: [op, expr]
+      - type: array
+        prefixItems:
+          - enum: [is-null, not-null, is-empty, not-empty]
+          - $ref: "#/$defs/expression"
+        minItems: 2
+        maxItems: 2
+      # String filters (single value): [op, field, value] or [op, field, value, options]
+      - type: array
+        prefixItems:
+          - enum: [contains, does-not-contain, starts-with, ends-with]
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        items:
+          anyOf:
+            - $ref: "#/$defs/expression"
+            - type: object
+              properties:
+                case-sensitive:
+                  type: boolean
+        minItems: 3
+        maxItems: 4
+      # String filters (multi-value): [op, options, field, value, value, ...]
+      - type: array
+        prefixItems:
+          - enum: [contains, does-not-contain, starts-with, ends-with]
+          - type: object
+            properties:
+              case-sensitive:
+                type: boolean
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        items:
+          $ref: "#/$defs/expression"
+        minItems: 5
+      # time-interval: [time-interval, field, n, unit, options?]
+      - type: array
+        prefixItems:
+          - const: time-interval
+          - $ref: "#/$defs/expression"
+          - anyOf:
+              - type: integer
+              - enum: [current, last, next]
+          - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+        items:
+          type: object
+          description: "Options: {include-current: boolean}"
+          properties:
+            include-current:
+              type: boolean
+              description: Include current period (default false)
+        minItems: 4
+        maxItems: 5
+      # relative-time-interval: [op, field, n, unit, offset-n, offset-unit]
+      - type: array
+        prefixItems:
+          - const: relative-time-interval
+          - $ref: "#/$defs/expression"
+          - type: integer
+          - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+          - type: integer
+          - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+        minItems: 6
+        maxItems: 6
+      # absolute-datetime: [absolute-datetime, value, unit]
+      - type: array
+        prefixItems:
+          - const: absolute-datetime
+          - type: string
+          - $ref: "common.yaml#/$defs/datetime_bucketing_unit"
+        minItems: 3
+        maxItems: 3
+      # relative-datetime: [relative-datetime, n, unit?]
+      - type: array
+        prefixItems:
+          - const: relative-datetime
+          - anyOf:
+              - type: integer
+              - const: current
+        items:
+          $ref: "common.yaml#/$defs/datetime_truncation_unit"
+        minItems: 2
+        maxItems: 3
+      # Nullary: [now] or [today]
+      - type: array
+        prefixItems:
+          - enum: [now, today]
         minItems: 1
-      - type: string
-        description: Literal string value or entity reference
-      - type: number
-        description: Literal number value
-      - type: boolean
-        description: Literal boolean value
-      - type: "null"
-
-  expression_arg:
-    description: >
-      An argument within an MBQL clause. Can be a literal value, a nested
-      clause array, or an options map.
-    oneOf:
-      - type: string
-      - type: number
-      - type: boolean
-      - type: "null"
+        maxItems: 1
+      # interval: [interval, n, unit]
       - type: array
-        description: Nested clause or tuple (e.g., Field FK)
+        prefixItems:
+          - const: interval
+          - type: integer
+          - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+        minItems: 3
+        maxItems: 3
+      # Unary functions
+      - type: array
+        prefixItems:
+          - enum:
+              # Math
+              - abs
+              - ceil
+              - floor
+              - round
+              - sqrt
+              - exp
+              - log
+              # String
+              - length
+              - trim
+              - ltrim
+              - rtrim
+              - upper
+              - lower
+              # URL
+              - host
+              - domain
+              - subdomain
+              - path
+              # Temporal extraction
+              - get-year
+              - get-quarter
+              - get-month
+              - get-day
+              - get-hour
+              - get-minute
+              - get-second
+              # Type casting
+              - text
+              - integer
+              - float
+              - boolean
+              # Name extraction
+              - day-name
+              - month-name
+              - quarter-name
+          - $ref: "#/$defs/expression"
+        minItems: 2
+        maxItems: 2
+      # Functions with optional week mode: [op, expr, mode?]
+      - type: array
+        prefixItems:
+          - enum: [get-day-of-week, get-week]
+          - $ref: "#/$defs/expression"
         items:
-          $ref: "#/$defs/expression_arg"
-      - type: object
-        description: "Options map (e.g., {base-type: type/Integer})"
+          type: string
+          enum: [iso, us, instance]
+        minItems: 2
+        maxItems: 3
+      # Power: [power, base, exponent]
+      - type: array
+        prefixItems:
+          - const: power
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        minItems: 3
+        maxItems: 3
+      # Ternary string fns: [op, str, arg2, arg3]
+      - type: array
+        prefixItems:
+          - enum: [substring, replace, split-part]
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        minItems: 4
+        maxItems: 4
+      # regex-match-first: [regex-match-first, str, pattern]
+      - type: array
+        prefixItems:
+          - const: regex-match-first
+          - $ref: "#/$defs/expression"
+          - type: string
+        minItems: 3
+        maxItems: 3
+      # Concat: [concat, expr, expr, ...]
+      - type: array
+        prefixItems:
+          - const: concat
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        items:
+          $ref: "#/$defs/expression"
+        minItems: 3
+      # Coalesce: [coalesce, expr, expr, ...]
+      - type: array
+        prefixItems:
+          - const: coalesce
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        items:
+          $ref: "#/$defs/expression"
+        minItems: 3
+      # Datetime arithmetic: [datetime-add/subtract, expr, n, unit]
+      - type: array
+        prefixItems:
+          - enum: [datetime-add, datetime-subtract]
+          - $ref: "#/$defs/expression"
+          - type: integer
+          - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+        minItems: 4
+        maxItems: 4
+      # Datetime diff: [datetime-diff, expr1, expr2, unit]
+      - type: array
+        prefixItems:
+          - const: datetime-diff
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/datetime_diff_unit"
+        minItems: 4
+        maxItems: 4
+      # Convert timezone: [convert-timezone, expr, target-tz, source-tz?]
+      - type: array
+        prefixItems:
+          - const: convert-timezone
+          - $ref: "#/$defs/expression"
+          - type: string
+        items:
+          type: string
+        minItems: 3
+        maxItems: 4
+      # Temporal extract: [temporal-extract, expr, unit, mode?]
+      - type: array
+        prefixItems:
+          - const: temporal-extract
+          - $ref: "#/$defs/expression"
+          - $ref: "common.yaml#/$defs/datetime_extraction_unit"
+        items:
+          type: string
+          enum: [iso, us, instance]
+        minItems: 3
+        maxItems: 4
+      # count/cum-count/cum-sum: [op] or [op, expr]
+      - type: array
+        prefixItems:
+          - enum: [count, cum-count, cum-sum]
+        items:
+          $ref: "#/$defs/expression"
+        minItems: 1
+        maxItems: 2
+      # Unary aggregations: [op, expr]
+      - type: array
+        prefixItems:
+          - enum: [sum, avg, min, max, distinct, stddev, var, median]
+          - $ref: "#/$defs/expression"
+        minItems: 2
+        maxItems: 2
+      # Percentile: [percentile, expr, p]
+      - type: array
+        prefixItems:
+          - const: percentile
+          - $ref: "#/$defs/expression"
+          - type: number
+        minItems: 3
+        maxItems: 3
+      # Conditional aggregations
+      - type: array
+        prefixItems:
+          - enum: [count-where, share]
+          - $ref: "#/$defs/expression"
+        minItems: 2
+        maxItems: 2
+      - type: array
+        prefixItems:
+          - enum: [sum-where, distinct-where]
+          - $ref: "#/$defs/expression"
+          - $ref: "#/$defs/expression"
+        minItems: 3
+        maxItems: 3
+      # aggregation-options: [aggregation-options, agg, {display-name: ...}]
+      - type: array
+        prefixItems:
+          - const: aggregation-options
+          - $ref: "#/$defs/expression"
+          - type: object
+            properties:
+              display-name:
+                type: string
+                description: Custom display name for the aggregation
+              name:
+                type: string
+                description: Internal name for the aggregation
+        minItems: 3
+        maxItems: 3
+      # Case/if: [case/if, [[cond, val], ...], default?]
+      - type: array
+        prefixItems:
+          - enum: [case, if]
+          - type: array
+            items:
+              type: array
+              prefixItems:
+                - $ref: "#/$defs/expression"
+                - $ref: "#/$defs/expression"
+              minItems: 2
+              maxItems: 2
+        items:
+          $ref: "#/$defs/expression"
+        minItems: 2
+        maxItems: 3
+      # Offset: [offset, expr, n]
+      - type: array
+        prefixItems:
+          - const: offset
+          - $ref: "#/$defs/expression"
+          - type: integer
+        minItems: 3
+        maxItems: 3
+      # Order-by direction: [asc/desc, expr]
+      - type: array
+        prefixItems:
+          - enum: [asc, desc]
+          - $ref: "#/$defs/expression"
+        minItems: 2
+        maxItems: 2
+
+  datetime_diff_unit:
+    description: Units for datetime-diff (no millisecond).
+    type: string
+    enum: [second, minute, hour, day, week, month, quarter, year]
 
   join:
     type: object

@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { resolve, relative } from "path";
 import { globSync } from "glob";
 import yaml from "js-yaml";
-import Ajv from "ajv";
+import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 const PACKAGE_ROOT = resolve(import.meta.dirname, "..");

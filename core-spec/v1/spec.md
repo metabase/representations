@@ -264,7 +264,7 @@ Field options (second argument) can be `null` or a map:
 | `base-type` | string | Base type hint (e.g., `type/Float`, `type/Integer`) |
 | `temporal-unit` | string | Temporal bucketing unit (see [Temporal Units](#temporal-units)) |
 | `join-alias` | string | Alias of the join this field belongs to |
-| `binning` | map | Binning strategy (e.g., `{strategy: num-bins, num-bins: 10}`) |
+| `binning` | map | Binning strategy (see [Binning](#binning)) |
 | `source-field` | array | Implicit join: FK field reference in the source table (see below) |
 | `source-field-name` | string | Implicit join: FK field by name, for nested queries |
 | `source-field-join-alias` | string | Implicit join: join-alias when the FK table is explicitly joined |
@@ -509,15 +509,59 @@ order-by:
 limit: 10
 ```
 
-### Temporal Units
+### Temporal Bucketing
 
-Used in field options (`temporal-unit`), breakouts, and temporal operators.
+The `temporal-unit` field option groups a datetime column into time buckets. This is commonly used in breakouts to group results by month, quarter, etc.
 
-**Bucketing units:** `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
+**Bucketing units:** `default`, `millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
 
-**Extraction units:** `minute-of-hour`, `hour-of-day`, `day-of-week`, `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`.
+**Extraction units** (return an integer component): `minute-of-hour`, `hour-of-day`, `day-of-week`, `day-of-week-iso`, `day-of-month`, `day-of-year`, `week-of-year`, `week-of-year-iso`, `month-of-year`, `quarter-of-year`, `year-of-era`, `second-of-minute`.
 
-**Special:** `default`.
+```yaml
+# Breakout by month
+breakout:
+- - field
+  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - temporal-unit: month
+
+# Breakout by day of week
+breakout:
+- - field
+  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - temporal-unit: day-of-week
+```
+
+Bucketing units truncate the datetime (e.g., `month` groups `2024-03-15` into `2024-03-01`). Extraction units extract a numeric component (e.g., `day-of-week` returns 1–7).
+
+### Binning
+
+The `binning` field option groups a numeric or coordinate column into bins. This is commonly used in breakouts for histograms or geographic grids.
+
+Three strategies are available:
+
+| Strategy | Properties | Description |
+|----------|-----------|-------------|
+| `num-bins` | `num-bins` (integer) | Split into a fixed number of equal-width bins |
+| `bin-width` | `bin-width` (number) | Each bin has a fixed width |
+| `default` | — | Let Metabase choose an appropriate binning |
+
+```yaml
+# 10 equal bins
+breakout:
+- - field
+  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - binning:
+      strategy: num-bins
+      num-bins: 10
+
+# Bins of width 25
+breakout:
+- - field
+  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - binning:
+      strategy: bin-width
+      bin-width: 25
+```
 
 ---
 
