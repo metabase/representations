@@ -298,10 +298,10 @@ $defs:
           # --- Unary functions ---
           - if:
               prefixItems:
-                - enum: [abs, ceil, floor, round, sqrt, exp, log, length, trim, ltrim, rtrim, upper, lower, host, domain, subdomain, path, get-year, get-quarter, get-month, get-day, get-hour, get-minute, get-second, text, integer, float, boolean, day-name, month-name, quarter-name, date, time]
+                - enum: [abs, ceil, floor, round, sqrt, exp, log, length, trim, ltrim, rtrim, upper, lower, host, domain, subdomain, path, get-year, get-quarter, get-month, get-day, get-hour, get-minute, get-second, text, integer, float, day-name, month-name, quarter-name, date, time]
             then:
               prefixItems:
-                - enum: [abs, ceil, floor, round, sqrt, exp, log, length, trim, ltrim, rtrim, upper, lower, host, domain, subdomain, path, get-year, get-quarter, get-month, get-day, get-hour, get-minute, get-second, text, integer, float, boolean, day-name, month-name, quarter-name, date, time]
+                - enum: [abs, ceil, floor, round, sqrt, exp, log, length, trim, ltrim, rtrim, upper, lower, host, domain, subdomain, path, get-year, get-quarter, get-month, get-day, get-hour, get-minute, get-second, text, integer, float, day-name, month-name, quarter-name, date, time]
                 - $ref: "#/$defs/expression"
               minItems: 2
               maxItems: 2
