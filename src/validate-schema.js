@@ -28,8 +28,8 @@ function getModel(doc) {
   return meta[meta.length - 1]?.model ?? null;
 }
 
-export function validateSchema({ version = "v1", folder }) {
-  const schemasDir = resolve(PACKAGE_ROOT, `core-spec/${version}/schemas`);
+export function validateSchema({ folder }) {
+  const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
 
   const ajv = new Ajv({ allErrors: true, strictTuples: false });
   addFormats(ajv);

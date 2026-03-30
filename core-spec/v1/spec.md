@@ -17,14 +17,14 @@ This specification covers user-created content entities. Database metadata entit
 5. [Visualization Settings](#visualization-settings)
 6. [Click Behavior](#click-behavior)
 7. [Parameter](#parameter)
-8. [Collection](#collection-1)
-9. [Card](#card-1)
-10. [Dashboard](#dashboard-1)
-11. [Document](#document-1)
-12. [Segment](#segment-1)
-13. [Measure](#measure-1)
-14. [Snippet](#snippet-1)
-15. [Transform](#transform-1)
+8. [Collection](#collection)
+9. [Card](#card)
+10. [Dashboard](#dashboard)
+11. [Document](#document)
+12. [Segment](#segment)
+13. [Measure](#measure)
+14. [Snippet](#snippet)
+15. [Transform](#transform)
 
 ---
 
@@ -740,7 +740,7 @@ Options for `time-interval`: `{include-current: true/false}` (default: `false`).
 - include-current: true
 ```
 
-#### Segment
+#### Segment Reference
 
 Reference a saved segment by entity_id:
 
