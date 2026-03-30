@@ -1,7 +1,0 @@
-name: Reports
-entity_id: cOlRePorTs000ExAmPlx2
-parent_id: cOlMiNiMaL000ExAmPlx2
-serdes/meta:
-- id: cOlRePorTs000ExAmPlx2
-  label: reports
-  model: Collection
