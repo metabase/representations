@@ -709,10 +709,6 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 
 **Valid units** for `time-interval` and `relative-time-interval`: `millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year` (truncation units only).
 
-**Valid units** for `relative-datetime`: same as above, plus `default`.
-
-Options for `time-interval`: `{include-current: true/false}` (default: `false`).
-
 ```yaml
 # Last 30 days
 - time-interval
@@ -729,15 +725,6 @@ Options for `time-interval`: `{include-current: true/false}` (default: `false`).
   - null
 - current
 - month
-
-# Last quarter (including current)
-- time-interval
-- - field
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
-- last
-- quarter
-- include-current: true
 ```
 
 #### Segment Reference
@@ -1151,41 +1138,6 @@ aggregation:
       - [Sample Database, PUBLIC, ORDERS, TOTAL]
       - base-type: type/Float
   - -1
-```
-
-#### Datetime Literals
-
-Used as values in filter clauses:
-
-| Literal | Arguments | Description |
-|---------|-----------|-------------|
-| `absolute-datetime` | value, unit | Specific date/time (e.g., `2024-01-01`, `day`) |
-| `relative-datetime` | n, unit | Relative to now. `n` = integer or `current`. |
-
-**Units for `absolute-datetime`:** Any bucketing unit — truncation units (`millisecond` through `year`), extraction units (`minute-of-hour`, `day-of-week`, etc.), or `default`.
-
-**Units for `relative-datetime`:** Truncation units (`millisecond` through `year`) or `default`.
-
-```yaml
-# Filter: created after Jan 1 2024
-filter:
-- ">"
-- - field
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
-- - absolute-datetime
-  - '2024-01-01'
-  - day
-
-# Filter: created in the last 30 days
-filter:
-- ">"
-- - field
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
-- - relative-datetime
-  - -30
-  - day
 ```
 
 ---

@@ -251,11 +251,8 @@ $defs:
                 - $ref: "#/$defs/expression"
                 - { anyOf: [{ type: integer }, { enum: [current, last, next] }] }
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
-                - type: object
-                  properties:
-                    include-current: { type: boolean }
               minItems: 4
-              maxItems: 5
+              maxItems: 4
           - if: { prefixItems: [{ const: relative-time-interval }] }
             then:
               prefixItems:
@@ -267,22 +264,6 @@ $defs:
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 6
               maxItems: 6
-          - if: { prefixItems: [{ const: absolute-datetime }] }
-            then:
-              prefixItems:
-                - const: absolute-datetime
-                - { type: string }
-                - $ref: "temporal_bucketing.yaml#/$defs/datetime_bucketing_unit"
-              minItems: 3
-              maxItems: 3
-          - if: { prefixItems: [{ const: relative-datetime }] }
-            then:
-              prefixItems:
-                - const: relative-datetime
-                - { anyOf: [{ type: integer }, { const: current }] }
-                - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
-              minItems: 2
-              maxItems: 3
           # --- Nullary ---
           - if: { prefixItems: [{ enum: [now, today] }] }
             then: { minItems: 1, maxItems: 1 }
