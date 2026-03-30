@@ -1859,7 +1859,7 @@ Each entry in `parameterMapping`:
 | `target` | object | Where the value goes |
 | `target.id` | string | Target parameter ID or dimension |
 | `target.type` | string | `"parameter"`, `"dimension"`, or `"variable"` |
-| `target.dimension` | array | Field reference (for dimension targets) |
+| `target.dimension` | array | Parameter target (same format as dashboard parameter mapping targets — see [Parameter Targets](#parameter-targets)) |
 
 ---
 

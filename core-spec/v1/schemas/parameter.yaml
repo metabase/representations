@@ -105,8 +105,15 @@ $defs:
                   - type: string
                 minItems: 2
                 maxItems: 2
+        items:
+          anyOf:
+            - type: object
+              properties:
+                stage-number:
+                  type: integer
+            - type: "null"
         minItems: 2
-        maxItems: 2
+        maxItems: 3
       - prefixItems:
           - const: variable
           - type: array
