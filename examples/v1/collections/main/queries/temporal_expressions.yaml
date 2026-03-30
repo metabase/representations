@@ -61,20 +61,19 @@ dataset_query:
           - CREATED_AT
         - null
       - America/Chicago
-      One Week Interval:
-      - interval
-      - 7
-      - day
-      Order Date:
-      - date
+      Ship By Deadline:
+      - "+"
       - - field
         - - Sample Database
           - PUBLIC
           - ORDERS
           - CREATED_AT
         - null
-      Order Time:
-      - time
+      - - interval
+        - 7
+        - day
+      Order Date:
+      - date
       - - field
         - - Sample Database
           - PUBLIC
