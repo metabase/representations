@@ -67,7 +67,7 @@ jobs:
           echo "Import succeeded"
 
           # Check for lib.convert warnings from the import
-          WARNINGS=$(docker logs --since "$IMPORT_START" metabase 2>&1 | grep "WARN lib.convert")
+          WARNINGS=$(docker logs --since "$IMPORT_START" metabase 2>&1 | grep "WARN lib.convert" || true)
           if [ -n "$WARNINGS" ]; then
             echo "Import produced lib.convert warnings — clauses were silently removed:"
             echo "$WARNINGS"
