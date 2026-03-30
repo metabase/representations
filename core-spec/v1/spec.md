@@ -58,13 +58,15 @@ User content entities reference database objects using natural keys:
 |-----------|--------|---------|
 | Database FK | database name | `"Sample Database"` |
 | Table FK | `[database, schema, table]` | `["Sample Database", "PUBLIC", "ORDERS"]` |
-| Field FK | `[database, schema, table, field]` | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
+| Field FK | `[database, schema, table, field, ...]` | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
 | Collection FK | entity_id of collection | `"M-Q4pcV0qkiyJ0kiSWECl"` |
 | Card FK | entity_id of card | `"f1C68pznmrpN1F5xFDj6d"` |
 | Dashboard FK | entity_id of dashboard | `"Q_jD-f-9clKLFZ2TfUG2h"` |
 | User FK | email address | `"internal@metabase.com"` |
 
 For schemaless databases, the schema component is `null` (e.g., `["My Database", null, "my_table"]`).
+
+For JSON-unfolded fields, the Field FK extends beyond 4 elements with the nested path: `["Sample Database", "PUBLIC", "EVENTS", "DATA", "user", "name"]` represents the JSON path `DATA.user.name`.
 
 ### SerDes Meta
 
@@ -158,6 +160,7 @@ Dashboards and documents act as **containers** for cards: a card with `dashboard
 When a dashboard or document moves collections, all cards nested under it move too. A card should never have both `dashboard_id` and `document_id` set.
 
 On disk, cards nested under a dashboard or document are placed in a subfolder matching the parent's filename (e.g., `dashboards/my_dashboard/card.yaml` for a card with `dashboard_id` pointing to `dashboards/my_dashboard.yaml`).
+
 - Segments and measures live under their table's directory in the `databases/` tree.
 - Database, schema, and table folder names are slugified (e.g., `test-data (h2)` becomes `test_data__h2_`).
 - Slashes in names are escaped as `__SLASH__`, backslashes as `__BACKSLASH__`.
@@ -262,7 +265,7 @@ Field options (second argument) can be `null` or a map:
 | Option | Type | Description |
 |--------|------|-------------|
 | `base-type` | string | Base type hint (e.g., `type/Float`, `type/Integer`) |
-| `temporal-unit` | string | Temporal bucketing unit (see [Temporal Units](#temporal-units)) |
+| `temporal-unit` | string | Temporal bucketing unit (see [Temporal Bucketing](#temporal-bucketing)) |
 | `join-alias` | string | Alias of the join this field belongs to |
 | `binning` | map | Binning strategy (see [Binning](#binning)) |
 | `source-field` | array | Implicit join: FK field reference in the source table (see below) |
@@ -283,13 +286,13 @@ Use `source-field` to specify the FK field in the source table that links to the
   - PRODUCTS
   - TITLE
 - source-field:
-  - field
-  - - Sample Database
-    - PUBLIC
-    - ORDERS
-    - PRODUCT_ID
-  - null
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+  - PRODUCT_ID
 ```
+
+The `source-field` value is a raw Field FK (`[database, schema, table, field]`), not a field clause.
 
 For **nested queries** (when `source-query` or `source-table` is a card entity_id), additionally set `source-field-name` to reference the FK column by its string name in the inner query's results. This is needed when the source query returns multiple fields that are both the same FK:
 
@@ -300,12 +303,10 @@ For **nested queries** (when `source-query` or `source-table` is a card entity_i
   - PRODUCTS
   - TITLE
 - source-field:
-  - field
-  - - Sample Database
-    - PUBLIC
-    - ORDERS
-    - PRODUCT_ID
-  - null
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+  - PRODUCT_ID
   source-field-name: PRODUCT_ID
 ```
 
@@ -318,12 +319,10 @@ When the source (FK) table is itself joined via an explicit `joins` clause, use 
   - PRODUCTS
   - TITLE
 - source-field:
-  - field
-  - - Sample Database
-    - PUBLIC
-    - ORDERS
-    - PRODUCT_ID
-  - null
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+  - PRODUCT_ID
   source-field-join-alias: Joined Orders
 ```
 
@@ -710,7 +709,9 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 | `time-interval` | temporal-field, n, unit | Relative time interval. `n` can be an integer, `current`, `last`, or `next`. |
 | `relative-time-interval` | temporal-field, value, bucket, offset-value, offset-bucket | Relative interval with offset |
 
-**Valid units** for `time-interval`, `relative-time-interval`, and `relative-datetime`: `default`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
+**Valid units** for `time-interval` and `relative-time-interval`: `millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year` (truncation units only).
+
+**Valid units** for `relative-datetime`: same as above, plus `default`.
 
 Options for `time-interval`: `{include-current: true/false}` (default: `false`).
 
@@ -892,15 +893,17 @@ aggregation:
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
 | `+` | 2+ numeric (or temporal + interval) | numeric / temporal | Addition |
-| `-` | 2+ numeric (or temporal − interval) | numeric / interval | Subtraction |
+| `-` | 1+ numeric (or temporal − interval) | numeric / interval | Subtraction (unary = negation) |
 | `*` | 2+ numeric | numeric | Multiplication |
 | `/` | 2+ numeric | float | Division (always returns float) |
+
+**Note:** The `-` operator must be quoted as `"-"` in YAML when it appears as the first element of a list, to avoid being parsed as a list indicator.
 
 ```yaml
 # Subtraction: TOTAL - TAX
 expressions:
   Profit:
-  - -
+  - "-"
   - - field
     - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - null
@@ -1153,9 +1156,9 @@ Used as values in filter clauses:
 | `absolute-datetime` | value, unit | Specific date/time (e.g., `2024-01-01`, `day`) |
 | `relative-datetime` | n, unit | Relative to now. `n` = integer or `current`. |
 
-**Units for `absolute-datetime`:** `default`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`. For datetime values (not just dates), also: `millisecond`, `second`.
+**Units for `absolute-datetime`:** Any bucketing unit — truncation units (`millisecond` through `year`), extraction units (`minute-of-hour`, `day-of-week`, etc.), or `default`.
 
-**Units for `relative-datetime`:** `default`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
+**Units for `relative-datetime`:** Truncation units (`millisecond` through `year`) or `default`.
 
 ```yaml
 # Filter: created after Jan 1 2024
