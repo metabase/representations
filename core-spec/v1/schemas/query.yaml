@@ -470,9 +470,13 @@ $defs:
           # --- Offset ---
           - if: { prefixItems: [{ const: offset }] }
             then:
-              prefixItems: [{ const: offset }, { $ref: "#/$defs/expression" }, { type: integer }]
-              minItems: 3
-              maxItems: 3
+              prefixItems:
+                - const: offset
+                - type: "null"
+                - $ref: "#/$defs/expression"
+                - type: integer
+              minItems: 4
+              maxItems: 4
           # --- Order-by direction ---
           - if: { prefixItems: [{ enum: [asc, desc] }] }
             then:

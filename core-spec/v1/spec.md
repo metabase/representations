@@ -1136,7 +1136,7 @@ Window functions can only be used inside the `aggregation` clause.
 
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `offset` | expression, n | same type | Value from n rows before (negative) or after (positive) |
+| `offset` | null, expression, n | same type | Value from n rows before (negative) or after (positive). Second element is always `null`. |
 
 ```yaml
 aggregation:
@@ -1145,6 +1145,7 @@ aggregation:
     - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - base-type: type/Float
 - - offset
+  - null
   - - sum
     - - field
       - [Sample Database, PUBLIC, ORDERS, TOTAL]

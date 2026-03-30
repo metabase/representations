@@ -20,6 +20,7 @@ dataset_query:
           - TOTAL
         - base-type: type/Float
     - - offset
+      - null
       - - sum
         - - field
           - - Sample Database
