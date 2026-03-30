@@ -205,34 +205,36 @@ $defs:
               minItems: 2
               maxItems: 2
           # --- String filters ---
-          # 2 args: [op, field, value] or [op, field, value, options]
-          # 3+ args (multi-value): [op, options, field, value, value, ...] — options required in position 2
-          - if: { prefixItems: [{ enum: [contains, does-not-contain, starts-with, ends-with] }] }
+          # 3 items: [op, field, value]
+          # 4 items: [op, field, value, options]
+          # 5+ items (multi-value): [op, options, field, value, value, ...] — options required in position 2
+          - if: { prefixItems: [{ enum: [contains, does-not-contain, starts-with, ends-with] }], maxItems: 3 }
             then:
-              anyOf:
-                # 2 args, no options
-                - prefixItems:
-                    - enum: [contains, does-not-contain, starts-with, ends-with]
-                    - $ref: "#/$defs/expression"
-                    - $ref: "#/$defs/expression"
-                  minItems: 3
-                  maxItems: 3
-                # 2 args, with options last
-                - prefixItems:
-                    - enum: [contains, does-not-contain, starts-with, ends-with]
-                    - $ref: "#/$defs/expression"
-                    - $ref: "#/$defs/expression"
-                    - $ref: "#/$defs/case_sensitive_options"
-                  minItems: 4
-                  maxItems: 4
-                # 3+ args (multi-value), options required in position 2
-                - prefixItems:
-                    - enum: [contains, does-not-contain, starts-with, ends-with]
-                    - $ref: "#/$defs/case_sensitive_options"
-                    - $ref: "#/$defs/expression"
-                    - $ref: "#/$defs/expression"
-                  items: { $ref: "#/$defs/expression" }
-                  minItems: 4
+              prefixItems:
+                - enum: [contains, does-not-contain, starts-with, ends-with]
+                - $ref: "#/$defs/expression"
+                - $ref: "#/$defs/expression"
+              minItems: 3
+              maxItems: 3
+          - if: { prefixItems: [{ enum: [contains, does-not-contain, starts-with, ends-with] }], minItems: 4, maxItems: 4 }
+            then:
+              prefixItems:
+                - enum: [contains, does-not-contain, starts-with, ends-with]
+                - $ref: "#/$defs/expression"
+                - $ref: "#/$defs/expression"
+                - $ref: "#/$defs/case_sensitive_options"
+              minItems: 4
+              maxItems: 4
+          - if: { prefixItems: [{ enum: [contains, does-not-contain, starts-with, ends-with] }], minItems: 5 }
+            then:
+              prefixItems:
+                - enum: [contains, does-not-contain, starts-with, ends-with]
+                - $ref: "#/$defs/case_sensitive_options"
+                - $ref: "#/$defs/expression"
+                - $ref: "#/$defs/expression"
+                - $ref: "#/$defs/expression"
+              items: { $ref: "#/$defs/expression" }
+              minItems: 5
           # --- Temporal filters ---
           - if: { prefixItems: [{ const: time-interval }] }
             then:
