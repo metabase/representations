@@ -30,6 +30,14 @@ dataset_query:
           - RATING
         - null
       - 3
+    - - "<="
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+      - 5
     - - "!="
       - - field
         - - Sample Database

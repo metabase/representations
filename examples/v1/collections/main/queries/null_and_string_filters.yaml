@@ -27,6 +27,13 @@ dataset_query:
           - PRODUCTS
           - VENDOR
         - null
+    - - is-empty
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
     # contains — 2 args, no options
     - - contains
       - - field

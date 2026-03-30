@@ -92,6 +92,11 @@ dataset_query:
           - ORDERS
           - QUANTITY
         - base-type: type/Integer
+    filter:
+    - ">"
+    - - expression
+      - Per Unit Price
+    - 10
     breakout:
     - - field
       - - Sample Database
