@@ -34,7 +34,7 @@ Metabase uses two ways of identifying entities: `entity_id` (NanoID) and natural
 
 ### NanoID
 
-`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **globally unique** within an instance — no two entities may share the same `entity_id`, regardless of entity type.
+`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **unique per entity type** within an instance — no two entities of the same type may share the same `entity_id`.
 
 Generate a NanoID in Bash:
 
@@ -83,7 +83,7 @@ serdes/meta:
 
 **Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
 
-Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, and `transforms` holds transform entities. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
+Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, and `transforms` holds transform entities. Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
 ```
 export-root/
@@ -197,7 +197,7 @@ source-table:
 
 **Saved card/model as source:**
 
-When `source-table` is a string (NanoID), it references a saved card. Internally Metabase uses the `card__<id>` format; in serialization this is replaced with the card's entity_id. Fields from the card's results are referenced by column name (string) rather than a Field FK:
+When `source-table` is a string (NanoID), it references a saved card. Fields from the card's results are referenced by column name (string) rather than a Field FK:
 
 ```yaml
 database: Sample Database
@@ -631,7 +631,7 @@ All string filter operators accept an optional `case-sensitive` option (default:
 | `ends-with` | 2+ string values | Ends with suffix |
 
 ```yaml
-# Case-insensitive contains
+# Case-insensitive contains (single value)
 - contains
 - - field
   - [Sample Database, PUBLIC, PRODUCTS, TITLE]
@@ -646,14 +646,25 @@ All string filter operators accept an optional `case-sensitive` option (default:
   - null
 - John
 - Jane
+
+# Multiple values with case-insensitive option (option goes last)
+- starts-with
+- - field
+  - [Sample Database, PUBLIC, PEOPLE, NAME]
+  - null
+- John
+- Jane
+- case-sensitive: false
 ```
 
 #### Temporal
 
 | Operator | Arguments | Description |
 |----------|-----------|-------------|
-| `time-interval` | temporal-field, n, unit | Relative time interval. `n` can be an integer, `:current`, `:last`, or `:next`. |
+| `time-interval` | temporal-field, n, unit | Relative time interval. `n` can be an integer, `current`, `last`, or `next`. |
 | `relative-time-interval` | temporal-field, value, bucket, offset-value, offset-bucket | Relative interval with offset |
+
+**Valid units** for `time-interval`, `relative-time-interval`, and `relative-datetime`: `default`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
 
 Options for `time-interval`: `{include-current: true/false}` (default: `false`).
 
@@ -791,6 +802,22 @@ aggregation:
       - null
     - Widget
 ```
+
+#### Named Aggregations
+
+Aggregations can have a custom display name using the `aggregation-options` wrapper:
+
+```yaml
+aggregation:
+- - aggregation-options
+  - - sum
+    - - field
+      - [Sample Database, PUBLIC, ORDERS, TOTAL]
+      - base-type: type/Float
+  - display-name: Total Revenue
+```
+
+The structure is `[aggregation-options, aggregation-clause, {display-name: "Name"}]`.
 
 #### Metric and Measure References
 
@@ -1026,6 +1053,7 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
 | `case` | pairs of [condition, value], optional default | value type | Conditional expression (if/then/else) |
+| `if` | same as `case` | value type | Alias for `case` |
 | `coalesce` | 2+ expressions | first non-null type | First non-null value |
 
 ```yaml
@@ -1078,6 +1106,10 @@ Used as values in filter clauses:
 |---------|-----------|-------------|
 | `absolute-datetime` | value, unit | Specific date/time (e.g., `2024-01-01`, `day`) |
 | `relative-datetime` | n, unit | Relative to now. `n` = integer or `current`. |
+
+**Units for `absolute-datetime`:** `default`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`. For datetime values (not just dates), also: `millisecond`, `second`.
+
+**Units for `relative-datetime`:** `default`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`.
 
 ```yaml
 # Filter: created after Jan 1 2024
@@ -1284,7 +1316,7 @@ A temporal grouping variable. Metabase replaces the tag with a `DATE_TRUNC(unit,
 |----------|------|----------|-------------|
 | `default` | string | No | Default temporal unit (e.g., `month`) |
 | `dimension` | array | No | Field FK — the temporal column to group |
-| `alias` | string | No | SQL alias for the temporal expression |
+| `alias` | string | No | Name used to reference this expression in the SQL query (e.g., in `SELECT {{tag}} AS alias`) |
 
 ```yaml
 native:
@@ -1373,20 +1405,6 @@ Reference a table dynamically. The user selects a table from a dropdown and Meta
 |----------|------|----------|-------------|
 | `table-id` | array | Yes | Table FK `[database, schema, table]` |
 | `emit-alias` | boolean | No | Whether to emit the table name as an alias |
-| `source-filters` | array | No | Filters restricting which tables are available |
-
-Source filter structure:
-
-```yaml
-source-filters:
-- field-id:                    # Field FK
-  - Sample Database
-  - PUBLIC
-  - PRODUCTS
-  - CATEGORY
-  op: "="                      # Operator: =, !=, <, >, <=, >=
-  value: Widget
-```
 
 ```yaml
 native:
@@ -1469,7 +1487,7 @@ series_settings:
 
 | Setting | Type | Description |
 |---------|------|-------------|
-| `"table.columns"` | array | Column order and visibility — each entry: `{name, fieldRef, enabled}` |
+| `"table.columns"` | array | Column order and visibility — each entry: `{name, enabled}` |
 | `"table.column_formatting"` | array | Conditional formatting rules |
 | `"table.cell_column"` | string | Column to use for cell values (in pivot mode) |
 | `"table.pivot"` | boolean | Enable pivot mode |
@@ -1613,7 +1631,7 @@ scalar.comparisons:
 
 ### Column Settings
 
-Per-column formatting stored in `column_settings`, keyed by column reference (e.g., `["ref",["field",123,null]]` stringified, or `["name","COLUMN_NAME"]`):
+Per-column formatting stored in `column_settings`, keyed by column name (e.g., `["name","COLUMN_NAME"]`):
 
 ```yaml
 column_settings:
@@ -1853,9 +1871,50 @@ On **cards**, parameters are typically empty `[]` for MBQL queries. For native q
 | `required` | boolean | No | Whether a value is required |
 | `sectionId` | string | No | Parameter section grouping |
 | `temporal_units` | array | No | Allowed temporal units (for `temporal-unit` type) |
-| `values_query_type` | string | No | `"list"`, `"search"`, or `"none"` |
-| `values_source_type` | string | No | `null`, `"card"`, or `"static-list"` |
-| `values_source_config` | map | No | Values source configuration |
+| `values_query_type` | string | No | `"list"`, `"search"`, or `"none"` — controls how values are fetched |
+| `values_source_type` | string | No | `null`, `"card"`, or `"static-list"` — where values come from |
+| `values_source_config` | map | No | Source configuration (see below) |
+
+### Values Source Configuration
+
+When `values_source_type` is `"static-list"`, the config provides inline values:
+
+```yaml
+values_source_type: static-list
+values_source_config:
+  values:
+  - [1, "One"]
+  - [2, "Two"]
+```
+
+When `values_source_type` is `"card"`, the config references a card:
+
+```yaml
+values_source_type: card
+values_source_config:
+  card_id: f1C68pznmrpN1F5xFDj6d
+  value_field:
+  - field
+  - - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    - ID
+  - null
+  label_field:
+  - field
+  - - Sample Database
+    - PUBLIC
+    - PRODUCTS
+    - TITLE
+  - null
+```
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `values` | array | Static list of `[value, label]` pairs (for `static-list`) |
+| `card_id` | string | Card entity_id to source values from (for `card`) |
+| `value_field` | array | Field clause for extracting values from card results |
+| `label_field` | array | Field clause for extracting display labels from card results |
 
 ### Parameter Types
 
@@ -1879,14 +1938,12 @@ On **cards**, parameters are typically empty `[]` for MBQL queries. For native q
 | `date/relative` | Relative date (e.g., "last 7 days") |
 | `date/all-options` | All date filter options |
 | `boolean/=` | Boolean equals |
-| `id` | ID filter |
-| `category` | Category filter |
-| `location/city` | City filter |
-| `location/state` | State filter |
-| `location/zip_code` | Zip code filter |
-| `location/country` | Country filter |
 | `temporal-unit` | Temporal unit selector |
 | `none` | No filter widget (unconfigured) |
+
+### sectionId
+
+The `sectionId` property controls where the parameter appears in the UI. It is normally the first part of the parameter type (e.g., `date` for `date/range`, `string` for `string/=`). Setting `sectionId` to `id` for `number/=` or `string/=` parameters makes them appear in a special ID section in the UI.
 
 ### Parameter Targets
 
@@ -2151,7 +2208,6 @@ A dashboard card places a card (question) on the dashboard grid. Most dashboard 
 | `size_x` | integer | Yes | Width in grid units (1–24) |
 | `size_y` | integer | Yes | Height in grid units (1+) |
 | `serdes/meta` | array | Yes | Identity path: Dashboard → DashboardCard |
-| `action_id` | string | No | Action FK (entity_id) |
 | `dashboard_tab_id` | string | No | Tab entity_id, `null` for untabbed |
 | `inline_parameters` | array | No | Inline parameter overrides |
 | `parameter_mappings` | array | No | Parameter-to-card mappings (see below) |

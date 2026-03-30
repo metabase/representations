@@ -97,26 +97,6 @@ dashcards:
     model: Dashboard
   - id: wn16Kfjjjik8153kj14yI
     model: DashboardCard
-- entity_id: G0Wf-rw_ToFPjeINRpQPb
-  card_id: null
-  row: 4
-  col: 12
-  size_x: 4
-  size_y: 1
-  parameter_mappings: []
-  series: []
-  visualization_settings:
-    virtual_card:
-      display: action
-    "button.label": Run Analysis
-    "button.variant": primary
-    actionDisplayType: button
-  action_id: null
-  serdes/meta:
-  - id: Ylbpm_iPeEYav_o0kpUVD
-    model: Dashboard
-  - id: G0Wf-rw_ToFPjeINRpQPb
-    model: DashboardCard
 - entity_id: HZ_JpYrkE8fMEYJg93RKd
   card_id: null
   row: 5

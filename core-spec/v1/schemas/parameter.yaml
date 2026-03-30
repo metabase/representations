@@ -28,7 +28,7 @@ properties:
       string/starts-with, string/ends-with, number/=, number/!=,
       number/>=, number/<=, number/between, date/single, date/range,
       date/month-year, date/quarter-year, date/relative, date/all-options,
-      temporal-unit, id, boolean/=, category, location/city
+      boolean/=, temporal-unit
   default:
     description: Default value (type depends on filter type)
   required:
@@ -36,7 +36,10 @@ properties:
     description: Whether a value is required
   sectionId:
     type: string
-    description: Parameter section grouping
+    description: >
+      UI section grouping. Normally the first part of the parameter type
+      (e.g., "date" for date/range, "string" for string/=). Set to "id"
+      for number/= or string/= to display in a special ID section.
   temporal_units:
     type: array
     description: Allowed temporal units (for temporal-unit type)
@@ -66,4 +69,18 @@ properties:
       - static-list
   values_source_config:
     type: object
-    additionalProperties: true
+    description: >
+      Source configuration. For static-list: {values: [[val, label], ...]}.
+      For card: {card_id, value_field, label_field}.
+    properties:
+      values:
+        type: array
+        description: Static list of [value, label] pairs
+      card_id:
+        type: string
+        description: Card entity_id to source values from
+      value_field:
+        description: Field clause for extracting values from card results
+      label_field:
+        description: Field clause for extracting labels from card results
+    additionalProperties: false

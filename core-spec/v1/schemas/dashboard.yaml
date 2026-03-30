@@ -195,12 +195,7 @@ $defs:
         description: Height in grid units (1+)
         minimum: 1
       card_id:
-        description: Card FK, null for virtual cards (text, heading, link, iframe, action, placeholder)
-        oneOf:
-          - $ref: "common.yaml#/$defs/entity_id"
-          - type: "null"
-      action_id:
-        description: Action FK
+        description: Card FK, null for virtual cards (text, heading, link, iframe, placeholder)
         oneOf:
           - $ref: "common.yaml#/$defs/entity_id"
           - type: "null"

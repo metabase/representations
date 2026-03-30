@@ -237,6 +237,14 @@ $defs:
       widget-type:
         type: string
         description: Filter widget type (e.g., string/=, date/range)
+      options:
+        type: object
+        description: Options for generated filter clause (e.g., case-sensitive)
+      alias:
+        type: string
+        description: >
+          Name used to reference this expression in SQL
+          (for temporal-unit and dimension tags)
       card-id:
         description: Card entity_id for card type tags
         $ref: "common.yaml#/$defs/entity_id"
@@ -246,3 +254,9 @@ $defs:
       snippet-id:
         description: Snippet entity_id for snippet type tags
         $ref: "common.yaml#/$defs/entity_id"
+      table-id:
+        description: Table FK for table type tags
+        $ref: "common.yaml#/$defs/table_id"
+      emit-alias:
+        type: boolean
+        description: Whether to emit the table name as an alias (for table tags)
