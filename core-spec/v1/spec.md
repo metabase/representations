@@ -2000,7 +2000,16 @@ target:
 - stage-number: 1
 ```
 
-**Native — dimension/temporal-unit variable:**
+**MBQL — expression reference:**
+
+```yaml
+target:
+- dimension
+- - expression
+  - Profit
+```
+
+**Native — field filter (`dimension`) or time grouping (`temporal-unit`) template tag:**
 
 ```yaml
 target:
@@ -2009,7 +2018,7 @@ target:
   - category_filter
 ```
 
-**Native — text/number/date/boolean variable:**
+**Native — other template tags (`text`, `number`, `date`, `boolean`):**
 
 ```yaml
 target:
