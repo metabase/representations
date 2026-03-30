@@ -13,7 +13,7 @@ properties:
     type: string
     description: Collection name
   entity_id:
-    $ref: "common.yaml#/$defs/entity_id"
+    $ref: "id.yaml#/$defs/entity_id"
   description:
     type:
       - string
@@ -73,12 +73,12 @@ properties:
     description: >
       Collection FK — parent collection, or null for root-level collections.
     oneOf:
-      - $ref: "common.yaml#/$defs/entity_id"
+      - $ref: "id.yaml#/$defs/entity_id"
       - type: "null"
   personal_owner_id:
     description: User FK for personal collections
     oneOf:
-      - $ref: "common.yaml#/$defs/user_id"
+      - $ref: "id.yaml#/$defs/user_id"
       - type: "null"
   created_at:
     type: string

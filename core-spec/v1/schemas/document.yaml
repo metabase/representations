@@ -17,9 +17,9 @@ properties:
     type: string
     description: Document name (1-254 characters)
   entity_id:
-    $ref: "common.yaml#/$defs/entity_id"
+    $ref: "id.yaml#/$defs/entity_id"
   creator_id:
-    $ref: "common.yaml#/$defs/user_id"
+    $ref: "id.yaml#/$defs/user_id"
   document:
     description: >
       Document content as a ProseMirror AST. The root node has type "doc"
@@ -37,7 +37,7 @@ properties:
   collection_id:
     description: Collection FK, null for root collection
     oneOf:
-      - $ref: "common.yaml#/$defs/entity_id"
+      - $ref: "id.yaml#/$defs/entity_id"
       - type: "null"
   collection_position:
     type:
@@ -61,7 +61,7 @@ properties:
   made_public_by_id:
     description: User who made this public
     oneOf:
-      - $ref: "common.yaml#/$defs/user_id"
+      - $ref: "id.yaml#/$defs/user_id"
       - type: "null"
   view_count:
     type: integer
@@ -140,7 +140,7 @@ $defs:
                     required: [model, id]
                     properties:
                       model: { type: string, const: Card }
-                      id: { $ref: "common.yaml#/$defs/entity_id" }
+                      id: { $ref: "id.yaml#/$defs/entity_id" }
                   minItems: 1
                   maxItems: 1
                 name: { type: [string, "null"] }

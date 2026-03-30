@@ -85,6 +85,8 @@ serdes/meta:
 
 **Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
 
+Metabase only checks for importable YAML files in these top-level directories: `collections/`, `databases/` (only `segments/` and `measures/` subdirectories), `python_libraries/` (also accepted as `python-libraries/`), and `transforms/`. Files outside these directories are ignored during import.
+
 Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, and `transforms` holds transform entities. Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
 ```

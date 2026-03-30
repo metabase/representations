@@ -21,7 +21,7 @@ $defs:
         type: string
         description: Base type hint (e.g., type/Float, type/Integer)
       temporal-unit:
-        $ref: "common.yaml#/$defs/datetime_bucketing_unit"
+        $ref: "temporal_bucketing.yaml#/$defs/datetime_bucketing_unit"
       join-alias:
         type: string
         description: Alias of the join this field belongs to
@@ -44,7 +44,7 @@ $defs:
             exclusiveMinimum: 0
       source-field:
         description: FK field reference for implicit joins
-        $ref: "common.yaml#/$defs/field_id"
+        $ref: "id.yaml#/$defs/field_id"
       source-field-name:
         type: string
         description: FK field name for implicit joins in nested queries
@@ -62,7 +62,7 @@ $defs:
       - const: field
       - anyOf:
           - description: Field FK
-            $ref: "common.yaml#/$defs/field_id"
+            $ref: "id.yaml#/$defs/field_id"
           - type: string
             description: Column name (for nested queries)
       - anyOf:

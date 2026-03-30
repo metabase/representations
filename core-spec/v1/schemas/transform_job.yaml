@@ -11,7 +11,7 @@ required:
   - serdes/meta
 properties:
   entity_id:
-    $ref: "common.yaml#/$defs/entity_id"
+    $ref: "id.yaml#/$defs/entity_id"
   name:
     type: string
     description: Job name (e.g., "Daily job", "Hourly job")
@@ -54,13 +54,13 @@ properties:
       properties:
         tag_id:
           description: TransformTag FK
-          $ref: "common.yaml#/$defs/entity_id"
+          $ref: "id.yaml#/$defs/entity_id"
         position:
           type: integer
           description: Ordering position
         entity_id:
           description: NanoID of this job-tag association
-          $ref: "common.yaml#/$defs/entity_id"
+          $ref: "id.yaml#/$defs/entity_id"
         serdes/meta:
           type: array
           items:

@@ -11,7 +11,7 @@ required:
   - type
 properties:
   database:
-    $ref: "common.yaml#/$defs/database_id"
+    $ref: "id.yaml#/$defs/database_id"
   type:
     type: string
     description: Query language type
@@ -40,9 +40,9 @@ $defs:
           questions/models.
         oneOf:
           - description: Table FK [database, schema, table]
-            $ref: "common.yaml#/$defs/table_id"
+            $ref: "id.yaml#/$defs/table_id"
           - description: Card entity_id (NanoID) referencing a saved card/model
-            $ref: "common.yaml#/$defs/entity_id"
+            $ref: "id.yaml#/$defs/entity_id"
       source-query:
         description: >
           Nested MBQL query used as the data source instead of a table.
@@ -202,7 +202,7 @@ $defs:
                 - const: time-interval
                 - $ref: "#/$defs/expression"
                 - { anyOf: [{ type: integer }, { enum: [current, last, next] }] }
-                - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+                - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 4
               maxItems: 5
           - if: { prefixItems: [{ const: relative-time-interval }] }
@@ -211,9 +211,9 @@ $defs:
                 - const: relative-time-interval
                 - $ref: "#/$defs/expression"
                 - { type: integer }
-                - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+                - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
                 - { type: integer }
-                - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+                - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 6
               maxItems: 6
           - if: { prefixItems: [{ const: absolute-datetime }] }
@@ -221,7 +221,7 @@ $defs:
               prefixItems:
                 - const: absolute-datetime
                 - { type: string }
-                - $ref: "common.yaml#/$defs/datetime_bucketing_unit"
+                - $ref: "temporal_bucketing.yaml#/$defs/datetime_bucketing_unit"
               minItems: 3
               maxItems: 3
           - if: { prefixItems: [{ const: relative-datetime }] }
@@ -229,7 +229,7 @@ $defs:
               prefixItems:
                 - const: relative-datetime
                 - { anyOf: [{ type: integer }, { const: current }] }
-              items: { $ref: "common.yaml#/$defs/datetime_truncation_unit" }
+              items: { $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit" }
               minItems: 2
               maxItems: 3
           # --- Nullary ---
@@ -241,7 +241,7 @@ $defs:
               prefixItems:
                 - const: interval
                 - { type: integer }
-                - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+                - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 3
               maxItems: 3
           # --- Unary functions ---
@@ -301,7 +301,7 @@ $defs:
                 - enum: [datetime-add, datetime-subtract]
                 - $ref: "#/$defs/expression"
                 - { type: integer }
-                - $ref: "common.yaml#/$defs/datetime_truncation_unit"
+                - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 4
               maxItems: 4
           - if: { prefixItems: [{ const: datetime-diff }] }
@@ -324,7 +324,7 @@ $defs:
               prefixItems:
                 - const: temporal-extract
                 - $ref: "#/$defs/expression"
-                - $ref: "common.yaml#/$defs/datetime_extraction_unit"
+                - $ref: "temporal_bucketing.yaml#/$defs/datetime_extraction_unit"
               items: { type: string, enum: [iso, us, instance] }
               minItems: 3
               maxItems: 4
@@ -411,9 +411,9 @@ $defs:
         description: Table FK or Card entity_id of the joined data source
         oneOf:
           - description: Table FK [database, schema, table]
-            $ref: "common.yaml#/$defs/table_id"
+            $ref: "id.yaml#/$defs/table_id"
           - description: Card entity_id (NanoID)
-            $ref: "common.yaml#/$defs/entity_id"
+            $ref: "id.yaml#/$defs/entity_id"
       condition:
         description: Join condition as MBQL expression clause
         $ref: "#/$defs/expression"
@@ -510,16 +510,16 @@ $defs:
           (for temporal-unit and dimension tags)
       card-id:
         description: Card entity_id for card type tags
-        $ref: "common.yaml#/$defs/entity_id"
+        $ref: "id.yaml#/$defs/entity_id"
       snippet-name:
         type: string
         description: Snippet name for snippet type tags
       snippet-id:
         description: Snippet entity_id for snippet type tags
-        $ref: "common.yaml#/$defs/entity_id"
+        $ref: "id.yaml#/$defs/entity_id"
       table-id:
         description: Table FK for table type tags
-        $ref: "common.yaml#/$defs/table_id"
+        $ref: "id.yaml#/$defs/table_id"
       emit-alias:
         type: boolean
         description: Whether to emit the table name as an alias (for table tags)
