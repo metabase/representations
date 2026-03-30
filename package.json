@@ -2,7 +2,7 @@
   "name": "@metabase/representations",
   "version": "1.0.0",
   "description": "Metabase representation format specification and schema validator",
-  "license": "SEE LICENSE IN LICENSE",
+  "license": "SEE LICENSE IN LICENSE.txt",
   "repository": {
     "type": "git",
     "url": "https://github.com/metabase/representations.git"
