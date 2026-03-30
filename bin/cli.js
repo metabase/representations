@@ -39,13 +39,13 @@ if (results.length === 0) {
   process.exit(1);
 }
 
-for (const r of results) {
-  const relPath = relative(process.cwd(), `${folder}/${r.file}`);
-  if (r.status === "ok") {
-    console.log(`OK    ${relPath} (${r.model})`);
+for (const result of results) {
+  const path = relative(process.cwd(), `${folder}/${result.file}`);
+  if (result.status === "ok") {
+    console.log(`OK    ${path} (${result.model})`);
   } else {
-    console.error(`FAIL  ${relPath}${r.model ? ` (${r.model})` : ""}`);
-    for (const error of r.errors) {
+    console.error(`FAIL  ${path}${result.model ? ` (${result.model})` : ""}`);
+    for (const error of result.errors) {
       console.error(`      ${error.path} ${error.message}`);
     }
   }
