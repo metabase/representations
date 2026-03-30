@@ -102,34 +102,33 @@ $defs:
       For native dimension tags: [dimension, [template-tag, tag_name]].
       For native variable tags: [variable, [template-tag, tag_name]].
     type: array
-    anyOf:
-      - prefixItems:
-          - const: dimension
-          - anyOf:
-              - $ref: "ref.yaml#/$defs/field_ref"
-              - $ref: "ref.yaml#/$defs/expression_ref"
-              - type: array
-                prefixItems:
-                  - const: template-tag
-                  - type: string
-                minItems: 2
-                maxItems: 2
-        items:
-          anyOf:
-            - type: object
-              properties:
-                stage-number:
-                  type: integer
-            - type: "null"
-        minItems: 2
-        maxItems: 3
-      - prefixItems:
-          - const: variable
-          - type: array
-            prefixItems:
-              - const: template-tag
-              - type: string
-            minItems: 2
-            maxItems: 2
-        minItems: 2
-        maxItems: 2
+    minItems: 2
+    allOf:
+      - if: { prefixItems: [{ const: dimension }] }
+        then:
+          prefixItems:
+            - const: dimension
+            - anyOf:
+                - $ref: "ref.yaml#/$defs/field_ref"
+                - $ref: "ref.yaml#/$defs/expression_ref"
+                - type: array
+                  prefixItems: [{ const: template-tag }, { type: string }]
+                  minItems: 2
+                  maxItems: 2
+          items:
+            anyOf:
+              - type: object
+                properties:
+                  stage-number: { type: integer }
+              - type: "null"
+          maxItems: 3
+      - if: { prefixItems: [{ const: variable }] }
+        then:
+          prefixItems:
+            - const: variable
+            - type: array
+              prefixItems: [{ const: template-tag }, { type: string }]
+              minItems: 2
+              maxItems: 2
+          minItems: 2
+          maxItems: 2
