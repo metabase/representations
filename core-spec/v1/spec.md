@@ -1139,12 +1139,17 @@ Window functions can only be used inside the `aggregation` clause.
 | `offset` | expression, n | same type | Value from n rows before (negative) or after (positive) |
 
 ```yaml
-# Previous row's value
-- offset
-- - field
-  - [Sample Database, PUBLIC, ORDERS, TOTAL]
-  - null
-- -1
+aggregation:
+- - sum
+  - - field
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - base-type: type/Float
+- - offset
+  - - sum
+    - - field
+      - [Sample Database, PUBLIC, ORDERS, TOTAL]
+      - base-type: type/Float
+  - -1
 ```
 
 #### Datetime Literals
