@@ -49,6 +49,8 @@ jobs:
           # Create import archive and POST it
           tar czf /tmp/import.tgz -C examples/v1 .
 
+          IMPORT_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
           HTTP_CODE=$(curl -s -o /tmp/import-response.txt -w '%{http_code}' \
             -X POST \
             -H "X-API-Key: $API_KEY" \
@@ -64,9 +66,8 @@ jobs:
 
           echo "Import succeeded"
 
-      - name: Check for lib.convert warnings
-        run: |
-          WARNINGS=$(docker logs metabase 2>&1 | grep "WARN lib.convert")
+          # Check for lib.convert warnings from the import
+          WARNINGS=$(docker logs --since "$IMPORT_START" metabase 2>&1 | grep "WARN lib.convert")
           if [ -n "$WARNINGS" ]; then
             echo "Import produced lib.convert warnings — clauses were silently removed:"
             echo "$WARNINGS"
