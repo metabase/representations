@@ -1,5 +1,5 @@
 import { readFileSync } from "fs";
-import { resolve, relative } from "path";
+import { resolve } from "path";
 import { globSync } from "glob";
 import yaml from "js-yaml";
 import Ajv from "ajv/dist/2020.js";
@@ -28,15 +28,12 @@ function getModel(doc) {
   return meta[meta.length - 1]?.model ?? null;
 }
 
-export function lint({ version, folder }) {
+export function validateSchema({ version = "v1", folder }) {
   const schemasDir = resolve(PACKAGE_ROOT, `core-spec/${version}/schemas`);
 
   const ajv = new Ajv({ allErrors: true, strictTuples: false });
   addFormats(ajv);
 
-  // Load all schemas — entity schemas (with serdes/meta model) are keyed by
-  // model name; shared sub-schemas (query.yaml, parameter.yaml, etc.) are
-  // registered by filename for $ref resolution.
   const schemas = {};
   for (const file of globSync("*.yaml", { cwd: schemasDir })) {
     const raw = yaml.load(readFileSync(resolve(schemasDir, file), "utf8"));
@@ -49,64 +46,56 @@ export function lint({ version, folder }) {
     }
   }
 
-  // Pre-compile validators for each entity schema
   const validators = {};
   for (const [model, schema] of Object.entries(schemas)) {
     validators[model] = ajv.compile(schema);
   }
 
-  // Find YAML files only in the directories Metabase checks for import
   const files = globSync(IMPORT_PATHS, { cwd: folder });
 
   if (files.length === 0) {
-    console.error(`No YAML files found in ${folder}`);
-    return 1;
+    return { results: [], passed: 0, failed: 0 };
   }
 
-  let passed = 0;
-  let failed = 0;
+  const results = [];
 
   for (const file of files.sort()) {
     const fullPath = resolve(folder, file);
-    const relPath = relative(process.cwd(), fullPath);
 
     let doc;
     try {
       doc = yaml.load(readFileSync(fullPath, "utf8"));
     } catch (e) {
-      console.error(`FAIL  ${relPath} — invalid YAML: ${e.message}`);
-      failed++;
+      results.push({ file, status: "fail", errors: [{ path: "/", message: `invalid YAML: ${e.message}` }] });
       continue;
     }
 
     const model = getModel(doc);
     if (!model) {
-      console.error(`FAIL  ${relPath} — missing serdes/meta or model`);
-      failed++;
+      results.push({ file, status: "fail", errors: [{ path: "/", message: "missing serdes/meta or model" }] });
       continue;
     }
 
     const validate = validators[model];
     if (!validate) {
-      console.error(`FAIL  ${relPath} — unknown model "${model}"`);
-      failed++;
+      results.push({ file, status: "fail", errors: [{ path: "/", message: `unknown model "${model}"` }] });
       continue;
     }
 
-    const valid = validate(doc);
-
-    if (valid) {
-      console.log(`OK    ${relPath} (${model})`);
-      passed++;
+    if (validate(doc)) {
+      results.push({ file, model, status: "ok" });
     } else {
-      console.error(`FAIL  ${relPath} (${model})`);
-      for (const err of validate.errors) {
-        console.error(`      ${err.instancePath || "/"} ${err.message}`);
-      }
-      failed++;
+      const errors = validate.errors.map((e) => ({
+        path: e.instancePath || "/",
+        message: e.message,
+      }));
+      results.push({ file, model, status: "fail", errors });
     }
   }
 
-  console.log(`\n${passed} passed, ${failed} failed`);
-  return failed;
+  return {
+    results,
+    passed: results.filter((r) => r.status === "ok").length,
+    failed: results.filter((r) => r.status === "fail").length,
+  };
 }

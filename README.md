@@ -24,3 +24,31 @@ This repository contains the specification and examples for the Metabase Represe
 | TransformTag | Label for categorizing transforms (built-in or custom) |
 | TransformJob | Scheduled job that executes tagged transforms |
 | PythonLibrary | Shared Python source file available to Python transforms |
+
+## Schema Validation
+
+### CLI
+
+Validate a folder of YAML files against the schemas:
+
+```sh
+npx @metabase/representations validate-schema --folder ./my-export
+```
+
+Omit `--folder` to validate the current directory.
+
+### Programmatic
+
+```js
+import { validateSchema } from "@metabase/representations";
+
+const { results, passed, failed } = validateSchema({
+  folder: "./my-export",
+});
+
+for (const result of results) {
+  if (result.status === "fail") {
+    console.log(result.file, result.errors);
+  }
+}
+```

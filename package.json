@@ -1,12 +1,30 @@
 {
   "name": "@metabase/representations",
   "version": "1.0.0",
+  "description": "Metabase representation format specification and schema validator",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/metabase/representations.git"
+  },
+  "homepage": "https://github.com/metabase/representations",
+  "keywords": ["metabase", "representation", "serialization", "yaml", "schema", "validator"],
   "private": true,
+  "type": "module",
+  "files": [
+    "src",
+    "bin",
+    "core-spec/v1/schemas"
+  ],
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
   "bin": {
-    "representations": "src/cli.js"
+    "representations": "bin/cli.js"
   },
   "scripts": {
-    "lint": "bun run src/cli.js lint --folder examples/v1"
+    "validate-schema": "bun run bin/cli.js validate-schema --folder examples/v1"
   },
   "dependencies": {
     "ajv": "^8.17.1",
