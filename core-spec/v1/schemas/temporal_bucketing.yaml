@@ -42,7 +42,7 @@ $defs:
   datetime_bucketing_unit:
     description: >
       All datetime units — truncation + extraction + default.
-      Used for field temporal-unit option and absolute-datetime.
+      Used for field temporal-unit option.
     anyOf:
       - const: default
       - $ref: "#/$defs/datetime_truncation_unit"

@@ -89,14 +89,6 @@ dataset_query:
           - PRODUCTS
           - RATING
         - null
-      In Stock:
-      - boolean
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - RATING
-        - null
     limit: 10
 visualization_settings: {}
 serdes/meta:
