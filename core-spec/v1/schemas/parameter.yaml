@@ -37,9 +37,17 @@ properties:
   sectionId:
     type: string
     description: >
-      UI section grouping. Normally the first part of the parameter type
-      (e.g., "date" for date/range, "string" for string/=). Set to "id"
-      for number/= or string/= to display in a special ID section.
+      UI section grouping. Restricts which columns are available for
+      mapping. For id — only PK and FK columns. For location — only
+      location columns (country, city, etc.). Normally matches the
+      first part of the parameter type.
+    enum:
+      - string
+      - number
+      - date
+      - boolean
+      - id
+      - location
   temporal_units:
     type: array
     description: Allowed temporal units (for temporal-unit type)

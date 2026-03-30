@@ -1955,7 +1955,18 @@ values_source_config:
 
 ### sectionId
 
-The `sectionId` property controls where the parameter appears in the UI. It is normally the first part of the parameter type (e.g., `date` for `date/range`, `string` for `string/=`). Setting `sectionId` to `id` for `number/=` or `string/=` parameters makes them appear in a special ID section in the UI.
+The `sectionId` property restricts which columns are available for mapping in the UI. It is optional — when omitted, Metabase infers it from the parameter type.
+
+| sectionId | Available columns | Typical parameter types |
+|-----------|-------------------|------------------------|
+| `string` | Text columns | `string/=`, `string/!=`, `string/contains`, etc. |
+| `number` | Numeric columns | `number/=`, `number/!=`, `number/between`, etc. |
+| `date` | Date/time columns | `date/single`, `date/range`, `date/relative`, etc. |
+| `boolean` | Boolean columns | `boolean/=` |
+| `id` | Only PK and FK columns | `number/=` or `string/=` with `sectionId: id` |
+| `location` | Only location columns (country, city, etc.) | `string/=` with `sectionId: location` |
+
+Use `sectionId: id` to make a `number/=` or `string/=` parameter map only to primary key and foreign key columns. Use `sectionId: location` to restrict mapping to location-typed columns.
 
 ### Parameter Targets
 

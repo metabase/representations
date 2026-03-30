@@ -67,15 +67,17 @@ parameters:
 - id: a0000016-0000-0000-0000-000000000016
   name: ID
   slug: id_filter
-  type: id
+  type: number/=
+  sectionId: id
 - id: a0000017-0000-0000-0000-000000000017
   name: Category
   slug: category_filter
-  type: category
+  type: string/=
 - id: a0000018-0000-0000-0000-000000000018
   name: Location City
   slug: location_city
-  type: location/city
+  type: string/=
+  sectionId: location
 - id: a0000019-0000-0000-0000-000000000019
   name: Temporal Unit
   slug: temporal_unit
