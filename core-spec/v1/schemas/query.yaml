@@ -18,12 +18,27 @@ properties:
     enum:
       - query
       - native
-  query:
-    description: MBQL structured query (when type is "query")
-    $ref: "#/$defs/mbql_query"
-  native:
-    description: Native SQL query (when type is "native")
-    $ref: "#/$defs/native_query"
+allOf:
+  - if:
+      properties:
+        type: { const: query }
+    then:
+      required: [query]
+      properties:
+        query:
+          description: MBQL structured query
+          $ref: "#/$defs/mbql_query"
+        native: false
+  - if:
+      properties:
+        type: { const: native }
+    then:
+      required: [native]
+      properties:
+        native:
+          description: Native SQL query
+          $ref: "#/$defs/native_query"
+        query: false
 
 $defs:
   mbql_query:
