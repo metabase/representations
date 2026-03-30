@@ -1971,7 +1971,12 @@ Use `sectionId: id` to make a `number/=` or `string/=` parameter map only to pri
 
 ### Parameter Targets
 
-Parameter targets specify which column or variable a parameter maps to.
+Parameter targets specify which column or variable a parameter maps to. The outer wrapper is either `dimension` or `variable`:
+
+- **`dimension`** — for MBQL column references (`field`, `expression`) and for native template tags of type `dimension` or `temporal-unit`
+- **`variable`** — for native template tags of type `text`, `number`, `date`, or `boolean`
+
+An optional third element `{stage-number: N}` can specify which query stage the target belongs to (0 = first stage).
 
 **MBQL — field reference:**
 
