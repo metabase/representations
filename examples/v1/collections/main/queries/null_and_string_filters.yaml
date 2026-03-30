@@ -45,6 +45,7 @@ dataset_query:
         - null
       - LLC
     - - starts-with
+      - case-sensitive: false
       - - field
         - - Sample Database
           - PUBLIC

@@ -205,11 +205,34 @@ $defs:
               minItems: 2
               maxItems: 2
           # --- String filters ---
+          # 2 args: [op, field, value] or [op, field, value, options]
+          # 3+ args (multi-value): [op, options, field, value, value, ...] — options required in position 2
           - if: { prefixItems: [{ enum: [contains, does-not-contain, starts-with, ends-with] }] }
             then:
-              prefixItems:
-                - enum: [contains, does-not-contain, starts-with, ends-with]
-              minItems: 3
+              anyOf:
+                # 2 args, no options
+                - prefixItems:
+                    - enum: [contains, does-not-contain, starts-with, ends-with]
+                    - $ref: "#/$defs/expression"
+                    - $ref: "#/$defs/expression"
+                  minItems: 3
+                  maxItems: 3
+                # 2 args, with options last
+                - prefixItems:
+                    - enum: [contains, does-not-contain, starts-with, ends-with]
+                    - $ref: "#/$defs/expression"
+                    - $ref: "#/$defs/expression"
+                    - $ref: "#/$defs/case_sensitive_options"
+                  minItems: 4
+                  maxItems: 4
+                # 3+ args (multi-value), options required in position 2
+                - prefixItems:
+                    - enum: [contains, does-not-contain, starts-with, ends-with]
+                    - $ref: "#/$defs/case_sensitive_options"
+                    - $ref: "#/$defs/expression"
+                    - $ref: "#/$defs/expression"
+                  items: { $ref: "#/$defs/expression" }
+                  minItems: 4
           # --- Temporal filters ---
           - if: { prefixItems: [{ const: time-interval }] }
             then:
@@ -218,6 +241,9 @@ $defs:
                 - $ref: "#/$defs/expression"
                 - { anyOf: [{ type: integer }, { enum: [current, last, next] }] }
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
+                - type: object
+                  properties:
+                    include-current: { type: boolean }
               minItems: 4
               maxItems: 5
           - if: { prefixItems: [{ const: relative-time-interval }] }
@@ -397,7 +423,9 @@ $defs:
                     prefixItems: [{ $ref: "#/$defs/expression" }, { $ref: "#/$defs/expression" }]
                     minItems: 2
                     maxItems: 2
-              items: { $ref: "#/$defs/expression" }
+                - type: object
+                  properties:
+                    default: { $ref: "#/$defs/expression" }
               minItems: 2
               maxItems: 3
           # --- Offset ---
@@ -412,6 +440,11 @@ $defs:
               prefixItems: [{ enum: [asc, desc] }, { $ref: "#/$defs/expression" }]
               minItems: 2
               maxItems: 2
+
+  case_sensitive_options:
+    type: object
+    properties:
+      case-sensitive: { type: boolean }
 
   datetime_diff_unit:
     description: Units for datetime-diff (no millisecond).

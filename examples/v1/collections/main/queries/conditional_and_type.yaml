@@ -32,7 +32,7 @@ dataset_query:
               - null
             - 30
           - Standard
-      - Budget
+      - default: Budget
       Effective Price:
       - coalesce
       - - field
