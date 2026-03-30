@@ -41,8 +41,47 @@ dataset_query:
             - CREATED_AT
           - null
         - - relative-datetime
-          - 0
+          - current
+      - - ">"
+        - - field
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+          - null
+        - - relative-datetime
+          - -30
           - day
+    - - time-interval
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - current
+      - month
+    - - time-interval
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - -7
+      - day
+      - include-current: true
+    - - relative-time-interval
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - -30
+      - day
+      - -1
+      - month
     - - not
       - - is-null
         - - field

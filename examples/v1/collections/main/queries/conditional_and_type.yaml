@@ -32,7 +32,30 @@ dataset_query:
               - null
             - 30
           - Standard
-      - Budget
+      - default: Budget
+      Is Premium:
+      - if
+      - - - - ">"
+            - - field
+              - - Sample Database
+                - PUBLIC
+                - PRODUCTS
+                - PRICE
+              - null
+            - 100
+          - true
+      - default: false
+      Simple Category:
+      - case
+      - - - - ">"
+            - - field
+              - - Sample Database
+                - PUBLIC
+                - PRODUCTS
+                - RATING
+              - null
+            - 4
+          - Popular
       Effective Price:
       - coalesce
       - - field
@@ -52,6 +75,22 @@ dataset_query:
         - null
       Rating as Integer:
       - integer
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+      Rating as Float:
+      - float
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+      In Stock:
+      - boolean
       - - field
         - - Sample Database
           - PUBLIC

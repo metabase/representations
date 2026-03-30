@@ -27,6 +27,14 @@ dataset_query:
           - PRODUCTS
           - VENDOR
         - null
+    - - is-empty
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
+    # contains — 2 args, no options
     - - contains
       - - field
         - - Sample Database
@@ -35,7 +43,28 @@ dataset_query:
           - TITLE
         - null
       - widget
+    # contains — 2 args, with options
+    - - contains
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - gadget
       - case-sensitive: false
+    # contains — 3+ args (multi-value), options required in position 2
+    - - contains
+      - case-sensitive: false
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - widget
+      - gadget
+    # does-not-contain — 2 args, no options
     - - does-not-contain
       - - field
         - - Sample Database
@@ -44,6 +73,28 @@ dataset_query:
           - VENDOR
         - null
       - LLC
+    # does-not-contain — 2 args, with options
+    - - does-not-contain
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
+      - inc
+      - case-sensitive: false
+    # does-not-contain — 3+ args (multi-value)
+    - - does-not-contain
+      - case-sensitive: true
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - VENDOR
+        - null
+      - LLC
+      - Corp
+    # starts-with — 2 args, no options
     - - starts-with
       - - field
         - - Sample Database
@@ -52,7 +103,28 @@ dataset_query:
           - TITLE
         - null
       - Awesome
+    # starts-with — 2 args, with options
+    - - starts-with
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - awesome
+      - case-sensitive: false
+    # starts-with — 3+ args (multi-value)
+    - - starts-with
+      - case-sensitive: false
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - Awesome
       - Incredible
+    # ends-with — 2 args, no options
     - - ends-with
       - - field
         - - Sample Database
@@ -61,6 +133,27 @@ dataset_query:
           - EAN
         - null
       - "0"
+    # ends-with — 2 args, with options
+    - - ends-with
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - EAN
+        - null
+      - "9"
+      - case-sensitive: false
+    # ends-with — 3+ args (multi-value)
+    - - ends-with
+      - case-sensitive: true
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - EAN
+        - null
+      - "0"
+      - "5"
     limit: 20
 visualization_settings: {}
 serdes/meta:

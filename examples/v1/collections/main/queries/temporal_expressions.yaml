@@ -52,6 +52,52 @@ dataset_query:
         - null
       - America/New_York
       - UTC
+      Order in Local TZ:
+      - convert-timezone
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      - America/Chicago
+      One Week Interval:
+      - interval
+      - 7
+      - day
+      Order Date:
+      - date
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Order Time:
+      - time
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
+      Parsed Datetime:
+      - datetime
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - base-type: type/Text
+      Parsed Unix:
+      - datetime
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - base-type: type/Integer
+      - mode: unix-seconds
       Current Time:
       - now
       Today Date:

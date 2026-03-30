@@ -115,6 +115,24 @@ dataset_query:
           - PRODUCTS
           - TITLE
         - null
+      Title From 5th Char:
+      - substring
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - 5
+      Collated Title:
+      - collate
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - TITLE
+        - null
+      - en_US
     limit: 10
 visualization_settings: {}
 serdes/meta:

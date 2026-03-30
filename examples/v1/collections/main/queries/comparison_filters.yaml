@@ -30,6 +30,14 @@ dataset_query:
           - RATING
         - null
       - 3
+    - - "<="
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - RATING
+        - null
+      - 5
     - - "!="
       - - field
         - - Sample Database
@@ -48,6 +56,34 @@ dataset_query:
       - Widget
       - Gadget
       - Gizmo
+    - - in
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+      - Widget
+      - Gadget
+    - - not-in
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+        - null
+      - Doohickey
+      - Gizmo
+    - - "="
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - PRICE
+        - null
+      - - value
+        - 42.0
+        - effective-type: type/Float
     limit: 20
 visualization_settings: {}
 serdes/meta:

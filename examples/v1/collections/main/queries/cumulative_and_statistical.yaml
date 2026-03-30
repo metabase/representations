@@ -13,6 +13,13 @@ dataset_query:
     - ORDERS
     aggregation:
     - - cum-count
+    - - cum-count
+      - - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - PRODUCT_ID
+        - null
     - - cum-sum
       - - field
         - - Sample Database
