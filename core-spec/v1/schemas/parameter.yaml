@@ -108,13 +108,18 @@ $defs:
         then:
           prefixItems:
             - const: dimension
-            - anyOf:
-                - $ref: "ref.yaml#/$defs/field_ref"
-                - $ref: "ref.yaml#/$defs/expression_ref"
-                - type: array
-                  prefixItems: [{ const: template-tag }, { type: string }]
-                  minItems: 2
-                  maxItems: 2
+            - type: array
+              minItems: 2
+              allOf:
+                - if: { prefixItems: [{ const: field }] }
+                  then: { $ref: "ref.yaml#/$defs/field_ref" }
+                - if: { prefixItems: [{ const: expression }] }
+                  then: { $ref: "ref.yaml#/$defs/expression_ref" }
+                - if: { prefixItems: [{ const: template-tag }] }
+                  then:
+                    prefixItems: [{ const: template-tag }, { type: string }]
+                    minItems: 2
+                    maxItems: 2
           items:
             anyOf:
               - type: object
