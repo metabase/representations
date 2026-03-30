@@ -17,6 +17,7 @@ dataset_query:
     template-tags:
       min_total:
         type: number
+        sectionId: number
         name: min_total
         id: aa000001-0000-0000-0000-000000000001
         display-name: Minimum Total
@@ -24,6 +25,7 @@ dataset_query:
         required: true
       after_date:
         type: date
+        sectionId: date
         name: after_date
         id: aa000002-0000-0000-0000-000000000002
         display-name: After Date
@@ -35,6 +37,7 @@ dataset_query:
         display-name: User ID
       is_active:
         type: boolean
+        sectionId: boolean
         name: is_active
         id: aa000004-0000-0000-0000-000000000004
         display-name: Is Active

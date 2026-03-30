@@ -11,7 +11,7 @@ required:
   - serdes/meta
 properties:
   entity_id:
-    $ref: "common.yaml#/$defs/entity_id"
+    $ref: "id.yaml#/$defs/entity_id"
   name:
     type: string
     description: Tag name (e.g., "hourly", "daily", "custom-etl")

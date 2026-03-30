@@ -13,6 +13,7 @@ dataset_query:
     template-tags:
       min_total:
         type: number
+        sectionId: number
         name: min_total
         id: ee000001-0000-0000-0000-000000000001
         display-name: Minimum Total

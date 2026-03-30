@@ -2,10 +2,19 @@ import { readFileSync } from "fs";
 import { resolve, relative } from "path";
 import { globSync } from "glob";
 import yaml from "js-yaml";
-import Ajv from "ajv";
+import Ajv from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 
 const PACKAGE_ROOT = resolve(import.meta.dirname, "..");
+
+const IMPORT_PATHS = [
+  "collections/**/*.yaml",
+  "databases/**/segments/**/*.yaml",
+  "databases/**/measures/**/*.yaml",
+  "python_libraries/**/*.yaml",
+  "python-libraries/**/*.yaml",
+  "transforms/**/*.yaml",
+];
 
 function extractModel(schema) {
   const items = schema?.properties?.["serdes/meta"]?.items;
@@ -22,7 +31,7 @@ function getModel(doc) {
 export function lint({ version, folder }) {
   const schemasDir = resolve(PACKAGE_ROOT, `core-spec/${version}/schemas`);
 
-  const ajv = new Ajv({ allErrors: true });
+  const ajv = new Ajv({ allErrors: true, strictTuples: false });
   addFormats(ajv);
 
   // Load all schemas — entity schemas (with serdes/meta model) are keyed by
@@ -46,8 +55,8 @@ export function lint({ version, folder }) {
     validators[model] = ajv.compile(schema);
   }
 
-  // Find all YAML files in folder
-  const files = globSync("**/*.yaml", { cwd: folder });
+  // Find YAML files only in the directories Metabase checks for import
+  const files = globSync(IMPORT_PATHS, { cwd: folder });
 
   if (files.length === 0) {
     console.error(`No YAML files found in ${folder}`);

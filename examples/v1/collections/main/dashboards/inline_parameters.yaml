@@ -7,11 +7,13 @@ parameters:
   name: Category
   slug: category
   type: string/=
+  sectionId: string
   default: Widget
 - id: d0000002-0000-0000-0000-000000000002
   name: Min Price
   slug: min_price
   type: number/>=
+  sectionId: number
 tabs: []
 dashcards:
 - entity_id: yaY0FfjZyI9oEQQR5TZ3q
