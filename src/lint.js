@@ -22,7 +22,7 @@ function getModel(doc) {
 export function lint({ version, folder }) {
   const schemasDir = resolve(PACKAGE_ROOT, `core-spec/${version}/schemas`);
 
-  const ajv = new Ajv({ allErrors: true });
+  const ajv = new Ajv({ allErrors: true, strictTuples: false });
   addFormats(ajv);
 
   // Load all schemas — entity schemas (with serdes/meta model) are keyed by

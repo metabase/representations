@@ -1963,6 +1963,7 @@ The `sectionId` property restricts which columns are available for mapping in th
 | `number` | Numeric columns | `number/=`, `number/!=`, `number/between`, etc. |
 | `date` | Date/time columns | `date/single`, `date/range`, `date/relative`, etc. |
 | `boolean` | Boolean columns | `boolean/=` |
+| `temporal-unit` | Temporal unit selector | `temporal-unit` |
 | `id` | Only PK and FK columns | `number/=` or `string/=` with `sectionId: id` |
 | `location` | Only location columns (country, city, etc.) | `string/=` with `sectionId: location` |
 

@@ -6,6 +6,7 @@ parameters:
   name: Category
   slug: category
   type: string/=
+  sectionId: string
 dashcards:
 - entity_id: UkpFcfUZMZt9ehChwnrAO
   card_id: f1C68pznmrpN1F5xFDj6d
