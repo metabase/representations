@@ -4,92 +4,102 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-    expressions:
-      Price Tier:
-      - case
-      - - - - ">"
-            - - field
-              - - Sample Database
-                - PUBLIC
-                - PRODUCTS
-                - PRICE
-              - null
-            - 100
-          - Premium
-        - - - ">"
-            - - field
-              - - Sample Database
-                - PUBLIC
-                - PRODUCTS
-                - PRICE
-              - null
-            - 30
-          - Standard
-      - default: Budget
-      Is Premium:
-      - if
-      - - - - ">"
-            - - field
-              - - Sample Database
-                - PUBLIC
-                - PRODUCTS
-                - PRICE
-              - null
-            - 100
-          - true
-      - default: false
-      Simple Category:
-      - case
-      - - - - ">"
-            - - field
-              - - Sample Database
-                - PUBLIC
-                - PRODUCTS
-                - RATING
-              - null
-            - 4
-          - Popular
-      Effective Price:
-      - coalesce
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
-        - null
-      - 0
-      Price as Text:
-      - text
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
-        - null
-      Rating as Integer:
-      - integer
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - RATING
-        - null
-      Rating as Float:
-      - float
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - RATING
-        - null
-    limit: 10
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      expressions:
+        Price Tier:
+        - case
+        - default: Budget
+        - - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - PUBLIC
+                  - PRODUCTS
+                  - PRICE
+              - 100
+            - Premium
+          - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - PUBLIC
+                  - PRODUCTS
+                  - PRICE
+              - 30
+            - Standard
+        Is Premium:
+        - if
+        - default: false
+        - - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - PUBLIC
+                  - PRODUCTS
+                  - PRICE
+              - 100
+            - true
+        Simple Category:
+        - case
+        - {}
+        - - - - ">"
+              - {}
+              - - field
+                - {}
+                - - Sample Database
+                  - PUBLIC
+                  - PRODUCTS
+                  - RATING
+              - 4
+            - Popular
+        Effective Price:
+        - coalesce
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+        - 0
+        Price as Text:
+        - text
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+        Rating as Integer:
+        - integer
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - RATING
+        Rating as Float:
+        - float
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - RATING
+      limit: 10
 visualization_settings: {}
 serdes/meta:
 - id: 1hsUzNOepulZo3Jamzd1R

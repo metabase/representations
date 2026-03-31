@@ -4,65 +4,73 @@ creator_id: admin@example.com
 display: line
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    aggregation:
-    - - cum-count
-    - - cum-count
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      aggregation:
+      - - cum-count
+        - {}
+      - - cum-count
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - PRODUCT_ID
+      - - cum-sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+      - - stddev
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+      - - var
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+      - - median
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+      - - percentile
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+        - 0.9
+      breakout:
       - - field
+        - temporal-unit: month
         - - Sample Database
           - PUBLIC
           - ORDERS
-          - PRODUCT_ID
-        - null
-    - - cum-sum
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-    - - stddev
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-    - - var
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-    - - median
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-    - - percentile
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-      - 0.9
-    breakout:
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - CREATED_AT
-      - temporal-unit: month
+          - CREATED_AT
 visualization_settings: {}
 serdes/meta:
 - id: x61UtCMCuBNjw0TEFQeWG

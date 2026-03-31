@@ -4,47 +4,52 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PEOPLE
-    expressions:
-      Source Host:
-      - host
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PEOPLE
-          - SOURCE
-        - null
-      Source Domain:
-      - domain
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PEOPLE
-          - SOURCE
-        - null
-      Source Subdomain:
-      - subdomain
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PEOPLE
-          - SOURCE
-        - null
-      Source Path:
-      - path
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PEOPLE
-          - SOURCE
-        - null
-    limit: 10
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - PEOPLE
+      expressions:
+        Source Host:
+        - host
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PEOPLE
+            - SOURCE
+        Source Domain:
+        - domain
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PEOPLE
+            - SOURCE
+        Source Subdomain:
+        - subdomain
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PEOPLE
+            - SOURCE
+        Source Path:
+        - path
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PEOPLE
+            - SOURCE
+      limit: 10
 visualization_settings: {}
 serdes/meta:
 - id: uwAeNRHymXTD1G_7lWV1d

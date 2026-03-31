@@ -6,10 +6,11 @@ database_id: Sample Database
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 collection_id: cOlDaShBoArDs0ExAmPlx
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: native
-  native:
-    query: "SELECT * FROM ORDERS WHERE TOTAL > {{min_total}}"
+  stages:
+  - "lib/type": mbql.stage/native
+    native: "SELECT * FROM ORDERS WHERE TOTAL > {{min_total}}"
     template-tags:
       min_total:
         type: number

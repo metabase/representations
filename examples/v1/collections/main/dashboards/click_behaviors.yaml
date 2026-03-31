@@ -21,11 +21,11 @@ dashcards:
     target:
     - dimension
     - - field
+      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - CATEGORY
-      - null
   series: []
   visualization_settings: {}
   serdes/meta:

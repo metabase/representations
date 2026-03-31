@@ -4,152 +4,172 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    expressions:
-      Order Year:
-      - get-year
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Order Quarter:
-      - get-quarter
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Order Month:
-      - get-month
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Order Day:
-      - get-day
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Order Hour:
-      - get-hour
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Order Minute:
-      - get-minute
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Order Second:
-      - get-second
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Day of Week ISO:
-      - get-day-of-week
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - iso
-      Week Number:
-      - get-week
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - us
-      Month Name:
-      - month-name
-      - - get-month
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      expressions:
+        Order Year:
+        - get-year
+        - {}
         - - field
+          - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-          - null
-      Quarter Name:
-      - quarter-name
-      - - get-quarter
+        Order Quarter:
+        - get-quarter
+        - {}
         - - field
+          - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-          - null
-      Day Name:
-      - day-name
-      - - get-day-of-week
+        Order Month:
+        - get-month
+        - {}
         - - field
+          - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-          - null
+        Order Day:
+        - get-day
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        Order Hour:
+        - get-hour
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        Order Minute:
+        - get-minute
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        Order Second:
+        - get-second
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        Day of Week ISO:
+        - get-day-of-week
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
         - iso
-      Day of Week Default:
-      - get-day-of-week
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Week Number Default:
-      - get-week
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Extracted Month:
-      - temporal-extract
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - month-of-year
-      Extracted Day of Week ISO:
-      - temporal-extract
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - day-of-week
-      - iso
-    limit: 10
+        Week Number:
+        - get-week
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        - us
+        Month Name:
+        - month-name
+        - {}
+        - - get-month
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - ORDERS
+              - CREATED_AT
+        Quarter Name:
+        - quarter-name
+        - {}
+        - - get-quarter
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - ORDERS
+              - CREATED_AT
+        Day Name:
+        - day-name
+        - {}
+        - - get-day-of-week
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - ORDERS
+              - CREATED_AT
+          - iso
+        Day of Week Default:
+        - get-day-of-week
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        Week Number Default:
+        - get-week
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        Extracted Month:
+        - temporal-extract
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        - month-of-year
+        Extracted Day of Week ISO:
+        - temporal-extract
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        - day-of-week
+        - iso
+      limit: 10
 visualization_settings: {}
 serdes/meta:
 - id: bDK7jyPszEHzHh4aG4_SV

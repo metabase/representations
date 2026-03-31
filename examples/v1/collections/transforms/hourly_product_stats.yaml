@@ -5,29 +5,32 @@ source_database_id: Sample Database
 source:
   type: query
   query:
+    "lib/type": mbql/query
     database: Sample Database
-    type: query
-    query:
-      source-table:
-      - Sample Database
-      - PUBLIC
-      - PRODUCTS
-      aggregation:
-      - - count
-      - - avg
+    stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        aggregation:
+        - - count
+          - {}
+        - - avg
+          - {}
+          - - field
+            - base-type: type/Float
+            - - Sample Database
+              - PUBLIC
+              - PRODUCTS
+              - PRICE
+        breakout:
         - - field
+          - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
-            - PRICE
-          - base-type: type/Float
-      breakout:
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - CATEGORY
-        - null
+            - CATEGORY
 target:
   database: Sample Database
   type: table

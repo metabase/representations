@@ -4,86 +4,96 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
     filter:
     - and
+    - {}
     - - between
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - PRICE
-        - null
       - 10
       - 200
     - - ">"
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - RATING
-        - null
       - 3
     - - "<="
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - RATING
-        - null
       - 5
     - - "!="
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - CATEGORY
-        - null
       - Doohickey
     - - =
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - CATEGORY
-        - null
       - Widget
       - Gadget
       - Gizmo
     - - in
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - CATEGORY
-        - null
       - Widget
       - Gadget
     - - not-in
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - CATEGORY
-        - null
       - Doohickey
       - Gizmo
     - - "="
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - PRICE
-        - null
       - - value
-        - 42.0
         - effective-type: type/Float
+        - 42.0
     limit: 20
 visualization_settings: {}
 serdes/meta:

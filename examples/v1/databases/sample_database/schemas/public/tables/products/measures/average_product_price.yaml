@@ -6,21 +6,23 @@ table_id:
 - PUBLIC
 - PRODUCTS
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
     aggregation:
     - - avg
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - PRICE
-        - base-type: type/Float
 serdes/meta:
 - id: mSrAvgProdPrice00008x
   label: average_product_price

@@ -4,68 +4,77 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    aggregation:
-    - - count-where
-      - - ">"
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      aggregation:
+      - - count-where
+        - {}
+        - - ">"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - ORDERS
+              - TOTAL
+          - 100
+      - - sum-where
+        - {}
         - - field
+          - base-type: type/Float
           - - Sample Database
             - PUBLIC
             - ORDERS
             - TOTAL
-          - null
-        - 100
-    - - sum-where
+        - - ">"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - ORDERS
+              - DISCOUNT
+          - 0
+      - - distinct-where
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - USER_ID
+        - - ">"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - ORDERS
+              - TOTAL
+          - 50
+      - - share
+        - {}
+        - - not-null
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - ORDERS
+              - DISCOUNT
+      breakout:
       - - field
+        - temporal-unit: quarter
         - - Sample Database
           - PUBLIC
           - ORDERS
-          - TOTAL
-        - base-type: type/Float
-      - - ">"
-        - - field
-          - - Sample Database
-            - PUBLIC
-            - ORDERS
-            - DISCOUNT
-          - null
-        - 0
-    - - distinct-where
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - USER_ID
-        - null
-      - - ">"
-        - - field
-          - - Sample Database
-            - PUBLIC
-            - ORDERS
-            - TOTAL
-          - null
-        - 50
-    - - share
-      - - not-null
-        - - field
-          - - Sample Database
-            - PUBLIC
-            - ORDERS
-            - DISCOUNT
-          - null
-    breakout:
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - CREATED_AT
-      - temporal-unit: quarter
+          - CREATED_AT
 visualization_settings: {}
 serdes/meta:
 - id: irROiaJoSsiXPKGxwWvWY

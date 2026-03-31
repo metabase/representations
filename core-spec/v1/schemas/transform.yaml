@@ -119,7 +119,7 @@ $defs:
         type: string
         const: query
       query:
-        description: Query (MBQL or native)
+        description: Query in pMBQL format
         $ref: "common/query.yaml"
       source-incremental-strategy:
         type: object

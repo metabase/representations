@@ -69,21 +69,21 @@ dashcards:
     target:
     - dimension
     - - field
+      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - CATEGORY
-      - null
   - card_id: h5F2EjHsRd73Dqqh8sAtd
     parameter_id: d0000002-0000-0000-0000-000000000002
     target:
     - dimension
     - - field
+      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - PRICE
-      - null
   series: []
   visualization_settings: {}
   serdes/meta:

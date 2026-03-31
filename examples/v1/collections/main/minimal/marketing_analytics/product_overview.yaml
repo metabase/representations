@@ -4,39 +4,45 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
     aggregation:
     - - count
+      - {}
     - - avg
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - PRICE
-        - base-type: type/Float
     - - avg
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - RATING
-        - base-type: type/Float
     breakout:
     - - field
+      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - CATEGORY
-      - null
     order-by:
     - - desc
+      - {}
       - - aggregation
+        - {}
         - 0
 visualization_settings: {}
 serdes/meta:

@@ -5,19 +5,19 @@ source_database_id: Sample Database
 source:
   type: query
   query:
+    "lib/type": mbql/query
     database: Sample Database
-    type: native
-    native:
-      query: |-
-        SELECT
-          DATE_TRUNC('month', o.CREATED_AT) AS month,
-          p.CATEGORY,
-          COUNT(*) AS order_count,
-          SUM(o.TOTAL) AS total_revenue
-        FROM ORDERS o
-        JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
-        GROUP BY 1, 2
-      template-tags: {}
+    stages:
+      - "lib/type": mbql.stage/native
+        native: |-
+          SELECT
+            DATE_TRUNC('month', o.CREATED_AT) AS month,
+            p.CATEGORY,
+            COUNT(*) AS order_count,
+            SUM(o.TOTAL) AS total_revenue
+          FROM ORDERS o
+          JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+          GROUP BY 1, 2
 target:
   database: Sample Database
   type: table

@@ -4,28 +4,30 @@ creator_id: admin@example.com
 display: waterfall
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
     aggregation:
     - - sum
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
     breakout:
     - - field
+      - temporal-unit: month
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - temporal-unit: month
 visualization_settings:
   "waterfall.increase_color": "#88BF4D"
   "waterfall.decrease_color": "#EF8C8C"

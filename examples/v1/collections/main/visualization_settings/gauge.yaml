@@ -4,21 +4,23 @@ creator_id: admin@example.com
 display: gauge
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
     aggregation:
     - - sum
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
 visualization_settings:
   "gauge.segments":
   - min: 0

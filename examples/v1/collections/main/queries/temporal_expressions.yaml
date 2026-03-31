@@ -4,80 +4,91 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    expressions:
-      Ship By:
-      - datetime-add
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - 7
-      - day
-      Week Before:
-      - datetime-subtract
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - 1
-      - week
-      Days Since Order:
-      - datetime-diff
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - - now
-      - day
-      Ship By Deadline:
-      - "+"
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - - interval
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      expressions:
+        Ship By:
+        - datetime-add
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
         - 7
         - day
-      Order Date:
-      - date
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      Parsed Datetime:
-      - datetime
-      - "2024-06-15T10:30:00"
-      Parsed Unix:
-      - datetime
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - QUANTITY
-        - base-type: type/Integer
-      - mode: unix-seconds
-      Current Time:
-      - now
-      Today Date:
-      - today
-    limit: 10
+        Week Before:
+        - datetime-subtract
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        - 1
+        - week
+        Days Since Order:
+        - datetime-diff
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        - - now
+          - {}
+        - day
+        Ship By Deadline:
+        - "+"
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        - - interval
+          - {}
+          - 7
+          - day
+        Order Date:
+        - date
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+        Parsed Datetime:
+        - datetime
+        - {}
+        - "2024-06-15T10:30:00"
+        Parsed Unix:
+        - datetime
+        - mode: unix-seconds
+        - - field
+          - base-type: type/Integer
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - QUANTITY
+        Current Time:
+        - now
+        - {}
+        Today Date:
+        - today
+        - {}
+      limit: 10
 visualization_settings: {}
 serdes/meta:
 - id: DBBrqcMAmOO0sbM_CzM_Z

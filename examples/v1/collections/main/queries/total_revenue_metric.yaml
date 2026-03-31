@@ -5,21 +5,23 @@ display: scalar
 type: metric
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    aggregation:
-    - - sum
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      aggregation:
+      - - sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
 visualization_settings: {}
 serdes/meta:
 - id: IW8kbqZVaMxdGtCM2F4U6

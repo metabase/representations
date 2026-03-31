@@ -33,11 +33,11 @@ dashcards:
     target:
     - dimension
     - - field
+      - {}
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - null
   series: []
   visualization_settings: {}
   serdes/meta:

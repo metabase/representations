@@ -27,22 +27,22 @@ dashcards:
     target:
     - dimension
     - - field
+      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - CATEGORY
-      - null
     - stage-number: 0
   - card_id: dShCrdMnthlyOrdrs0001
     parameter_id: c0000002-0000-0000-0000-000000000002
     target:
     - dimension
     - - field
+      - {}
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - null
   series:
   - card_id: dShCrdMnthlyRevnu0002
     position: 0

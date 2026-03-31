@@ -4,80 +4,93 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
     aggregation:
     - - count
+      - {}
     - - sum
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
     - - avg
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
     - - min
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
     - - max
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
     - - count
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - ORDERS
           - PRODUCT_ID
-        - null
     - - distinct
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - ORDERS
           - PRODUCT_ID
-        - null
     - - aggregation-options
+      - display-name: Total Revenue
+        name: total_revenue
       - - sum
+        - {}
         - - field
+          - base-type: type/Float
           - - Sample Database
             - PUBLIC
             - ORDERS
             - TOTAL
-          - base-type: type/Float
-      - display-name: Total Revenue
-        name: total_revenue
     breakout:
     - - field
+      - temporal-unit: month
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - temporal-unit: month
     order-by:
     - - desc
+      - {}
       - - aggregation
+        - {}
         - 0
     - - asc
+      - {}
       - - aggregation
+        - {}
         - 1
     limit: 12
 visualization_settings: {}
