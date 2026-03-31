@@ -53,11 +53,9 @@ $defs:
           Data source. Either a Table FK array [database, schema, table]
           for physical tables, or a Card entity_id string for saved
           questions/models.
-        oneOf:
-          - description: Table FK [database, schema, table]
-            $ref: "id.yaml#/$defs/table_id"
-          - description: Card entity_id (NanoID) referencing a saved card/model
-            $ref: "id.yaml#/$defs/entity_id"
+        if: { type: array }
+        then: { $ref: "id.yaml#/$defs/table_id" }
+        else: { $ref: "id.yaml#/$defs/entity_id" }
       source-query:
         description: >
           Nested MBQL query used as the data source instead of a table.
@@ -249,7 +247,9 @@ $defs:
               prefixItems:
                 - const: time-interval
                 - $ref: "#/$defs/expression"
-                - { anyOf: [{ type: integer }, { enum: [current, last, next] }] }
+                - if: { type: integer }
+                  then: { type: integer }
+                  else: { enum: [current, last, next] }
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 4
               maxItems: 4
@@ -481,11 +481,9 @@ $defs:
     properties:
       source-table:
         description: Table FK or Card entity_id of the joined data source
-        oneOf:
-          - description: Table FK [database, schema, table]
-            $ref: "id.yaml#/$defs/table_id"
-          - description: Card entity_id (NanoID)
-            $ref: "id.yaml#/$defs/entity_id"
+        if: { type: array }
+        then: { $ref: "id.yaml#/$defs/table_id" }
+        else: { $ref: "id.yaml#/$defs/entity_id" }
       condition:
         description: Join condition as MBQL expression clause
         $ref: "#/$defs/expression"
@@ -504,14 +502,12 @@ $defs:
         description: >
           Which fields to include from the joined table. "all" for all,
           "none" for none, or an array of field reference clauses.
-        oneOf:
-          - type: string
-            enum:
-              - all
-              - none
-          - type: array
-            items:
-              $ref: "#/$defs/expression"
+        if: { type: string }
+        then: { enum: [all, none] }
+        else:
+          type: array
+          items:
+            $ref: "#/$defs/expression"
 
   native_query:
     type: object
