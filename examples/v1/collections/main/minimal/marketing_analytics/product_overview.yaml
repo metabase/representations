@@ -14,7 +14,7 @@ dataset_query:
     - PRODUCTS
     aggregation:
     - - count
-      - {}
+      - "lib/uuid": 11111111-1111-1111-1111-111111111111
     - - avg
       - {}
       - - field
@@ -43,7 +43,7 @@ dataset_query:
       - {}
       - - aggregation
         - {}
-        - 0
+        - 11111111-1111-1111-1111-111111111111
 visualization_settings: {}
 serdes/meta:
 - id: f1C68pznmrpN1F5xFDj6d

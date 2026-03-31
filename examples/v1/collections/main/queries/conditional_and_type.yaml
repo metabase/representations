@@ -13,9 +13,9 @@ dataset_query:
       - PUBLIC
       - PRODUCTS
       expressions:
-        Price Tier:
-        - case
+      - - case
         - default: Budget
+          "lib/expression-name": Price Tier
         - - - - ">"
               - {}
               - - field
@@ -36,9 +36,9 @@ dataset_query:
                   - PRICE
               - 30
             - Standard
-        Is Premium:
-        - if
+      - - if
         - default: false
+          "lib/expression-name": Is Premium
         - - - - ">"
               - {}
               - - field
@@ -49,9 +49,8 @@ dataset_query:
                   - PRICE
               - 100
             - true
-        Simple Category:
-        - case
-        - {}
+      - - case
+        - "lib/expression-name": Simple Category
         - - - - ">"
               - {}
               - - field
@@ -62,9 +61,8 @@ dataset_query:
                   - RATING
               - 4
             - Popular
-        Effective Price:
-        - coalesce
-        - {}
+      - - coalesce
+        - "lib/expression-name": Effective Price
         - - field
           - {}
           - - Sample Database
@@ -72,27 +70,24 @@ dataset_query:
             - PRODUCTS
             - PRICE
         - 0
-        Price as Text:
-        - text
-        - {}
+      - - text
+        - "lib/expression-name": Price as Text
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - PRICE
-        Rating as Integer:
-        - integer
-        - {}
+      - - integer
+        - "lib/expression-name": Rating as Integer
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - RATING
-        Rating as Float:
-        - float
-        - {}
+      - - float
+        - "lib/expression-name": Rating as Float
         - - field
           - {}
           - - Sample Database

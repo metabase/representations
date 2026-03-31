@@ -2,153 +2,112 @@ $schema: https://json-schema.org/draft/2020-12/schema
 title: Ref
 description: >
   Column and entity reference types used in MBQL expressions,
-  parameter mappings, and visualization settings. In pMBQL format,
-  options are always the second element (an object, never null).
+  parameter mappings, and visualization settings. Options are always
+  the second element (an object, never null).
 
 $defs:
-  base_type_options:
-    description: Options with only base-type hint.
-    type: object
-    properties:
-      base-type:
-        type: string
-        description: Base type hint (e.g., type/Float, type/Integer)
-
   field_options:
-    description: Full field options (only valid on field refs).
-    type: object
-    properties:
-      base-type:
-        type: string
-        description: Base type hint (e.g., type/Float, type/Integer)
-      temporal-unit:
-        $ref: "temporal_bucketing.yaml#/$defs/datetime_bucketing_unit"
-      join-alias:
-        type: string
-        description: Alias of the join this field belongs to
-      binning:
-        type: object
-        description: >
-          Binning strategy: {strategy: num-bins, num-bins: N},
-          {strategy: bin-width, bin-width: N}, or {strategy: default}.
-        required:
-          - strategy
+    description: Options for field refs.
+    allOf:
+      - $ref: "query.yaml#/$defs/options"
+      - type: object
         properties:
-          strategy:
+          temporal-unit:
+            $ref: "temporal_bucketing.yaml#/$defs/datetime_bucketing_unit"
+          join-alias:
             type: string
-            enum: [default, num-bins, bin-width]
-        allOf:
-          - if:
-              properties:
-                strategy: { const: bin-width }
-            then:
-              required: [bin-width]
-              properties:
-                bin-width:
-                  type: number
-                  exclusiveMinimum: 0
-          - if:
-              properties:
-                strategy: { const: num-bins }
-            then:
-              required: [num-bins]
-              properties:
-                num-bins:
-                  type: integer
-                  minimum: 1
-      source-field:
-        description: FK field reference for implicit joins
-        $ref: "id.yaml#/$defs/field_id"
-      source-field-name:
-        type: string
-        description: FK field name for implicit joins in nested queries
-      source-field-join-alias:
-        type: string
-        description: Join alias when FK table is explicitly joined
+          binning:
+            type: object
+            required:
+              - strategy
+            properties:
+              strategy:
+                type: string
+                enum: [default, num-bins, bin-width]
+            allOf:
+              - if:
+                  properties:
+                    strategy: { const: bin-width }
+                then:
+                  required: [bin-width]
+                  properties:
+                    bin-width:
+                      type: number
+                      exclusiveMinimum: 0
+              - if:
+                  properties:
+                    strategy: { const: num-bins }
+                then:
+                  required: [num-bins]
+                  properties:
+                    num-bins:
+                      type: integer
+                      minimum: 1
+          source-field:
+            $ref: "id.yaml#/$defs/field_id"
+          source-field-name:
+            type: string
+          source-field-join-alias:
+            type: string
 
   field_ref:
-    description: >
-      Field reference: [field, options, Field-FK-or-name].
-      Options is always an object (empty {} when no options).
-      Field FK is [database, schema, table, field, ...] (4+ elements for JSON paths).
-      For subsequent stages, the third element is a column name string.
+    description: "[field, options, Field-FK-or-name]"
     type: array
     prefixItems:
       - const: field
-      - type: object
-        $ref: "#/$defs/field_options"
-      - description: Field FK (array) or column name (string, for subsequent stages)
-        if: { type: array }
+      - $ref: "#/$defs/field_options"
+      - if: { type: array }
         then: { $ref: "id.yaml#/$defs/field_id" }
     minItems: 3
     maxItems: 3
 
   expression_ref:
-    description: >
-      Expression reference: [expression, options, name].
-      Options is always an object (empty {} when no options).
+    description: "[expression, options, name]"
     type: array
     prefixItems:
       - const: expression
-      - type: object
-        $ref: "#/$defs/base_type_options"
+      - $ref: "query.yaml#/$defs/options"
       - type: string
-        description: Expression name
     minItems: 3
     maxItems: 3
 
   aggregation_ref:
-    description: >
-      Aggregation reference: [aggregation, options, index].
-      Options is always an object (empty {} when no options).
+    description: "[aggregation, options, uuid] — uuid matches the lib/uuid on the aggregation clause"
     type: array
     prefixItems:
       - const: aggregation
-      - type: object
-        $ref: "#/$defs/base_type_options"
-      - type: integer
-        description: Aggregation index (0-based)
+      - $ref: "query.yaml#/$defs/options"
+      - type: string
+        format: uuid
     minItems: 3
     maxItems: 3
 
   metric_ref:
-    description: >
-      Metric reference: [metric, options, entity_id].
-      Options is always an object (empty {} when no options).
+    description: "[metric, options, entity_id]"
     type: array
     prefixItems:
       - const: metric
-      - type: object
-        $ref: "#/$defs/base_type_options"
+      - $ref: "query.yaml#/$defs/options"
       - type: string
-        description: Metric card entity_id
     minItems: 3
     maxItems: 3
 
   measure_ref:
-    description: >
-      Measure reference: [measure, options, entity_id].
-      Options is always an object (empty {} when no options).
+    description: "[measure, options, entity_id]"
     type: array
     prefixItems:
       - const: measure
-      - type: object
-        $ref: "#/$defs/base_type_options"
+      - $ref: "query.yaml#/$defs/options"
       - type: string
-        description: Measure entity_id
     minItems: 3
     maxItems: 3
 
   segment_ref:
-    description: >
-      Segment reference: [segment, options, entity_id].
-      Options is always an object (empty {} when no options).
+    description: "[segment, options, entity_id]"
     type: array
     prefixItems:
       - const: segment
-      - type: object
-        $ref: "#/$defs/base_type_options"
+      - $ref: "query.yaml#/$defs/options"
       - type: string
-        description: Segment entity_id
     minItems: 3
     maxItems: 3

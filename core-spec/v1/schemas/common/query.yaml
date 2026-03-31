@@ -18,19 +18,71 @@ properties:
     $ref: "id.yaml#/$defs/database_id"
   stages:
     type: array
-    description: >
-      Flat list of query stages. The first stage must have a source
-      (source-table or source-card for MBQL, native for native).
-      Subsequent stages build on the previous stage's output.
     minItems: 1
     items:
       $ref: "#/$defs/stage"
 
 $defs:
-  stage:
+  options:
     description: >
-      A query stage — either MBQL structured or native SQL.
-      Dispatches on lib/type.
+      Base options object for pMBQL clauses. Always present as the second
+      element of every clause array. Empty {} when no options apply.
+    type: object
+    properties:
+      base-type:
+        type: string
+      effective-type:
+        type: string
+      "lib/uuid":
+        type: string
+        format: uuid
+      "lib/expression-name":
+        type: string
+
+  case_sensitive_options:
+    description: Options for string filter operators.
+    allOf:
+      - $ref: "#/$defs/options"
+      - type: object
+        properties:
+          case-sensitive: { type: boolean }
+
+  time_interval_options:
+    description: Options for the time-interval operator.
+    allOf:
+      - $ref: "#/$defs/options"
+      - type: object
+        properties:
+          include-current: { type: boolean }
+
+  aggregation_naming_options:
+    description: Options for aggregation-options (custom display name / name).
+    allOf:
+      - $ref: "#/$defs/options"
+      - type: object
+        properties:
+          display-name: { type: string }
+          name: { type: string }
+
+  case_if_options:
+    description: Options for case/if operators.
+    allOf:
+      - $ref: "#/$defs/options"
+      - type: object
+        properties:
+          default: { $ref: "#/$defs/expression" }
+
+  datetime_parse_options:
+    description: Options for the datetime parsing operator.
+    allOf:
+      - $ref: "#/$defs/options"
+      - type: object
+        properties:
+          mode:
+            type: string
+            enum: [iso, simple, unix-seconds, unix-milliseconds, unix-microseconds, unix-nanoseconds, iso-bytes, simple-bytes]
+
+  stage:
     type: object
     required:
       - "lib/type"
@@ -54,67 +106,44 @@ $defs:
 
   mbql_stage:
     type: object
-    description: >
-      An MBQL structured query stage. The first stage in a query must have
-      either source-table or source-card. Subsequent stages have neither.
     properties:
       "lib/type":
         const: mbql.stage/mbql
       source-table:
-        description: >
-          Table FK array [database, schema, table] for physical tables.
-          Only valid in the first stage. Mutually exclusive with source-card.
         $ref: "id.yaml#/$defs/table_id"
       source-card:
-        description: >
-          Card entity_id for saved questions/models.
-          Only valid in the first stage. Mutually exclusive with source-table.
         $ref: "id.yaml#/$defs/entity_id"
       joins:
         type: array
-        description: Join clauses
         items:
           $ref: "#/$defs/join"
       expressions:
-        type: object
-        description: >
-          Named computed columns. Keys are column names, values are MBQL
-          expression clauses.
-        additionalProperties:
+        type: array
+        items:
           $ref: "#/$defs/expression"
       filter:
-        description: >
-          Filter clause. Either a single comparison [op, {}, field, value]
-          or a compound filter [and, {}, ...clauses].
         $ref: "#/$defs/expression"
       aggregation:
         type: array
-        description: >
-          Aggregation clauses. Each clause is [function, {}, ...args].
         items:
           $ref: "#/$defs/expression"
       breakout:
         type: array
-        description: Breakout (GROUP BY) clauses
         items:
           $ref: "#/$defs/expression"
       order-by:
         type: array
-        description: >
-          Order-by clauses. Each is [direction, {}, expression].
         items:
           $ref: "#/$defs/expression"
       limit:
         type:
           - integer
           - "null"
-        description: Row limit
 
   expression:
     description: >
-      An MBQL expression clause (recursive). Either a literal value or
-      an array [operator, options, ...args] where options is always an
-      object (empty {} when no options apply, never null).
+      An MBQL expression clause. Either a literal value or an array
+      [operator, options, ...args] where options is always an object.
     oneOf:
       - type: string
       - type: number
@@ -123,7 +152,6 @@ $defs:
       - type: array
         minItems: 1
         allOf:
-          # --- References ---
           - if: { prefixItems: [{ const: field }] }
             then:
               $ref: "ref.yaml#/$defs/field_ref"
@@ -142,30 +170,27 @@ $defs:
           - if: { prefixItems: [{ const: segment }] }
             then:
               $ref: "ref.yaml#/$defs/segment_ref"
-          # --- Value literal ---
           - if: { prefixItems: [{ const: value }] }
             then:
               prefixItems:
                 - const: value
-                - type: object
-                - {}
+                - $ref: "#/$defs/options"
+                - type: [string, number, boolean]
               minItems: 3
               maxItems: 3
-          # --- Arithmetic ---
           - if: { prefixItems: [{ enum: ["+", "-", "*", "/"] }] }
             then:
               prefixItems:
                 - enum: ["+", "-", "*", "/"]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
               items: { $ref: "#/$defs/expression" }
               minItems: 3
-          # --- Logical ---
           - if: { prefixItems: [{ enum: [and, or] }] }
             then:
               prefixItems:
                 - enum: [and, or]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
               items: { $ref: "#/$defs/expression" }
@@ -174,16 +199,15 @@ $defs:
             then:
               prefixItems:
                 - const: not
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
-          # --- Comparison ---
           - if: { prefixItems: [{ enum: ["=", "!=", "<", ">", "<=", ">="] }] }
             then:
               prefixItems:
                 - enum: ["=", "!=", "<", ">", "<=", ">="]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
               items: { $ref: "#/$defs/expression" }
@@ -192,7 +216,7 @@ $defs:
             then:
               prefixItems:
                 - enum: [in, not-in]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
               items: { $ref: "#/$defs/expression" }
@@ -201,7 +225,7 @@ $defs:
             then:
               prefixItems:
                 - const: between
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
@@ -211,7 +235,7 @@ $defs:
             then:
               prefixItems:
                 - const: inside
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
                 - { type: number }
@@ -220,19 +244,14 @@ $defs:
                 - { type: number }
               minItems: 8
               maxItems: 8
-          # --- Null/empty ---
           - if: { prefixItems: [{ enum: [is-null, not-null, is-empty, not-empty] }] }
             then:
               prefixItems:
                 - enum: [is-null, not-null, is-empty, not-empty]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
-          # --- String filters ---
-          # Options always in position 2 (second argument).
-          # 2 value args: [op, {options}, field, value]
-          # 3+ value args: [op, {options}, field, value, value, ...]
           - if: { prefixItems: [{ enum: [contains, does-not-contain, starts-with, ends-with] }] }
             then:
               prefixItems:
@@ -242,12 +261,11 @@ $defs:
                 - $ref: "#/$defs/expression"
               items: { $ref: "#/$defs/expression" }
               minItems: 4
-          # --- Temporal filters ---
           - if: { prefixItems: [{ const: time-interval }] }
             then:
               prefixItems:
                 - const: time-interval
-                - type: object
+                - $ref: "#/$defs/time_interval_options"
                 - $ref: "#/$defs/expression"
                 - if: { type: integer }
                   then: { type: integer }
@@ -259,7 +277,7 @@ $defs:
             then:
               prefixItems:
                 - const: relative-time-interval
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - { type: integer }
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
@@ -267,32 +285,29 @@ $defs:
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 7
               maxItems: 7
-          # --- Nullary ---
           - if: { prefixItems: [{ enum: [now, today] }] }
             then:
               prefixItems:
                 - enum: [now, today]
-                - type: object
+                - $ref: "#/$defs/options"
               minItems: 2
               maxItems: 2
-          # --- Interval ---
           - if: { prefixItems: [{ const: interval }] }
             then:
               prefixItems:
                 - const: interval
-                - type: object
+                - $ref: "#/$defs/options"
                 - { type: integer }
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
               minItems: 4
               maxItems: 4
-          # --- Unary functions ---
           - if:
               prefixItems:
                 - enum: [abs, ceil, floor, round, sqrt, exp, log, length, trim, ltrim, rtrim, upper, lower, host, domain, subdomain, path, get-year, get-quarter, get-month, get-day, get-hour, get-minute, get-second, text, integer, float, day-name, month-name, quarter-name, date]
             then:
               prefixItems:
                 - enum: [abs, ceil, floor, round, sqrt, exp, log, length, trim, ltrim, rtrim, upper, lower, host, domain, subdomain, path, get-year, get-quarter, get-month, get-day, get-hour, get-minute, get-second, text, integer, float, day-name, month-name, quarter-name, date]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
@@ -300,30 +315,24 @@ $defs:
             then:
               prefixItems:
                 - const: datetime
-                - type: object
-                  properties:
-                    mode:
-                      type: string
-                      enum: [iso, simple, unix-seconds, unix-milliseconds, unix-microseconds, unix-nanoseconds, iso-bytes, simple-bytes]
+                - $ref: "#/$defs/datetime_parse_options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
-          # --- Week mode functions ---
           - if: { prefixItems: [{ enum: [get-day-of-week, get-week] }] }
             then:
               prefixItems:
                 - enum: [get-day-of-week, get-week]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - { type: string, enum: [iso, us, instance] }
               minItems: 3
               maxItems: 4
-          # --- Binary/ternary ---
           - if: { prefixItems: [{ const: power }] }
             then:
               prefixItems:
                 - const: power
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
               minItems: 4
@@ -332,7 +341,7 @@ $defs:
             then:
               prefixItems:
                 - enum: [replace, split-part]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
@@ -342,7 +351,7 @@ $defs:
             then:
               prefixItems:
                 - const: substring
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
@@ -352,7 +361,7 @@ $defs:
             then:
               prefixItems:
                 - const: collate
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - { type: string }
               minItems: 4
@@ -361,17 +370,16 @@ $defs:
             then:
               prefixItems:
                 - const: regex-match-first
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - { type: string }
               minItems: 4
               maxItems: 4
-          # --- Variadic ---
           - if: { prefixItems: [{ const: concat }] }
             then:
               prefixItems:
                 - const: concat
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
               items: { $ref: "#/$defs/expression" }
@@ -380,17 +388,16 @@ $defs:
             then:
               prefixItems:
                 - const: coalesce
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
               items: { $ref: "#/$defs/expression" }
               minItems: 4
-          # --- Datetime ---
           - if: { prefixItems: [{ enum: [datetime-add, datetime-subtract] }] }
             then:
               prefixItems:
                 - enum: [datetime-add, datetime-subtract]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - { type: integer }
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_truncation_unit"
@@ -400,7 +407,7 @@ $defs:
             then:
               prefixItems:
                 - const: datetime-diff
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/datetime_diff_unit"
@@ -410,7 +417,7 @@ $defs:
             then:
               prefixItems:
                 - const: convert-timezone
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - { type: string }
                 - { type: string }
@@ -420,18 +427,17 @@ $defs:
             then:
               prefixItems:
                 - const: temporal-extract
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "temporal_bucketing.yaml#/$defs/datetime_extraction_unit"
                 - { type: string, enum: [iso, us, instance] }
               minItems: 4
               maxItems: 5
-          # --- Aggregations ---
           - if: { prefixItems: [{ enum: [count, cum-count] }] }
             then:
               prefixItems:
                 - enum: [count, cum-count]
-                - type: object
+                - $ref: "#/$defs/options"
               items: { $ref: "#/$defs/expression" }
               minItems: 2
               maxItems: 3
@@ -439,7 +445,7 @@ $defs:
             then:
               prefixItems:
                 - enum: [sum, avg, min, max, distinct, stddev, var, median, cum-sum]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
@@ -447,7 +453,7 @@ $defs:
             then:
               prefixItems:
                 - const: percentile
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - { type: number }
               minItems: 4
@@ -456,7 +462,7 @@ $defs:
             then:
               prefixItems:
                 - enum: [count-where, share]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
@@ -464,7 +470,7 @@ $defs:
             then:
               prefixItems:
                 - enum: [sum-where, distinct-where]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - $ref: "#/$defs/expression"
               minItems: 4
@@ -473,21 +479,15 @@ $defs:
             then:
               prefixItems:
                 - const: aggregation-options
-                - type: object
-                  properties:
-                    display-name: { type: string }
-                    name: { type: string }
+                - $ref: "#/$defs/aggregation_naming_options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
-          # --- Case/if ---
           - if: { prefixItems: [{ enum: [case, if] }] }
             then:
               prefixItems:
                 - enum: [case, if]
-                - type: object
-                  properties:
-                    default: { $ref: "#/$defs/expression" }
+                - $ref: "#/$defs/case_if_options"
                 - type: array
                   items:
                     type: array
@@ -496,41 +496,30 @@ $defs:
                     maxItems: 2
               minItems: 3
               maxItems: 3
-          # --- Offset ---
           - if: { prefixItems: [{ const: offset }] }
             then:
               prefixItems:
                 - const: offset
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
                 - type: integer
               minItems: 4
               maxItems: 4
-          # --- Order-by direction ---
           - if: { prefixItems: [{ enum: [asc, desc] }] }
             then:
               prefixItems:
                 - enum: [asc, desc]
-                - type: object
+                - $ref: "#/$defs/options"
                 - $ref: "#/$defs/expression"
               minItems: 3
               maxItems: 3
 
-  case_sensitive_options:
-    type: object
-    properties:
-      case-sensitive: { type: boolean }
-
   datetime_diff_unit:
-    description: Units for datetime-diff (no millisecond).
     type: string
     enum: [second, minute, hour, day, week, month, quarter, year]
 
   join:
     type: object
-    description: >
-      A join clause. In pMBQL, joins have their own stages array
-      instead of source-table/source-query.
     required:
       - stages
       - conditions
@@ -538,33 +527,24 @@ $defs:
     properties:
       stages:
         type: array
-        description: >
-          Query stages for the joined data source. The first stage
-          must have source-table or source-card.
         minItems: 1
         items:
           $ref: "#/$defs/stage"
       conditions:
         type: array
-        description: Join conditions as MBQL expression clauses
         minItems: 1
         items:
           $ref: "#/$defs/expression"
       alias:
         type: string
-        description: Join alias for referencing joined columns
       strategy:
         type: string
-        description: Join strategy
         enum:
           - left-join
           - right-join
           - inner-join
           - full-join
       fields:
-        description: >
-          Which fields to include from the joined table. "all" for all,
-          "none" for none, or an array of field reference clauses.
         if: { type: string }
         then: { enum: [all, none] }
         else:
@@ -574,7 +554,6 @@ $defs:
 
   native_stage:
     type: object
-    description: A native SQL query stage.
     required:
       - "lib/type"
       - native
@@ -583,18 +562,13 @@ $defs:
         const: mbql.stage/native
       native:
         type: string
-        description: SQL query string, may contain {{tag}} placeholders
       template-tags:
         type: object
-        description: >
-          Template tag definitions. Keys match {{tag}} placeholders in the
-          SQL query string.
         additionalProperties:
           $ref: "#/$defs/template_tag"
 
   template_tag:
     type: object
-    description: A template tag for parameterizing native SQL queries.
     required:
       - type
       - name
@@ -602,7 +576,6 @@ $defs:
     properties:
       type:
         type: string
-        description: Tag type
         enum:
           - text
           - number
@@ -615,19 +588,15 @@ $defs:
           - table
       name:
         type: string
-        description: Tag name (matches the {{name}} placeholder)
       id:
         type: string
-        description: UUID identifier
         format: uuid
       display-name:
         type: string
-        description: Human-readable label
       default:
         description: Default value (type depends on tag type)
       required:
         type: boolean
-        description: Whether a value is required
     allOf:
       - if:
           properties:
@@ -636,17 +605,13 @@ $defs:
           required: [dimension, widget-type]
           properties:
             dimension:
-              description: Field reference
               $ref: "#/$defs/expression"
             widget-type:
               type: string
-              description: Filter widget type (e.g., string/=, date/range)
             options:
               type: object
-              description: Options for generated filter clause (e.g., case-sensitive)
             alias:
               type: string
-              description: SQL column identifier used inside the generated expression (e.g., the column in DATE_TRUNC(unit, column))
       - if:
           properties:
             type: { const: temporal-unit }
@@ -654,11 +619,9 @@ $defs:
           required: [dimension]
           properties:
             dimension:
-              description: Field reference — the temporal column to group
               $ref: "#/$defs/expression"
             alias:
               type: string
-              description: SQL column identifier used inside the generated expression (e.g., the column in DATE_TRUNC(unit, column))
       - if:
           properties:
             type: { const: card }
@@ -666,7 +629,6 @@ $defs:
           required: [card-id]
           properties:
             card-id:
-              description: Card entity_id of the referenced card
               $ref: "id.yaml#/$defs/entity_id"
       - if:
           properties:
@@ -676,9 +638,7 @@ $defs:
           properties:
             snippet-name:
               type: string
-              description: Snippet name
             snippet-id:
-              description: Snippet entity_id
               $ref: "id.yaml#/$defs/entity_id"
       - if:
           properties:
@@ -687,8 +647,6 @@ $defs:
           required: [table-id]
           properties:
             table-id:
-              description: Table FK
               $ref: "id.yaml#/$defs/table_id"
             emit-alias:
               type: boolean
-              description: Whether to emit the table name as an alias

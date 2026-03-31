@@ -13,9 +13,8 @@ dataset_query:
       - PUBLIC
       - ORDERS
       expressions:
-        Total Plus Tax:
-        - "+"
-        - {}
+      - - "+"
+        - "lib/expression-name": Total Plus Tax
         - - field
           - base-type: type/Float
           - - Sample Database
@@ -28,9 +27,8 @@ dataset_query:
             - PUBLIC
             - ORDERS
             - TAX
-        Price Difference:
-        - "-"
-        - {}
+      - - "-"
+        - "lib/expression-name": Price Difference
         - - field
           - base-type: type/Float
           - - Sample Database
@@ -43,9 +41,8 @@ dataset_query:
             - PUBLIC
             - ORDERS
             - SUBTOTAL
-        Double Quantity:
-        - "*"
-        - {}
+      - - "*"
+        - "lib/expression-name": Double Quantity
         - - field
           - base-type: type/Integer
           - - Sample Database
@@ -53,9 +50,8 @@ dataset_query:
             - ORDERS
             - QUANTITY
         - 2
-        Per Unit Price:
-        - "/"
-        - {}
+      - - "/"
+        - "lib/expression-name": Per Unit Price
         - - field
           - base-type: type/Float
           - - Sample Database

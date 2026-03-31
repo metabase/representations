@@ -13,72 +13,64 @@ dataset_query:
       - PUBLIC
       - ORDERS
       expressions:
-        Order Year:
-        - get-year
-        - {}
+      - - get-year
+        - "lib/expression-name": Order Year
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Order Quarter:
-        - get-quarter
-        - {}
+      - - get-quarter
+        - "lib/expression-name": Order Quarter
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Order Month:
-        - get-month
-        - {}
+      - - get-month
+        - "lib/expression-name": Order Month
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Order Day:
-        - get-day
-        - {}
+      - - get-day
+        - "lib/expression-name": Order Day
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Order Hour:
-        - get-hour
-        - {}
+      - - get-hour
+        - "lib/expression-name": Order Hour
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Order Minute:
-        - get-minute
-        - {}
+      - - get-minute
+        - "lib/expression-name": Order Minute
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Order Second:
-        - get-second
-        - {}
+      - - get-second
+        - "lib/expression-name": Order Second
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Day of Week ISO:
-        - get-day-of-week
-        - {}
+      - - get-day-of-week
+        - "lib/expression-name": Day of Week ISO
         - - field
           - {}
           - - Sample Database
@@ -86,9 +78,8 @@ dataset_query:
             - ORDERS
             - CREATED_AT
         - iso
-        Week Number:
-        - get-week
-        - {}
+      - - get-week
+        - "lib/expression-name": Week Number
         - - field
           - {}
           - - Sample Database
@@ -96,9 +87,8 @@ dataset_query:
             - ORDERS
             - CREATED_AT
         - us
-        Month Name:
-        - month-name
-        - {}
+      - - month-name
+        - "lib/expression-name": Month Name
         - - get-month
           - {}
           - - field
@@ -107,9 +97,8 @@ dataset_query:
               - PUBLIC
               - ORDERS
               - CREATED_AT
-        Quarter Name:
-        - quarter-name
-        - {}
+      - - quarter-name
+        - "lib/expression-name": Quarter Name
         - - get-quarter
           - {}
           - - field
@@ -118,9 +107,8 @@ dataset_query:
               - PUBLIC
               - ORDERS
               - CREATED_AT
-        Day Name:
-        - day-name
-        - {}
+      - - day-name
+        - "lib/expression-name": Day Name
         - - get-day-of-week
           - {}
           - - field
@@ -130,27 +118,24 @@ dataset_query:
               - ORDERS
               - CREATED_AT
           - iso
-        Day of Week Default:
-        - get-day-of-week
-        - {}
+      - - get-day-of-week
+        - "lib/expression-name": Day of Week Default
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Week Number Default:
-        - get-week
-        - {}
+      - - get-week
+        - "lib/expression-name": Week Number Default
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Extracted Month:
-        - temporal-extract
-        - {}
+      - - temporal-extract
+        - "lib/expression-name": Extracted Month
         - - field
           - {}
           - - Sample Database
@@ -158,9 +143,8 @@ dataset_query:
             - ORDERS
             - CREATED_AT
         - month-of-year
-        Extracted Day of Week ISO:
-        - temporal-extract
-        - {}
+      - - temporal-extract
+        - "lib/expression-name": Extracted Day of Week ISO
         - - field
           - {}
           - - Sample Database

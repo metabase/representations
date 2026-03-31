@@ -13,9 +13,8 @@ dataset_query:
       - PUBLIC
       - PRODUCTS
       expressions:
-        Title and Category:
-        - concat
-        - {}
+      - - concat
+        - "lib/expression-name": Title and Category
         - - field
           - {}
           - - Sample Database
@@ -30,9 +29,8 @@ dataset_query:
             - PRODUCTS
             - CATEGORY
         - ")"
-        First 10 Chars:
-        - substring
-        - {}
+      - - substring
+        - "lib/expression-name": First 10 Chars
         - - field
           - {}
           - - Sample Database
@@ -41,9 +39,8 @@ dataset_query:
             - TITLE
         - 1
         - 10
-        Cleaned Vendor:
-        - replace
-        - {}
+      - - replace
+        - "lib/expression-name": Cleaned Vendor
         - - field
           - {}
           - - Sample Database
@@ -52,9 +49,8 @@ dataset_query:
             - VENDOR
         - Inc.
         - Incorporated
-        EAN Prefix:
-        - regex-match-first
-        - {}
+      - - regex-match-first
+        - "lib/expression-name": EAN Prefix
         - - field
           - {}
           - - Sample Database
@@ -62,63 +58,56 @@ dataset_query:
             - PRODUCTS
             - EAN
         - "^\\d{3}"
-        Trimmed Title:
-        - trim
-        - {}
+      - - trim
+        - "lib/expression-name": Trimmed Title
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - TITLE
-        Left Trimmed:
-        - ltrim
-        - {}
+      - - ltrim
+        - "lib/expression-name": Left Trimmed
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - TITLE
-        Right Trimmed:
-        - rtrim
-        - {}
+      - - rtrim
+        - "lib/expression-name": Right Trimmed
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - TITLE
-        Upper Category:
-        - upper
-        - {}
+      - - upper
+        - "lib/expression-name": Upper Category
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - CATEGORY
-        Lower Title:
-        - lower
-        - {}
+      - - lower
+        - "lib/expression-name": Lower Title
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - TITLE
-        Title Length:
-        - length
-        - {}
+      - - length
+        - "lib/expression-name": Title Length
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - TITLE
-        Title From 5th Char:
-        - substring
-        - {}
+      - - substring
+        - "lib/expression-name": Title From 5th Char
         - - field
           - {}
           - - Sample Database

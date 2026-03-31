@@ -13,36 +13,32 @@ dataset_query:
       - PUBLIC
       - PEOPLE
       expressions:
-        Source Host:
-        - host
-        - {}
+      - - host
+        - "lib/expression-name": Source Host
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PEOPLE
             - SOURCE
-        Source Domain:
-        - domain
-        - {}
+      - - domain
+        - "lib/expression-name": Source Domain
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PEOPLE
             - SOURCE
-        Source Subdomain:
-        - subdomain
-        - {}
+      - - subdomain
+        - "lib/expression-name": Source Subdomain
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PEOPLE
             - SOURCE
-        Source Path:
-        - path
-        - {}
+      - - path
+        - "lib/expression-name": Source Path
         - - field
           - {}
           - - Sample Database

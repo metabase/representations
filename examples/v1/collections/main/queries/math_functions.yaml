@@ -13,9 +13,8 @@ dataset_query:
       - PUBLIC
       - PRODUCTS
       expressions:
-        Absolute Discount:
-        - abs
-        - {}
+      - - abs
+        - "lib/expression-name": Absolute Discount
         - - "-"
           - {}
           - - field
@@ -25,36 +24,32 @@ dataset_query:
               - PRODUCTS
               - PRICE
           - 50
-        Price Ceiling:
-        - ceil
-        - {}
+      - - ceil
+        - "lib/expression-name": Price Ceiling
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - PRICE
-        Price Floor:
-        - floor
-        - {}
+      - - floor
+        - "lib/expression-name": Price Floor
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - PRICE
-        Rounded Price:
-        - round
-        - {}
+      - - round
+        - "lib/expression-name": Rounded Price
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - PRICE
-        Rating Squared:
-        - power
-        - {}
+      - - power
+        - "lib/expression-name": Rating Squared
         - - field
           - {}
           - - Sample Database
@@ -62,27 +57,24 @@ dataset_query:
             - PRODUCTS
             - RATING
         - 2
-        Price Sqrt:
-        - sqrt
-        - {}
+      - - sqrt
+        - "lib/expression-name": Price Sqrt
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - PRICE
-        Price Exp:
-        - exp
-        - {}
+      - - exp
+        - "lib/expression-name": Price Exp
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - RATING
-        Price Log:
-        - log
-        - {}
+      - - log
+        - "lib/expression-name": Price Log
         - - field
           - {}
           - - Sample Database

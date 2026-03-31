@@ -13,9 +13,8 @@ dataset_query:
       - PUBLIC
       - ORDERS
       expressions:
-        Ship By:
-        - datetime-add
-        - {}
+      - - datetime-add
+        - "lib/expression-name": Ship By
         - - field
           - {}
           - - Sample Database
@@ -24,9 +23,8 @@ dataset_query:
             - CREATED_AT
         - 7
         - day
-        Week Before:
-        - datetime-subtract
-        - {}
+      - - datetime-subtract
+        - "lib/expression-name": Week Before
         - - field
           - {}
           - - Sample Database
@@ -35,9 +33,8 @@ dataset_query:
             - CREATED_AT
         - 1
         - week
-        Days Since Order:
-        - datetime-diff
-        - {}
+      - - datetime-diff
+        - "lib/expression-name": Days Since Order
         - - field
           - {}
           - - Sample Database
@@ -47,9 +44,8 @@ dataset_query:
         - - now
           - {}
         - day
-        Ship By Deadline:
-        - "+"
-        - {}
+      - - "+"
+        - "lib/expression-name": Ship By Deadline
         - - field
           - {}
           - - Sample Database
@@ -60,34 +56,30 @@ dataset_query:
           - {}
           - 7
           - day
-        Order Date:
-        - date
-        - {}
+      - - date
+        - "lib/expression-name": Order Date
         - - field
           - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - CREATED_AT
-        Parsed Datetime:
-        - datetime
-        - {}
+      - - datetime
+        - "lib/expression-name": Parsed Datetime
         - "2024-06-15T10:30:00"
-        Parsed Unix:
-        - datetime
+      - - datetime
         - mode: unix-seconds
+          "lib/expression-name": Parsed Unix
         - - field
           - base-type: type/Integer
           - - Sample Database
             - PUBLIC
             - ORDERS
             - QUANTITY
-        Current Time:
-        - now
-        - {}
-        Today Date:
-        - today
-        - {}
+      - - now
+        - "lib/expression-name": Current Time
+      - - today
+        - "lib/expression-name": Today Date
       limit: 10
 visualization_settings: {}
 serdes/meta:
