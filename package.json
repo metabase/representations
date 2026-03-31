@@ -9,7 +9,9 @@
   },
   "homepage": "https://github.com/metabase/representations",
   "keywords": ["metabase", "representation", "serialization", "yaml", "schema", "validator"],
-  "private": true,
+  "publishConfig": {
+    "access": "public"
+  },
   "type": "module",
   "files": [
     "src",

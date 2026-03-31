@@ -52,3 +52,13 @@ for (const result of results) {
   }
 }
 ```
+
+## Publishing to npm
+
+Releases are published via the **Release to NPM** GitHub Actions workflow.
+
+1. Go to **Actions > Release to NPM > Run workflow**.
+2. Enter the version (e.g. `1.1.0`) and pick a dist-tag (`latest`, `next`, or `canary`).
+3. Click **Run workflow**.
+
+The workflow requires an `NPM_RELEASE_TOKEN` secret with publish access to the `@metabase` npm org.

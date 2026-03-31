@@ -36,12 +36,25 @@ $defs:
           strategy:
             type: string
             enum: [default, num-bins, bin-width]
-          num-bins:
-            type: integer
-            minimum: 1
-          bin-width:
-            type: number
-            exclusiveMinimum: 0
+        allOf:
+          - if:
+              properties:
+                strategy: { const: bin-width }
+            then:
+              required: [bin-width]
+              properties:
+                bin-width:
+                  type: number
+                  exclusiveMinimum: 0
+          - if:
+              properties:
+                strategy: { const: num-bins }
+            then:
+              required: [num-bins]
+              properties:
+                num-bins:
+                  type: integer
+                  minimum: 1
       source-field:
         description: FK field reference for implicit joins
         $ref: "id.yaml#/$defs/field_id"
@@ -60,14 +73,12 @@ $defs:
     type: array
     prefixItems:
       - const: field
-      - anyOf:
-          - description: Field FK
-            $ref: "id.yaml#/$defs/field_id"
-          - type: string
-            description: Column name (for nested queries)
-      - anyOf:
-          - $ref: "#/$defs/field_options"
-          - type: "null"
+      - description: Field FK (array) or column name (string, for nested queries)
+        if: { type: array }
+        then: { $ref: "id.yaml#/$defs/field_id" }
+      - type: [object, "null"]
+        if: { type: object }
+        then: { $ref: "#/$defs/field_options" }
     minItems: 3
     maxItems: 3
 
@@ -79,10 +90,9 @@ $defs:
       - const: expression
       - type: string
         description: Expression name
-    items:
-      anyOf:
-        - $ref: "#/$defs/base_type_options"
-        - type: "null"
+      - type: [object, "null"]
+        if: { type: object }
+        then: { $ref: "#/$defs/base_type_options" }
     minItems: 2
     maxItems: 3
 
@@ -94,10 +104,9 @@ $defs:
       - const: aggregation
       - type: integer
         description: Aggregation index (0-based)
-    items:
-      anyOf:
-        - $ref: "#/$defs/base_type_options"
-        - type: "null"
+      - type: [object, "null"]
+        if: { type: object }
+        then: { $ref: "#/$defs/base_type_options" }
     minItems: 2
     maxItems: 3
 
@@ -109,10 +118,9 @@ $defs:
       - const: metric
       - type: string
         description: Metric card entity_id
-    items:
-      anyOf:
-        - $ref: "#/$defs/base_type_options"
-        - type: "null"
+      - type: [object, "null"]
+        if: { type: object }
+        then: { $ref: "#/$defs/base_type_options" }
     minItems: 2
     maxItems: 3
 
@@ -124,10 +132,9 @@ $defs:
       - const: measure
       - type: string
         description: Measure entity_id
-    items:
-      anyOf:
-        - $ref: "#/$defs/base_type_options"
-        - type: "null"
+      - type: [object, "null"]
+        if: { type: object }
+        then: { $ref: "#/$defs/base_type_options" }
     minItems: 2
     maxItems: 3
 
@@ -139,10 +146,8 @@ $defs:
       - const: segment
       - type: string
         description: Segment entity_id
-    items:
-      anyOf:
-        - $ref: "#/$defs/base_type_options"
-        - type: "null"
+      - type: [object, "null"]
+        if: { type: object }
+        then: { $ref: "#/$defs/base_type_options" }
     minItems: 2
     maxItems: 3
-

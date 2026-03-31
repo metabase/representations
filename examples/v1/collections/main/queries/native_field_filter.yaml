@@ -8,12 +8,12 @@ dataset_query:
   type: native
   native:
     query: |-
-      SELECT {{created_at}} AS period, p.CATEGORY, COUNT(*) AS cnt
-      FROM ORDERS o
-      JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID
+      SELECT {{created_at}} AS period, PRODUCTS.CATEGORY, COUNT(*) AS cnt
+      FROM ORDERS
+      JOIN PRODUCTS ON ORDERS.PRODUCT_ID = PRODUCTS.ID
       WHERE {{category_filter}}
         AND {{date_filter}}
-      GROUP BY {{created_at}}, p.CATEGORY
+      GROUP BY {{created_at}}, PRODUCTS.CATEGORY
     template-tags:
       category_filter:
         type: dimension
@@ -48,6 +48,13 @@ dataset_query:
         id: bb000003-0000-0000-0000-000000000003
         display-name: Group By
         default: month
+        dimension:
+        - field
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - CREATED_AT
+        - null
 visualization_settings: {}
 serdes/meta:
 - id: sk02d7sPWAk2TYH2Y7JhZ

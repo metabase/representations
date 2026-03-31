@@ -11,7 +11,7 @@ dataset_query:
       SELECT *
       FROM {{#1-basic_aggregations}}
       WHERE {{snippet: Active Product Filter}}
-      ORDER BY count DESC
+      ORDER BY "count" DESC
       LIMIT 10
     template-tags:
       "#1-basic_aggregations":

@@ -14,9 +14,9 @@ properties:
     type: string
     description: Dashboard name
   entity_id:
-    $ref: "id.yaml#/$defs/entity_id"
+    $ref: "common/id.yaml#/$defs/entity_id"
   creator_id:
-    $ref: "id.yaml#/$defs/user_id"
+    $ref: "common/id.yaml#/$defs/user_id"
   description:
     type:
       - string
@@ -32,9 +32,9 @@ properties:
     default: false
   collection_id:
     description: Collection FK, null for root collection
-    oneOf:
-      - $ref: "id.yaml#/$defs/entity_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   collection_position:
     type:
       - integer
@@ -82,9 +82,9 @@ properties:
     format: uuid
   made_public_by_id:
     description: User who made this public
-    oneOf:
-      - $ref: "id.yaml#/$defs/user_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/user_id" }
   show_in_getting_started:
     type: boolean
     description: Show in getting started section
@@ -109,7 +109,7 @@ properties:
     type: array
     description: Dashboard filter parameters
     items:
-      $ref: "parameter.yaml"
+      $ref: "common/parameter.yaml"
   tabs:
     type: array
     description: >
@@ -124,7 +124,7 @@ properties:
         - position
       properties:
         entity_id:
-          $ref: "id.yaml#/$defs/entity_id"
+          $ref: "common/id.yaml#/$defs/entity_id"
         name:
           type: string
           description: Tab name
@@ -175,7 +175,7 @@ $defs:
       - serdes/meta
     properties:
       entity_id:
-        $ref: "id.yaml#/$defs/entity_id"
+        $ref: "common/id.yaml#/$defs/entity_id"
       row:
         type: integer
         description: Grid row position (0+)
@@ -196,14 +196,14 @@ $defs:
         minimum: 1
       card_id:
         description: Card FK, null for virtual cards (text, heading, link, iframe, placeholder)
-        oneOf:
-          - $ref: "id.yaml#/$defs/entity_id"
-          - type: "null"
+        type: [string, "null"]
+        if: { type: string }
+        then: { $ref: "common/id.yaml#/$defs/entity_id" }
       dashboard_tab_id:
         description: Tab FK, null for untabbed cards
-        oneOf:
-          - $ref: "id.yaml#/$defs/entity_id"
-          - type: "null"
+        type: [string, "null"]
+        if: { type: string }
+        then: { $ref: "common/id.yaml#/$defs/entity_id" }
       inline_parameters:
         type: array
         description: >
@@ -257,12 +257,12 @@ $defs:
     properties:
       card_id:
         description: Card FK
-        $ref: "id.yaml#/$defs/entity_id"
+        $ref: "common/id.yaml#/$defs/entity_id"
       parameter_id:
         type: string
         description: ID matching a dashboard parameter's id
       target:
-        $ref: "parameter.yaml#/$defs/parameter_target"
+        $ref: "common/parameter.yaml#/$defs/parameter_target"
 
   series:
     type: object
@@ -275,7 +275,7 @@ $defs:
     properties:
       card_id:
         description: Card FK
-        $ref: "id.yaml#/$defs/entity_id"
+        $ref: "common/id.yaml#/$defs/entity_id"
       position:
         type: integer
         description: Display order (starting at 0)

@@ -18,7 +18,7 @@ properties:
     type: string
     description: Card name
   entity_id:
-    $ref: "id.yaml#/$defs/entity_id"
+    $ref: "common/id.yaml#/$defs/entity_id"
   display:
     type: string
     description: Visualization type
@@ -50,7 +50,7 @@ properties:
       - sankey
       - boxplot
   creator_id:
-    $ref: "id.yaml#/$defs/user_id"
+    $ref: "common/id.yaml#/$defs/user_id"
   database_id:
     type:
       - string
@@ -58,7 +58,7 @@ properties:
     description: Database FK (database name), should match database in dataset_query
   dataset_query:
     description: Query definition (MBQL or native)
-    $ref: "query.yaml"
+    $ref: "common/query.yaml"
   visualization_settings:
     type: object
     description: Display settings (can be empty {})
@@ -86,9 +86,9 @@ properties:
     default: question
   collection_id:
     description: Collection FK, null for root collection
-    oneOf:
-      - $ref: "id.yaml#/$defs/entity_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   collection_position:
     type:
       - integer
@@ -104,33 +104,33 @@ properties:
       were a container. Cards with dashboard_id set should only be used
       within that dashboard. To reuse a card elsewhere, unset dashboard_id
       and place the card directly in a collection.
-    oneOf:
-      - $ref: "id.yaml#/$defs/entity_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   document_id:
     description: >
       Document FK. Nests this card under a document as if the document
       were a container. Cards with document_id set should only be used
       within that document. To reuse a card elsewhere, unset document_id
       and place the card directly in a collection.
-    oneOf:
-      - $ref: "id.yaml#/$defs/entity_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   table_id:
     description: Table FK, should match source-table in query
-    oneOf:
-      - $ref: "id.yaml#/$defs/table_id"
-      - type: "null"
+    type: [array, "null"]
+    if: { type: array }
+    then: { $ref: "common/id.yaml#/$defs/table_id" }
   source_card_id:
     description: Source card FK
-    oneOf:
-      - $ref: "id.yaml#/$defs/entity_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   parameters:
     type: array
     description: Native query parameters
     items:
-      $ref: "parameter.yaml"
+      $ref: "common/parameter.yaml"
   parameter_mappings:
     type: array
     description: Parameter mappings (unused, always empty)
@@ -166,9 +166,9 @@ properties:
     format: uuid
   made_public_by_id:
     description: User who made this public
-    oneOf:
-      - $ref: "id.yaml#/$defs/user_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/user_id" }
   metabase_version:
     type:
       - string

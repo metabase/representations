@@ -45,6 +45,7 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"name":"ci","group_id":2}' | jq -r '.unmasked_key')
           echo "API key created"
+          echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
           # Create import archive and POST it
           tar czf /tmp/import.tgz -C examples/v1 .
@@ -66,10 +67,54 @@ jobs:
 
           echo "Import succeeded"
 
-          # Check for lib.convert warnings from the import
-          WARNINGS=$(docker logs --since "$IMPORT_START" metabase 2>&1 | grep "WARN lib.convert" || true)
+          # Check for metabase.lib warnings from the import
+          WARNINGS=$(docker logs --since "$IMPORT_START" metabase 2>&1 | grep "WARN.*metabase\.lib" || true)
           if [ -n "$WARNINGS" ]; then
-            echo "Import produced lib.convert warnings — clauses were silently removed:"
+            echo "Import produced metabase.lib warnings:"
+            echo "$WARNINGS"
+            exit 1
+          fi
+
+      - name: Query every card
+        run: |
+          QUERY_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Find the Sample Database ID and only query cards on it
+          SAMPLE_DB_ID=$(curl -sf http://localhost:3000/api/database \
+            -H "X-API-Key: $API_KEY" \
+            | jq -r '.data[] | select(.is_sample == true) | .id')
+
+          curl -sf http://localhost:3000/api/card \
+            -H "X-API-Key: $API_KEY" \
+            | jq -r --argjson db "$SAMPLE_DB_ID" '[.[] | select(.database_id == $db)] | .[].id' > /tmp/card-ids.txt
+
+          echo "Querying $(wc -l < /tmp/card-ids.txt) cards..."
+
+          FAILED=0
+          while read -r ID; do
+            HTTP_CODE=$(curl -s -o /tmp/card-query-$ID.txt -w '%{http_code}' \
+              -X POST \
+              -H "X-API-Key: $API_KEY" \
+              "http://localhost:3000/api/card/$ID/query")
+
+            if [ "$HTTP_CODE" != "202" ]; then
+              echo "Card $ID query failed with HTTP $HTTP_CODE"
+              cat /tmp/card-query-$ID.txt
+              FAILED=1
+            else
+              echo "Card $ID query OK"
+            fi
+          done < /tmp/card-ids.txt
+
+          if [ "$FAILED" = "1" ]; then
+            echo "One or more card queries failed"
+            exit 1
+          fi
+
+          # Check for metabase.lib warnings during query execution
+          WARNINGS=$(docker logs --since "$QUERY_START" metabase 2>&1 | grep "WARN.*metabase\.lib" || true)
+          if [ -n "$WARNINGS" ]; then
+            echo "Card queries produced metabase.lib warnings:"
             echo "$WARNINGS"
             exit 1
           fi

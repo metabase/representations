@@ -34,6 +34,14 @@ export function validateSchema({ folder }) {
   const ajv = new Ajv({ allErrors: true, strictTuples: false });
   addFormats(ajv);
 
+  // Load common schemas (non-entity schemas referenced via common/ prefix)
+  for (const file of globSync("common/*.yaml", { cwd: schemasDir })) {
+    const raw = yaml.load(readFileSync(resolve(schemasDir, file), "utf8"));
+    const { $schema, ...body } = raw;
+    ajv.addSchema(body, file);
+  }
+
+  // Load entity schemas
   const schemas = {};
   for (const file of globSync("*.yaml", { cwd: schemasDir })) {
     const raw = yaml.load(readFileSync(resolve(schemasDir, file), "utf8"));
