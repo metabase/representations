@@ -53,7 +53,7 @@ for (const result of results) {
 }
 ```
 
-## Publishing to npm
+## Publishing to NPM
 
 Releases are published via the **Release to NPM** GitHub Actions workflow.
 
