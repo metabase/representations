@@ -113,7 +113,7 @@ dataset_query:
             - ORDERS
             - CREATED_AT
           - null
-        - us
+        - iso
       Day of Week Default:
       - get-day-of-week
       - - field

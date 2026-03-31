@@ -1037,7 +1037,7 @@ expressions:
 | `temporal-extract` | temporal, unit, mode? | integer | Generic extraction (see units below) |
 | `month-name` | 1 integer (1–12) | text | Month name from number |
 | `quarter-name` | 1 integer (1–4) | text | Quarter name from number |
-| `day-name` | 1 integer (0–6, 0=Sun) | text | Day name from number |
+| `day-name` | 1 integer | text | Day name from number |
 
 Interval units for `datetime-add`, `datetime-subtract`: `year`, `quarter`, `month`, `week`, `day`, `hour`, `minute`, `second`, `millisecond`.
 
@@ -1331,9 +1331,11 @@ A temporal grouping variable. Metabase replaces the tag with a `DATE_TRUNC(unit,
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
+| `dimension` | array | Yes | Field clause: `[field, Field FK, options]` — the temporal column to group |
 | `default` | string | No | Default temporal unit (e.g., `month`) |
-| `dimension` | array | No | Field FK — the temporal column to group |
-| `alias` | string | No | Name used to reference this expression in the SQL query (e.g., in `SELECT {{tag}} AS alias`) |
+| `alias` | string | No | Overrides the SQL column name used inside the generated expression. By default Metabase uses the column name from `dimension` (e.g., `CREATED_AT`). When the SQL uses a table alias, set `alias` to match so the generated expression references the correct name. |
+
+Without `alias` — Metabase uses the column name from `dimension` (`CREATED_AT`):
 
 ```yaml
 native:
@@ -1345,9 +1347,40 @@ native:
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Created At
       default: month
+      dimension:
+      - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - null
 ```
 
 Compiled SQL (value `month`): `SELECT DATE_TRUNC('month', CREATED_AT) AS created_at, COUNT(*) FROM ORDERS GROUP BY DATE_TRUNC('month', CREATED_AT)`
+
+With `alias` — when the query uses a table alias (`o`), set `alias` so the generated expression uses `o.CREATED_AT` instead of the fully-qualified column name:
+
+```yaml
+native:
+  query: "SELECT {{created_at}} AS created_at, COUNT(*) FROM ORDERS o GROUP BY {{created_at}}"
+  template-tags:
+    created_at:
+      type: temporal-unit
+      name: created_at
+      id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
+      display-name: Created At
+      default: month
+      alias: o.CREATED_AT
+      dimension:
+      - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - CREATED_AT
+      - null
+```
+
+Compiled SQL (value `month`): `SELECT DATE_TRUNC('month', o.CREATED_AT) AS created_at, COUNT(*) FROM ORDERS o GROUP BY DATE_TRUNC('month', o.CREATED_AT)`
 
 ---
 

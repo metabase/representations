@@ -42,25 +42,6 @@ dataset_query:
         - null
       - - now
       - day
-      Order in EST:
-      - convert-timezone
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - America/New_York
-      - UTC
-      Order in Local TZ:
-      - convert-timezone
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-      - America/Chicago
       Ship By Deadline:
       - "+"
       - - field
@@ -82,19 +63,14 @@ dataset_query:
         - null
       Parsed Datetime:
       - datetime
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - base-type: type/Text
+      - "2024-06-15T10:30:00"
       Parsed Unix:
       - datetime
       - - field
         - - Sample Database
           - PUBLIC
           - ORDERS
-          - CREATED_AT
+          - QUANTITY
         - base-type: type/Integer
       - mode: unix-seconds
       Current Time:

@@ -1,0 +1,28 @@
+name: Large Orders
+entity_id: OaFXAvEzPvu9ZXW5PUMRa
+creator_id: admin@example.com
+table_id:
+- Sample Database
+- PUBLIC
+- ORDERS
+definition:
+  database: Sample Database
+  type: query
+  query:
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    filter:
+    - ">"
+    - - field
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - TOTAL
+      - base-type: type/Float
+    - 50
+serdes/meta:
+- id: OaFXAvEzPvu9ZXW5PUMRa
+  label: large_orders
+  model: Segment

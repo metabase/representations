@@ -10,15 +10,15 @@ dataset_query:
     source-table:
     - Sample Database
     - PUBLIC
-    - PRODUCTS
+    - ORDERS
     aggregation:
     - - metric
       - IW8kbqZVaMxdGtCM2F4U6
     - - measure
-      - xK7mPqR2sT4uVwXyZ9a1b
+      - DBap2523KuN4Lt-cYrUjF
     filter:
     - segment
-    - aB3kLmN9pQrStUvWxYz1a
+    - OaFXAvEzPvu9ZXW5PUMRa
 visualization_settings: {}
 serdes/meta:
 - id: kBjQ5VXJ5z3vYSW72J6qa

@@ -57,16 +57,6 @@ dataset_query:
           - EAN
         - null
       - "^\\d{3}"
-      Category First Word:
-      - split-part
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      - " "
-      - 1
       Trimmed Title:
       - trim
       - - field
@@ -124,15 +114,6 @@ dataset_query:
           - TITLE
         - null
       - 5
-      Collated Title:
-      - collate
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      - en_US
     limit: 10
 visualization_settings: {}
 serdes/meta:
