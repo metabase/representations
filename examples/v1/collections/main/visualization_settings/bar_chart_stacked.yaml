@@ -23,25 +23,27 @@ dataset_query:
         - ORDERS
         - CREATED_AT
     joins:
-    - source-table:
-      - Sample Database
-      - PUBLIC
-      - PRODUCTS
-      condition:
-      - =
-      - {}
-      - - field
+    - stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - PUBLIC
+        - PRODUCTS
+      conditions:
+      - - =
         - {}
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - PRODUCT_ID
-      - - field
-        - {}
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - ID
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - PRODUCT_ID
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - ID
       alias: Products
       strategy: left-join
       fields: all
