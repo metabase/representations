@@ -275,7 +275,7 @@ $defs:
     properties:
       card_id:
         description: Card FK
-        $ref: "id.yaml#/$defs/entity_id"
+        $ref: "common/id.yaml#/$defs/entity_id"
       position:
         type: integer
         description: Display order (starting at 0)

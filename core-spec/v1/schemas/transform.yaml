@@ -17,9 +17,9 @@ properties:
     type: string
     description: Transform name
   entity_id:
-    $ref: "id.yaml#/$defs/entity_id"
+    $ref: "common/id.yaml#/$defs/entity_id"
   source_database_id:
-    $ref: "id.yaml#/$defs/database_id"
+    $ref: "common/id.yaml#/$defs/database_id"
   source:
     description: >
       Source definition — either a query (type: query) or a Python script
@@ -35,7 +35,7 @@ properties:
       - name
     properties:
       database:
-        $ref: "id.yaml#/$defs/database_id"
+        $ref: "common/id.yaml#/$defs/database_id"
       type:
         type: string
         const: table
@@ -48,7 +48,7 @@ properties:
         type: string
         description: Target table name
   creator_id:
-    $ref: "id.yaml#/$defs/user_id"
+    $ref: "common/id.yaml#/$defs/user_id"
   description:
     type:
       - string
@@ -56,9 +56,9 @@ properties:
     description: Human-readable description
   collection_id:
     description: Collection FK, null for root collection
-    oneOf:
-      - $ref: "id.yaml#/$defs/entity_id"
-      - type: "null"
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   tags:
     type: array
     description: Transform tag associations
@@ -67,10 +67,10 @@ properties:
       properties:
         entity_id:
           description: NanoID of this tag association
-          $ref: "id.yaml#/$defs/entity_id"
+          $ref: "common/id.yaml#/$defs/entity_id"
         tag_id:
           description: TransformTag FK
-          $ref: "id.yaml#/$defs/entity_id"
+          $ref: "common/id.yaml#/$defs/entity_id"
         position:
           type: integer
           description: Ordering position
@@ -120,7 +120,7 @@ $defs:
         const: query
       query:
         description: Query (MBQL or native)
-        $ref: "query.yaml"
+        $ref: "common/query.yaml"
       source-incremental-strategy:
         type: object
         description: Incremental execution strategy
@@ -154,7 +154,7 @@ $defs:
               type: string
               description: Variable name for the table in Python
             database_id:
-              $ref: "id.yaml#/$defs/database_id"
+              $ref: "common/id.yaml#/$defs/database_id"
             schema:
               type:
                 - string
@@ -169,7 +169,7 @@ $defs:
                 - "null"
               description: Metabase table ID
       source-database:
-        $ref: "id.yaml#/$defs/database_id"
+        $ref: "common/id.yaml#/$defs/database_id"
       source-incremental-strategy:
         type: object
         description: Incremental execution strategy

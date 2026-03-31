@@ -17,19 +17,19 @@ properties:
     type: string
     description: Measure name
   entity_id:
-    $ref: "id.yaml#/$defs/entity_id"
+    $ref: "common/id.yaml#/$defs/entity_id"
   creator_id:
-    $ref: "id.yaml#/$defs/user_id"
+    $ref: "common/id.yaml#/$defs/user_id"
   table_id:
     description: Table FK, must match source-table in definition
-    $ref: "id.yaml#/$defs/table_id"
+    $ref: "common/id.yaml#/$defs/table_id"
   definition:
     description: >
       Aggregation definition. Must use type: query with a physical table
       source and exactly one aggregation clause. Measures cannot use filter,
       breakout, joins, expressions, or other query clauses.
     allOf:
-      - $ref: "query.yaml"
+      - $ref: "common/query.yaml"
       - type: object
         required:
           - database
@@ -49,7 +49,7 @@ properties:
                 description: >
                   Table FK [database, schema, table]. Measures must reference
                   a physical table, not a saved card/model.
-                $ref: "id.yaml#/$defs/table_id"
+                $ref: "common/id.yaml#/$defs/table_id"
               aggregation:
                 type: array
                 description: Exactly one aggregation clause
