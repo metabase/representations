@@ -201,9 +201,9 @@ $defs:
         then: { $ref: "common/id.yaml#/$defs/entity_id" }
       dashboard_tab_id:
         description: Tab FK, null for untabbed cards
-        oneOf:
-          - $ref: "id.yaml#/$defs/entity_id"
-          - type: "null"
+        type: [string, "null"]
+        if: { type: string }
+        then: { $ref: "common/id.yaml#/$defs/entity_id" }
       inline_parameters:
         type: array
         description: >
@@ -257,12 +257,12 @@ $defs:
     properties:
       card_id:
         description: Card FK
-        $ref: "id.yaml#/$defs/entity_id"
+        $ref: "common/id.yaml#/$defs/entity_id"
       parameter_id:
         type: string
         description: ID matching a dashboard parameter's id
       target:
-        $ref: "parameter.yaml#/$defs/parameter_target"
+        $ref: "common/parameter.yaml#/$defs/parameter_target"
 
   series:
     type: object
