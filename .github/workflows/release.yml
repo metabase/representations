@@ -1,0 +1,51 @@
+name: Release to NPM
+run-name: Release @metabase/representations v${{ inputs.version }} (${{ inputs.npm_tag }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (e.g. 1.0.0)"
+        type: string
+        required: true
+      npm_tag:
+        description: "NPM dist-tag"
+        type: choice
+        required: true
+        default: "latest"
+        options:
+          - latest
+          - next
+          - canary
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js with npm registry
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Set package version
+        run: npm version ${{ inputs.version }} --no-git-tag-version
+
+      - name: Publish to NPM
+        run: npm publish --tag ${{ inputs.npm_tag }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_RELEASE_TOKEN }}
+
+      - name: Generate workflow summary
+        run: |
+          tee -a $GITHUB_STEP_SUMMARY << EOF
+          ## Published @metabase/representations
+
+          - **Version**: ${{ inputs.version }}
+          - **Tag**: ${{ inputs.npm_tag }}
+          - **Triggered by**: @${{ github.event.sender.login }}
+          EOF
