@@ -14,7 +14,7 @@ jobs:
 
       - name: Start Metabase
         run: |
-          docker pull metabase/metabase-enterprise@sha256:b9f65f48f7121602cc37732ffeab4a4afdcbf7d945e49bed25d40264a95b18c8
+          docker pull --platform linux/amd64 metabase/metabase-enterprise@sha256:b9f65f48f7121602cc37732ffeab4a4afdcbf7d945e49bed25d40264a95b18c8
           docker run -d --name metabase \
             -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
             -p 3000:3000 \
