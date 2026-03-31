@@ -14,11 +14,11 @@ jobs:
 
       - name: Start Metabase
         run: |
-          docker pull metabase/metabase-enterprise@sha256:da42a30cee78d0f4f9e9a1f2ea229fd8a6bb996b3ff5b49ece9bdf29c8be7b79
+          docker pull metabase/metabase-enterprise:latest
           docker run -d --name metabase \
             -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
             -p 3000:3000 \
-            metabase/metabase-enterprise@sha256:da42a30cee78d0f4f9e9a1f2ea229fd8a6bb996b3ff5b49ece9bdf29c8be7b79
+            metabase/metabase-enterprise:latest
 
           echo "Waiting for Metabase to start..."
           timeout 180 bash -c '
