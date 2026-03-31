@@ -55,15 +55,6 @@ $defs:
         properties:
           include-current: { type: boolean }
 
-  aggregation_naming_options:
-    description: Options for aggregation-options (custom display name / name).
-    allOf:
-      - $ref: "#/$defs/options"
-      - type: object
-        properties:
-          display-name: { type: string }
-          name: { type: string }
-
   case_if_options:
     description: Options for case/if operators.
     allOf:
@@ -86,12 +77,6 @@ $defs:
     type: object
     required:
       - "lib/type"
-    properties:
-      "lib/type":
-        type: string
-        enum:
-          - mbql.stage/mbql
-          - mbql.stage/native
     allOf:
       - if:
           properties:
@@ -475,14 +460,6 @@ $defs:
                 - $ref: "#/$defs/expression"
               minItems: 4
               maxItems: 4
-          - if: { prefixItems: [{ const: aggregation-options }] }
-            then:
-              prefixItems:
-                - const: aggregation-options
-                - $ref: "#/$defs/aggregation_naming_options"
-                - $ref: "#/$defs/expression"
-              minItems: 3
-              maxItems: 3
           - if: { prefixItems: [{ enum: [case, if] }] }
             then:
               prefixItems:

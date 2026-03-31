@@ -63,17 +63,15 @@ dataset_query:
           - PUBLIC
           - ORDERS
           - PRODUCT_ID
-    - - aggregation-options
+    - - sum
       - display-name: Total Revenue
         name: total_revenue
-      - - sum
-        - {}
-        - - field
-          - base-type: type/Float
-          - - Sample Database
-            - PUBLIC
-            - ORDERS
-            - TOTAL
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
     breakout:
     - - field
       - temporal-unit: month

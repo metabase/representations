@@ -888,20 +888,17 @@ aggregation:
 
 #### Named Aggregations
 
-Aggregations can have a custom display name using the `aggregation-options` wrapper. The options map (with `display-name`) is the second argument, before the aggregation clause:
+Aggregations can have a custom display name by setting `display-name` and/or `name` directly in the aggregation clause's options:
 
 ```yaml
 aggregation:
-- - aggregation-options
+- - sum
   - display-name: Total Revenue
-  - - sum
-    - {}
-    - - field
-      - base-type: type/Float
-      - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    name: total_revenue
+  - - field
+    - base-type: type/Float
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
 ```
-
-The structure is `[aggregation-options, {display-name: "Name"}, aggregation-clause]`.
 
 #### Metric and Measure References
 
