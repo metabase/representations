@@ -1,5 +1,5 @@
 entity_id: kb0QxR8AyP5W8SVHGYZr8
-path: common.py
+path: shared.py
 source: |-
   def helper():
       return 42
