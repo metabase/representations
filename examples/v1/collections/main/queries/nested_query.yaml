@@ -31,13 +31,13 @@ dataset_query:
         - ORDERS
         - USER_ID
   - "lib/type": mbql.stage/mbql
-    filter:
-    - ">"
-    - {}
-    - - field
-      - base-type: type/Integer
-      - count
-    - 5
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+      - 5
     order-by:
     - - desc
       - {}

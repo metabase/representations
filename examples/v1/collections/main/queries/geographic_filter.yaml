@@ -12,25 +12,25 @@ dataset_query:
       - Sample Database
       - PUBLIC
       - PEOPLE
-      filter:
-      - inside
-      - {}
-      - - field
+      filters:
+      - - inside
         - {}
-        - - Sample Database
-          - PUBLIC
-          - PEOPLE
-          - LATITUDE
-      - - field
-        - {}
-        - - Sample Database
-          - PUBLIC
-          - PEOPLE
-          - LONGITUDE
-      - 40.8
-      - -74.1
-      - 40.6
-      - -73.9
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PEOPLE
+            - LATITUDE
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PEOPLE
+            - LONGITUDE
+        - 40.8
+        - -74.1
+        - 40.6
+        - -73.9
 visualization_settings: {}
 serdes/meta:
 - id: bK64P6yr9_Nx-A8S3PqOZ

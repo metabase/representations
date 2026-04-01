@@ -19,10 +19,10 @@ dataset_query:
       - - measure
         - {}
         - DBap2523KuN4Lt-cYrUjF
-      filter:
-      - segment
-      - {}
-      - OaFXAvEzPvu9ZXW5PUMRa
+      filters:
+      - - segment
+        - {}
+        - OaFXAvEzPvu9ZXW5PUMRa
 visualization_settings: {}
 serdes/meta:
 - id: kBjQ5VXJ5z3vYSW72J6qa

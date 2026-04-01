@@ -9,13 +9,13 @@ dataset_query:
   stages:
   - "lib/type": mbql.stage/mbql
     source-card: h5F2EjHsRd73Dqqh8sAtd
-    filter:
-    - ">"
-    - {}
-    - - field
-      - base-type: type/Integer
-      - count
-    - 100
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+      - 100
     order-by:
     - - desc
       - {}

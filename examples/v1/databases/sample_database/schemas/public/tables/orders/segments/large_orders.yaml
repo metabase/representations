@@ -14,16 +14,16 @@ definition:
     - Sample Database
     - PUBLIC
     - ORDERS
-    filter:
-    - ">"
-    - {}
-    - - field
-      - base-type: type/Float
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - TOTAL
-    - 50
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - PUBLIC
+          - ORDERS
+          - TOTAL
+      - 50
 serdes/meta:
 - id: OaFXAvEzPvu9ZXW5PUMRa
   label: large_orders

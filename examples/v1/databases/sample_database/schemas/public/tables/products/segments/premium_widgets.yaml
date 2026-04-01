@@ -15,9 +15,7 @@ definition:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - and
-    - {}
+    filters:
     - - segment
       - {}
       - aB3kLmN9pQrStUvWxYz1a

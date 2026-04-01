@@ -106,8 +106,21 @@ $defs:
         type: array
         items:
           $ref: "#/$defs/expression"
-      filter:
-        $ref: "#/$defs/expression"
+      fields:
+        type: array
+        items:
+          type: array
+          allOf:
+            - if: { prefixItems: [{ const: field }] }
+              then:
+                $ref: "ref.yaml#/$defs/field_ref"
+            - if: { prefixItems: [{ const: expression }] }
+              then:
+                $ref: "ref.yaml#/$defs/expression_ref"
+      filters:
+        type: array
+        items:
+          $ref: "#/$defs/expression"
       aggregation:
         type: array
         items:
@@ -129,14 +142,11 @@ $defs:
     description: >
       An MBQL expression clause. Either a literal value or an array
       [operator, options, ...args] where options is always an object.
-    oneOf:
-      - type: string
-      - type: number
-      - type: boolean
-      - type: "null"
-      - type: array
-        minItems: 1
-        allOf:
+    type: [string, number, boolean, "null", array]
+    if: { type: array }
+    then:
+      minItems: 1
+      allOf:
           - if: { prefixItems: [{ const: field }] }
             then:
               $ref: "ref.yaml#/$defs/field_ref"

@@ -97,10 +97,8 @@ properties:
 $defs:
   parameter_target:
     description: >
-      Parameter target for dashboard parameter mappings.
-      For MBQL columns: [dimension, ref] where ref is a field, expression, or aggregation ref.
-      For native dimension tags: [dimension, [template-tag, tag_name]].
-      For native variable tags: [variable, [template-tag, tag_name]].
+      Parameter target for dashboard parameter mappings. Uses legacy
+      MBQL format: [field, Field-FK, null-or-options].
     type: array
     minItems: 2
     allOf:
@@ -112,9 +110,9 @@ $defs:
               minItems: 2
               allOf:
                 - if: { prefixItems: [{ const: field }] }
-                  then: { $ref: "ref.yaml#/$defs/field_ref" }
+                  then: { $ref: "ref.yaml#/$defs/legacy_field_ref" }
                 - if: { prefixItems: [{ const: expression }] }
-                  then: { $ref: "ref.yaml#/$defs/expression_ref" }
+                  then: { $ref: "ref.yaml#/$defs/legacy_expression_ref" }
                 - if: { prefixItems: [{ const: template-tag }] }
                   then:
                     prefixItems: [{ const: template-tag }, { type: string }]

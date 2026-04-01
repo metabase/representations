@@ -45,19 +45,17 @@ properties:
               required:
                 - "lib/type"
                 - source-table
-                - filter
+                - filters
               additionalProperties: false
               properties:
                 "lib/type":
                   const: mbql.stage/mbql
                 source-table:
-                  description: >
-                    Table FK [database, schema, table]. Segments must reference
-                    a physical table, not a saved card/model.
                   $ref: "common/id.yaml#/$defs/table_id"
-                filter:
-                  description: Filter clause
-                  $ref: "common/query.yaml#/$defs/expression"
+                filters:
+                  type: array
+                  items:
+                    $ref: "common/query.yaml#/$defs/expression"
   description:
     type:
       - string

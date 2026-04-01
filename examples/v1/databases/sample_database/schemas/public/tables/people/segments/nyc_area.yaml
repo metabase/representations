@@ -15,25 +15,25 @@ definition:
     - Sample Database
     - PUBLIC
     - PEOPLE
-    filter:
-    - inside
-    - {}
-    - - field
+    filters:
+    - - inside
       - {}
-      - - Sample Database
-        - PUBLIC
-        - PEOPLE
-        - LATITUDE
-    - - field
-      - {}
-      - - Sample Database
-        - PUBLIC
-        - PEOPLE
-        - LONGITUDE
-    - 40.92
-    - -74.26
-    - 40.49
-    - -73.70
+      - - field
+        - {}
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - LATITUDE
+      - - field
+        - {}
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - LONGITUDE
+      - 40.92
+      - -74.26
+      - 40.49
+      - -73.70
 serdes/meta:
 - id: D2R9JpvI8sMfYWqfPsTkx
   label: nyc_area

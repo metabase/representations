@@ -97,13 +97,13 @@ dataset_query:
             - PUBLIC
             - ORDERS
             - QUANTITY
-      filter:
-      - ">"
-      - {}
-      - - expression
+      filters:
+      - - ">"
         - {}
-        - Per Unit Price
-      - 10
+        - - expression
+          - {}
+          - Per Unit Price
+        - 10
       breakout:
       - - field
         - temporal-unit: month

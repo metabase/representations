@@ -111,3 +111,24 @@ $defs:
       - type: string
     minItems: 3
     maxItems: 3
+
+  legacy_field_ref:
+    description: "[field, Field-FK-or-name, null-or-options] — legacy format used in parameter targets"
+    type: array
+    prefixItems:
+      - const: field
+      - if: { type: array }
+        then: { $ref: "id.yaml#/$defs/field_id" }
+      - type: [object, "null"]
+    minItems: 3
+    maxItems: 3
+
+  legacy_expression_ref:
+    description: "[expression, name] or [expression, name, null-or-options] — legacy format used in parameter targets"
+    type: array
+    prefixItems:
+      - const: expression
+      - type: string
+      - type: [object, "null"]
+    minItems: 2
+    maxItems: 3

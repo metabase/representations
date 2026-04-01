@@ -205,13 +205,13 @@ database: Sample Database
 stages:
 - "lib/type": mbql.stage/mbql
   source-card: f1C68pznmrpN1F5xFDj6d    # entity_id of a saved card
-  filter:
-  - ">"
-  - {}
-  - - field
-    - base-type: type/Float
-    - PRICE
-  - 50
+  filters:
+  - - ">"
+    - {}
+    - - field
+      - base-type: type/Float
+      - PRICE
+    - 50
 ```
 
 ### Stages (multi-stage queries)
@@ -238,13 +238,13 @@ stages:
       - ORDERS
       - CREATED_AT
 - "lib/type": mbql.stage/mbql
-  filter:
-  - ">"
-  - {}
-  - - field
-    - base-type: type/Integer
-    - count
-  - 10
+  filters:
+  - - ">"
+    - {}
+    - - field
+      - base-type: type/Integer
+      - count
+    - 10
 ```
 
 This is equivalent to `SELECT * FROM (SELECT DATE_TRUNC('month', CREATED_AT), COUNT(*) AS count FROM ORDERS GROUP BY 1) WHERE count > 10`.
@@ -344,6 +344,53 @@ Aggregation references use the `aggregation` keyword with a UUID that matches th
 - "11111111-1111-1111-1111-111111111111"
 ```
 
+### Fields
+
+Restricts which columns are included in the results. Each item is a `field` or `expression` reference:
+
+```yaml
+fields:
+- - field
+  - {}
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - TOTAL
+- - field
+  - {}
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - CREATED_AT
+- - expression
+  - {}
+  - Profit
+```
+
+When `fields` is omitted, all columns are included. If `fields` is present and the stage has `expressions`, every expression must be included in `fields` as an `expression` reference:
+
+```yaml
+fields:
+- - field
+  - {}
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - TOTAL
+- - expression
+  - {}
+  - Profit
+expressions:
+- - "-"
+  - "lib/expression-name": Profit
+  - - field
+    - {}
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+  - - field
+    - {}
+    - [Sample Database, PUBLIC, ORDERS, TAX]
+```
+
 ### Joins
 
 Joins combine data from multiple tables. Each join has its own `stages` array (defining the joined data source) and a `conditions` array (one or more join conditions):
@@ -421,22 +468,20 @@ See [Expression Operators](#expression-operators) for the full operator referenc
 
 ### Filters
 
-Filters restrict which rows are included:
+`filters` is an array of filter clauses that restrict which rows are included. Multiple clauses are implicitly ANDed together. To use OR logic, include an explicit `[or, {}, ...]` clause as one of the array items.
 
 ```yaml
-filter:
-- <operator>
-- {}
-- <column reference>
-- <value>
+filters:
+- - <operator>
+  - {}
+  - <column reference>
+  - <value>
 ```
 
-Compound filters use `and` / `or` / `not`:
+Multiple filter clauses (implicitly ANDed):
 
 ```yaml
-filter:
-- and
-- {}
+filters:
 - - ">="
   - {}
   - - field
@@ -457,7 +502,47 @@ filter:
   - 100
 ```
 
+To use OR, place an explicit `or` clause as an item in the array:
+
+```yaml
+filters:
+- - or
+  - {}
+  - - =
+    - {}
+    - - field
+      - {}
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+    - Widget
+  - - =
+    - {}
+    - - field
+      - {}
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+    - Gadget
+```
+
 See [Filter Operators](#filter-operators) for the full operator reference.
+
+### Breakouts
+
+Breakouts group results by columns (like `GROUP BY`):
+
+```yaml
+breakout:
+- - field
+  - temporal-unit: month
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - CREATED_AT
+```
 
 ### Aggregations
 
@@ -478,20 +563,6 @@ aggregation:
 ```
 
 See [Aggregation Functions](#aggregation-functions) for the full reference.
-
-### Breakouts
-
-Breakouts group results by columns (like `GROUP BY`):
-
-```yaml
-breakout:
-- - field
-  - temporal-unit: month
-  - - Sample Database
-    - PUBLIC
-    - ORDERS
-    - CREATED_AT
-```
 
 ### Order By
 
@@ -2043,7 +2114,9 @@ Parameter targets specify which column or variable a parameter maps to. The oute
 - **`dimension`** — for MBQL column references (`field`, `expression`) and for native template tags of type `dimension` or `temporal-unit`
 - **`variable`** — for native template tags of type `text`, `number`, `date`, or `boolean`
 
-An optional third element `{stage-number: N}` can specify which query stage the target belongs to (0 = first stage).
+An optional third element `{stage-number: N}` or `null` can specify which query stage the target belongs to (0 = first stage).
+
+**Important:** Field and expression references inside parameter targets use **legacy format** (`[field, Field-FK, null-or-options]`, `[expression, name]`), not pMBQL format. This differs from references inside `dataset_query.stages`, which use pMBQL format (`[field, options, Field-FK]`).
 
 **MBQL — field reference:**
 
@@ -2051,24 +2124,21 @@ An optional third element `{stage-number: N}` can specify which query stage the 
 target:
 - dimension
 - - field
-  - {}
   - - Sample Database
     - PUBLIC
     - PRODUCTS
     - CATEGORY
+  - null
 ```
 
-**MBQL — multi-stage field reference:**
+**MBQL — multi-stage field reference (column name, not Field FK):**
 
 ```yaml
 target:
 - dimension
 - - field
-  - {}
-  - - Sample Database
-    - PUBLIC
-    - PRODUCTS
-    - CATEGORY
+  - CATEGORY
+  - null
 - stage-number: 1
 ```
 
@@ -2078,7 +2148,6 @@ target:
 target:
 - dimension
 - - expression
-  - {}
   - Profit
 ```
 
@@ -2376,11 +2445,11 @@ dashcards:
     target:
     - dimension
     - - field
-      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - CATEGORY
+      - null
   series:
   - card_id: OMuZ0wHe2O5Z_59-cLmn4
     position: 0
@@ -2559,7 +2628,7 @@ Segments are stored under their table's directory: `databases/{db_slug}/schemas/
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
 | `table_id` | array | Yes | Table FK `[database, schema, table]` — must match `source-table` in definition |
-| `definition` | object | Yes | Filter definition with `"lib/type": mbql/query`, `database`, and `stages` containing `source-table` and `filter` |
+| `definition` | object | Yes | Filter definition with `"lib/type": mbql/query`, `database`, and `stages` containing `source-table` and `filters` |
 | `serdes/meta` | array | Yes | Identity path with `model: Segment` |
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |
@@ -2584,16 +2653,16 @@ definition:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - =
-    - {}
-    - - field
+    filters:
+    - - =
       - {}
-      - - Sample Database
-        - PUBLIC
-        - PRODUCTS
-        - CATEGORY
-    - Widget
+      - - field
+        - {}
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+      - Widget
 serdes/meta:
 - id: aB3kLmN9pQrStUvWxYz1a
   label: widget_products
@@ -2618,7 +2687,7 @@ Measures are stored under their table's directory: `databases/{db_slug}/schemas/
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
 | `table_id` | array | Yes | Table FK `[database, schema, table]` — must match `source-table` in definition |
-| `definition` | object | Yes | Aggregation definition with `"lib/type": mbql/query`, `database`, and `stages` containing `source-table` and exactly one `aggregation`. Measures cannot use `filter`. |
+| `definition` | object | Yes | Aggregation definition with `"lib/type": mbql/query`, `database`, and `stages` containing `source-table` and exactly one `aggregation`. Measures cannot use `filters`. |
 | `serdes/meta` | array | Yes | Identity path with `model: Measure` |
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |

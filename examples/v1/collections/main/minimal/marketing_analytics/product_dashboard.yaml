@@ -20,11 +20,11 @@ dashcards:
     target:
     - dimension
     - - field
-      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - CATEGORY
+      - null
   serdes/meta:
   - id: Q_jD-f-9clKLFZ2TfUG2h
     model: Dashboard

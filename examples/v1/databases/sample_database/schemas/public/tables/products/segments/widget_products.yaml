@@ -14,16 +14,16 @@ definition:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - =
-    - {}
-    - - field
+    filters:
+    - - =
       - {}
-      - - Sample Database
-        - PUBLIC
-        - PRODUCTS
-        - CATEGORY
-    - Widget
+      - - field
+        - {}
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+      - Widget
 serdes/meta:
 - id: aB3kLmN9pQrStUvWxYz1a
   label: widget_products

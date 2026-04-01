@@ -12,9 +12,7 @@ dataset_query:
     - Sample Database
     - PUBLIC
     - ORDERS
-    filter:
-    - and
-    - {}
+    filters:
     - - time-interval
       - {}
       - - field

@@ -12,9 +12,7 @@ dataset_query:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - and
-    - {}
+    filters:
     - - not-null
       - {}
       - - field

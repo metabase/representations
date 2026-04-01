@@ -15,9 +15,7 @@ definition:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - and
-    - {}
+    filters:
     - - between
       - {}
       - - field

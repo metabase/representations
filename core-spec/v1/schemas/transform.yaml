@@ -24,9 +24,18 @@ properties:
     description: >
       Source definition — either a query (type: query) or a Python script
       (type: python).
-    oneOf:
-      - $ref: "#/$defs/query_source"
-      - $ref: "#/$defs/python_source"
+    type: object
+    allOf:
+      - if:
+          properties:
+            type: { const: query }
+        then:
+          $ref: "#/$defs/query_source"
+      - if:
+          properties:
+            type: { const: python }
+        then:
+          $ref: "#/$defs/python_source"
   target:
     type: object
     description: Where the resulting table is written
