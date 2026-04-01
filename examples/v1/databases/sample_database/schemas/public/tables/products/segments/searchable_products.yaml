@@ -7,55 +7,58 @@ table_id:
 - PUBLIC
 - PRODUCTS
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - and
+    filters:
     - - not-empty
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - TITLE
-        - null
     - - contains
+      - case-sensitive: false
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - TITLE
-        - null
       - awesome
-      - case-sensitive: false
     - - starts-with
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - VENDOR
-        - null
       - A
     - - does-not-contain
+      - case-sensitive: false
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - TITLE
-        - null
       - discontinued
-      - case-sensitive: false
     - - ends-with
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - EAN
-        - null
       - "0"
 serdes/meta:
 - id: yZptbJRR3S8L9S9r0ZF8M

@@ -4,41 +4,46 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-query:
-      source-table:
-      - Sample Database
-      - PUBLIC
-      - ORDERS
-      aggregation:
-      - - count
-      - - sum
-        - - field
-          - - Sample Database
-            - PUBLIC
-            - ORDERS
-            - TOTAL
-          - base-type: type/Float
-      breakout:
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - ORDERS
+    aggregation:
+    - - count
+      - {}
+    - - sum
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
-          - USER_ID
-        - null
-    filter:
-    - ">"
+          - TOTAL
+    breakout:
     - - field
-      - count
-      - base-type: type/Integer
-    - 5
+      - {}
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - USER_ID
+  - "lib/type": mbql.stage/mbql
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+      - 5
     order-by:
     - - desc
+      - {}
       - - field
-        - sum
         - base-type: type/Float
+        - sum
     limit: 20
 visualization_settings: {}
 serdes/meta:

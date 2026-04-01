@@ -4,57 +4,58 @@ creator_id: admin@example.com
 display: line
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: native
-  native:
-    query: |-
-      SELECT {{created_at}} AS period, PRODUCTS.CATEGORY, COUNT(*) AS cnt
-      FROM ORDERS
-      JOIN PRODUCTS ON ORDERS.PRODUCT_ID = PRODUCTS.ID
-      WHERE {{category_filter}}
-        AND {{date_filter}}
-      GROUP BY {{created_at}}, PRODUCTS.CATEGORY
-    template-tags:
-      category_filter:
-        type: dimension
-        name: category_filter
-        id: bb000001-0000-0000-0000-000000000001
-        display-name: Category
-        dimension:
-        - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - CATEGORY
-        - null
-        widget-type: string/=
-      date_filter:
-        type: dimension
-        name: date_filter
-        id: bb000002-0000-0000-0000-000000000002
-        display-name: Order Date
-        dimension:
-        - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
-        widget-type: date/range
-      created_at:
-        type: temporal-unit
-        sectionId: date
-        name: created_at
-        id: bb000003-0000-0000-0000-000000000003
-        display-name: Group By
-        default: month
-        dimension:
-        - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - CREATED_AT
-        - null
+  stages:
+    - "lib/type": mbql.stage/native
+      native: |-
+        SELECT {{created_at}} AS period, PRODUCTS.CATEGORY, COUNT(*) AS cnt
+        FROM ORDERS
+        JOIN PRODUCTS ON ORDERS.PRODUCT_ID = PRODUCTS.ID
+        WHERE {{category_filter}}
+          AND {{date_filter}}
+        GROUP BY {{created_at}}, PRODUCTS.CATEGORY
+      template-tags:
+        category_filter:
+          type: dimension
+          name: category_filter
+          id: bb000001-0000-0000-0000-000000000001
+          display-name: Category
+          dimension:
+          - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - CATEGORY
+          widget-type: string/=
+        date_filter:
+          type: dimension
+          name: date_filter
+          id: bb000002-0000-0000-0000-000000000002
+          display-name: Order Date
+          dimension:
+          - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
+          widget-type: date/range
+        created_at:
+          type: temporal-unit
+          sectionId: date
+          name: created_at
+          id: bb000003-0000-0000-0000-000000000003
+          display-name: Group By
+          default: month
+          dimension:
+          - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - CREATED_AT
 visualization_settings: {}
 serdes/meta:
 - id: sk02d7sPWAk2TYH2Y7JhZ

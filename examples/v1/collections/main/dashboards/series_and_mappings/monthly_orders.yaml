@@ -6,22 +6,24 @@ database_id: Sample Database
 dashboard_id: 8xFV0XmZs2olbGKXWenfS
 collection_id: cOlDaShBoArDs0ExAmPlx
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
     aggregation:
     - - count
+      - {}
     breakout:
     - - field
+      - temporal-unit: month
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - temporal-unit: month
 visualization_settings: {}
 serdes/meta:
 - id: dShCrdMnthlyOrdrs0001

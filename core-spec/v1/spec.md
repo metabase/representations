@@ -172,9 +172,10 @@ MBQL (Metabase Query Language) queries are constructed via the graphical query e
 ### Structure
 
 ```yaml
+"lib/type": mbql/query
 database: Sample Database     # Database FK
-type: query
-query:
+stages:
+- "lib/type": mbql.stage/mbql
   source-table:               # Table FK
   - Sample Database
   - PUBLIC
@@ -185,9 +186,7 @@ This is equivalent to `SELECT * FROM PUBLIC.PRODUCTS`.
 
 ### Source Table
 
-`source-table` specifies the primary data source. It can be either a **Table FK** (array) for physical tables, or a **Card entity_id** (string) for saved questions and models.
-
-**Physical table:**
+`source-table` specifies a physical table as the data source using a **Table FK** (array).
 
 ```yaml
 source-table:
@@ -196,69 +195,74 @@ source-table:
 - PRODUCTS
 ```
 
-**Saved card/model as source:**
+### Source Card
 
-When `source-table` is a string (NanoID), it references a saved card. Fields from the card's results are referenced by column name (string) rather than a Field FK:
+`source-card` specifies a saved card (question or model) as the data source using its **Card entity_id** (string). Fields from the card's results are referenced by column name (string) rather than a Field FK:
 
 ```yaml
+"lib/type": mbql/query
 database: Sample Database
-type: query
-query:
-  source-table: f1C68pznmrpN1F5xFDj6d    # entity_id of a saved card
-  filter:
-  - ">"
-  - - field
-    - PRICE
-    - base-type: type/Float
-  - 50
+stages:
+- "lib/type": mbql.stage/mbql
+  source-card: f1C68pznmrpN1F5xFDj6d    # entity_id of a saved card
+  filters:
+  - - ">"
+    - {}
+    - - field
+      - base-type: type/Float
+      - PRICE
+    - 50
 ```
 
-### Source Query (nested queries)
+### Stages (multi-stage queries)
 
-A query can use another MBQL query as its source instead of a table. The inner query has the same structure as a regular MBQL query. Fields from the inner query's results are referenced by column name (string) rather than a Field FK. Nested queries can be stacked to arbitrary depth.
+A query can have multiple stages, where each stage operates on the results of the previous one. Stages are a flat array — there is no nesting. Fields from a previous stage's results are referenced by column name (string) rather than a Field FK. Stages can be stacked to arbitrary depth.
 
 ```yaml
+"lib/type": mbql/query
 database: Sample Database
-type: query
-query:
-  source-query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    aggregation:
-    - - count
-    breakout:
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - CREATED_AT
-      - temporal-unit: month
-  filter:
-  - ">"
+stages:
+- "lib/type": mbql.stage/mbql
+  source-table:
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+  aggregation:
+  - - count
+    - "lib/uuid": 11111111-1111-1111-1111-111111111111
+  breakout:
   - - field
-    - count
-    - base-type: type/Integer
-  - 10
+    - temporal-unit: month
+    - - Sample Database
+      - PUBLIC
+      - ORDERS
+      - CREATED_AT
+- "lib/type": mbql.stage/mbql
+  filters:
+  - - ">"
+    - {}
+    - - field
+      - base-type: type/Integer
+      - count
+    - 10
 ```
 
 This is equivalent to `SELECT * FROM (SELECT DATE_TRUNC('month', CREATED_AT), COUNT(*) AS count FROM ORDERS GROUP BY 1) WHERE count > 10`.
 
 ### Field References
 
-Fields are referenced using a `field` clause with a Field FK:
+Fields are referenced using a `field` clause with options as the second argument and a Field FK as the third:
 
 ```yaml
 - field
+- {}                          # field options (always a map, never null)
 - - Sample Database           # database name
   - PUBLIC                    # schema (null for schemaless)
   - ORDERS                   # table name
   - TOTAL                    # field name
-- null                        # field options (see below)
 ```
 
-Field options (second argument) can be `null` or a map:
+Field options (second argument) is always a map (use `{}` when no options are needed):
 
 | Option | Type | Description |
 |--------|------|-------------|
@@ -267,7 +271,7 @@ Field options (second argument) can be `null` or a map:
 | `join-alias` | string | Alias of the join this field belongs to |
 | `binning` | map | Binning strategy (see [Binning](#binning)) |
 | `source-field` | array | Implicit join: FK field reference in the source table (see below) |
-| `source-field-name` | string | Implicit join: FK field by name, for nested queries |
+| `source-field-name` | string | Implicit join: FK field by name, for multi-stage queries |
 | `source-field-join-alias` | string | Implicit join: join-alias when the FK table is explicitly joined |
 
 #### Implicit Joins
@@ -279,89 +283,141 @@ Use `source-field` to specify the FK field in the source table that links to the
 ```yaml
 # Get PRODUCTS.TITLE via ORDERS.PRODUCT_ID (implicit join)
 - field
-- - Sample Database
-  - PUBLIC
-  - PRODUCTS
-  - TITLE
 - source-field:
   - Sample Database
   - PUBLIC
   - ORDERS
   - PRODUCT_ID
-```
-
-The `source-field` value is a raw Field FK (`[database, schema, table, field]`), not a field clause.
-
-For **nested queries** (when `source-query` or `source-table` is a card entity_id), additionally set `source-field-name` to reference the FK column by its string name in the inner query's results. This is needed when the source query returns multiple fields that are both the same FK:
-
-```yaml
-- field
 - - Sample Database
   - PUBLIC
   - PRODUCTS
   - TITLE
+```
+
+The `source-field` value is a raw Field FK (`[database, schema, table, field]`), not a field clause.
+
+For **multi-stage queries** (when `source-card` is set), additionally set `source-field-name` to reference the FK column by its string name in the previous stage's results. This is needed when the source query returns multiple fields that are both the same FK:
+
+```yaml
+- field
 - source-field:
   - Sample Database
   - PUBLIC
   - ORDERS
   - PRODUCT_ID
   source-field-name: PRODUCT_ID
+- - Sample Database
+  - PUBLIC
+  - PRODUCTS
+  - TITLE
 ```
 
 When the source (FK) table is itself joined via an explicit `joins` clause, use `source-field-join-alias` to disambiguate which join the FK field comes from. The value must match the `alias` of the corresponding join:
 
 ```yaml
 - field
-- - Sample Database
-  - PUBLIC
-  - PRODUCTS
-  - TITLE
 - source-field:
   - Sample Database
   - PUBLIC
   - ORDERS
   - PRODUCT_ID
   source-field-join-alias: Joined Orders
+- - Sample Database
+  - PUBLIC
+  - PRODUCTS
+  - TITLE
 ```
 
 Expression references use the `expression` keyword:
 
 ```yaml
 - expression
+- {}
 - Profit
 ```
 
-Aggregation references use the `aggregation` keyword with the aggregation index:
+Aggregation references use the `aggregation` keyword with a UUID that matches the `lib/uuid` of the referenced aggregation clause:
 
 ```yaml
 - aggregation
-- 0                           # index of the aggregation clause
+- {}
+- "11111111-1111-1111-1111-111111111111"
+```
+
+### Fields
+
+Restricts which columns are included in the results. Each item is a `field` or `expression` reference:
+
+```yaml
+fields:
+- - field
+  - {}
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - TOTAL
+- - field
+  - {}
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - CREATED_AT
+- - expression
+  - {}
+  - Profit
+```
+
+When `fields` is omitted, all columns are included. If `fields` is present and the stage has `expressions`, every expression must be included in `fields` as an `expression` reference:
+
+```yaml
+fields:
+- - field
+  - {}
+  - - Sample Database
+    - PUBLIC
+    - ORDERS
+    - TOTAL
+- - expression
+  - {}
+  - Profit
+expressions:
+- - "-"
+  - "lib/expression-name": Profit
+  - - field
+    - {}
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+  - - field
+    - {}
+    - [Sample Database, PUBLIC, ORDERS, TAX]
 ```
 
 ### Joins
 
-Joins combine data from multiple tables:
+Joins combine data from multiple tables. Each join has its own `stages` array (defining the joined data source) and a `conditions` array (one or more join conditions):
 
 ```yaml
 joins:
-- source-table:
-  - Sample Database
-  - PUBLIC
-  - PRODUCTS
-  condition:
-  - =
-  - - field
-    - - Sample Database
-      - PUBLIC
-      - ORDERS
-      - PRODUCT_ID
-    - null
-  - - field
-    - - Sample Database
-      - PUBLIC
-      - PRODUCTS
-      - ID
-    - null
+- stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - PRODUCTS
+  conditions:
+  - - =
+    - {}
+    - - field
+      - {}
+      - - Sample Database
+        - PUBLIC
+        - ORDERS
+        - PRODUCT_ID
+    - - field
+      - {}
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - ID
   alias: Products
   strategy: left-join
   fields: all
@@ -369,8 +425,8 @@ joins:
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `source-table` | array | Yes | Table FK of the joined table |
-| `condition` | array | Yes | Join condition as a filter clause |
+| `stages` | array | Yes | Array of stage objects defining the joined data source |
+| `conditions` | array | Yes | Array of join conditions, each a filter clause |
 | `alias` | string | Yes | Join alias (used in field references) |
 | `strategy` | string | Yes | `"left-join"`, `"right-join"`, `"inner-join"`, `"full-join"` |
 | `fields` | any | No | `"all"`, `"none"`, or list of field clauses |
@@ -379,90 +435,100 @@ Joined fields are referenced with a `join-alias` option:
 
 ```yaml
 - field
+- join-alias: Products
 - - Sample Database
   - PUBLIC
   - PRODUCTS
   - TITLE
-- join-alias: Products
 ```
 
 ### Expressions
 
-Computed columns defined as named clauses in an `expressions` map:
+Computed columns defined as an array of clauses. Each expression operator's options map includes `lib/expression-name` to name the resulting column:
 
 ```yaml
 expressions:
-  Profit:
-  - -
+- - "-"
+  - "lib/expression-name": Profit
   - - field
+    - {}
     - - Sample Database
       - PUBLIC
       - ORDERS
       - TOTAL
-    - null
   - - field
+    - {}
     - - Sample Database
       - PUBLIC
       - ORDERS
       - TAX
-    - null
 ```
 
 See [Expression Operators](#expression-operators) for the full operator reference.
 
 ### Filters
 
-Filters restrict which rows are included:
+`filters` is an array of filter clauses that restrict which rows are included. Multiple clauses are implicitly ANDed together. To use OR logic, include an explicit `[or, {}, ...]` clause as one of the array items.
 
 ```yaml
-filter:
-- <operator>
-- <column reference>
-- <value>
+filters:
+- - <operator>
+  - {}
+  - <column reference>
+  - <value>
 ```
 
-Compound filters use `and` / `or` / `not`:
+Multiple filter clauses (implicitly ANDed):
 
 ```yaml
-filter:
-- and
+filters:
 - - ">="
+  - {}
   - - field
+    - {}
     - - Sample Database
       - PUBLIC
       - PRODUCTS
       - PRICE
-    - null
   - 10
 - - "<"
+  - {}
   - - field
+    - {}
     - - Sample Database
       - PUBLIC
       - PRODUCTS
       - PRICE
-    - null
   - 100
 ```
 
-See [Filter Operators](#filter-operators) for the full operator reference.
-
-### Aggregations
-
-Aggregations compute summary values. Multiple aggregations can be combined:
+To use OR, place an explicit `or` clause as an item in the array:
 
 ```yaml
-aggregation:
-- - count
-- - sum
-  - - field
-    - - Sample Database
-      - PUBLIC
-      - ORDERS
-      - TOTAL
-    - base-type: type/Float
+filters:
+- - or
+  - {}
+  - - =
+    - {}
+    - - field
+      - {}
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+    - Widget
+  - - =
+    - {}
+    - - field
+      - {}
+      - - Sample Database
+        - PUBLIC
+        - PRODUCTS
+        - CATEGORY
+    - Gadget
 ```
 
-See [Aggregation Functions](#aggregation-functions) for the full reference.
+See [Filter Operators](#filter-operators) for the full operator reference.
 
 ### Breakouts
 
@@ -471,33 +537,56 @@ Breakouts group results by columns (like `GROUP BY`):
 ```yaml
 breakout:
 - - field
+  - temporal-unit: month
   - - Sample Database
     - PUBLIC
     - ORDERS
     - CREATED_AT
-  - temporal-unit: month
 ```
+
+### Aggregations
+
+Aggregations compute summary values. Multiple aggregations can be combined. When an aggregation is referenced elsewhere (e.g., in `order-by` or a later stage), its options map must include a `lib/uuid`:
+
+```yaml
+aggregation:
+- - count
+  - {}
+- - sum
+  - {}
+  - - field
+    - base-type: type/Float
+    - - Sample Database
+      - PUBLIC
+      - ORDERS
+      - TOTAL
+```
+
+See [Aggregation Functions](#aggregation-functions) for the full reference.
 
 ### Order By
 
 ```yaml
 order-by:
 - - asc                        # "asc" or "desc"
+  - {}
   - - field
+    - {}
     - - Sample Database
       - PUBLIC
       - PRODUCTS
       - PRICE
-    - null
 ```
 
-Sort by aggregation result:
+Sort by aggregation result (using the UUID from the aggregation's `lib/uuid`):
 
 ```yaml
 order-by:
 - - desc
+  - {}
   - - aggregation
-    - 0
+    - {}
+    - "11111111-1111-1111-1111-111111111111"
 ```
 
 ### Limit
@@ -518,14 +607,14 @@ The `temporal-unit` field option groups a datetime column into time buckets. Thi
 # Breakout by month
 breakout:
 - - field
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
   - temporal-unit: month
+  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
 
 # Breakout by day of week
 breakout:
 - - field
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
   - temporal-unit: day-of-week
+  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
 ```
 
 Bucketing units truncate the datetime (e.g., `month` groups `2024-03-15` into `2024-03-01`). Extraction units extract a numeric component (e.g., `day-of-week` returns 1–7).
@@ -546,18 +635,18 @@ Three strategies are available:
 # 10 equal bins
 breakout:
 - - field
-  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
   - binning:
       strategy: num-bins
       num-bins: 10
+  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
 
 # Bins of width 25
 breakout:
 - - field
-  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
   - binning:
       strategy: bin-width
       bin-width: 25
+  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
 ```
 
 ---
@@ -575,15 +664,18 @@ breakout:
 ```yaml
 # AND
 - and
+- {}
 - - ">"
+  - {}
   - - field
+    - {}
     - [Sample Database, PUBLIC, PRODUCTS, PRICE]
-    - null
   - 50
 - - "!="
+  - {}
   - - field
+    - {}
     - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
-    - null
   - Doohickey
 ```
 
@@ -603,36 +695,40 @@ breakout:
 ```yaml
 # Equals
 - =
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
-  - null
 - Widget
 
 # Multi-value equals (IN)
 - =
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
-  - null
 - Widget
 - Gadget
 - Gizmo
 
 # Between
 - between
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PRODUCTS, PRICE]
-  - null
 - 10
 - 100
 
 # Inside (bounding box)
 - inside
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, LATITUDE]
-  - null
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, LONGITUDE]
-  - null
 - 40.8    # north latitude
 - -74.1   # west longitude
 - 40.6    # south latitude
@@ -650,19 +746,21 @@ breakout:
 
 ```yaml
 - is-null
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, DISCOUNT]
-  - null
 
 - not-empty
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, EMAIL]
-  - null
 ```
 
 #### String
 
-All string filter operators accept a `case-sensitive` option (default: `true`). They are N-ary — multiple values are combined with OR. When multiple values are present, the options map goes in the **second position** (after the operator, before the field).
+All string filter operators accept a `case-sensitive` option (default: `true`). They are N-ary — multiple values are combined with OR. The options map is always in the **second position** (after the operator, before the field).
 
 | Operator | Arguments | Description |
 |----------|-----------|-------------|
@@ -672,20 +770,20 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 | `ends-with` | 2+ string values | Ends with suffix |
 
 ```yaml
-# Single value, case-insensitive (options go last)
+# Single value, case-insensitive
 - contains
-- - field
-  - [Sample Database, PUBLIC, PRODUCTS, TITLE]
-  - null
-- widget
 - case-sensitive: false
+- - field
+  - {}
+  - [Sample Database, PUBLIC, PRODUCTS, TITLE]
+- widget
 
-# Multiple values (options map in second position, can be empty {})
+# Multiple values (empty options)
 - starts-with
 - {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, NAME]
-  - null
 - John
 - Jane
 
@@ -693,8 +791,8 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 - starts-with
 - case-sensitive: false
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, NAME]
-  - null
 - John
 - Jane
 - Charlie
@@ -712,25 +810,28 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 ```yaml
 # Last 30 days
 - time-interval
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
 - -30
 - day
 
 # Current month
 - time-interval
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
 - current
 - month
 
 # Last 30 days, offset by 1 month
 - relative-time-interval
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
 - -30
 - day
 - -1
@@ -743,6 +844,7 @@ Reference a saved segment by entity_id:
 
 ```yaml
 - segment
+- {}
 - aB3kLmN9pQrStUvWxYz1a
 ```
 
@@ -765,21 +867,25 @@ Reference a saved segment by entity_id:
 # Count all rows
 aggregation:
 - - count
+  - {}
 
 # Sum with field
 aggregation:
 - - sum
+  - {}
   - - field
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - base-type: type/Float
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
 
 # Multiple aggregations
 aggregation:
 - - count
+  - {}
 - - avg
+  - {}
   - - field
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - base-type: type/Float
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
 ```
 
 #### Cumulative
@@ -792,9 +898,10 @@ aggregation:
 ```yaml
 aggregation:
 - - cum-sum
+  - {}
   - - field
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - base-type: type/Float
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
 ```
 
 #### Statistical
@@ -810,9 +917,10 @@ aggregation:
 # 90th percentile
 aggregation:
 - - percentile
+  - {}
   - - field
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - base-type: type/Float
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
   - 0.9
 ```
 
@@ -829,37 +937,39 @@ aggregation:
 # Count where
 aggregation:
 - - count-where
+  - {}
   - - ">"
+    - {}
     - - field
+      - {}
       - [Sample Database, PUBLIC, ORDERS, TOTAL]
-      - null
     - 100
 
 # Share
 aggregation:
 - - share
+  - {}
   - - =
+    - {}
     - - field
+      - {}
       - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
-      - null
     - Widget
 ```
 
 #### Named Aggregations
 
-Aggregations can have a custom display name using the `aggregation-options` wrapper:
+Aggregations can have a custom display name by setting `display-name` and/or `name` directly in the aggregation clause's options:
 
 ```yaml
 aggregation:
-- - aggregation-options
-  - - sum
-    - - field
-      - [Sample Database, PUBLIC, ORDERS, TOTAL]
-      - base-type: type/Float
+- - sum
   - display-name: Total Revenue
+    name: total_revenue
+  - - field
+    - base-type: type/Float
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
 ```
-
-The structure is `[aggregation-options, aggregation-clause, {display-name: "Name"}]`.
 
 #### Metric and Measure References
 
@@ -868,6 +978,7 @@ A `metric` clause references a saved metric (a card with `type: metric`) by its 
 ```yaml
 aggregation:
 - - metric
+  - {}
   - f1C68pznmrpN1F5xFDj6d           # entity_id of a metric card
 ```
 
@@ -876,6 +987,7 @@ A `measure` clause references a saved measure by its entity_id. Measures can ref
 ```yaml
 aggregation:
 - - measure
+  - {}
   - xK7mPqR2sT4uVwXyZ9a1b           # entity_id of a saved measure
 ```
 
@@ -897,23 +1009,24 @@ aggregation:
 ```yaml
 # Subtraction: TOTAL - TAX
 expressions:
-  Profit:
-  - "-"
+- - "-"
+  - "lib/expression-name": Profit
   - - field
+    - {}
     - [Sample Database, PUBLIC, ORDERS, TOTAL]
-    - null
   - - field
+    - {}
     - [Sample Database, PUBLIC, ORDERS, TAX]
-    - null
 
 # Date arithmetic: CREATED_AT + 7 days
 expressions:
-  Due Date:
-  - +
+- - +
+  - "lib/expression-name": Due Date
   - - field
+    - {}
     - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-    - null
   - - interval
+    - {}
     - 7
     - day
 ```
@@ -934,22 +1047,25 @@ expressions:
 ```yaml
 # Absolute value
 - abs
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, DISCOUNT]
-  - null
 
 # Power
 - power
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PRODUCTS, RATING]
-  - null
 - 2
 
 # Square root
 - sqrt
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PRODUCTS, PRICE]
-  - null
 ```
 
 #### String Functions
@@ -975,43 +1091,48 @@ expressions:
 ```yaml
 # Concat
 - concat
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, NAME]
-  - null
 - " <"
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, EMAIL]
-  - null
 - ">"
 
 # Substring (characters 1-3)
 - substring
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PRODUCTS, TITLE]
-  - null
 - 1
 - 3
 
 # Replace
 - replace
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, EMAIL]
-  - null
 - "@example.com"
 - "@company.com"
 
 # Regex match
 - regex-match-first
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, EMAIL]
-  - null
 - "^[^@]+"
 
 # Domain from URL
 - domain
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PEOPLE, SOURCE]
-  - null
 ```
 
 #### Temporal Functions
@@ -1048,31 +1169,36 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 ```yaml
 # Add 7 days
 - datetime-add
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
 - 7
 - day
 
 # Difference in months
 - datetime-diff
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
 - - now
+  - {}
 - month
 
 # Extract year
 - get-year
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
 
 # Convert timezone
 - convert-timezone
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
-  - null
 - America/New_York
 - UTC
 ```
@@ -1087,43 +1213,47 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 
 ```yaml
 - integer
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, PRODUCTS, PRICE]
-  - null
 ```
 
 #### Conditional
 
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `case` | pairs of [condition, value], optional default | value type | Conditional expression (if/then/else) |
+| `case` | pairs of [condition, value] (default in options) | value type | Conditional expression (if/then/else) |
 | `if` | same as `case` | value type | Alias for `case` |
 | `coalesce` | 2+ expressions | first non-null type | First non-null value |
 
 ```yaml
 # Case expression
 expressions:
-  Price Tier:
-  - case
+- - case
+  - "lib/expression-name": Price Tier
+    default: Standard
   - - - - ">"
+        - {}
         - - field
+          - {}
           - [Sample Database, PUBLIC, PRODUCTS, PRICE]
-          - null
         - 100
       - Premium
     - - - "<="
+        - {}
         - - field
+          - {}
           - [Sample Database, PUBLIC, PRODUCTS, PRICE]
-          - null
         - 20
       - Budget
-  - Standard                   # default value
 
 # Coalesce
 - coalesce
+- {}
 - - field
+  - {}
   - [Sample Database, PUBLIC, ORDERS, DISCOUNT]
-  - null
 - 0
 ```
 
@@ -1133,20 +1263,22 @@ Window functions can only be used inside the `aggregation` clause.
 
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `offset` | null, expression, n | same type | Value from n rows before (negative) or after (positive). Second element is always `null`. |
+| `offset` | expression, n | same type | Value from n rows before (negative) or after (positive). |
 
 ```yaml
 aggregation:
 - - sum
+  - {}
   - - field
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
     - base-type: type/Float
+    - [Sample Database, PUBLIC, ORDERS, TOTAL]
 - - offset
-  - null
+  - {}
   - - sum
+    - {}
     - - field
-      - [Sample Database, PUBLIC, ORDERS, TOTAL]
       - base-type: type/Float
+      - [Sample Database, PUBLIC, ORDERS, TOTAL]
   - -1
 ```
 
@@ -1159,10 +1291,11 @@ Native queries use plain SQL with Metabase template tags for dynamic values.
 ### Structure
 
 ```yaml
+"lib/type": mbql/query
 database: Sample Database
-type: native
-native:
-  query: SELECT * FROM PRODUCTS
+stages:
+- "lib/type": mbql.stage/native
+  native: SELECT * FROM PRODUCTS
   template-tags: {}
 ```
 
@@ -1293,7 +1426,7 @@ When no value is provided, the entire `WHERE {{tag}}` clause is omitted (the que
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `dimension` | array | Yes | Field clause: `[field, Field FK, options]` (see [Field References](#field-references)) |
+| `dimension` | array | Yes | Field clause: `[field, options, Field FK]` (see [Field References](#field-references)) |
 | `widget-type` | string | Yes | Filter widget type — any value from [Parameter Types](#parameter-types) |
 | `default` | any | No | Default filter value |
 | `required` | boolean | No | Whether a value must be provided |
@@ -1310,11 +1443,11 @@ native:
       display-name: Category
       dimension:
       - field
+      - {}
       - - Sample Database
         - PUBLIC
         - PRODUCTS
         - CATEGORY
-      - null
       widget-type: string/=
       default: null
 ```
@@ -1331,7 +1464,7 @@ A temporal grouping variable. Metabase replaces the tag with a `DATE_TRUNC(unit,
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `dimension` | array | Yes | Field clause: `[field, Field FK, options]` — the temporal column to group |
+| `dimension` | array | Yes | Field clause: `[field, options, Field FK]` — the temporal column to group |
 | `default` | string | No | Default temporal unit (e.g., `month`) |
 | `alias` | string | No | Overrides the SQL column name used inside the generated expression. By default Metabase uses the column name from `dimension` (e.g., `CREATED_AT`). When the SQL uses a table alias, set `alias` to match so the generated expression references the correct name. |
 
@@ -1349,11 +1482,11 @@ native:
       default: month
       dimension:
       - field
+      - {}
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - null
 ```
 
 Compiled SQL (value `month`): `SELECT DATE_TRUNC('month', CREATED_AT) AS created_at, COUNT(*) FROM ORDERS GROUP BY DATE_TRUNC('month', CREATED_AT)`
@@ -1373,11 +1506,11 @@ native:
       alias: o.CREATED_AT
       dimension:
       - field
+      - {}
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - null
 ```
 
 Compiled SQL (value `month`): `SELECT DATE_TRUNC('month', o.CREATED_AT) AS created_at, COUNT(*) FROM ORDERS o GROUP BY DATE_TRUNC('month', o.CREATED_AT)`
@@ -1843,11 +1976,11 @@ click_behavior:
         dimension:
         - dimension
         - - field
+          - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - ID
-          - null
 ```
 
 ### Parameter Mapping Structure
@@ -1912,18 +2045,18 @@ values_source_config:
   card_id: f1C68pznmrpN1F5xFDj6d
   value_field:
   - field
+  - {}
   - - Sample Database
     - PUBLIC
     - PRODUCTS
     - ID
-  - null
   label_field:
   - field
+  - {}
   - - Sample Database
     - PUBLIC
     - PRODUCTS
     - TITLE
-  - null
 ```
 
 | Property | Type | Description |
@@ -1981,7 +2114,9 @@ Parameter targets specify which column or variable a parameter maps to. The oute
 - **`dimension`** — for MBQL column references (`field`, `expression`) and for native template tags of type `dimension` or `temporal-unit`
 - **`variable`** — for native template tags of type `text`, `number`, `date`, or `boolean`
 
-An optional third element `{stage-number: N}` can specify which query stage the target belongs to (0 = first stage).
+An optional third element `{stage-number: N}` or `null` can specify which query stage the target belongs to (0 = first stage).
+
+**Important:** Field and expression references inside parameter targets use **legacy format** (`[field, Field-FK, null-or-options]`, `[expression, name]`), not pMBQL format. This differs from references inside `dataset_query.stages`, which use pMBQL format (`[field, options, Field-FK]`).
 
 **MBQL — field reference:**
 
@@ -1996,16 +2131,13 @@ target:
   - null
 ```
 
-**MBQL — multi-stage field reference:**
+**MBQL — multi-stage field reference (column name, not Field FK):**
 
 ```yaml
 target:
 - dimension
 - - field
-  - - Sample Database
-    - PUBLIC
-    - PRODUCTS
-    - CATEGORY
+  - CATEGORY
   - null
 - stage-number: 1
 ```
@@ -2148,9 +2280,10 @@ creator_id: internal@metabase.com
 type: question
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
@@ -2495,7 +2628,7 @@ Segments are stored under their table's directory: `databases/{db_slug}/schemas/
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
 | `table_id` | array | Yes | Table FK `[database, schema, table]` — must match `source-table` in definition |
-| `definition` | object | Yes | Filter definition with `database`, `type: query`, and `query` containing `source-table` and `filter` |
+| `definition` | object | Yes | Filter definition with `"lib/type": mbql/query`, `database`, and `stages` containing `source-table` and `filters` |
 | `serdes/meta` | array | Yes | Identity path with `model: Segment` |
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |
@@ -2512,22 +2645,24 @@ table_id:
 - PUBLIC
 - PRODUCTS
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - =
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - PRODUCTS
-        - CATEGORY
-      - null
-    - Widget
+    filters:
+    - - =
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - PUBLIC
+          - PRODUCTS
+          - CATEGORY
+      - Widget
 serdes/meta:
 - id: aB3kLmN9pQrStUvWxYz1a
   label: widget_products
@@ -2552,7 +2687,7 @@ Measures are stored under their table's directory: `databases/{db_slug}/schemas/
 | `entity_id` | string | Yes | NanoID identifier |
 | `creator_id` | string | Yes | User FK (email) |
 | `table_id` | array | Yes | Table FK `[database, schema, table]` — must match `source-table` in definition |
-| `definition` | object | Yes | Aggregation definition with `database`, `type: query`, and `query` containing `source-table` and exactly one `aggregation`. Measures cannot use `filter`. |
+| `definition` | object | Yes | Aggregation definition with `"lib/type": mbql/query`, `database`, and `stages` containing `source-table` and exactly one `aggregation`. Measures cannot use `filters`. |
 | `serdes/meta` | array | Yes | Identity path with `model: Measure` |
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |
@@ -2569,21 +2704,23 @@ table_id:
 - PUBLIC
 - ORDERS
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
     aggregation:
     - - sum
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
 serdes/meta:
 - id: xK7mPqR2sT4uVwXyZ9a1b
   label: total_revenue
@@ -2660,9 +2797,10 @@ When `source.type` is `query`, the source wraps an MBQL or native query. See [MB
 source:
   type: query
   query:
+    "lib/type": mbql/query
     database: Sample Database
-    type: query
-    query:
+    stages:
+    - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
       - PUBLIC
@@ -2796,9 +2934,10 @@ source_database_id: Sample Database
 source:
   type: query
   query:
+    "lib/type": mbql/query
     database: Sample Database
-    type: query
-    query:
+    stages:
+    - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
       - PUBLIC

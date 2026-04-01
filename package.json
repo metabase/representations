@@ -1,6 +1,6 @@
 {
   "name": "@metabase/representations",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Metabase representation format specification and schema validator",
   "license": "SEE LICENSE IN LICENSE.txt",
   "repository": {

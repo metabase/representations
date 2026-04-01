@@ -4,21 +4,24 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table: h5F2EjHsRd73Dqqh8sAtd
-    filter:
-    - ">"
-    - - field
-      - count
-      - base-type: type/Integer
-    - 100
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-card: h5F2EjHsRd73Dqqh8sAtd
+    filters:
+    - - ">"
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+      - 100
     order-by:
     - - desc
+      - {}
       - - field
-        - count
         - base-type: type/Integer
+        - count
 visualization_settings: {}
 serdes/meta:
 - id: gt4OaWYAuDWRHn5Irnd4h

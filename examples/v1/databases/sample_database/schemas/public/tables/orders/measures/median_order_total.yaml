@@ -6,21 +6,23 @@ table_id:
 - PUBLIC
 - ORDERS
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
     aggregation:
     - - median
+      - {}
       - - field
+        - base-type: type/Float
         - - Sample Database
           - PUBLIC
           - ORDERS
           - TOTAL
-        - base-type: type/Float
 serdes/meta:
 - id: d4G5fMj5smJ17Nd0dvE2A
   label: median_order_total

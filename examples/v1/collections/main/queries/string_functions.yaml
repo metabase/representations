@@ -4,117 +4,118 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-    expressions:
-      Title and Category:
-      - concat
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      - " ("
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - CATEGORY
-        - null
-      - ")"
-      First 10 Chars:
-      - substring
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      - 1
-      - 10
-      Cleaned Vendor:
-      - replace
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - VENDOR
-        - null
-      - Inc.
-      - Incorporated
-      EAN Prefix:
-      - regex-match-first
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - EAN
-        - null
-      - "^\\d{3}"
-      Trimmed Title:
-      - trim
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      Left Trimmed:
-      - ltrim
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      Right Trimmed:
-      - rtrim
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      Upper Category:
-      - upper
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - CATEGORY
-        - null
-      Lower Title:
-      - lower
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      Title Length:
-      - length
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      Title From 5th Char:
-      - substring
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - TITLE
-        - null
-      - 5
-    limit: 10
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      expressions:
+      - - concat
+        - "lib/expression-name": Title and Category
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+        - " ("
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - CATEGORY
+        - ")"
+      - - substring
+        - "lib/expression-name": First 10 Chars
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+        - 1
+        - 10
+      - - replace
+        - "lib/expression-name": Cleaned Vendor
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - VENDOR
+        - Inc.
+        - Incorporated
+      - - regex-match-first
+        - "lib/expression-name": EAN Prefix
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - EAN
+        - "^\\d{3}"
+      - - trim
+        - "lib/expression-name": Trimmed Title
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+      - - ltrim
+        - "lib/expression-name": Left Trimmed
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+      - - rtrim
+        - "lib/expression-name": Right Trimmed
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+      - - upper
+        - "lib/expression-name": Upper Category
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - CATEGORY
+      - - lower
+        - "lib/expression-name": Lower Title
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+      - - length
+        - "lib/expression-name": Title Length
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+      - - substring
+        - "lib/expression-name": Title From 5th Char
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - TITLE
+        - 5
+      limit: 10
 visualization_settings: {}
 serdes/meta:
 - id: HeLFZSVb4Jm25p4tWfVP9

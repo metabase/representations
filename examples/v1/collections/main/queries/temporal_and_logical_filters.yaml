@@ -4,52 +4,57 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
-    filter:
-    - and
+    filters:
     - - time-interval
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - ORDERS
           - CREATED_AT
-        - null
       - -30
       - day
     - - time-interval
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - ORDERS
           - CREATED_AT
-        - null
       - current
       - month
     - - relative-time-interval
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - ORDERS
           - CREATED_AT
-        - null
       - -30
       - day
       - -1
       - month
     - - not
+      - {}
       - - is-null
+        - {}
         - - field
+          - {}
           - - Sample Database
             - PUBLIC
             - ORDERS
             - DISCOUNT
-          - null
     limit: 20
 visualization_settings: {}
 serdes/meta:

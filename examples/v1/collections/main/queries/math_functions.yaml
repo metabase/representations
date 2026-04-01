@@ -4,82 +4,84 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - PRODUCTS
-    expressions:
-      Absolute Discount:
-      - abs
-      - - "-"
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      expressions:
+      - - abs
+        - "lib/expression-name": Absolute Discount
+        - - "-"
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - PUBLIC
+              - PRODUCTS
+              - PRICE
+          - 50
+      - - ceil
+        - "lib/expression-name": Price Ceiling
         - - field
+          - {}
           - - Sample Database
             - PUBLIC
             - PRODUCTS
             - PRICE
-          - null
-        - 50
-      Price Ceiling:
-      - ceil
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
-        - null
-      Price Floor:
-      - floor
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
-        - null
-      Rounded Price:
-      - round
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
-        - null
-      Rating Squared:
-      - power
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - RATING
-        - null
-      - 2
-      Price Sqrt:
-      - sqrt
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
-        - null
-      Price Exp:
-      - exp
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - RATING
-        - null
-      Price Log:
-      - log
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
-        - null
-    limit: 10
+      - - floor
+        - "lib/expression-name": Price Floor
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+      - - round
+        - "lib/expression-name": Rounded Price
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+      - - power
+        - "lib/expression-name": Rating Squared
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - RATING
+        - 2
+      - - sqrt
+        - "lib/expression-name": Price Sqrt
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+      - - exp
+        - "lib/expression-name": Price Exp
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - RATING
+      - - log
+        - "lib/expression-name": Price Log
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - PRICE
+      limit: 10
 visualization_settings: {}
 serdes/meta:
 - id: jPrM-oh3r1BR42xSs4Ipj

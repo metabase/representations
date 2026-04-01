@@ -6,9 +6,10 @@ database_id: Sample Database
 dashboard_id: 7RZUq1g5o1C5ws_e3ppKf
 collection_id: cOlDaShBoArDs0ExAmPlx
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC

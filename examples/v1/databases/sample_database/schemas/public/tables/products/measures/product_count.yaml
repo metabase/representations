@@ -6,21 +6,23 @@ table_id:
 - PUBLIC
 - PRODUCTS
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
     aggregation:
     - - distinct
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - ID
-        - null
 serdes/meta:
 - id: 8kxQ2Wr7PmN5dLf3hYz9v
   label: product_count

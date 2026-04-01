@@ -7,31 +7,33 @@ table_id:
 - PUBLIC
 - PEOPLE
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PEOPLE
-    filter:
-    - inside
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - PEOPLE
-        - LATITUDE
-      - null
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - PEOPLE
-        - LONGITUDE
-      - null
-    - 40.92
-    - -74.26
-    - 40.49
-    - -73.70
+    filters:
+    - - inside
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - LATITUDE
+      - - field
+        - {}
+        - - Sample Database
+          - PUBLIC
+          - PEOPLE
+          - LONGITUDE
+      - 40.92
+      - -74.26
+      - 40.49
+      - -73.70
 serdes/meta:
 - id: D2R9JpvI8sMfYWqfPsTkx
   label: nyc_area

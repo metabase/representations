@@ -25,34 +25,37 @@ properties:
     $ref: "common/id.yaml#/$defs/table_id"
   definition:
     description: >
-      Filter definition. Must use type: query with a physical table source
-      and a filter clause. Segments cannot use aggregation, breakout, joins,
-      expressions, or other query clauses.
+      Filter definition in pMBQL format. Must have a single MBQL stage
+      with a physical table source and a filter clause. Segments cannot
+      use aggregation, breakout, joins, expressions, or other query clauses.
     allOf:
       - $ref: "common/query.yaml"
       - type: object
         required:
+          - "lib/type"
           - database
-          - type
-          - query
+          - stages
         properties:
-          type:
-            const: query
-          query:
-            type: object
-            required:
-              - source-table
-              - filter
-            additionalProperties: false
-            properties:
-              source-table:
-                description: >
-                  Table FK [database, schema, table]. Segments must reference
-                  a physical table, not a saved card/model.
-                $ref: "common/id.yaml#/$defs/table_id"
-              filter:
-                description: Filter clause
-                $ref: "common/query.yaml#/$defs/expression"
+          stages:
+            type: array
+            minItems: 1
+            maxItems: 1
+            items:
+              type: object
+              required:
+                - "lib/type"
+                - source-table
+                - filters
+              additionalProperties: false
+              properties:
+                "lib/type":
+                  const: mbql.stage/mbql
+                source-table:
+                  $ref: "common/id.yaml#/$defs/table_id"
+                filters:
+                  type: array
+                  items:
+                    $ref: "common/query.yaml#/$defs/expression"
   description:
     type:
       - string

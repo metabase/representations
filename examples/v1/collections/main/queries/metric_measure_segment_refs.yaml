@@ -4,21 +4,25 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    aggregation:
-    - - metric
-      - IW8kbqZVaMxdGtCM2F4U6
-    - - measure
-      - DBap2523KuN4Lt-cYrUjF
-    filter:
-    - segment
-    - OaFXAvEzPvu9ZXW5PUMRa
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      aggregation:
+      - - metric
+        - {}
+        - IW8kbqZVaMxdGtCM2F4U6
+      - - measure
+        - {}
+        - DBap2523KuN4Lt-cYrUjF
+      filters:
+      - - segment
+        - {}
+        - OaFXAvEzPvu9ZXW5PUMRa
 visualization_settings: {}
 serdes/meta:
 - id: kBjQ5VXJ5z3vYSW72J6qa

@@ -7,24 +7,26 @@ table_id:
 - PUBLIC
 - PRODUCTS
 definition:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - PRODUCTS
-    filter:
-    - and
+    filters:
     - - segment
+      - {}
       - aB3kLmN9pQrStUvWxYz1a
     - - ">"
+      - {}
       - - field
+        - {}
         - - Sample Database
           - PUBLIC
           - PRODUCTS
           - PRICE
-        - null
       - 50
 serdes/meta:
 - id: 2hxhoN3HrQJIaWc5umpBn

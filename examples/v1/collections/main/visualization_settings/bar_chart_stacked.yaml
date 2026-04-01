@@ -4,41 +4,46 @@ creator_id: admin@example.com
 display: bar
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
+  stages:
+  - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
     - PUBLIC
     - ORDERS
     aggregation:
     - - count
+      - {}
     breakout:
     - - field
+      - temporal-unit: quarter
       - - Sample Database
         - PUBLIC
         - ORDERS
         - CREATED_AT
-      - temporal-unit: quarter
     joins:
-    - source-table:
-      - Sample Database
-      - PUBLIC
-      - PRODUCTS
-      condition:
-      - =
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - PRODUCT_ID
-        - null
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - ID
-        - null
+    - stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - PUBLIC
+        - PRODUCTS
+      conditions:
+      - - =
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - PRODUCT_ID
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - ID
       alias: Products
       strategy: left-join
       fields: all

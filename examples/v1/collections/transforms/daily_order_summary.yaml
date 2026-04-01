@@ -5,17 +5,17 @@ source_database_id: Sample Database
 source:
   type: query
   query:
+    "lib/type": mbql/query
     database: Sample Database
-    type: native
-    native:
-      query: |-
-        SELECT
-          DATE_TRUNC('day', CREATED_AT) AS order_date,
-          COUNT(*) AS order_count,
-          SUM(TOTAL) AS total_revenue
-        FROM ORDERS
-        GROUP BY 1
-      template-tags: {}
+    stages:
+      - "lib/type": mbql.stage/native
+        native: |-
+          SELECT
+            DATE_TRUNC('day', CREATED_AT) AS order_date,
+            COUNT(*) AS order_count,
+            SUM(TOTAL) AS total_revenue
+          FROM ORDERS
+          GROUP BY 1
 target:
   database: Sample Database
   type: table

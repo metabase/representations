@@ -7,22 +7,24 @@ database_id: Sample Database
 document_id: dOc1PrOdAnAlYsIsRpTx2
 collection_id: cOlDoCuMeNtS0ExAmPlx2
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-      - Sample Database
-      - PUBLIC
-      - PRODUCTS
-    aggregation:
-      - - count
-    breakout:
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - CATEGORY
-        - null
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+        - Sample Database
+        - PUBLIC
+        - PRODUCTS
+      aggregation:
+        - - count
+          - {}
+      breakout:
+        - - field
+          - {}
+          - - Sample Database
+            - PUBLIC
+            - PRODUCTS
+            - CATEGORY
 visualization_settings: {}
 parameters: []
 parameter_mappings: []

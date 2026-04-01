@@ -4,106 +4,113 @@ creator_id: admin@example.com
 display: table
 database_id: Sample Database
 dataset_query:
+  "lib/type": mbql/query
   database: Sample Database
-  type: query
-  query:
-    source-table:
-    - Sample Database
-    - PUBLIC
-    - ORDERS
-    expressions:
-      Total Plus Tax:
-      - "+"
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      expressions:
+      - - "+"
+        - "lib/expression-name": Total Plus Tax
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - SUBTOTAL
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TAX
+      - - "-"
+        - "lib/expression-name": Price Difference
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - SUBTOTAL
+      - - "*"
+        - "lib/expression-name": Double Quantity
+        - - field
+          - base-type: type/Integer
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - QUANTITY
+        - 2
+      - - "/"
+        - "lib/expression-name": Per Unit Price
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+        - - field
+          - base-type: type/Integer
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - QUANTITY
+      aggregation:
+      - - sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - SUBTOTAL
+      - - sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TAX
+      - - sum
+        - {}
+        - - field
+          - base-type: type/Float
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - TOTAL
+      - - avg
+        - {}
+        - - field
+          - base-type: type/Integer
+          - - Sample Database
+            - PUBLIC
+            - ORDERS
+            - QUANTITY
+      filters:
+      - - ">"
+        - {}
+        - - expression
+          - {}
+          - Per Unit Price
+        - 10
+      breakout:
       - - field
+        - temporal-unit: month
         - - Sample Database
           - PUBLIC
           - ORDERS
-          - SUBTOTAL
-        - base-type: type/Float
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TAX
-        - base-type: type/Float
-      Price Difference:
-      - "-"
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - SUBTOTAL
-        - base-type: type/Float
-      Double Quantity:
-      - "*"
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - QUANTITY
-        - base-type: type/Integer
-      - 2
-      Per Unit Price:
-      - "/"
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - QUANTITY
-        - base-type: type/Integer
-    aggregation:
-    - - sum
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - SUBTOTAL
-        - base-type: type/Float
-    - - sum
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TAX
-        - base-type: type/Float
-    - - sum
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-        - base-type: type/Float
-    - - avg
-      - - field
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - QUANTITY
-        - base-type: type/Integer
-    filter:
-    - ">"
-    - - expression
-      - Per Unit Price
-    - 10
-    breakout:
-    - - field
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - CREATED_AT
-      - temporal-unit: month
+          - CREATED_AT
 visualization_settings: {}
 serdes/meta:
 - id: 1O_2jSo2fD6m3Qr6My7aa
