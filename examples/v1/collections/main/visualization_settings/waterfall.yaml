@@ -1,5 +1,6 @@
 name: Monthly Revenue Changes (Waterfall)
 entity_id: kJWYpTzyc9ow-75HjyIhf
+collection_id: cOlViZsEtTiNgS0ExAmP1
 creator_id: admin@example.com
 display: waterfall
 database_id: Sample Database

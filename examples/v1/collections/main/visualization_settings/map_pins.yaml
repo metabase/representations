@@ -1,5 +1,6 @@
 name: Customer Locations (Map)
 entity_id: CI61cHgBAKPBEDTxhK8X3
+collection_id: cOlViZsEtTiNgS0ExAmP1
 creator_id: admin@example.com
 display: map
 database_id: Sample Database

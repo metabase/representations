@@ -1,5 +1,6 @@
 name: Orders by Category (Stacked Bar)
 entity_id: ciG63nSLHKRTImt5iWEte
+collection_id: cOlViZsEtTiNgS0ExAmP1
 creator_id: admin@example.com
 display: bar
 database_id: Sample Database

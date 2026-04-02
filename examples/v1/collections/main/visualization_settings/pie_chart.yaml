@@ -1,5 +1,6 @@
 name: Orders by Category (Pie)
 entity_id: dYD1j3pQtJdctg8duByUL
+collection_id: cOlViZsEtTiNgS0ExAmP1
 creator_id: admin@example.com
 display: pie
 database_id: Sample Database

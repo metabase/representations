@@ -1,5 +1,6 @@
 name: Orders Pivot Table
 entity_id: BjwHr6elEuKQuL26BEgno
+collection_id: cOlViZsEtTiNgS0ExAmP1
 creator_id: admin@example.com
 display: pivot
 database_id: Sample Database
