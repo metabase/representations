@@ -1,0 +1,38 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Channel
+description: >
+  A notification channel (e.g., HTTP webhook).
+type: object
+required:
+  - name
+  - type
+  - serdes/meta
+properties:
+  name:
+    type: string
+    description: Channel name
+  type:
+    type: string
+    description: "Channel type (e.g., channel/http)"
+  details:
+    type: object
+    description: Channel-specific configuration
+    additionalProperties: true
+  created_at:
+    type: string
+    format: date-time
+  serdes/meta:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - model
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        model:
+          type: string
+          const: Channel
