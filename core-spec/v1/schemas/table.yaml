@@ -1,0 +1,19 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Table
+description: A database table definition.
+type: object
+required:
+  - name
+  - serdes/meta
+properties:
+  name:
+    type: string
+  serdes/meta:
+    type: array
+    items:
+      type: object
+      required: [id, model]
+      properties:
+        id: { type: string }
+        model: { type: string, enum: [Database, Schema, Table] }
+additionalProperties: true
