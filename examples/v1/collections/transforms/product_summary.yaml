@@ -34,7 +34,7 @@ source:
 target:
   database: Sample Database
   type: table
-  schema: PUBLIC
+  schema: TRANSFORMS
   name: product_summary
 serdes/meta:
 - id: rT5vWxYz1aBcDeFgHiJkL

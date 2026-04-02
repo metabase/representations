@@ -34,7 +34,7 @@ source:
 target:
   database: Sample Database
   type: table
-  schema: PUBLIC
+  schema: TRANSFORMS
   name: monthly_order_summary
 serdes/meta:
 - id: 1fNzUt_CgppinjPk7pGKH

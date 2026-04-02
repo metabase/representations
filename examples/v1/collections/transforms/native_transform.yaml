@@ -21,7 +21,7 @@ source:
 target:
   database: Sample Database
   type: table
-  schema: PUBLIC
+  schema: TRANSFORMS
   name: product_revenue_report
 serdes/meta:
 - id: 7JwIkkAG-06-nsl4jzsaq

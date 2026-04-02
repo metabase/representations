@@ -16,7 +16,7 @@ source:
 target:
   database: Sample Database
   type: table
-  schema: PUBLIC
+  schema: TRANSFORMS
   name: hello_world
 serdes/meta:
 - id: g2cRYwopfoL1BW9Y4n3wb
