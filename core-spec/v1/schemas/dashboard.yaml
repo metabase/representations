@@ -200,10 +200,15 @@ $defs:
         if: { type: string }
         then: { $ref: "common/id.yaml#/$defs/entity_id" }
       dashboard_tab_id:
-        description: Tab FK, null for untabbed cards
-        type: [string, "null"]
-        if: { type: string }
-        then: { $ref: "common/id.yaml#/$defs/entity_id" }
+        description: >
+          Tab FK as [dashboard_entity_id, tab_entity_id], null for untabbed cards.
+        type: [array, "null"]
+        if: { type: array }
+        then:
+          items:
+            $ref: "common/id.yaml#/$defs/entity_id"
+          minItems: 2
+          maxItems: 2
       inline_parameters:
         type: array
         description: >
@@ -231,7 +236,7 @@ $defs:
         format: date-time
       serdes/meta:
         type: array
-        description: "Identity path: Dashboard → DashboardCard"
+        description: "Identity path: Dashboard → DashboardTab → DashboardCard"
         items:
           type: object
           required:
@@ -244,6 +249,7 @@ $defs:
               type: string
               enum:
                 - Dashboard
+                - DashboardTab
                 - DashboardCard
 
   parameter_mapping:

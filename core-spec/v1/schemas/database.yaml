@@ -1,0 +1,19 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Database
+description: A database connection definition.
+type: object
+required:
+  - name
+  - serdes/meta
+properties:
+  name:
+    type: string
+  serdes/meta:
+    type: array
+    items:
+      type: object
+      required: [id, model]
+      properties:
+        id: { type: string }
+        model: { type: string, const: Database }
+additionalProperties: true

@@ -1,0 +1,48 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Metabot
+description: >
+  A Metabot instance configuration.
+type: object
+required:
+  - entity_id
+  - name
+  - serdes/meta
+properties:
+  entity_id:
+    $ref: "common/id.yaml#/$defs/entity_id"
+  name:
+    type: string
+    description: Metabot name
+  description:
+    type:
+      - string
+      - "null"
+    description: Human-readable description
+  prompts:
+    type: array
+    description: Metabot prompts
+    items:
+      type: object
+      additionalProperties: true
+    default: []
+  created_at:
+    type: string
+    format: date-time
+  updated_at:
+    type: string
+    format: date-time
+  serdes/meta:
+    type: array
+    items:
+      type: object
+      required:
+        - id
+        - model
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        model:
+          type: string
+          const: Metabot

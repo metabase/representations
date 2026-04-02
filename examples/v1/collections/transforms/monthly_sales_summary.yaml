@@ -21,7 +21,7 @@ source:
 target:
   database: Sample Database
   type: table
-  schema: PUBLIC
+  schema: TRANSFORMS
   name: monthly_sales_summary
 serdes/meta:
 - id: w7EfUbsxLA7kXBHVXgeaZ

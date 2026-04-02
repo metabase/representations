@@ -1,0 +1,19 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Field
+description: A table field (column) definition.
+type: object
+required:
+  - name
+  - serdes/meta
+properties:
+  name:
+    type: string
+  serdes/meta:
+    type: array
+    items:
+      type: object
+      required: [id, model]
+      properties:
+        id: { type: string }
+        model: { type: string, enum: [Database, Schema, Table, Field] }
+additionalProperties: true

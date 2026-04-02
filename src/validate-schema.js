@@ -31,7 +31,7 @@ function getModel(doc) {
 export function validateSchema({ folder }) {
   const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
 
-  const ajv = new Ajv({ allErrors: true, strictTuples: false });
+  const ajv = new Ajv({ allErrors: true, strictTuples: false, allowUnionTypes: true });
   addFormats(ajv);
 
   // Load common schemas (non-entity schemas referenced via common/ prefix)

@@ -1,7 +1,7 @@
 name: daily
-entity_id: mXacguzCHQ5bBhqQPt3kd
+entity_id: dUW7nvQHQBdA0Rx0gJckI
 built_in_type: daily
 serdes/meta:
-- id: mXacguzCHQ5bBhqQPt3kd
+- id: dUW7nvQHQBdA0Rx0gJckI
   label: daily
   model: TransformTag

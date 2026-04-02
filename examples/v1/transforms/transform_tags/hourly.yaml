@@ -1,7 +1,7 @@
 name: hourly
-entity_id: _POmgqW5lZfrnc0wezhrD
+entity_id: wYLcUPbtF7jVPO0duGGHR
 built_in_type: hourly
 serdes/meta:
-- id: _POmgqW5lZfrnc0wezhrD
+- id: wYLcUPbtF7jVPO0duGGHR
   label: hourly
   model: TransformTag

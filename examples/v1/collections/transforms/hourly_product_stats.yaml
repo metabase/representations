@@ -34,12 +34,12 @@ source:
 target:
   database: Sample Database
   type: table
-  schema: PUBLIC
+  schema: TRANSFORMS
   name: hourly_product_stats
 tags:
 - entity_id: T3caSScVNDqFF8Q-EsM84
   position: 0
-  tag_id: _POmgqW5lZfrnc0wezhrD
+  tag_id: wYLcUPbtF7jVPO0duGGHR
   serdes/meta:
   - id: T3caSScVNDqFF8Q-EsM84
     model: TransformTransformTag
