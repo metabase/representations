@@ -147,11 +147,11 @@ export-root/
 
 ### Entity Ownership and Containers
 
-Every entity's logical position in the collection hierarchy is determined by its `collection_id` field, not the folder structure on disk. The folder layout is for human organization only; Metabase imports entities based solely on their `collection_id`.
+> **Critical:** Every entity's logical position in the collection hierarchy is determined **exclusively** by its `collection_id` field, not the folder structure on disk. The folder layout is for human organization only; Metabase imports entities based solely on their `collection_id`. **An entity without `collection_id` (or with `collection_id: null`) will appear in the root collection.** If you want a card, dashboard, document, snippet, or transform to be inside a specific collection, you **must** set its `collection_id` to the `entity_id` of that collection. Cards nested under a dashboard or document **must also** set `collection_id` to match the `collection_id` of their parent dashboard or document. Similarly, subcollections **must** set `parent_id` to the `entity_id` of their parent collection — without `parent_id`, a collection is treated as a root-level collection regardless of its position in the directory tree.
 
 Dashboards and documents act as **containers** for cards: a card with `dashboard_id` set is owned by that dashboard, and a card with `document_id` set is owned by that document. Container-owned cards behave as if the dashboard or document were a subcollection:
 
-- **`collection_id`** — Places the entity in a collection. `null` means root collection. Must always be set, even when `dashboard_id` or `document_id` is set — it must match the `collection_id` of the parent dashboard or document.
+- **`collection_id`** (**required for all collection items**) — Places the entity in a collection. `null` or omitted means root collection. **Must always be set** to place an entity in a specific collection. Even when `dashboard_id` or `document_id` is set, `collection_id` **must** be set and must match the `collection_id` of the parent dashboard or document.
 - **`dashboard_id`** — Nests the card under a dashboard. The card should only be used within that dashboard. To reuse a card outside its dashboard, unset `dashboard_id` and place it directly in a collection.
 - **`document_id`** — Nests the card under a document. Same semantics as `dashboard_id`: the card should only be used within that document.
 
@@ -2173,7 +2173,9 @@ target:
 
 ## Collection
 
-A collection is a folder-like container for organizing cards, dashboards, and other entities. Collection hierarchy is reflected in the directory structure. Subcollections must set `parent_id` to the entity_id of their parent collection.
+A collection is a folder-like container for organizing cards, dashboards, and other entities. Collection hierarchy is reflected in the directory structure.
+
+> **Critical:** Subcollections **must** set `parent_id` to the `entity_id` of their parent collection. Without `parent_id`, a collection is treated as a root-level collection regardless of where its file is located on disk. All items inside a collection (cards, dashboards, documents, etc.) **must** set their `collection_id` to that collection's `entity_id` to appear within it.
 
 ### Schema
 
@@ -2189,7 +2191,7 @@ A collection is a folder-like container for organizing cards, dashboards, and ot
 | `type` | string | No | `null` or `"instance-analytics"` |
 | `namespace` | string | No | `null`, `"transforms"`, or `"snippets"` |
 | `authority_level` | string | No | `null` or `"official"` |
-| `parent_id` | string | No | Collection FK (entity_id of parent), `null` for root |
+| `parent_id` | string | No | Collection FK (entity_id of parent). **Must** be set for subcollections; `null`/omitted = root-level collection |
 | `personal_owner_id` | string | No | User FK (email) for personal collections |
 | `is_sample` | boolean | No | Sample collection flag |
 | `created_at` | string | No | ISO 8601 timestamp |
@@ -2242,11 +2244,11 @@ A card represents a Question, Model, or Metric in Metabase. Cards are the primar
 | `archived` | boolean | No | Whether archived (default: `false`) |
 | `archived_directly` | boolean | No | Archived directly vs. inherited |
 | `type` | string | No | `"question"`, `"model"`, or `"metric"` |
-| `collection_id` | string | No | Collection FK (entity_id) |
+| `collection_id` | string | No | Collection FK (entity_id). **Set this to place the card in a collection**; `null`/omitted = root collection. When `dashboard_id` or `document_id` is set, must match the parent's `collection_id` |
 | `collection_position` | integer | No | Position within collection |
 | `collection_preview` | boolean | No | Show preview in collection (default: `true`) |
-| `dashboard_id` | string | No | Dashboard FK (entity_id) |
-| `document_id` | string | No | Document FK (entity_id) |
+| `dashboard_id` | string | No | Dashboard FK (entity_id). Card's `collection_id` must match the dashboard's `collection_id` |
+| `document_id` | string | No | Document FK (entity_id). Card's `collection_id` must match the document's `collection_id` |
 | `table_id` | array | No | Table FK matching source-table in query |
 | `source_card_id` | string | No | Card FK (entity_id) |
 | `parameters` | array | No | Card parameters (see [Parameter](#parameter)) |
@@ -2315,7 +2317,7 @@ A dashboard is a collection of cards arranged in a grid layout. Dashboards conta
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |
 | `archived_directly` | boolean | No | Archived directly vs. inherited |
-| `collection_id` | string | No | Collection FK (entity_id) |
+| `collection_id` | string | No | Collection FK (entity_id). **Set this to place the dashboard in a collection**; `null`/omitted = root collection |
 | `collection_position` | integer | No | Position within collection |
 | `position` | integer | No | Display position |
 | `auto_apply_filters` | boolean | No | Auto-apply filter changes (default: `true`) |
@@ -2484,7 +2486,7 @@ Cards can be nested under a document via `card.document_id`, similar to how card
 | `serdes/meta` | array | Yes | Identity path with `model: Document` |
 | `content_type` | string | No | Always `"application/json+vnd.prose-mirror"` |
 | `description` | string | No | Description |
-| `collection_id` | string | No | Collection FK (entity_id) |
+| `collection_id` | string | No | Collection FK (entity_id). **Set this to place the document in a collection**; `null`/omitted = root collection |
 | `collection_position` | integer | No | Position within collection |
 | `archived` | boolean | No | Whether archived (default: `false`) |
 | `archived_directly` | boolean | No | Archived directly vs. inherited |
@@ -2744,7 +2746,7 @@ A snippet is a reusable SQL fragment that can be referenced in native queries us
 | `serdes/meta` | array | Yes | Identity path with `model: NativeQuerySnippet` |
 | `description` | string | No | Description |
 | `archived` | boolean | No | Whether archived (default: `false`) |
-| `collection_id` | string | No | Collection FK (entity_id) — snippets collection |
+| `collection_id` | string | No | Collection FK (entity_id). **Set this to place the snippet in a snippet collection**; `null`/omitted = root snippet collection |
 | `template_tags` | map | No | Template tag definitions (usually empty `{}`) |
 | `created_at` | string | No | ISO 8601 timestamp |
 
@@ -2785,7 +2787,7 @@ The `source` defines how data is produced — either an MBQL/native query (`type
 | `target` | object | Yes | Target table: `database` (Database FK), `type` (`"table"`), `schema`, `name` |
 | `serdes/meta` | array | Yes | Identity path with `model: Transform` |
 | `description` | string | No | Description |
-| `collection_id` | string | No | Collection FK (entity_id) |
+| `collection_id` | string | No | Collection FK (entity_id). **Set this to place the transform in a collection**; `null`/omitted = root collection |
 | `tags` | array | No | Transform tags (see below) |
 | `created_at` | string | No | ISO 8601 timestamp |
 
