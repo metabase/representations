@@ -1,5 +1,6 @@
 name: Top Products by Revenue
 entity_id: FTxpeL9vY5pyb6Lc6lCDK
+collection_id: M-Q4pcV0qkiyJ0kiSWECl
 creator_id: admin@example.com
 display: bar
 database_id: Sample Database

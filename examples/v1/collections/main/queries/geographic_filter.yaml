@@ -1,5 +1,6 @@
 name: "Geographic Filter (Inside)"
 entity_id: bK64P6yr9_Nx-A8S3PqOZ
+collection_id: cOlQuErIeS0ExAmPlE2x1
 creator_id: admin@example.com
 display: map
 database_id: Sample Database

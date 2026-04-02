@@ -1,5 +1,6 @@
 name: Revenue Over Time (Line)
 entity_id: UEWVldEEZ-3sYUjjN54qz
+collection_id: cOlViZsEtTiNgS0ExAmP1
 creator_id: admin@example.com
 display: line
 database_id: Sample Database
