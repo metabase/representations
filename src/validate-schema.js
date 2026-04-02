@@ -8,9 +8,11 @@ import addFormats from "ajv-formats";
 const PACKAGE_ROOT = resolve(import.meta.dirname, "..");
 
 const IMPORT_PATHS = [
+  "channels/**/*.yaml",
   "collections/**/*.yaml",
   "databases/**/segments/**/*.yaml",
   "databases/**/measures/**/*.yaml",
+  "metabots/**/*.yaml",
   "python_libraries/**/*.yaml",
   "python-libraries/**/*.yaml",
   "transforms/**/*.yaml",
