@@ -39,6 +39,11 @@ properties:
     enum:
       - null
       - instance-analytics
+      - library
+      - library-data
+      - library-metrics
+      - trash
+      - tenant-specific-root-collection
   namespace:
     type:
       - string
@@ -48,6 +53,8 @@ properties:
       - null
       - transforms
       - snippets
+      - shared-tenant-collection
+      - tenant-specific
   authority_level:
     type:
       - string
