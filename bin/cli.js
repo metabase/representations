@@ -3,6 +3,7 @@
 import { parseArgs } from "node:util";
 import { relative } from "path";
 import { validateSchema } from "../src/validate-schema.js";
+import { extractSchema } from "../src/extract-schema.js";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -19,37 +20,44 @@ if (values.help || !command) {
 
 Commands:
   validate-schema    Validate YAML files against Metabase representation schemas
+  extract-schema     Copy bundled schemas into a target folder
 
 Options:
-  --folder <path>      Folder to validate (default: current directory)
+  --folder <path>      Folder to validate or extract into (default: cwd)
   -h, --help           Show this help message`);
   process.exit(command ? 0 : 1);
 }
 
-if (command !== "validate-schema") {
-  console.error(`Unknown command: ${command}`);
-  process.exit(1);
-}
+if (command === "validate-schema") {
+  const folder = values.folder ?? process.cwd();
+  const { results, passed, failed } = validateSchema({ folder });
 
-const folder = values.folder ?? process.cwd();
-const { results, passed, failed } = validateSchema({ folder });
+  if (results.length === 0) {
+    console.error(`No YAML files found in ${folder}`);
+    process.exit(1);
+  }
 
-if (results.length === 0) {
-  console.error(`No YAML files found in ${folder}`);
-  process.exit(1);
-}
-
-for (const result of results) {
-  const path = relative(process.cwd(), `${folder}/${result.file}`);
-  if (result.status === "ok") {
-    console.log(`OK    ${path} (${result.model})`);
-  } else {
-    console.error(`FAIL  ${path}${result.model ? ` (${result.model})` : ""}`);
-    for (const error of result.errors) {
-      console.error(`      ${error.path} ${error.message}`);
+  for (const result of results) {
+    const path = relative(process.cwd(), `${folder}/${result.file}`);
+    if (result.status === "ok") {
+      console.log(`OK    ${path} (${result.model})`);
+    } else {
+      console.error(`FAIL  ${path}${result.model ? ` (${result.model})` : ""}`);
+      for (const error of result.errors) {
+        console.error(`      ${error.path} ${error.message}`);
+      }
     }
   }
+
+  console.log(`\n${passed} passed, ${failed} failed`);
+  process.exit(failed > 0 ? 1 : 0);
 }
 
-console.log(`\n${passed} passed, ${failed} failed`);
-process.exit(failed > 0 ? 1 : 0);
+if (command === "extract-schema") {
+  const { target } = extractSchema({ folder: values.folder ?? process.cwd() });
+  console.log(`Schemas extracted to ${target}`);
+  process.exit(0);
+}
+
+console.error(`Unknown command: ${command}`);
+process.exit(1);

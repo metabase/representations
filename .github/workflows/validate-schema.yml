@@ -1,4 +1,4 @@
-name: Schema
+name: Validate Schema
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  schema-test:
+  validate-schema:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
