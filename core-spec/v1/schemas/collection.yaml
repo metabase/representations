@@ -39,6 +39,9 @@ properties:
     enum:
       - null
       - instance-analytics
+      - library
+      - library-data
+      - library-metrics
   namespace:
     type:
       - string

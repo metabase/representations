@@ -47,7 +47,9 @@ properties:
         $ref: "common/id.yaml#/$defs/database_id"
       type:
         type: string
-        const: table
+        enum:
+          - table
+          - table-incremental
       schema:
         type:
           - string
@@ -173,10 +175,7 @@ $defs:
               type: string
               description: Table name
             table_id:
-              type:
-                - integer
-                - "null"
-              description: Metabase table ID
+              $ref: "common/id.yaml#/$defs/table_id"
       source-database:
         $ref: "common/id.yaml#/$defs/database_id"
       source-incremental-strategy:
