@@ -37,6 +37,16 @@ npx @metabase/representations validate-schema --folder ./my-export
 
 Omit `--folder` to validate the current directory.
 
+### Extracting schemas
+
+Copy the bundled schemas (preserving folder structure) into a target directory:
+
+```sh
+npx @metabase/representations extract-schema --folder ./schemas
+```
+
+Omit `--folder` to extract into the current directory.
+
 ### Programmatic
 
 ```js
