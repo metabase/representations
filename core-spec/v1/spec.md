@@ -1223,7 +1223,7 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 
 | Operator | Arguments | Returns | Description |
 |----------|-----------|---------|-------------|
-| `case` | pairs of [condition, value] (default in options) | value type | Conditional expression (if/then/else) |
+| `case` | pairs of [condition, value], optional default expression | value type | Conditional expression (if/then/else). The default value is supplied as a 4th positional argument. |
 | `if` | same as `case` | value type | Alias for `case` |
 | `coalesce` | 2+ expressions | first non-null type | First non-null value |
 
@@ -1232,7 +1232,6 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 expressions:
 - - case
   - "lib/expression-name": Price Tier
-    default: Standard
   - - - - ">"
         - {}
         - - field
@@ -1247,6 +1246,7 @@ expressions:
           - [Sample Database, PUBLIC, PRODUCTS, PRICE]
         - 20
       - Budget
+  - Standard  # default (4th positional arg)
 
 # Coalesce
 - coalesce

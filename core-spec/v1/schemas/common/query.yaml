@@ -55,14 +55,6 @@ $defs:
         properties:
           include-current: { type: boolean }
 
-  case_if_options:
-    description: Options for case/if operators.
-    allOf:
-      - $ref: "#/$defs/options"
-      - type: object
-        properties:
-          default: { $ref: "#/$defs/expression" }
-
   datetime_parse_options:
     description: Options for the datetime parsing operator.
     allOf:
@@ -474,15 +466,16 @@ $defs:
             then:
               prefixItems:
                 - enum: [case, if]
-                - $ref: "#/$defs/case_if_options"
+                - $ref: "#/$defs/options"
                 - type: array
                   items:
                     type: array
                     prefixItems: [{ $ref: "#/$defs/expression" }, { $ref: "#/$defs/expression" }]
                     minItems: 2
                     maxItems: 2
+                - $ref: "#/$defs/expression"
               minItems: 3
-              maxItems: 3
+              maxItems: 4
           - if: { prefixItems: [{ const: offset }] }
             then:
               prefixItems:

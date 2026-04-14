@@ -15,8 +15,7 @@ dataset_query:
       - PRODUCTS
       expressions:
       - - case
-        - default: Budget
-          "lib/expression-name": Price Tier
+        - "lib/expression-name": Price Tier
         - - - - ">"
               - {}
               - - field
@@ -37,9 +36,9 @@ dataset_query:
                   - PRICE
               - 30
             - Standard
+        - Budget
       - - if
-        - default: false
-          "lib/expression-name": Is Premium
+        - "lib/expression-name": Is Premium
         - - - - ">"
               - {}
               - - field
@@ -50,6 +49,7 @@ dataset_query:
                   - PRICE
               - 100
             - true
+        - false
       - - case
         - "lib/expression-name": Simple Category
         - - - - ">"
