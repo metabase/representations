@@ -36,18 +36,18 @@ Metabase uses two ways of identifying entities: `entity_id` (NanoID) and natural
 
 `entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **unique per entity type** within an instance — no two entities of the same type may share the same `entity_id`.
 
-Generate a NanoID in Bash:
+Generate a NanoID with the `nanoid` CLI:
+
+```sh
+npx nanoid
+# → LZfXLFzPPR4NNrgjlWDxn
+```
+
+Or in Bash:
 
 ```bash
 head -c 21 /dev/urandom | base64 | tr -dc 'A-Za-z0-9_-' | head -c 21
-```
-
-Generate a NanoID in Python:
-
-```python
-import secrets, string
-alphabet = string.ascii_letters + string.digits + '_-'
-''.join(secrets.choice(alphabet) for _ in range(21))
+# → LZfXLFzPPR4NNrgjlWDxn
 ```
 
 ### Foreign Key References
