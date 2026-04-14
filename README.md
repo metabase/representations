@@ -37,6 +37,16 @@ npx @metabase/representations validate-schema --folder ./my-export
 
 Omit `--folder` to validate the current directory.
 
+### Extracting the spec
+
+Copy the bundled `spec.md` to a target file:
+
+```sh
+npx @metabase/representations extract-spec --file ./spec.md
+```
+
+Omit `--file` to write `spec.md` into the current directory.
+
 ### Extracting schemas
 
 Copy the bundled schemas (preserving folder structure) into a target directory:

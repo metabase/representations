@@ -1,4 +1,4 @@
-name: Extract Schema
+name: Extract
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  extract-schema:
+  extract-spec:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,7 +17,11 @@ jobs:
 
       - run: bun install
 
+      - run: bun run bin/cli.js extract-spec --file /tmp/extracted-spec.md
       - run: bun run bin/cli.js extract-schema --folder /tmp/extracted-schemas
+
+      - name: Compare extracted spec with core-spec/v1/spec.md
+        run: diff core-spec/v1/spec.md /tmp/extracted-spec.md
 
       - name: Compare extracted schemas with core-spec/v1/schemas
         run: diff -r core-spec/v1/schemas /tmp/extracted-schemas

@@ -16,7 +16,8 @@
   "files": [
     "src",
     "bin",
-    "core-spec/v1/schemas"
+    "core-spec/v1/schemas",
+    "core-spec/v1/spec.md"
   ],
   "main": "src/index.js",
   "exports": {

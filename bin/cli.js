@@ -2,29 +2,39 @@
 
 import { parseArgs } from "node:util";
 import { relative } from "path";
-import { validateSchema } from "../src/validate-schema.js";
+
 import { extractSchema } from "../src/extract-schema.js";
+import { extractSpec } from "../src/extract-spec.js";
+import { validateSchema } from "../src/validate-schema.js";
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
   options: {
     folder: { type: "string" },
+    file: { type: "string" },
     help: { type: "boolean", short: "h", default: false },
   },
 });
 
 const command = positionals[0];
 
-if (values.help || !command) {
-  console.log(`Usage: representations <command> [options]
+const HELP = `Usage: representations <command> [options]
 
 Commands:
   validate-schema    Validate YAML files against Metabase representation schemas
+    --folder <path>    Folder to validate (default: cwd)
+
+  extract-spec       Copy the bundled spec.md into a target file
+    --file <path>      Destination file (default: ./spec.md)
+
   extract-schema     Copy bundled schemas into a target folder
+    --folder <path>    Destination folder (default: cwd)
 
 Options:
-  --folder <path>      Folder to validate or extract into (default: cwd)
-  -h, --help           Show this help message`);
+  -h, --help           Show this help message`;
+
+if (values.help || !command) {
+  console.log(HELP);
   process.exit(command ? 0 : 1);
 }
 
@@ -51,6 +61,12 @@ if (command === "validate-schema") {
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
+}
+
+if (command === "extract-spec") {
+  const { target } = extractSpec({ file: values.file ?? "spec.md" });
+  console.log(`Spec extracted to ${target}`);
+  process.exit(0);
 }
 
 if (command === "extract-schema") {

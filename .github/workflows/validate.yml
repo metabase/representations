@@ -1,4 +1,4 @@
-name: Validate Schema
+name: Validate
 
 on:
   push:
