@@ -257,7 +257,6 @@ $defs:
     description: >
       Connects a dashboard parameter to a specific card column or variable.
     required:
-      - card_id
       - parameter_id
       - target
     properties:

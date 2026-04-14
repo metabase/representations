@@ -1857,6 +1857,15 @@ visualization_settings:
     display: text
   text: "**Bold** and _italic_ markdown content"
 
+# Text with parameter placeholders. Each `{{name}}` is wired to a dashboard
+# parameter through `parameter_mappings` on the dashcard, with target
+# `[text-tag, name]`. At render time the placeholder is replaced with the
+# parameter's current value.
+visualization_settings:
+  virtual_card:
+    display: text
+  text: "Showing results for {{product_category}}"
+
 # Link (URL)
 visualization_settings:
   virtual_card:
@@ -2013,7 +2022,7 @@ On **cards**, parameters are typically empty `[]` for MBQL queries. For native q
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | Yes | UUID identifier |
+| `id` | string | Yes | Unique identifier within the dashboard or card. UUIDs are recommended, but any unique non-empty string is accepted (e.g., `9d9cddd4`). |
 | `name` | string | Yes | Display name |
 | `slug` | string | Yes | URL-friendly identifier |
 | `type` | string | Yes | Filter widget type (see below) |
@@ -2109,10 +2118,11 @@ Use `sectionId: id` to make a `number/=` or `string/=` parameter map only to pri
 
 ### Parameter Targets
 
-Parameter targets specify which column or variable a parameter maps to. The outer wrapper is either `dimension` or `variable`:
+Parameter targets specify which column or variable a parameter maps to. The outer wrapper is `dimension`, `variable`, or `text-tag`:
 
 - **`dimension`** — for MBQL column references (`field`, `expression`) and for native template tags of type `dimension` or `temporal-unit`
 - **`variable`** — for native template tags of type `text`, `number`, `date`, or `boolean`
+- **`text-tag`** — for placeholders inside text/heading virtual cards (see [Virtual Card Settings](#virtual-card-settings))
 
 An optional third element `{stage-number: N}` or `null` can specify which query stage the target belongs to (0 = first stage).
 
@@ -2167,6 +2177,14 @@ target:
 - variable
 - - template-tag
   - min_price
+```
+
+**Text card placeholder:**
+
+```yaml
+target:
+- text-tag
+- product_category
 ```
 
 ---
@@ -2400,8 +2418,8 @@ Connects a dashboard parameter to a specific card column or variable. Each mappi
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `card_id` | string | Yes | Card FK (entity_id) |
-| `parameter_id` | string | Yes | UUID matching a dashboard parameter's `id` |
+| `card_id` | string | No | Card FK (entity_id). Omit for mappings on virtual cards (e.g., text-tag placeholders). |
+| `parameter_id` | string | Yes | Matches a dashboard parameter's `id` |
 | `target` | array | Yes | Parameter target |
 
 ### DashboardCardSeries

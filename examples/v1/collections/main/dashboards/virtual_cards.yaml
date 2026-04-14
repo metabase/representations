@@ -2,7 +2,12 @@ name: Virtual Cards Dashboard
 entity_id: Ylbpm_iPeEYav_o0kpUVD
 creator_id: admin@example.com
 collection_id: cOlDaShBoArDs0ExAmPlx
-parameters: []
+parameters:
+- id: 9d9cddd4
+  name: Product Category
+  slug: product_category
+  type: string/=
+  sectionId: string
 tabs: []
 dashcards:
 - entity_id: WcNpxqVEO_rIeWZwjYv7Z
@@ -28,13 +33,17 @@ dashcards:
   col: 0
   size_x: 12
   size_y: 3
-  parameter_mappings: []
+  parameter_mappings:
+  - parameter_id: 9d9cddd4
+    target:
+    - text-tag
+    - product_category
   series: []
   visualization_settings:
     virtual_card:
       display: text
     text: |-
-      This dashboard provides an overview of sales metrics.
+      This dashboard provides an overview of sales metrics for {{product_category}}.
       **Key metrics** include revenue, order count, and average order value.
       Use the filters above to narrow down the data.
   serdes/meta:

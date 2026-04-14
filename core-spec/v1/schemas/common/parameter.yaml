@@ -13,8 +13,10 @@ required:
 properties:
   id:
     type: string
-    description: UUID identifier
-    format: uuid
+    minLength: 1
+    description: >
+      Unique identifier within the dashboard or card. UUIDs are recommended,
+      but Metabase accepts any unique non-empty string.
   name:
     type: string
     description: Display name
@@ -133,5 +135,12 @@ $defs:
               prefixItems: [{ const: template-tag }, { type: string }]
               minItems: 2
               maxItems: 2
+          minItems: 2
+          maxItems: 2
+      - if: { prefixItems: [{ const: text-tag }] }
+        then:
+          prefixItems:
+            - const: text-tag
+            - type: string
           minItems: 2
           maxItems: 2
