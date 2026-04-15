@@ -9,7 +9,6 @@ required:
   - name
   - entity_id
   - creator_id
-  - table_id
   - definition
   - serdes/meta
 properties:
