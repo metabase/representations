@@ -9,7 +9,6 @@ required:
   - entity_id
   - display
   - creator_id
-  - database_id
   - dataset_query
   - visualization_settings
   - serdes/meta
@@ -113,16 +112,6 @@ properties:
       were a container. Cards with document_id set should only be used
       within that document. To reuse a card elsewhere, unset document_id
       and place the card directly in a collection.
-    type: [string, "null"]
-    if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
-  table_id:
-    description: Table FK, should match source-table in the first stage
-    type: [array, "null"]
-    if: { type: array }
-    then: { $ref: "common/id.yaml#/$defs/table_id" }
-  source_card_id:
-    description: Source card FK, should match source-card in the first stage
     type: [string, "null"]
     if: { type: string }
     then: { $ref: "common/id.yaml#/$defs/entity_id" }
