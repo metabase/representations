@@ -14,7 +14,8 @@ dataset_query:
     - PUBLIC
     - ORDERS
     joins:
-    - stages:
+    - "lib/type": mbql/join
+      stages:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
@@ -38,7 +39,8 @@ dataset_query:
       alias: Products
       strategy: left-join
       fields: all
-    - stages:
+    - "lib/type": mbql/join
+      stages:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
@@ -74,7 +76,8 @@ dataset_query:
           - PUBLIC
           - PEOPLE
           - STATE
-    - stages:
+    - "lib/type": mbql/join
+      stages:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
