@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
 
-export function generateEntityId() {
+export function generateEntityId(): string {
   return nanoid();
 }

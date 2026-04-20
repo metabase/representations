@@ -17,4 +17,4 @@ jobs:
 
       - run: bun install
 
-      - run: bun run bin/cli.js validate-schema --folder examples/v1
+      - run: bun run bin/cli.ts validate-schema --folder examples/v1

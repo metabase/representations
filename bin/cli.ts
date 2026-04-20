@@ -9,6 +9,13 @@ import { generateEntityId } from "../src/generate-entity-id.js";
 import { generateUuid } from "../src/generate-uuid.js";
 import { validateSchema } from "../src/validate-schema.js";
 
+type ParsedValues = {
+  folder?: string;
+  file?: string;
+  count?: string;
+  help?: boolean;
+};
+
 const HELP = `Usage: representations <command> [options]
 
 Commands:
@@ -42,7 +49,7 @@ function parseArguments() {
   });
 }
 
-function parseCount(raw) {
+function parseCount(raw: string | undefined): number {
   const count = raw === undefined ? 1 : Number(raw);
   if (!Number.isInteger(count) || count < 1) {
     console.error(`Invalid --count: ${raw} (expected a positive integer)`);
@@ -51,7 +58,7 @@ function parseCount(raw) {
   return count;
 }
 
-function handleValidateSchema(values) {
+function handleValidateSchema(values: ParsedValues): void {
   const folder = values.folder ?? process.cwd();
   const { results, passed, failed } = validateSchema({ folder });
 
@@ -61,7 +68,9 @@ function handleValidateSchema(values) {
   }
 
   for (const result of results) {
-    if (result.status === "ok") continue;
+    if (result.status === "ok") {
+      continue;
+    }
     const path = relative(process.cwd(), `${folder}/${result.file}`);
     console.error(`FAIL  ${path}${result.model ? ` (${result.model})` : ""}`);
     for (const error of result.errors) {
@@ -73,31 +82,35 @@ function handleValidateSchema(values) {
   process.exit(failed > 0 ? 1 : 0);
 }
 
-function handleExtractSpec(values) {
+function handleExtractSpec(values: ParsedValues): void {
   const { target } = extractSpec({ file: values.file ?? "spec.md" });
   console.log(`Spec extracted to ${target}`);
   process.exit(0);
 }
 
-function handleExtractSchema(values) {
+function handleExtractSchema(values: ParsedValues): void {
   const { target } = extractSchema({ folder: values.folder ?? process.cwd() });
   console.log(`Schemas extracted to ${target}`);
   process.exit(0);
 }
 
-function handleGenerateEntityId(values) {
+function handleGenerateEntityId(values: ParsedValues): void {
   const count = parseCount(values.count);
-  for (let i = 0; i < count; i++) console.log(generateEntityId());
+  for (let i = 0; i < count; i++) {
+    console.log(generateEntityId());
+  }
   process.exit(0);
 }
 
-function handleGenerateUuid(values) {
+function handleGenerateUuid(values: ParsedValues): void {
   const count = parseCount(values.count);
-  for (let i = 0; i < count; i++) console.log(generateUuid());
+  for (let i = 0; i < count; i++) {
+    console.log(generateUuid());
+  }
   process.exit(0);
 }
 
-function main() {
+function main(): void {
   const { values, positionals } = parseArguments();
   const command = positionals[0];
 
