@@ -1,4 +1,4 @@
-name: Validate
+name: Test
 
 on:
   push:
@@ -6,15 +6,12 @@ on:
   pull_request:
 
 jobs:
-  validate-schema:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-
       - run: bun install
-
-      - run: bun run bin/cli.ts validate-schema --folder examples/v1
+      - run: bun run test

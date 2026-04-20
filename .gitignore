@@ -5,4 +5,5 @@ Desktop.ini
 *.swp
 *.swo
 node_modules/
+dist/
 *.tgz
