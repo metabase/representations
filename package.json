@@ -30,10 +30,11 @@
     "representations": "dist/bin/cli.js"
   },
   "scripts": {
-    "build": "tsc && cp -r core-spec dist/core-spec",
+    "build": "tsc -p tsconfig.build.json && cp -r core-spec dist/core-spec",
     "type-check": "tsc --noEmit",
     "lint-eslint": "eslint --max-warnings 0 --report-unused-disable-directives bin src",
     "lint-format": "oxfmt --check bin src",
+    "test": "bun test",
     "validate-schema": "bun run bin/cli.ts validate-schema --folder examples/v1"
   },
   "dependencies": {
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/bun": "^1.3.12",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.6.0",
     "eslint": "^10.2.1",

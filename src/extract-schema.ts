@@ -12,7 +12,9 @@ export type ExtractSchemaResult = {
   target: string;
 };
 
-export function extractSchema({ folder }: ExtractSchemaOptions): ExtractSchemaResult {
+export function extractSchema({
+  folder,
+}: ExtractSchemaOptions): ExtractSchemaResult {
   const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
   const target = resolve(folder);
   mkdirSync(target, { recursive: true });

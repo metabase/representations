@@ -4,7 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2023"],
-    "types": ["node"],
+    "types": ["node", "bun"],
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

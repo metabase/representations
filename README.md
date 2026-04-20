@@ -57,10 +57,32 @@ npx @metabase/representations extract-schema --folder ./schemas
 
 Omit `--folder` to extract into the current directory.
 
+### Generating entity IDs
+
+Print one or more 21-character NanoID entity IDs (one per line):
+
+```sh
+npx @metabase/representations generate-entity-id
+npx @metabase/representations generate-entity-id --count 5
+```
+
+### Generating UUIDs
+
+Print one or more v4 UUIDs (one per line):
+
+```sh
+npx @metabase/representations generate-uuid
+npx @metabase/representations generate-uuid --count 5
+```
+
 ### Programmatic
 
 ```js
-import { validateSchema } from "@metabase/representations";
+import {
+  generateEntityId,
+  generateUuid,
+  validateSchema,
+} from "@metabase/representations";
 
 const { results, passed, failed } = validateSchema({
   folder: "./my-export",
@@ -71,6 +93,9 @@ for (const result of results) {
     console.log(result.file, result.errors);
   }
 }
+
+const entityId = generateEntityId(); // "LZfXLFzPPR4NNrgjlWDxn"
+const uuid = generateUuid(); // "1d4e9fdf-49ae-4fbe-ae27-05e7c6a5cfe8"
 ```
 
 ## Publishing to NPM

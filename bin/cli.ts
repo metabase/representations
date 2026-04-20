@@ -116,7 +116,7 @@ function main(): void {
 
   if (values.help || !command) {
     console.log(HELP);
-    process.exit(command ? 0 : 1);
+    process.exit(values.help ? 0 : 1);
   }
 
   switch (command) {

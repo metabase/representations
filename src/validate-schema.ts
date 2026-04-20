@@ -59,7 +59,9 @@ function getModel(doc: any): string | null {
   return meta[meta.length - 1]?.model ?? null;
 }
 
-export function validateSchema({ folder }: ValidateSchemaOptions): ValidateSchemaResult {
+export function validateSchema({
+  folder,
+}: ValidateSchemaOptions): ValidateSchemaResult {
   const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
 
   const ajv = new Ajv2020({
@@ -70,14 +72,18 @@ export function validateSchema({ folder }: ValidateSchemaOptions): ValidateSchem
   addFormats(ajv);
 
   for (const file of globSync("common/*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(readFileSync(resolve(schemasDir, file), "utf8")) as any;
+    const raw = yaml.load(
+      readFileSync(resolve(schemasDir, file), "utf8"),
+    ) as any;
     const { $schema: _$schema, ...body } = raw;
     ajv.addSchema(body, file);
   }
 
   const schemas: Record<string, any> = {};
   for (const file of globSync("*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(readFileSync(resolve(schemasDir, file), "utf8")) as any;
+    const raw = yaml.load(
+      readFileSync(resolve(schemasDir, file), "utf8"),
+    ) as any;
     const { $schema: _$schema, ...body } = raw;
     const model = extractModel(raw);
     if (model) {
