@@ -1296,12 +1296,12 @@ database: Sample Database
 stages:
 - "lib/type": mbql.stage/native
   native: SELECT * FROM PRODUCTS
-  template-tags: {}
+  template-tags: []
 ```
 
 ### Template Tags
 
-Template tags are placeholders in native SQL queries (`{{tag_name}}`) that become interactive filters or dynamic references. They are defined in the `template-tags` map, where each key must match the tag's `name` property.
+Template tags are placeholders in native SQL queries (`{{tag_name}}`) that become interactive filters or dynamic references. They are defined in the `template-tags` list, where each tag's `name` must be unique within the list.
 
 #### Common Properties
 
@@ -1310,7 +1310,7 @@ All template tags share these properties:
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
 | `type` | string | Yes | Tag type: `text`, `number`, `date`, `boolean`, `dimension`, `temporal-unit`, `card`, `snippet`, `table` |
-| `name` | string | Yes | Tag name — must match the key in `template-tags` and the `{{name}}` in the SQL |
+| `name` | string | Yes | Tag name — must match the `{{name}}` in the SQL and be unique within `template-tags` |
 | `id` | string | Yes | UUID identifier |
 | `display-name` | string | Yes | Label shown in the UI |
 
@@ -1329,8 +1329,7 @@ A string variable. Metabase wraps the value in single quotes in the compiled SQL
 native:
   query: "SELECT * FROM PRODUCTS WHERE CATEGORY = {{category}}"
   template-tags:
-    category:
-      type: text
+    - type: text
       name: category
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Category
@@ -1355,8 +1354,7 @@ A numeric variable. The value is inserted as-is (no quoting).
 native:
   query: "SELECT * FROM PRODUCTS WHERE PRICE > {{min_price}}"
   template-tags:
-    min_price:
-      type: number
+    - type: number
       name: min_price
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Minimum Price
@@ -1380,8 +1378,7 @@ A date variable. The value is wrapped in single quotes.
 native:
   query: "SELECT * FROM ORDERS WHERE CREATED_AT > {{after_date}}"
   template-tags:
-    after_date:
-      type: date
+    - type: date
       name: after_date
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: After Date
@@ -1405,8 +1402,7 @@ A boolean variable. Metabase replaces the tag with `1 = 1` (true) or `1 <> 1` (f
 native:
   query: "SELECT * FROM PRODUCTS WHERE {{is_active}}"
   template-tags:
-    is_active:
-      type: boolean
+    - type: boolean
       name: is_active
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Is Active
@@ -1436,8 +1432,7 @@ When no value is provided, the entire `WHERE {{tag}}` clause is omitted (the que
 native:
   query: "SELECT * FROM PRODUCTS WHERE {{category_filter}}"
   template-tags:
-    category_filter:
-      type: dimension
+    - type: dimension
       name: category_filter
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Category
@@ -1474,8 +1469,7 @@ Without `alias` — Metabase uses the column name from `dimension` (`CREATED_AT`
 native:
   query: "SELECT {{created_at}} AS created_at, COUNT(*) FROM ORDERS GROUP BY {{created_at}}"
   template-tags:
-    created_at:
-      type: temporal-unit
+    - type: temporal-unit
       name: created_at
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Created At
@@ -1497,8 +1491,7 @@ With `alias` — when the query uses a table alias (`o`), set `alias` so the gen
 native:
   query: "SELECT {{created_at}} AS created_at, COUNT(*) FROM ORDERS o GROUP BY {{created_at}}"
   template-tags:
-    created_at:
-      type: temporal-unit
+    - type: temporal-unit
       name: created_at
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Created At
@@ -1531,8 +1524,7 @@ Note: `default` and `required` are not applicable for card tags.
 native:
   query: "SELECT * FROM {{#42-products_question}} WHERE PRICE > 50"
   template-tags:
-    "#42-products_question":
-      type: card
+    - type: card
       name: "#42-products_question"
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Products Question
@@ -1563,8 +1555,7 @@ Note: `default` and `required` are not applicable for snippet tags.
 native:
   query: "SELECT * FROM ORDERS WHERE {{snippet: Active Order Filter}}"
   template-tags:
-    "snippet: Active Order Filter":
-      type: snippet
+    - type: snippet
       name: "snippet: Active Order Filter"
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: "Snippet: Active Order Filter"
@@ -1593,8 +1584,7 @@ Reference a table dynamically. The user selects a table from a dropdown and Meta
 native:
   query: "SELECT * FROM {{source_table}}"
   template-tags:
-    source_table:
-      type: table
+    - type: table
       name: source_table
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Source Table

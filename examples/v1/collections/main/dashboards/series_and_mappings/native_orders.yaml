@@ -11,6 +11,7 @@ dataset_query:
   stages:
   - "lib/type": mbql.stage/native
     native: "SELECT * FROM ORDERS WHERE TOTAL > {{min_total}}"
+    # legacy map format for template-tags (current format is a list)
     template-tags:
       min_total:
         type: number

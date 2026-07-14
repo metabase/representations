@@ -17,29 +17,25 @@ dataset_query:
           AND USER_ID = {{user_id}}
           AND {{is_active}}
       template-tags:
-        min_total:
-          type: number
+        - type: number
           sectionId: number
           name: min_total
           id: aa000001-0000-0000-0000-000000000001
           display-name: Minimum Total
           default: 50
           required: true
-        after_date:
-          type: date
+        - type: date
           sectionId: date
           name: after_date
           id: aa000002-0000-0000-0000-000000000002
           display-name: After Date
           default: '2024-01-01'
-        user_id:
-          type: text
+        - type: text
           name: user_id
           id: aa000003-0000-0000-0000-000000000003
           display-name: User ID
           default: '1'
-        is_active:
-          type: boolean
+        - type: boolean
           sectionId: boolean
           name: is_active
           id: aa000004-0000-0000-0000-000000000004
