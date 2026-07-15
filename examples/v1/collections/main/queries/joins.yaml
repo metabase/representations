@@ -11,7 +11,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     joins:
     - "lib/type": mbql/join
@@ -19,7 +19,7 @@ dataset_query:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
       conditions:
       - - "="
@@ -27,13 +27,13 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - PRODUCT_ID
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - ID
       alias: Products
@@ -44,7 +44,7 @@ dataset_query:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
-        - PUBLIC
+        - null
         - PEOPLE
       conditions:
       - - "="
@@ -52,13 +52,13 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - USER_ID
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PEOPLE
             - ID
       alias: People
@@ -67,13 +67,13 @@ dataset_query:
       - - field
         - join-alias: People
         - - Sample Database
-          - PUBLIC
+          - null
           - PEOPLE
           - NAME
       - - field
         - join-alias: People
         - - Sample Database
-          - PUBLIC
+          - null
           - PEOPLE
           - STATE
     - "lib/type": mbql/join
@@ -81,7 +81,7 @@ dataset_query:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
-        - PUBLIC
+        - null
         - REVIEWS
       conditions:
       - - and
@@ -91,13 +91,13 @@ dataset_query:
           - - field
             - {}
             - - Sample Database
-              - PUBLIC
+              - null
               - ORDERS
               - PRODUCT_ID
           - - field
             - {}
             - - Sample Database
-              - PUBLIC
+              - null
               - REVIEWS
               - PRODUCT_ID
         - - ">="
@@ -105,7 +105,7 @@ dataset_query:
           - - field
             - {}
             - - Sample Database
-              - PUBLIC
+              - null
               - REVIEWS
               - RATING
           - 4

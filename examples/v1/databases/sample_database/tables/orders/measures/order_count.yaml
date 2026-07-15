@@ -1,9 +1,9 @@
-name: Total Revenue
-entity_id: 8WteUpyQQqObrxLv4KQ-j
+name: Order Count
+entity_id: DBap2523KuN4Lt-cYrUjF
 creator_id: admin@example.com
 table_id:
 - Sample Database
-- PUBLIC
+- null
 - ORDERS
 definition:
   "lib/type": mbql/query
@@ -12,18 +12,12 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     aggregation:
-    - - sum
+    - - count
       - {}
-      - - field
-        - base-type: type/Float
-        - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
 serdes/meta:
-- id: 8WteUpyQQqObrxLv4KQ-j
-  label: total_revenue
+- id: DBap2523KuN4Lt-cYrUjF
+  label: order_count
   model: Measure

@@ -12,7 +12,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     aggregation:
     - - cum-count
@@ -21,7 +21,7 @@ dataset_query:
     - - field
       - temporal-unit: month
       - - Sample Database
-        - PUBLIC
+        - null
         - ORDERS
         - CREATED_AT
 visualization_settings: {}

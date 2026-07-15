@@ -11,7 +11,7 @@ dataset_query:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       expressions:
       - - datetime-add
@@ -19,7 +19,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - 7
@@ -29,7 +29,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - 1
@@ -39,7 +39,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - - now
@@ -50,7 +50,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - - interval
@@ -62,7 +62,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - datetime
@@ -74,7 +74,7 @@ dataset_query:
         - - field
           - base-type: type/Integer
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - QUANTITY
       - - now

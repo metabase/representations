@@ -17,8 +17,7 @@ dataset_query:
           AND {{date_filter}}
         GROUP BY {{created_at}}, PRODUCTS.CATEGORY
       template-tags:
-        category_filter:
-          type: dimension
+        - type: dimension
           name: category_filter
           id: bb000001-0000-0000-0000-000000000001
           display-name: Category
@@ -26,12 +25,11 @@ dataset_query:
           - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - CATEGORY
           widget-type: string/=
-        date_filter:
-          type: dimension
+        - type: dimension
           name: date_filter
           id: bb000002-0000-0000-0000-000000000002
           display-name: Order Date
@@ -39,12 +37,11 @@ dataset_query:
           - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
           widget-type: date/range
-        created_at:
-          type: temporal-unit
+        - type: temporal-unit
           sectionId: date
           name: created_at
           id: bb000003-0000-0000-0000-000000000003
@@ -54,7 +51,7 @@ dataset_query:
           - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
 visualization_settings: {}

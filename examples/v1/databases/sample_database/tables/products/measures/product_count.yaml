@@ -1,9 +1,9 @@
-name: Average Product Price
-entity_id: xK7mPqR2sT4uVwXyZ9a1b
+name: Product Count
+entity_id: 8kxQ2Wr7PmN5dLf3hYz9v
 creator_id: admin@example.com
 table_id:
 - Sample Database
-- PUBLIC
+- null
 - PRODUCTS
 definition:
   "lib/type": mbql/query
@@ -12,18 +12,18 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
     aggregation:
-    - - avg
+    - - distinct
       - {}
       - - field
-        - base-type: type/Float
+        - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - PRODUCTS
-          - PRICE
+          - ID
 serdes/meta:
-- id: xK7mPqR2sT4uVwXyZ9a1b
-  label: avg_product_price
+- id: 8kxQ2Wr7PmN5dLf3hYz9v
+  label: product_count
   model: Measure

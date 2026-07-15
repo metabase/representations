@@ -11,7 +11,7 @@ dataset_query:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       aggregation:
       - - cum-count
@@ -21,7 +21,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - PRODUCT_ID
       - - cum-sum
@@ -29,47 +29,38 @@ dataset_query:
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TOTAL
-      - - stddev
+      - - avg
         - {}
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TOTAL
-      - - var
+      - - min
         - {}
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TOTAL
-      - - median
+      - - max
         - {}
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TOTAL
-      - - percentile
-        - {}
-        - - field
-          - base-type: type/Float
-          - - Sample Database
-            - PUBLIC
-            - ORDERS
-            - TOTAL
-        - 0.9
       breakout:
       - - field
         - temporal-unit: month
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - CREATED_AT
 visualization_settings: {}

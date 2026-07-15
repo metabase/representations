@@ -1,10 +1,10 @@
-name: Large Orders
-entity_id: OaFXAvEzPvu9ZXW5PUMRa
+name: Widget Products
+entity_id: aB3kLmN9pQrStUvWxYz1a
 creator_id: admin@example.com
 table_id:
 - Sample Database
-- PUBLIC
-- ORDERS
+- null
+- PRODUCTS
 definition:
   "lib/type": mbql/query
   database: Sample Database
@@ -12,19 +12,19 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
-    - ORDERS
+    - null
+    - PRODUCTS
     filters:
-    - - ">"
+    - - =
       - {}
       - - field
-        - base-type: type/Float
+        - {}
         - - Sample Database
-          - PUBLIC
-          - ORDERS
-          - TOTAL
-      - 50
+          - null
+          - PRODUCTS
+          - CATEGORY
+      - Widget
 serdes/meta:
-- id: OaFXAvEzPvu9ZXW5PUMRa
-  label: large_orders
+- id: aB3kLmN9pQrStUvWxYz1a
+  label: widget_products
   model: Segment

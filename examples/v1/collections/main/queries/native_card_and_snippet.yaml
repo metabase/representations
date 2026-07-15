@@ -16,14 +16,12 @@ dataset_query:
         ORDER BY "count" DESC
         LIMIT 10
       template-tags:
-        "#1-basic_aggregations":
-          type: card
+        - type: card
           name: "#1-basic_aggregations"
           id: cc000001-0000-0000-0000-000000000001
           display-name: Basic Aggregations
           card-id: h5F2EjHsRd73Dqqh8sAtd
-        "snippet: Active Product Filter":
-          type: snippet
+        - type: snippet
           name: "snippet: Active Product Filter"
           id: cc000002-0000-0000-0000-000000000002
           display-name: "Snippet: Active Product Filter"
