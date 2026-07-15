@@ -1,11 +1,11 @@
-name: Average Widget Price
-entity_id: K7cMzOau9SI2h8hCx936w
+name: Average Revenue Per Order
+entity_id: dc8eiyLh9S0IKwV_UuvTz
 creator_id: admin@example.com
-description: Average price of Widget products — uses Widget Products segment and Average Product Price measure
+description: Uses Total Revenue and Order Count measures
 table_id:
 - Sample Database
-- PUBLIC
-- PRODUCTS
+- null
+- ORDERS
 definition:
   "lib/type": mbql/query
   database: Sample Database
@@ -13,18 +13,18 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
-    - PRODUCTS
+    - null
+    - ORDERS
     aggregation:
     - - avg
       - {}
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
-          - PRODUCTS
-          - PRICE
+          - null
+          - ORDERS
+          - TOTAL
 serdes/meta:
-- id: K7cMzOau9SI2h8hCx936w
-  label: avg_widget_price
+- id: dc8eiyLh9S0IKwV_UuvTz
+  label: avg_revenue_per_order
   model: Measure

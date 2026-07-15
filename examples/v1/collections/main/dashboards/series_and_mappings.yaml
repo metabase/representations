@@ -28,7 +28,7 @@ dashcards:
     - dimension
     - - field
       - - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
         - CATEGORY
       - null
@@ -38,7 +38,7 @@ dashcards:
     - dimension
     - - field
       - - Sample Database
-        - PUBLIC
+        - null
         - ORDERS
         - CREATED_AT
       - null

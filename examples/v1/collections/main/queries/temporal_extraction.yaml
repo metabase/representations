@@ -11,7 +11,7 @@ dataset_query:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       expressions:
       - - get-year
@@ -19,7 +19,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-quarter
@@ -27,7 +27,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-month
@@ -35,7 +35,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-day
@@ -43,7 +43,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-hour
@@ -51,7 +51,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-minute
@@ -59,7 +59,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-second
@@ -67,7 +67,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-day-of-week
@@ -75,7 +75,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - iso
@@ -84,7 +84,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - us
@@ -95,7 +95,7 @@ dataset_query:
           - - field
             - {}
             - - Sample Database
-              - PUBLIC
+              - null
               - ORDERS
               - CREATED_AT
       - - quarter-name
@@ -105,7 +105,7 @@ dataset_query:
           - - field
             - {}
             - - Sample Database
-              - PUBLIC
+              - null
               - ORDERS
               - CREATED_AT
       - - day-name
@@ -115,7 +115,7 @@ dataset_query:
           - - field
             - {}
             - - Sample Database
-              - PUBLIC
+              - null
               - ORDERS
               - CREATED_AT
           - iso
@@ -124,23 +124,24 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
       - - get-week
-        - "lib/expression-name": Week Number Default
+        - "lib/expression-name": Week Number Instance
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
+        - instance
       - - temporal-extract
         - "lib/expression-name": Extracted Month
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - month-of-year
@@ -149,7 +150,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
         - day-of-week

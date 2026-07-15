@@ -11,7 +11,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     aggregation:
     - - count
@@ -21,14 +21,14 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - TOTAL
     breakout:
     - - field
       - temporal-unit: quarter
       - - Sample Database
-        - PUBLIC
+        - null
         - ORDERS
         - CREATED_AT
     joins:
@@ -36,7 +36,7 @@ dataset_query:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
       conditions:
       - - =
@@ -44,13 +44,13 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - PRODUCT_ID
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - ID
       alias: Products

@@ -11,7 +11,7 @@ dataset_query:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       expressions:
       - - "+"
@@ -19,13 +19,13 @@ dataset_query:
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - SUBTOTAL
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TAX
       - - "-"
@@ -33,13 +33,13 @@ dataset_query:
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TOTAL
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - SUBTOTAL
       - - "*"
@@ -47,7 +47,7 @@ dataset_query:
         - - field
           - base-type: type/Integer
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - QUANTITY
         - 2
@@ -56,13 +56,13 @@ dataset_query:
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TOTAL
         - - field
           - base-type: type/Integer
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - QUANTITY
       aggregation:
@@ -71,7 +71,7 @@ dataset_query:
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - SUBTOTAL
       - - sum
@@ -79,7 +79,7 @@ dataset_query:
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TAX
       - - sum
@@ -87,7 +87,7 @@ dataset_query:
         - - field
           - base-type: type/Float
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - TOTAL
       - - avg
@@ -95,7 +95,7 @@ dataset_query:
         - - field
           - base-type: type/Integer
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - QUANTITY
       filters:
@@ -109,7 +109,7 @@ dataset_query:
       - - field
         - temporal-unit: month
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - CREATED_AT
 visualization_settings: {}

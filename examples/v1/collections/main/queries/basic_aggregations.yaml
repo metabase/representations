@@ -11,7 +11,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     aggregation:
     - - count
@@ -21,7 +21,7 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - TOTAL
     - - avg
@@ -29,7 +29,7 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - TOTAL
     - - min
@@ -37,7 +37,7 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - TOTAL
     - - max
@@ -45,7 +45,7 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - TOTAL
     - - count
@@ -53,7 +53,7 @@ dataset_query:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - PRODUCT_ID
     - - distinct
@@ -61,7 +61,7 @@ dataset_query:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - PRODUCT_ID
     - - sum
@@ -70,14 +70,14 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - TOTAL
     breakout:
     - - field
       - temporal-unit: month
       - - Sample Database
-        - PUBLIC
+        - null
         - ORDERS
         - CREATED_AT
     order-by:
