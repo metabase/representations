@@ -49,6 +49,18 @@ describe("validateSchema", () => {
       }
     });
 
+    it.each([
+      ["a data app's resources", ["data_apps", "shop", "resources", "cards"]],
+      ["actions", ["actions"]],
+    ])("validates %s", (_, dirs) => {
+      mkdirSync(join(workdir, ...dirs), { recursive: true });
+      writeFileSync(join(workdir, ...dirs, "broken.yaml"), "name: Broken\n");
+
+      const { failed, results } = validateSchema({ folder: workdir });
+      expect(failed).toBe(1);
+      expect(results[0].file).toBe(join(...dirs, "broken.yaml"));
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(

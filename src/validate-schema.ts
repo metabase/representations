@@ -11,8 +11,10 @@ const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 const PACKAGE_ROOT = resolve(import.meta.dirname, "..");
 
 const IMPORT_PATHS = [
+  "actions/**/*.yaml",
   "channels/**/*.yaml",
   "collections/**/*.yaml",
+  "data_apps/*/resources/**/*.yaml",
   "databases/**/segments/**/*.yaml",
   "databases/**/measures/**/*.yaml",
   "metabots/**/*.yaml",
