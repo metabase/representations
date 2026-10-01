@@ -30,7 +30,7 @@ properties:
     description: >
       The bundle's path, relative to the app's directory. A leading `./` is
       allowed; a `..` segment isn't.
-    pattern: ^(?!(?:.*/)?\.\.(?:/|$))\s*\S
+    pattern: ^\s*(?!(?:.*/)?\.\.(?:/|$))\S
   collection:
     description: >
       Collection FK (entity_id) of the app's resource collection, the one in

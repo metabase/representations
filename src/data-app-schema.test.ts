@@ -83,6 +83,10 @@ describe("data app manifest schema", () => {
       "a path leaving the app's directory",
       { ...MANIFEST, path: "../other/index.js" },
     ],
+    [
+      "a path leaving the app's directory after leading spaces",
+      { ...MANIFEST, path: "  ../other/index.js" },
+    ],
     ["no collection", without("collection")],
     [
       "a collection that isn't an entity ID",
