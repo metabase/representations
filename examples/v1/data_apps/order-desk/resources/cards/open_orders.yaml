@@ -1,0 +1,21 @@
+name: Open orders
+entity_id: dApPqUeStIoN00ExAmP12
+collection_id: dApPcOlLeCtIoN0ExAmP1
+creator_id: admin@example.com
+type: question
+display: table
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    limit: 100
+visualization_settings: {}
+serdes/meta:
+- id: dApPqUeStIoN00ExAmP12
+  label: open_orders
+  model: Card

@@ -12,11 +12,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Git sync reads its content from the root of a repository, so the
+      # examples get a repository of their own, which Metabase reads from disk.
+      - name: Create the git sync repository
+        run: |
+          cp -r examples/v1 "$RUNNER_TEMP/sync-repo"
+          git -C "$RUNNER_TEMP/sync-repo" init -q -b main
+          git -C "$RUNNER_TEMP/sync-repo" add .
+          git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Examples"
+
       - name: Start Metabase
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
             -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
+            -v "$RUNNER_TEMP/sync-repo:/sync-repo:ro" \
             -p 3000:3000 \
             metabase/metabase-enterprise-head:latest
 
@@ -48,25 +58,82 @@ jobs:
           echo "API key created"
           echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
-          # Create import archive and POST it
-          tar czf /tmp/import.tgz -C examples/v1 .
+          # A new instance seeds the Sample Database's tables and fields from a
+          # snapshot and leaves fingerprinting to the hourly "Sync and Analyze" job.
+          # Run that sync now, and wait until every field has a fingerprint, so
+          # nothing checks a half-analyzed database. Primary keys are never
+          # fingerprinted.
+          SAMPLE_DB_ID=$(curl -sf http://localhost:3000/api/database -H "X-API-Key: $API_KEY" \
+            | jq -er '.data[] | select(.is_sample == true) | .id')
+          curl -sf -X POST "http://localhost:3000/api/database/$SAMPLE_DB_ID/sync_schema" \
+            -H "X-API-Key: $API_KEY" > /dev/null
+          echo "Waiting for the Sample Database to be fingerprinted..."
+          export API_KEY SAMPLE_DB_ID
+          if ! timeout 600 bash -c '
+            until
+              curl -sf "http://localhost:3000/api/database/$SAMPLE_DB_ID/metadata" -H "X-API-Key: $API_KEY" \
+                | jq -e "(.tables | length > 0) and all(.tables[]; (.fields | length > 0) and all(.fields[] | select(.semantic_type != \"type/PK\"); .fingerprint != null))" > /dev/null
+            do
+              sleep 5
+            done
+          '; then
+            echo "The Sample Database was not fingerprinted in time"
+            exit 1
+          fi
+          echo "Sample Database fingerprinted"
 
-          IMPORT_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-          HTTP_CODE=$(curl -s -o /tmp/import-response.txt -w '%{http_code}' \
-            -X POST \
-            -H "X-API-Key: $API_KEY" \
-            -F 'file=@/tmp/import.tgz' \
-            'http://localhost:3000/api/ee/serialization/import')
-
-          cat /tmp/import-response.txt
-
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "Import failed with HTTP $HTTP_CODE"
+          # Without the data-apps feature, git sync skips data apps without an error.
+          if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
+            | jq -e '.["token-features"] | .remote_sync and .["data-apps"]' > /dev/null; then
+            echo "The token lacks the remote_sync or data-apps feature"
             exit 1
           fi
 
+          IMPORT_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # Connecting a read-only repository imports it right away.
+          HTTP_CODE=$(curl -s -o /tmp/settings-response.txt -w '%{http_code}' \
+            -X PUT http://localhost:3000/api/ee/remote-sync/settings \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"remote-sync-url":"file:///sync-repo/.git","remote-sync-branch":"main","remote-sync-type":"read-only"}')
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat /tmp/settings-response.txt
+            echo "Connecting the repository failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "Waiting for the git sync import..."
+          if ! timeout 300 bash -c '
+            until
+              STATUS=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY" \
+                | jq -r "select(.sync_task_type == \"import\") | .status") &&
+              [ -n "$STATUS" ] && [ "$STATUS" != "running" ]
+            do
+              sleep 2
+            done
+          '; then
+            echo "The git sync import did not finish in time"
+            exit 1
+          fi
+          TASK=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY")
+          if [ "$(echo "$TASK" | jq -r '.status')" != "successful" ]; then
+            echo "$TASK"
+            echo "Git sync import failed"
+            exit 1
+          fi
           echo "Import succeeded"
+
+          APPS=$(curl -sf http://localhost:3000/api/apps -H "X-API-Key: $API_KEY")
+          for DIR in examples/v1/data_apps/*/; do
+            SLUG=$(basename "$DIR")
+            if ! echo "$APPS" | jq -e --arg slug "$SLUG" 'any(.[]; .name == $slug and .sync_error == null)' > /dev/null; then
+              echo "$APPS" | jq --arg slug "$SLUG" '.[] | select(.name == $slug)'
+              echo "Data app $SLUG did not sync"
+              exit 1
+            fi
+            echo "Data app $SLUG synced"
+          done
 
           # Check for metabase.lib warnings from the import
           WARNINGS=$(docker logs --since "$IMPORT_START" metabase 2>&1 | grep "WARN.*metabase\.lib" || true)

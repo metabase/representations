@@ -1,0 +1,6 @@
+name: "Data App: Order Desk"
+entity_id: dApPcOlLeCtIoN0ExAmP1
+serdes/meta:
+- id: dApPcOlLeCtIoN0ExAmP1
+  label: data_app_order_desk
+  model: Collection

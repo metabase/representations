@@ -1,0 +1,49 @@
+name: Apply discount
+entity_id: NJksetfXk2oh530o3RD_5
+creator_id: admin@example.com
+type: query
+model_id: 4eroqa4ZYl4WkNjP8XTvu
+implicit: []
+query:
+- database_id: Sample Database
+  dataset_query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/native
+        native: "UPDATE ORDERS SET DISCOUNT = {{discount}} WHERE ID = {{order_id}}"
+        template-tags:
+          discount:
+            type: number
+            name: discount
+            id: 0b6f6e0a-5c2b-4c47-9a4e-4f3d2c1b0a99
+            display-name: Discount
+          order_id:
+            type: number
+            name: order_id
+            id: 7d2f1c3e-9b8a-4e6d-8c5b-1a2b3c4d5e6f
+            display-name: Order ID
+http: []
+parameters:
+- id: discount
+  name: Discount
+  slug: discount
+  type: number/=
+  target:
+  - variable
+  - - template-tag
+    - discount
+- id: order_id
+  name: Order ID
+  slug: order_id
+  type: number/=
+  required: true
+  target:
+  - variable
+  - - template-tag
+    - order_id
+parameter_mappings: []
+serdes/meta:
+- id: NJksetfXk2oh530o3RD_5
+  label: apply_discount
+  model: Action

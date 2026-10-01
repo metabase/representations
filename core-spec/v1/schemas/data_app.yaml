@@ -1,0 +1,48 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Data App manifest
+description: >
+  The `data_app.yaml` at the root of a data app's directory,
+  `data_apps/<slug>/data_app.yaml`. The directory's name is the app's slug,
+  which this file can't check: lowercase letters, numbers, and single dashes
+  between them, and neither `repo-status` nor `sandbox-host`.
+type: object
+required:
+  - name
+  - path
+  - collection
+properties:
+  name:
+    type: string
+    description: Display name
+    pattern: \S
+  description:
+    type: [string, "null"]
+    description: >
+      One line on what the app does. Whitespace runs fold to one space, and
+      the folded line must be 255 characters or fewer.
+    maxLength: 255
+  version:
+    type: integer
+    description: The data app contract version the app was built for, 1 when absent
+    minimum: 1
+  path:
+    type: string
+    description: >
+      The bundle's path, relative to the app's directory. A leading `./` is
+      allowed; a `..` segment isn't.
+    pattern: ^\s*(?!(?:.*/)?\.\.(?:/|$))\S
+  collection:
+    description: >
+      Collection FK (entity_id) of the app's resource collection, the one in
+      `resources/collection.yaml`
+    $ref: "common/id.yaml#/$defs/entity_id"
+  allowed_hosts:
+    type: array
+    description: >
+      Origins the app's sandboxed bundle may fetch from: a scheme, a host with
+      an optional `*.` subdomain wildcard, and an optional port. No path, query,
+      or other scheme.
+    items:
+      type: string
+      pattern: ^\s*[Hh][Tt][Tt][Pp][Ss]?://(?:\*\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?::[0-9]+)?/*\s*$
+additionalProperties: true

@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
+import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
@@ -47,6 +54,57 @@ describe("validateSchema", () => {
       if (results[0].status === "fail") {
         expect(results[0].errors[0].message).toMatch(/serdes\/meta/);
       }
+    });
+
+    it.each([
+      ["a data app's resources", ["data_apps", "shop", "resources", "cards"]],
+      ["actions", ["actions"]],
+    ])("validates %s", (_, dirs) => {
+      mkdirSync(join(workdir, ...dirs), { recursive: true });
+      writeFileSync(join(workdir, ...dirs, "broken.yaml"), "name: Broken\n");
+
+      const { failed, results } = validateSchema({ folder: workdir });
+      expect(failed).toBe(1);
+      expect(results[0].file).toBe(join(...dirs, "broken.yaml"));
+    });
+
+    describe("actions", () => {
+      const example = (file: string): Record<string, unknown> =>
+        yaml.load(
+          readFileSync(join(EXAMPLES, "actions", file), "utf8"),
+        ) as Record<string, unknown>; // Example actions are YAML maps.
+
+      const validateAction = (action: Record<string, unknown>) => {
+        mkdirSync(join(workdir, "actions"), { recursive: true });
+        writeFileSync(
+          join(workdir, "actions", "action.yaml"),
+          yaml.dump(action),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      it.each([
+        ["an unknown type", { ...example("create_order.yaml"), type: "magic" }],
+        [
+          "no model",
+          (({ model_id: _modelId, ...action }) => action)(
+            example("create_order.yaml"),
+          ),
+        ],
+        [
+          "an unknown implicit kind",
+          {
+            ...example("create_order.yaml"),
+            implicit: [{ kind: "row/upsert" }],
+          },
+        ],
+        [
+          "a query action without its query",
+          { ...example("apply_discount.yaml"), query: [] },
+        ],
+      ])("rejects an action with %s", (_, action) => {
+        expect(validateAction(action).failed).toBe(1);
+      });
     });
 
     it("fails files with an unknown model", () => {

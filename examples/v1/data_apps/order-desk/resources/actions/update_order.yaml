@@ -1,0 +1,15 @@
+name: Update order
+entity_id: dApPaCtIoNcOpYExAmP12
+creator_id: admin@example.com
+type: implicit
+model_id: dApPmOdElCoPy0ExAmP12
+implicit:
+- kind: row/update
+query: []
+http: []
+parameters: []
+parameter_mappings: []
+serdes/meta:
+- id: dApPaCtIoNcOpYExAmP12
+  label: update_order
+  model: Action
