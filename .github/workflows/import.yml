@@ -48,6 +48,27 @@ jobs:
           echo "API key created"
           echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
+          # Setup adds the Sample Database and syncs it in the background, and its
+          # `initial_sync_status` turns "complete" before fingerprinting runs. Wait
+          # until every field has a fingerprint, so nothing checks a half-synced
+          # database. Primary keys are never fingerprinted.
+          echo "Waiting for the Sample Database to be fingerprinted..."
+          export API_KEY
+          if ! timeout 600 bash -c '
+            until
+              SAMPLE_DB_ID=$(curl -sf http://localhost:3000/api/database -H "X-API-Key: $API_KEY" \
+                | jq -er ".data[] | select(.is_sample == true) | .id") &&
+              curl -sf "http://localhost:3000/api/database/$SAMPLE_DB_ID/metadata" -H "X-API-Key: $API_KEY" \
+                | jq -e "(.tables | length > 0) and all(.tables[]; (.fields | length > 0) and all(.fields[] | select(.semantic_type != \"type/PK\"); .fingerprint != null))" > /dev/null
+            do
+              sleep 5
+            done
+          '; then
+            echo "The Sample Database was not fingerprinted in time"
+            exit 1
+          fi
+          echo "Sample Database fingerprinted"
+
           # Create import archive and POST it
           tar czf /tmp/import.tgz -C examples/v1 .
 

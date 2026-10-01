@@ -19,12 +19,13 @@ This specification covers user-created content entities. Database metadata entit
 7. [Parameter](#parameter)
 8. [Collection](#collection)
 9. [Card](#card)
-10. [Dashboard](#dashboard)
-11. [Document](#document)
-12. [Segment](#segment)
-13. [Measure](#measure)
-14. [Snippet](#snippet)
-15. [Transform](#transform)
+10. [Action](#action)
+11. [Dashboard](#dashboard)
+12. [Document](#document)
+13. [Segment](#segment)
+14. [Measure](#measure)
+15. [Snippet](#snippet)
+16. [Transform](#transform)
 
 ---
 
@@ -92,6 +93,8 @@ Collections are organized by namespace. The `main` namespace holds regular conte
 ```
 export-root/
 ├── settings.yaml
+├── actions/                                # Actions, each on a model card
+│   └── {slug}.yaml
 ├── collections/
 │   ├── main/                               # Main namespace (regular content)
 │   │   ├── {slug}.yaml                     # Entities in root collection
@@ -2302,6 +2305,131 @@ serdes/meta:
 - id: f1C68pznmrpN1F5xFDj6d
   label: products_question
   model: Card
+```
+
+---
+
+## Action
+
+An action writes to a database through a model card. An **implicit** action creates, updates, or deletes a row of the model's table; a **query** action runs native SQL; an **HTTP** action calls a URL. Its permissions follow its model, so an action is always attached to one (`model_id`).
+
+Actions are stored under the top-level `actions/` directory. Exactly one of the nested `implicit`, `query`, and `http` arrays holds the action's definition, the one its `type` names; the other two are empty.
+
+### Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Action name |
+| `entity_id` | string | Yes | NanoID identifier |
+| `type` | string | Yes | `"implicit"`, `"query"`, or `"http"` |
+| `model_id` | string | Yes | Card FK (entity_id) of the model the action belongs to |
+| `serdes/meta` | array | Yes | Identity path with `model: Action` |
+| `implicit` | array | No | `[{kind}]` when `type` is `implicit`, otherwise `[]`. `kind`: `row/create`, `row/update`, `row/delete`, `bulk/create`, `bulk/update`, `bulk/delete` |
+| `query` | array | No | `[{database_id, dataset_query}]` when `type` is `query`, otherwise `[]`. `database_id` is a Database FK; `dataset_query` is a [Native Query](#native-query) whose template tags the parameters target |
+| `http` | array | No | `[{template, response_handle, error_handle}]` when `type` is `http`, otherwise `[]` |
+| `parameters` | array | No | The action's inputs: `id`, `type`, and for a query action a `target` on one of its template tags (see [Parameter Targets](#parameter-targets)), plus optional `name`, `slug`, `required`. An implicit action's parameters are computed from the model's fields, so they are stored empty `[]` |
+| `parameter_mappings` | array | No | Unused, usually empty `[]` |
+| `visualization_settings` | map | No | The action's form (see below) |
+| `creator_id` | string | No | User FK (email) |
+| `description` | string | No | Description |
+| `archived` | boolean | No | Whether archived (default: `false`) |
+| `public_uuid` | string | No | Public sharing UUID |
+| `made_public_by_id` | string | No | User FK (email) |
+| `created_at` | string | No | ISO 8601 timestamp |
+
+### Form Settings
+
+`visualization_settings.fields` maps a parameter `id` to that field's settings in the action's form. Two of them change what executing the action accepts:
+
+| Setting | Effect |
+|---------|--------|
+| `hidden` | The field is not shown, and executing the action **rejects** a value for it |
+| `defaultValue` | Used when the action is executed without a value for the field |
+
+The rest (`title`, `description`, `placeholder`, `order`, `required`, `inputType`, `fieldType`, `valueOptions`, ...) only control how Metabase's own form shows the field. Settings left unset are omitted; an action whose form was never customized has no `visualization_settings`.
+
+### Example
+
+**Implicit action:**
+
+```yaml
+name: Create order
+entity_id: XgqYIEGPfvCklZUxOLp9m
+creator_id: admin@example.com
+type: implicit
+model_id: 4eroqa4ZYl4WkNjP8XTvu
+implicit:
+- kind: row/create
+query: []
+http: []
+parameters: []
+parameter_mappings: []
+visualization_settings:
+  fields:
+    DISCOUNT:
+      id: DISCOUNT
+      hidden: true
+    QUANTITY:
+      id: QUANTITY
+      defaultValue: 1
+serdes/meta:
+- id: XgqYIEGPfvCklZUxOLp9m
+  label: create_order
+  model: Action
+```
+
+**Query action:**
+
+```yaml
+name: Apply discount
+entity_id: NJksetfXk2oh530o3RD_5
+creator_id: admin@example.com
+type: query
+model_id: 4eroqa4ZYl4WkNjP8XTvu
+implicit: []
+query:
+- database_id: Sample Database
+  dataset_query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/native
+        native: "UPDATE ORDERS SET DISCOUNT = {{discount}} WHERE ID = {{order_id}}"
+        template-tags:
+          discount:
+            type: number
+            name: discount
+            id: 0b6f6e0a-5c2b-4c47-9a4e-4f3d2c1b0a99
+            display-name: Discount
+          order_id:
+            type: number
+            name: order_id
+            id: 7d2f1c3e-9b8a-4e6d-8c5b-1a2b3c4d5e6f
+            display-name: Order ID
+http: []
+parameters:
+- id: discount
+  name: Discount
+  slug: discount
+  type: number/=
+  target:
+  - variable
+  - - template-tag
+    - discount
+- id: order_id
+  name: Order ID
+  slug: order_id
+  type: number/=
+  required: true
+  target:
+  - variable
+  - - template-tag
+    - order_id
+parameter_mappings: []
+serdes/meta:
+- id: NJksetfXk2oh530o3RD_5
+  label: apply_discount
+  model: Action
 ```
 
 ---

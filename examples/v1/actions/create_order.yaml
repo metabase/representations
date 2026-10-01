@@ -1,0 +1,23 @@
+name: Create order
+entity_id: XgqYIEGPfvCklZUxOLp9m
+creator_id: admin@example.com
+type: implicit
+model_id: 4eroqa4ZYl4WkNjP8XTvu
+implicit:
+- kind: row/create
+query: []
+http: []
+parameters: []
+parameter_mappings: []
+visualization_settings:
+  fields:
+    DISCOUNT:
+      id: DISCOUNT
+      hidden: true
+    QUANTITY:
+      id: QUANTITY
+      defaultValue: 1
+serdes/meta:
+- id: XgqYIEGPfvCklZUxOLp9m
+  label: create_order
+  model: Action

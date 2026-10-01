@@ -1,26 +1,201 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Action
-description: An action associated with a model card.
+description: >
+  An action that writes to a database through a model card: an implicit action
+  creates, updates, or deletes the model's rows; a query action runs SQL; an
+  HTTP action calls a URL. Exactly one of `implicit`, `query`, and `http` holds
+  the action's definition, the one its `type` names.
 type: object
 required:
   - name
   - entity_id
   - type
+  - model_id
   - serdes/meta
 properties:
   name:
     type: string
+    description: Action name
   entity_id:
     $ref: "common/id.yaml#/$defs/entity_id"
   type:
     type: string
-  serdes/meta:
+    description: Which of `implicit`, `query`, or `http` defines the action
+    enum:
+      - implicit
+      - query
+      - http
+  model_id:
+    description: Card FK (entity_id) of the model the action belongs to
+    $ref: "common/id.yaml#/$defs/entity_id"
+  creator_id:
+    description: User FK (email)
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/user_id" }
+  description:
+    type: [string, "null"]
+    description: Human-readable description
+  archived:
+    type: boolean
+    description: Whether archived
+    default: false
+  implicit:
     type: array
+    description: The implicit action's definition, when `type` is `implicit`; otherwise empty
+    maxItems: 1
     items:
       type: object
-      required: [id, model]
       properties:
-        id: { type: string }
-        label: { type: string }
-        model: { type: string, const: Action }
+        kind:
+          type: string
+          description: What the action does to a row of the model's table
+          enum:
+            - row/create
+            - row/update
+            - row/delete
+            - bulk/create
+            - bulk/update
+            - bulk/delete
+  query:
+    type: array
+    description: The query action's definition, when `type` is `query`; otherwise empty
+    maxItems: 1
+    items:
+      type: object
+      required:
+        - database_id
+        - dataset_query
+      properties:
+        database_id:
+          $ref: "common/id.yaml#/$defs/database_id"
+        dataset_query:
+          description: The native query the action runs, with its template tags
+          $ref: "common/query.yaml"
+  http:
+    type: array
+    description: The HTTP action's definition, when `type` is `http`; otherwise empty
+    maxItems: 1
+    items:
+      type: object
+      properties:
+        template:
+          type: object
+          description: The request to send
+          additionalProperties: true
+        response_handle:
+          type: [string, "null"]
+          description: JSON query applied to the response
+        error_handle:
+          type: [string, "null"]
+          description: JSON query that extracts an error from the response
+  parameters:
+    type: array
+    description: >
+      The action's inputs. A query action maps each one to a template tag of
+      its query; an implicit action's are computed from the model's fields and
+      stored empty.
+    items:
+      type: object
+      required:
+        - id
+        - type
+      properties:
+        id:
+          type: string
+          minLength: 1
+          description: Parameter identifier
+        name:
+          type: string
+          description: Display name
+        slug:
+          type: string
+          description: URL-friendly identifier
+        type:
+          type: string
+          description: Parameter type (see Parameter Types)
+        required:
+          type: boolean
+          description: Whether a value is required
+        target:
+          $ref: "common/parameter.yaml#/$defs/parameter_target"
+      additionalProperties: true
+  parameter_mappings:
+    type: [array, "null"]
+    description: Parameter mappings (unused, usually empty)
+    items: {}
+  visualization_settings:
+    type: [object, "null"]
+    description: >
+      The action's form. `fields` maps a parameter id to its settings: `hidden`
+      and `defaultValue` change what executing the action accepts, the rest
+      only how Metabase's form shows the field.
+    properties:
+      fields:
+        type: object
+        additionalProperties:
+          type: object
+          properties:
+            id:
+              type: string
+              description: The parameter id these settings apply to
+            hidden:
+              type: boolean
+              description: Hidden from the form; executing the action rejects a value for it
+            defaultValue:
+              description: Value used when executing the action without one
+            title:
+              type: string
+            description:
+              type: [string, "null"]
+            placeholder:
+              type: string
+            order:
+              type: integer
+            required:
+              type: boolean
+            inputType:
+              type: string
+            fieldType:
+              type: string
+          additionalProperties: true
+    additionalProperties: true
+  public_uuid:
+    type: [string, "null"]
+    description: Public sharing UUID
+    format: uuid
+  made_public_by_id:
+    description: User who made this public
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/user_id" }
+  created_at:
+    type: string
+    description: ISO 8601 timestamp
+    format: date-time
+  serdes/meta:
+    type: array
+    description: Identity path for serialization
+    items:
+      type: object
+      required:
+        - id
+        - model
+      properties:
+        id:
+          type: string
+          description: Entity identifier (matches entity_id)
+        label:
+          type: string
+          description: Slugified name
+        model:
+          type: string
+          const: Action
+allOf:
+  - if: { properties: { type: { const: implicit } }, required: [type] }
+    then: { required: [implicit], properties: { implicit: { type: array, minItems: 1 } } }
+  - if: { properties: { type: { const: query } }, required: [type] }
+    then: { required: [query], properties: { query: { type: array, minItems: 1 } } }
+  - if: { properties: { type: { const: http } }, required: [type] }
+    then: { required: [http], properties: { http: { type: array, minItems: 1 } } }
 additionalProperties: true
