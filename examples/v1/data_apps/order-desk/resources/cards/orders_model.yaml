@@ -1,0 +1,20 @@
+name: Orders model
+entity_id: dApPmOdElCoPy0ExAmP12
+collection_id: dApPcOlLeCtIoN0ExAmP1
+creator_id: admin@example.com
+type: model
+display: table
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+visualization_settings: {}
+serdes/meta:
+- id: dApPmOdElCoPy0ExAmP12
+  label: orders_model
+  model: Card

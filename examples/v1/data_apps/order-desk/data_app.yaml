@@ -1,0 +1,7 @@
+name: Order Desk
+description: Review orders and apply discounts
+version: 1
+path: ./dist/index.js
+collection: dApPcOlLeCtIoN0ExAmP1
+allowed_hosts:
+- https://api.example.com

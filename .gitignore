@@ -6,5 +6,5 @@ Desktop.ini
 *.swp
 *.swo
 node_modules/
-dist/
+/dist/
 *.tgz
