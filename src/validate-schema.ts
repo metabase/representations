@@ -14,6 +14,7 @@ const IMPORT_PATHS = [
   "actions/**/*.yaml",
   "channels/**/*.yaml",
   "collections/**/*.yaml",
+  "data_apps/*/data_app.yaml",
   "data_apps/*/resources/**/*.yaml",
   "databases/**/segments/**/*.yaml",
   "databases/**/measures/**/*.yaml",

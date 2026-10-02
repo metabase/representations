@@ -57,15 +57,20 @@ describe("validateSchema", () => {
     });
 
     it.each([
-      ["a data app's resources", ["data_apps", "shop", "resources", "cards"]],
-      ["actions", ["actions"]],
-    ])("validates %s", (_, dirs) => {
+      [
+        "a data app's resources",
+        ["data_apps", "shop", "resources", "cards"],
+        "broken.yaml",
+      ],
+      ["a data app's manifest", ["data_apps", "shop"], "data_app.yaml"],
+      ["actions", ["actions"], "broken.yaml"],
+    ])("validates %s", (_, dirs, file) => {
       mkdirSync(join(workdir, ...dirs), { recursive: true });
-      writeFileSync(join(workdir, ...dirs, "broken.yaml"), "name: Broken\n");
+      writeFileSync(join(workdir, ...dirs, file), "name: Broken\n");
 
       const { failed, results } = validateSchema({ folder: workdir });
       expect(failed).toBe(1);
-      expect(results[0].file).toBe(join(...dirs, "broken.yaml"));
+      expect(results[0].file).toBe(join(...dirs, file));
     });
 
     describe("actions", () => {
