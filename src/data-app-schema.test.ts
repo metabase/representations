@@ -41,11 +41,16 @@ const validateManifest = ajv.compile(loadSchema("data_app.yaml"));
 // The example manifest in the spec's Data App section.
 const MANIFEST = {
   name: "Order Desk",
+  slug: "order-desk",
   description: "Review orders and apply discounts",
   version: 1,
   path: "./dist/index.js",
   collection: "dApPcOlLeCtIoN0ExAmP1",
+  entity_id: "dApPmAnIfEsT000ExAmP1",
   allowed_hosts: ["https://api.example.com"],
+  "serdes/meta": [
+    { model: "DataApp", id: "dApPmAnIfEsT000ExAmP1", label: "order-desk" },
+  ],
 };
 
 describe("data app manifest schema", () => {
@@ -55,8 +60,11 @@ describe("data app manifest schema", () => {
       "only the required fields",
       {
         name: "Order Desk",
+        slug: "order-desk",
+        entity_id: "dApPmAnIfEsT000ExAmP1",
         path: "dist/index.js",
         collection: "dApPcOlLeCtIoN0ExAmP1",
+        "serdes/meta": [{ model: "DataApp", id: "dApPmAnIfEsT000ExAmP1" }],
       },
     ],
     [
@@ -78,6 +86,21 @@ describe("data app manifest schema", () => {
   it.each([
     ["no name", without("name")],
     ["a blank name", { ...MANIFEST, name: "   " }],
+    ["no slug", without("slug")],
+    ["a slug with a capital letter", { ...MANIFEST, slug: "Order-desk" }],
+    ["a slug with an underscore", { ...MANIFEST, slug: "order_desk" }],
+    ["a slug with two dashes in a row", { ...MANIFEST, slug: "order--desk" }],
+    ["a slug of Metabase's own route", { ...MANIFEST, slug: "repo-status" }],
+    ["no entity_id", without("entity_id")],
+    ["an entity_id that isn't a NanoID", { ...MANIFEST, entity_id: "order" }],
+    ["no serdes/meta", without("serdes/meta")],
+    [
+      "serdes/meta of another model",
+      {
+        ...MANIFEST,
+        "serdes/meta": [{ model: "Collection", id: "dApPmAnIfEsT000ExAmP1" }],
+      },
+    ],
     ["no path", without("path")],
     [
       "a path leaving the app's directory",

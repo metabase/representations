@@ -127,7 +127,7 @@ jobs:
           APPS=$(curl -sf http://localhost:3000/api/apps -H "X-API-Key: $API_KEY")
           for DIR in examples/v1/data_apps/*/; do
             SLUG=$(basename "$DIR")
-            if ! echo "$APPS" | jq -e --arg slug "$SLUG" 'any(.[]; .name == $slug and .sync_error == null)' > /dev/null; then
+            if ! echo "$APPS" | jq -e --arg slug "$SLUG" 'any(.[]; .name == $slug and .resource_collection_id != null)' > /dev/null; then
               echo "$APPS" | jq --arg slug "$SLUG" '.[] | select(.name == $slug)'
               echo "Data app $SLUG did not sync"
               exit 1

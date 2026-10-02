@@ -2,19 +2,31 @@ $schema: https://json-schema.org/draft/2020-12/schema
 title: Data App manifest
 description: >
   The `data_app.yaml` at the root of a data app's directory,
-  `data_apps/<slug>/data_app.yaml`. The directory's name is the app's slug,
-  which this file can't check: lowercase letters, numbers, and single dashes
-  between them, and neither `repo-status` nor `sandbox-host`.
+  `data_apps/<slug>/data_app.yaml`: the app's own serialized entity, identified
+  by its `entity_id` like every other. Its `slug` must be the directory's name,
+  which this file can't check.
 type: object
 required:
   - name
+  - slug
+  - entity_id
   - path
   - collection
+  - serdes/meta
 properties:
   name:
     type: string
     description: Display name
     pattern: \S
+  slug:
+    type: string
+    description: >
+      The app's slug, used verbatim in its URL and as its directory's name:
+      lowercase letters and numbers separated by single dashes, and neither
+      `repo-status` nor `sandbox-host`, which collide with Metabase's own routes.
+    pattern: ^(?!(?:repo-status|sandbox-host)$)[a-z0-9]+(?:-[a-z0-9]+)*$
+  entity_id:
+    $ref: "common/id.yaml#/$defs/entity_id"
   description:
     type: [string, "null"]
     description: >
@@ -45,4 +57,24 @@ properties:
     items:
       type: string
       pattern: ^\s*[Hh][Tt][Tt][Pp][Ss]?://(?:\*\.)?[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*(?::[0-9]+)?/*\s*$
+  serdes/meta:
+    type: array
+    description: Identity path for serialization, a single `DataApp` entry
+    minItems: 1
+    maxItems: 1
+    items:
+      type: object
+      required:
+        - id
+        - model
+      properties:
+        id:
+          type: string
+          description: Entity identifier (matches entity_id)
+        label:
+          type: string
+          description: The app's slug
+        model:
+          type: string
+          const: DataApp
 additionalProperties: true

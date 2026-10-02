@@ -1,7 +1,13 @@
 name: Order Desk
+slug: order-desk
 description: Review orders and apply discounts
 version: 1
 path: ./dist/index.js
 collection: dApPcOlLeCtIoN0ExAmP1
+entity_id: dApPmAnIfEsT000ExAmP1
 allowed_hosts:
 - https://api.example.com
+serdes/meta:
+- model: DataApp
+  id: dApPmAnIfEsT000ExAmP1
+  label: order-desk
