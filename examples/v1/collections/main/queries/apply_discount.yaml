@@ -2,7 +2,7 @@ name: Apply discount
 entity_id: NJksetfXk2oh530o3RD_5
 creator_id: admin@example.com
 type: query
-model_id: 4eroqa4ZYl4WkNjP8XTvu
+collection_id: cOlQuErIeS0ExAmPlE2x1
 implicit: []
 query:
 - database_id: Sample Database
@@ -23,7 +23,6 @@ query:
             name: order_id
             id: 7d2f1c3e-9b8a-4e6d-8c5b-1a2b3c4d5e6f
             display-name: Order ID
-http: []
 parameters:
 - id: discount
   name: Discount

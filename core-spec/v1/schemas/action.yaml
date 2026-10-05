@@ -1,16 +1,16 @@
 $schema: https://json-schema.org/draft/2020-12/schema
 title: Action
 description: >
-  An action that writes to a database through a model card: an implicit action
-  creates, updates, or deletes the model's rows; a query action runs SQL; an
-  HTTP action calls a URL. Exactly one of `implicit`, `query`, and `http` holds
-  the action's definition, the one its `type` names.
+  An action that writes to a database. A query action runs parameterized SQL and
+  lives in a collection like a card. An implicit action creates, updates, or
+  deletes a row of a model card's table; it is deprecated, as is attaching any
+  action to a model. Exactly one of `implicit` and `query` holds the action's
+  definition, the one its `type` names.
 type: object
 required:
   - name
   - entity_id
   - type
-  - model_id
   - serdes/meta
 properties:
   name:
@@ -20,14 +20,26 @@ properties:
     $ref: "common/id.yaml#/$defs/entity_id"
   type:
     type: string
-    description: Which of `implicit`, `query`, or `http` defines the action
+    description: Which of `implicit` (deprecated) or `query` defines the action
     enum:
       - implicit
       - query
-      - http
+  collection_id:
+    description: >
+      Collection FK (entity_id); null for the root collection. An action with a
+      model is always in its model's collection.
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   model_id:
-    description: Card FK (entity_id) of the model the action belongs to
-    $ref: "common/id.yaml#/$defs/entity_id"
+    description: >
+      Deprecated. Card FK (entity_id) of the model the action is attached to,
+      kept only for actions made before actions had their own collection; an
+      implicit action needs one. Omit it, or leave it null, for a query action.
+    deprecated: true
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/entity_id" }
   creator_id:
     description: User FK (email)
     type: [string, "null"]
@@ -40,9 +52,13 @@ properties:
     type: boolean
     description: Whether archived
     default: false
+  archived_directly:
+    type: boolean
+    description: Whether the action itself was archived, rather than archived with its collection or model
+    default: false
   implicit:
     type: array
-    description: The implicit action's definition, when `type` is `implicit`; otherwise empty
+    description: The implicit action's definition, when `type` is `implicit` (deprecated); otherwise empty
     maxItems: 1
     items:
       type: object
@@ -72,23 +88,6 @@ properties:
         dataset_query:
           description: The native query the action runs, with its template tags
           $ref: "common/query.yaml"
-  http:
-    type: array
-    description: The HTTP action's definition, when `type` is `http`; otherwise empty
-    maxItems: 1
-    items:
-      type: object
-      properties:
-        template:
-          type: object
-          description: The request to send
-          additionalProperties: true
-        response_handle:
-          type: [string, "null"]
-          description: JSON query applied to the response
-        error_handle:
-          type: [string, "null"]
-          description: JSON query that extracts an error from the response
   parameters:
     type: array
     description: >
@@ -193,9 +192,9 @@ properties:
           const: Action
 allOf:
   - if: { properties: { type: { const: implicit } }, required: [type] }
-    then: { required: [implicit], properties: { implicit: { type: array, minItems: 1 } } }
+    then:
+      required: [implicit, model_id]
+      properties: { implicit: { type: array, minItems: 1 }, model_id: { type: string } }
   - if: { properties: { type: { const: query } }, required: [type] }
     then: { required: [query], properties: { query: { type: array, minItems: 1 } } }
-  - if: { properties: { type: { const: http } }, required: [type] }
-    then: { required: [http], properties: { http: { type: array, minItems: 1 } } }
 additionalProperties: true

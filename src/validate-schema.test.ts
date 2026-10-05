@@ -76,7 +76,10 @@ describe("validateSchema", () => {
     describe("actions", () => {
       const example = (file: string): Record<string, unknown> =>
         yaml.load(
-          readFileSync(join(EXAMPLES, "actions", file), "utf8"),
+          readFileSync(
+            join(EXAMPLES, "collections", "main", "queries", file),
+            "utf8",
+          ),
         ) as Record<string, unknown>; // Example actions are YAML maps.
 
       const validateAction = (action: Record<string, unknown>) => {
@@ -91,7 +94,11 @@ describe("validateSchema", () => {
       it.each([
         ["an unknown type", { ...example("create_order.yaml"), type: "magic" }],
         [
-          "no model",
+          "the removed http type",
+          { ...example("apply_discount.yaml"), type: "http" },
+        ],
+        [
+          "an implicit type but no model",
           (({ model_id: _modelId, ...action }) => action)(
             example("create_order.yaml"),
           ),
@@ -109,6 +116,23 @@ describe("validateSchema", () => {
         ],
       ])("rejects an action with %s", (_, action) => {
         expect(validateAction(action).failed).toBe(1);
+      });
+
+      it.each([
+        ["a query action without a model", example("apply_discount.yaml")],
+        [
+          "a query action with a null model",
+          { ...example("apply_discount.yaml"), model_id: null },
+        ],
+        [
+          "a query action still on a model",
+          {
+            ...example("apply_discount.yaml"),
+            model_id: "4eroqa4ZYl4WkNjP8XTvu",
+          },
+        ],
+      ])("accepts %s", (_, action) => {
+        expect(validateAction(action).failed).toBe(0);
       });
     });
 
