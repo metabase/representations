@@ -16,7 +16,7 @@ This repository contains the specification and examples for the Metabase Represe
 |--------|-------------|
 | Collection | Folder-like container for organizing content |
 | Card | Question, model, or metric — holds an MBQL or native query |
-| Action | Writes to a database through a model card — implicit (row create/update/delete), query (native SQL), or HTTP |
+| Action | A parameterized native SQL write in a collection; implicit row actions on a model are deprecated |
 | Dashboard | Grid layout of cards with filter parameters and tabs |
 | Segment | Saved filter definition scoped to a table |
 | Measure | Saved aggregation definition scoped to a table |

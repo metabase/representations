@@ -2,11 +2,11 @@ name: Create order
 entity_id: XgqYIEGPfvCklZUxOLp9m
 creator_id: admin@example.com
 type: implicit
+collection_id: cOlQuErIeS0ExAmPlE2x1
 model_id: 4eroqa4ZYl4WkNjP8XTvu
 implicit:
 - kind: row/create
 query: []
-http: []
 parameters: []
 parameter_mappings: []
 visualization_settings:
