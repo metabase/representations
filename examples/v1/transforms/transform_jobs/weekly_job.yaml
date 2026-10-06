@@ -8,10 +8,5 @@ job_tags:
 - entity_id: 8z4pmEOoTHEWITGUt1VmS
   position: 0
   tag_id: qPGCJu7t97kn-X07_fgSj
-  serdes/meta:
-  - id: 8z4pmEOoTHEWITGUt1VmS
-    model: TransformJobTransformTag
 serdes/meta:
-- id: lXIFa2SUrXLgaLZJx33oU
-  label: weekly_job
-  model: TransformJob
+- model: TransformJob

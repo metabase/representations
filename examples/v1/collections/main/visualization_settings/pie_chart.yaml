@@ -36,6 +36,4 @@ visualization_settings:
     Gizmo: "#F9CF48"
     Doohickey: "#ED6E6E"
 serdes/meta:
-- id: dYD1j3pQtJdctg8duByUL
-  label: pie_chart
-  model: Card
+- model: Card

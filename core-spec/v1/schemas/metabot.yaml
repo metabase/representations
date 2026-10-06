@@ -69,7 +69,7 @@ properties:
           description: Identity path including parent Metabot
           items:
             type: object
-            required: [id, model]
+            required: [model]
             properties:
               id: { type: string }
               model:
@@ -89,7 +89,6 @@ properties:
     items:
       type: object
       required:
-        - id
         - model
       properties:
         id:

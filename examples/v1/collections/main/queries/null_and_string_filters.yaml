@@ -165,6 +165,4 @@ dataset_query:
     limit: 20
 visualization_settings: {}
 serdes/meta:
-- id: ZvHEBpdFQ-VSvem16KCkL
-  label: null_and_string_filters
-  model: Card
+- model: Card

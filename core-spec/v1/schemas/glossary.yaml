@@ -12,7 +12,7 @@ properties:
     type: array
     items:
       type: object
-      required: [id, model]
+      required: [model]
       properties:
         id: { type: string }
         model: { type: string, const: Glossary }

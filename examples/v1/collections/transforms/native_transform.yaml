@@ -24,6 +24,4 @@ target:
   schema: TRANSFORMS
   name: product_revenue_report
 serdes/meta:
-- id: 7JwIkkAG-06-nsl4jzsaq
-  label: product_revenue_report
-  model: Transform
+- model: Transform

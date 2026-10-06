@@ -86,6 +86,4 @@ archived: false
 view_count: 42
 created_at: "2025-01-15T10:00:00Z"
 serdes/meta:
-  - id: dOc1PrOdAnAlYsIsRpTx2
-    label: product_analysis_report
-    model: Document
+- model: Document

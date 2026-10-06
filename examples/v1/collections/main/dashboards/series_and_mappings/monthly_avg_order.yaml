@@ -32,6 +32,4 @@ dataset_query:
         - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: dShCrdMnthlyAvgOr0003
-  label: monthly_avg_order
-  model: Card
+- model: Card

@@ -121,6 +121,4 @@ parameters:
 dashcards: []
 tabs: []
 serdes/meta:
-- id: thzuTON-F8WG6EcXTXrNK
-  label: all_parameter_types
-  model: Dashboard
+- model: Dashboard

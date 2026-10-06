@@ -94,6 +94,4 @@ dataset_query:
     limit: 12
 visualization_settings: {}
 serdes/meta:
-- id: h5F2EjHsRd73Dqqh8sAtd
-  label: basic_aggregations
-  model: Card
+- model: Card

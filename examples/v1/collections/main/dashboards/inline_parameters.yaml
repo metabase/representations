@@ -30,11 +30,6 @@ dashcards:
     virtual_card:
       display: heading
     "text": "Products in {{category}}"
-  serdes/meta:
-  - id: eUXWiB6QAXkOc7P1ozoat
-    model: Dashboard
-  - id: yaY0FfjZyI9oEQQR5TZ3q
-    model: DashboardCard
 - entity_id: v29EoQMk66PPR6a68pe_S
   card_id: null
   row: 1
@@ -52,11 +47,6 @@ dashcards:
     text: |-
       Showing products in the **{{category}}** category
       with price above **{{min_price}}**.
-  serdes/meta:
-  - id: eUXWiB6QAXkOc7P1ozoat
-    model: Dashboard
-  - id: v29EoQMk66PPR6a68pe_S
-    model: DashboardCard
 - entity_id: _5CQR0-k5mgaLOemB5EOl
   card_id: h5F2EjHsRd73Dqqh8sAtd
   row: 3
@@ -86,12 +76,5 @@ dashcards:
       - null
   series: []
   visualization_settings: {}
-  serdes/meta:
-  - id: eUXWiB6QAXkOc7P1ozoat
-    model: Dashboard
-  - id: _5CQR0-k5mgaLOemB5EOl
-    model: DashboardCard
 serdes/meta:
-- id: eUXWiB6QAXkOc7P1ozoat
-  label: inline_parameters
-  model: Dashboard
+- model: Dashboard

@@ -78,6 +78,4 @@ dataset_query:
           - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: irROiaJoSsiXPKGxwWvWY
-  label: conditional_aggregations
-  model: Card
+- model: Card

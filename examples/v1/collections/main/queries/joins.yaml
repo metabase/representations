@@ -115,6 +115,4 @@ dataset_query:
     limit: 10
 visualization_settings: {}
 serdes/meta:
-- id: wpW9JO5MsHQd0-7WrR7gN
-  label: joins
-  model: Card
+- model: Card

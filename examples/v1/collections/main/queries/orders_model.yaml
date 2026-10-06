@@ -15,6 +15,4 @@ dataset_query:
       - ORDERS
 visualization_settings: {}
 serdes/meta:
-- id: 4eroqa4ZYl4WkNjP8XTvu
-  label: orders_model
-  model: Card
+- model: Card

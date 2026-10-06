@@ -61,6 +61,4 @@ definition:
           - EAN
       - "0"
 serdes/meta:
-- id: yZptbJRR3S8L9S9r0ZF8M
-  label: searchable_products
-  model: Segment
+- model: Segment

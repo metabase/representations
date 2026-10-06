@@ -54,6 +54,4 @@ visualization_settings:
       "line.marker_enabled": true
       show_series_values: true
 serdes/meta:
-- id: UEWVldEEZ-3sYUjjN54qz
-  label: line_chart
-  model: Card
+- model: Card

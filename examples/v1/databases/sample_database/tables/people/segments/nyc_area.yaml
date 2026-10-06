@@ -35,6 +35,4 @@ definition:
       - 40.49
       - -73.70
 serdes/meta:
-- id: D2R9JpvI8sMfYWqfPsTkx
-  label: nyc_area
-  model: Segment
+- model: Segment

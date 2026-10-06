@@ -71,6 +71,4 @@ visualization_settings:
       decimals: 1
       suffix: " / 5"
 serdes/meta:
-- id: Wo5d6IV8lb63wex29uh6H
-  label: table_formatted
-  model: Card
+- model: Card

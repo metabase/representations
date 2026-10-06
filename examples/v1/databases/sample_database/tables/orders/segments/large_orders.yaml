@@ -25,6 +25,4 @@ definition:
           - TOTAL
       - 50
 serdes/meta:
-- id: OaFXAvEzPvu9ZXW5PUMRa
-  label: large_orders
-  model: Segment
+- model: Segment

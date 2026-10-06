@@ -24,6 +24,4 @@ definition:
           - ORDERS
           - TOTAL
 serdes/meta:
-- id: d4G5fMj5smJ17Nd0dvE2A
-  label: median_order_total
-  model: Measure
+- model: Measure

@@ -51,7 +51,6 @@ properties:
     items:
       type: object
       required:
-        - id
         - model
       properties:
         id:

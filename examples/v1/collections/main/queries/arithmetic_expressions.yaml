@@ -114,6 +114,4 @@ dataset_query:
           - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: 1O_2jSo2fD6m3Qr6My7aa
-  label: arithmetic_expressions
-  model: Card
+- model: Card

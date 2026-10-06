@@ -158,6 +158,4 @@ dataset_query:
       limit: 10
 visualization_settings: {}
 serdes/meta:
-- id: bDK7jyPszEHzHh4aG4_SV
-  label: temporal_extraction
-  model: Card
+- model: Card

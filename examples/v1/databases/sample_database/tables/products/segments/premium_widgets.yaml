@@ -29,6 +29,4 @@ definition:
           - PRICE
       - 50
 serdes/meta:
-- id: 2hxhoN3HrQJIaWc5umpBn
-  label: premium_widgets
-  model: Segment
+- model: Segment

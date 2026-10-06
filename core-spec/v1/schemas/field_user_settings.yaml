@@ -5,11 +5,14 @@ type: object
 required:
   - serdes/meta
 properties:
+  field_id:
+    description: The Field these settings belong to
+    $ref: "common/id.yaml#/$defs/field_id"
   serdes/meta:
     type: array
     items:
       type: object
-      required: [id, model]
+      required: [model]
       properties:
         id: { type: string }
         model: { type: string, enum: [Database, Schema, Table, Field, FieldUserSettings] }

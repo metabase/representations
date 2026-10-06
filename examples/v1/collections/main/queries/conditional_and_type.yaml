@@ -98,6 +98,4 @@ dataset_query:
       limit: 10
 visualization_settings: {}
 serdes/meta:
-- id: 1hsUzNOepulZo3Jamzd1R
-  label: conditional_and_type
-  model: Card
+- model: Card

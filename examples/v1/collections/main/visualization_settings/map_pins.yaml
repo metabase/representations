@@ -22,6 +22,4 @@ visualization_settings:
   "map.center_latitude": 39.5
   "map.center_longitude": -98.35
 serdes/meta:
-- id: CI61cHgBAKPBEDTxhK8X3
-  label: map_pins
-  model: Card
+- model: Card

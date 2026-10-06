@@ -37,6 +37,4 @@ visualization_settings:
     color: "#84BB4C"
     label: High
 serdes/meta:
-- id: GWrIQqjbzxysSCm8PLU5j
-  label: gauge
-  model: Card
+- model: Card

@@ -48,6 +48,4 @@ dataset_query:
     limit: 20
 visualization_settings: {}
 serdes/meta:
-- id: 1t9TE-8T-AlaM19nx3yQV
-  label: nested_query
-  model: Card
+- model: Card

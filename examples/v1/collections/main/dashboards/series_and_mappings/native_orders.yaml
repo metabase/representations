@@ -22,6 +22,4 @@ dataset_query:
         default: 50
 visualization_settings: {}
 serdes/meta:
-- id: dShCrdNatveOrders0005
-  label: native_orders
-  model: Card
+- model: Card

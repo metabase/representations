@@ -26,6 +26,4 @@ dataset_query:
           - TOTAL
 visualization_settings: {}
 serdes/meta:
-- id: dShCrdTtlRevScalr0006
-  label: total_revenue_scalar
-  model: Card
+- model: Card
