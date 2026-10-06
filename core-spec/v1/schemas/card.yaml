@@ -145,8 +145,8 @@ properties:
     description: Embedding type
     enum:
       - null
-      - sdk
-      - standalone
+      - static-legacy
+      - guest-embed
   public_uuid:
     type:
       - string
