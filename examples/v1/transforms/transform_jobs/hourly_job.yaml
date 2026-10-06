@@ -8,10 +8,5 @@ job_tags:
 - entity_id: tWgmgAsuA38x_QGe_N1z8
   position: 0
   tag_id: wYLcUPbtF7jVPO0duGGHR
-  serdes/meta:
-  - id: tWgmgAsuA38x_QGe_N1z8
-    model: TransformJobTransformTag
 serdes/meta:
-- id: RognTgBT2fXaxoQh4ws7z
-  label: hourly_job
-  model: TransformJob
+- model: TransformJob

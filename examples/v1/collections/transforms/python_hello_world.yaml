@@ -19,6 +19,4 @@ target:
   schema: TRANSFORMS
   name: hello_world
 serdes/meta:
-- id: g2cRYwopfoL1BW9Y4n3wb
-  label: python_hello_world
-  model: Transform
+- model: Transform

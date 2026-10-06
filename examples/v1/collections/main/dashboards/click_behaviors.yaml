@@ -28,11 +28,6 @@ dashcards:
       - null
   series: []
   visualization_settings: {}
-  serdes/meta:
-  - id: c0R_gvn90vURE5hdxK3f0
-    model: Dashboard
-  - id: qaAe9ro4JL3ahgLLne-jG
-    model: DashboardCard
 - entity_id: iMNmMMABHvbbiVT3ufez6
   card_id: UEWVldEEZ-3sYUjjN54qz
   row: 0
@@ -42,11 +37,6 @@ dashcards:
   parameter_mappings: []
   series: []
   visualization_settings: {}
-  serdes/meta:
-  - id: c0R_gvn90vURE5hdxK3f0
-    model: Dashboard
-  - id: iMNmMMABHvbbiVT3ufez6
-    model: DashboardCard
 - entity_id: RasgF0LvnoJlu7ModLrqv
   card_id: dYD1j3pQtJdctg8duByUL
   row: 9
@@ -56,11 +46,6 @@ dashcards:
   parameter_mappings: []
   series: []
   visualization_settings: {}
-  serdes/meta:
-  - id: c0R_gvn90vURE5hdxK3f0
-    model: Dashboard
-  - id: RasgF0LvnoJlu7ModLrqv
-    model: DashboardCard
 - entity_id: NSyK1LJldomowKbt0HpuE
   card_id: ciG63nSLHKRTImt5iWEte
   row: 9
@@ -70,12 +55,5 @@ dashcards:
   parameter_mappings: []
   series: []
   visualization_settings: {}
-  serdes/meta:
-  - id: c0R_gvn90vURE5hdxK3f0
-    model: Dashboard
-  - id: NSyK1LJldomowKbt0HpuE
-    model: DashboardCard
 serdes/meta:
-- id: c0R_gvn90vURE5hdxK3f0
-  label: click_behaviors
-  model: Dashboard
+- model: Dashboard

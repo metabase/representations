@@ -25,6 +25,4 @@ definition:
           - ORDERS
           - TOTAL
 serdes/meta:
-- id: dc8eiyLh9S0IKwV_UuvTz
-  label: avg_revenue_per_order
-  model: Measure
+- model: Measure

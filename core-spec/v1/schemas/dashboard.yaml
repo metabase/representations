@@ -147,7 +147,6 @@ properties:
     items:
       type: object
       required:
-        - id
         - model
       properties:
         id:
@@ -172,7 +171,6 @@ $defs:
       - col
       - size_x
       - size_y
-      - serdes/meta
     properties:
       entity_id:
         $ref: "common/id.yaml#/$defs/entity_id"
@@ -240,7 +238,6 @@ $defs:
         items:
           type: object
           required:
-            - id
             - model
           properties:
             id:

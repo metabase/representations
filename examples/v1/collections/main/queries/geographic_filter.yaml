@@ -34,6 +34,4 @@ dataset_query:
         - -73.9
 visualization_settings: {}
 serdes/meta:
-- id: bK64P6yr9_Nx-A8S3PqOZ
-  label: geographic_filter
-  model: Card
+- model: Card

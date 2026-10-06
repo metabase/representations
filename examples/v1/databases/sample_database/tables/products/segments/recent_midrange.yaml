@@ -55,6 +55,4 @@ definition:
             - PRODUCTS
             - VENDOR
 serdes/meta:
-- id: wdYkSSArR5ymVGa0pvb47
-  label: recent_midrange
-  model: Segment
+- model: Segment

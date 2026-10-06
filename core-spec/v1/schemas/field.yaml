@@ -86,7 +86,7 @@ properties:
       Table, and one or more Field entries (for nested fields).
     items:
       type: object
-      required: [id, model]
+      required: [model]
       properties:
         id:
           type: string

@@ -32,6 +32,4 @@ dataset_query:
         - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: dShCrdMnthlyRevnu0002
-  label: monthly_revenue
-  model: Card
+- model: Card

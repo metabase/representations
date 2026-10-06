@@ -16,6 +16,4 @@ dataset_query:
     - PRODUCTS
 visualization_settings: {}
 serdes/meta:
-- id: dShCrdProdsTables0007
-  label: products_table
-  model: Card
+- model: Card

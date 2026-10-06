@@ -35,6 +35,4 @@ visualization_settings:
   "waterfall.total_color": "#509EE3"
   "waterfall.show_total": true
 serdes/meta:
-- id: kJWYpTzyc9ow-75HjyIhf
-  label: waterfall
-  model: Card
+- model: Card

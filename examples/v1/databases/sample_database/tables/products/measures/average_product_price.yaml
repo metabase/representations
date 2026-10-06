@@ -24,6 +24,4 @@ definition:
           - PRODUCTS
           - PRICE
 serdes/meta:
-- id: mSrAvgProdPrice00008x
-  label: average_product_price
-  model: Measure
+- model: Measure

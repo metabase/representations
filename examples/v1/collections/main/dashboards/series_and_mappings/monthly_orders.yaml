@@ -26,6 +26,4 @@ dataset_query:
         - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: dShCrdMnthlyOrdrs0001
-  label: monthly_orders
-  model: Card
+- model: Card

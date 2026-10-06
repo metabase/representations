@@ -56,6 +56,4 @@ dataset_query:
             - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: sk02d7sPWAk2TYH2Y7JhZ
-  label: native_field_filter
-  model: Card
+- model: Card

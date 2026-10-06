@@ -28,6 +28,4 @@ visualization_settings:
   "funnel.metric": count
   "funnel.type": funnel
 serdes/meta:
-- id: mkKa6jf-QsuCRnaPOIsYh
-  label: funnel
-  model: Card
+- model: Card

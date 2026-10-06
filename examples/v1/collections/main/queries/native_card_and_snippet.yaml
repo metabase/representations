@@ -29,6 +29,4 @@ dataset_query:
           snippet-id: WyQWnT23PF-SfbYLROllJ
 visualization_settings: {}
 serdes/meta:
-- id: HiBFSt0BNx5s5MxVDLLKB
-  label: native_card_and_snippet
-  model: Card
+- model: Card

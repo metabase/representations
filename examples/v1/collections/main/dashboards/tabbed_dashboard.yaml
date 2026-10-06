@@ -42,11 +42,6 @@ dashcards:
       - null
   series: []
   visualization_settings: {}
-  serdes/meta:
-  - id: 7RZUq1g5o1C5ws_e3ppKf
-    model: Dashboard
-  - id: _Bv8Qc16SHr8CtmMHBEub
-    model: DashboardCard
 - entity_id: uyqXk5DNhkAMTp4W1TD9-
   card_id: dShCrdProdsTables0007
   dashboard_tab_id:
@@ -59,12 +54,5 @@ dashcards:
   parameter_mappings: []
   series: []
   visualization_settings: {}
-  serdes/meta:
-  - id: 7RZUq1g5o1C5ws_e3ppKf
-    model: Dashboard
-  - id: uyqXk5DNhkAMTp4W1TD9-
-    model: DashboardCard
 serdes/meta:
-- id: 7RZUq1g5o1C5ws_e3ppKf
-  label: tabbed_dashboard
-  model: Dashboard
+- model: Dashboard

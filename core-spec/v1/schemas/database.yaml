@@ -24,7 +24,7 @@ properties:
     description: Identity path for serialization
     items:
       type: object
-      required: [id, model]
+      required: [model]
       properties:
         id:
           type: string

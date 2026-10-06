@@ -43,6 +43,4 @@ dataset_query:
           default: true
 visualization_settings: {}
 serdes/meta:
-- id: 2u10n8GV6u0LFYrq8yV5p
-  label: native_variables
-  model: Card
+- model: Card

@@ -96,6 +96,4 @@ dataset_query:
     limit: 20
 visualization_settings: {}
 serdes/meta:
-- id: 8kTL-8IzNdWMtXfaMPZaE
-  label: comparison_filters
-  model: Card
+- model: Card

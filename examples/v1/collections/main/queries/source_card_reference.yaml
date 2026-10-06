@@ -25,6 +25,4 @@ dataset_query:
         - count
 visualization_settings: {}
 serdes/meta:
-- id: gt4OaWYAuDWRHn5Irnd4h
-  label: source_card_reference
-  model: Card
+- model: Card

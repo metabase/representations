@@ -65,6 +65,4 @@ dataset_query:
           - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: x61UtCMCuBNjw0TEFQeWG
-  label: cumulative_and_statistical
-  model: Card
+- model: Card

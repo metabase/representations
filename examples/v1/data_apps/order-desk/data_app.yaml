@@ -9,5 +9,3 @@ allowed_hosts:
 - https://api.example.com
 serdes/meta:
 - model: DataApp
-  id: dApPmAnIfEsT000ExAmP1
-  label: order-desk

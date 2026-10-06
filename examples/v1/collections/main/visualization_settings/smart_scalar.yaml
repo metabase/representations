@@ -47,6 +47,4 @@ visualization_settings:
       currency: USD
       currency_style: symbol
 serdes/meta:
-- id: bSj47tilPIkwDIewvMf8z
-  label: smart_scalar
-  model: Card
+- model: Card

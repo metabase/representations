@@ -136,6 +136,48 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("serdes/meta", () => {
+      const collection = {
+        name: "Reports",
+        entity_id: "cOlRePorTs000ExAmPlx2",
+      };
+
+      it.each([
+        ["only the model", [{ model: "Collection" }]],
+        [
+          "the full identity path of older exports",
+          [
+            {
+              id: "cOlRePorTs000ExAmPlx2",
+              label: "reports",
+              model: "Collection",
+            },
+          ],
+        ],
+      ])("accepts %s", (_, serdesMeta) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "reports.yaml"),
+          yaml.dump({ ...collection, "serdes/meta": serdesMeta }),
+        );
+
+        expect(validateSchema({ folder: workdir }).failed).toBe(0);
+      });
+
+      it("rejects an entry without a model", () => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "reports.yaml"),
+          yaml.dump({
+            ...collection,
+            "serdes/meta": [{ model: "Collection" }, { id: "x" }],
+          }),
+        );
+
+        expect(validateSchema({ folder: workdir }).failed).toBe(1);
+      });
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(

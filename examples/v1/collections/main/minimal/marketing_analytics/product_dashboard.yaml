@@ -28,12 +28,5 @@ dashcards:
         - PRODUCTS
         - CATEGORY
       - null
-  serdes/meta:
-  - id: Q_jD-f-9clKLFZ2TfUG2h
-    model: Dashboard
-  - id: UkpFcfUZMZt9ehChwnrAO
-    model: DashboardCard
 serdes/meta:
-- id: Q_jD-f-9clKLFZ2TfUG2h
-  label: product_dashboard
-  model: Dashboard
+- model: Dashboard

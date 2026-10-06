@@ -42,6 +42,4 @@ dataset_query:
         - CREATED_AT
 visualization_settings: {}
 serdes/meta:
-- id: ErQY8K5Tep4xBc3VY_-1e
-  label: window_offset
-  model: Card
+- model: Card

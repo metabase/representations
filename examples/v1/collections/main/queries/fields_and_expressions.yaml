@@ -53,6 +53,4 @@ dataset_query:
     limit: 100
 visualization_settings: {}
 serdes/meta:
-- id: fLdExPr3sS10nS0ExAmPl
-  label: fields_and_expressions
-  model: Card
+- model: Card

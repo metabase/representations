@@ -110,6 +110,4 @@ dataset_query:
       limit: 10
 visualization_settings: {}
 serdes/meta:
-- id: HeLFZSVb4Jm25p4tWfVP9
-  label: string_functions
-  model: Card
+- model: Card

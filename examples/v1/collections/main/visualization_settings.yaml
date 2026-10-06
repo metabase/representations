@@ -5,6 +5,4 @@ parent_id: null
 namespace: null
 authority_level: null
 serdes/meta:
-  - id: cOlViZsEtTiNgS0ExAmP1
-    label: visualization_settings
-    model: Collection
+- model: Collection

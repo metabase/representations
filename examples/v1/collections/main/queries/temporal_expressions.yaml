@@ -84,6 +84,4 @@ dataset_query:
       limit: 10
 visualization_settings: {}
 serdes/meta:
-- id: DBBrqcMAmOO0sbM_CzM_Z
-  label: temporal_expressions
-  model: Card
+- model: Card

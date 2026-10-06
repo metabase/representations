@@ -8,6 +8,9 @@ required:
   - values
   - serdes/meta
 properties:
+  field_id:
+    description: The Field these values belong to
+    $ref: "common/id.yaml#/$defs/field_id"
   values:
     type: array
     description: List of distinct field values
@@ -49,7 +52,7 @@ properties:
       Table, Field, and FieldValues entries.
     items:
       type: object
-      required: [id, model]
+      required: [model]
       properties:
         id:
           type: string

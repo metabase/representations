@@ -43,6 +43,4 @@ parameters:
     - order_id
 parameter_mappings: []
 serdes/meta:
-- id: NJksetfXk2oh530o3RD_5
-  label: apply_discount
-  model: Action
+- model: Action

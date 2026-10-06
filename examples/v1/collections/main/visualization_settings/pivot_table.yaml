@@ -77,6 +77,4 @@ visualization_settings:
       currency_style: symbol
       decimals: 0
 serdes/meta:
-- id: BjwHr6elEuKQuL26BEgno
-  label: pivot_table
-  model: Card
+- model: Card

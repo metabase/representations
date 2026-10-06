@@ -85,6 +85,4 @@ dataset_query:
       limit: 10
 visualization_settings: {}
 serdes/meta:
-- id: jPrM-oh3r1BR42xSs4Ipj
-  label: math_functions
-  model: Card
+- model: Card

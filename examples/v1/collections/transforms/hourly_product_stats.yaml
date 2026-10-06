@@ -40,10 +40,5 @@ tags:
 - entity_id: T3caSScVNDqFF8Q-EsM84
   position: 0
   tag_id: wYLcUPbtF7jVPO0duGGHR
-  serdes/meta:
-  - id: T3caSScVNDqFF8Q-EsM84
-    model: TransformTransformTag
 serdes/meta:
-- id: aWiR53tfmHEibiFGuIQeP
-  label: hourly_product_stats
-  model: Transform
+- model: Transform

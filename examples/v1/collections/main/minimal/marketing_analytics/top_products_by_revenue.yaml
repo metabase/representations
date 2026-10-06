@@ -28,6 +28,4 @@ dataset_query:
           default: Widget
 visualization_settings: {}
 serdes/meta:
-- id: FTxpeL9vY5pyb6Lc6lCDK
-  label: top_products_by_revenue
-  model: Card
+- model: Card

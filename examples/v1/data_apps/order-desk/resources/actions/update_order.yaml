@@ -43,6 +43,4 @@ parameters:
     - order_id
 parameter_mappings: []
 serdes/meta:
-- id: dApPaCtIoNcOpYExAmP12
-  label: update_order
-  model: Action
+- model: Action

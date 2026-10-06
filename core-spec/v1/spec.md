@@ -72,7 +72,14 @@ For JSON-unfolded fields, the Field FK extends beyond 4 elements with the nested
 
 ### SerDes Meta
 
-Every entity includes a `serdes/meta` array that encodes the entity's identity path. Each entry contains an `id` and `model` field. Entities identified by NanoID also include a `label` (slugified name).
+Every entity includes a `serdes/meta` array with a single entry naming its `model`. Metabase derives the entity's identity from its own fields, such as `entity_id`, or `name` and `table_id` for a Field. Entities nested inside another entity's file, such as dashboard cards, don't include `serdes/meta`.
+
+```yaml
+serdes/meta:
+- model: Card
+```
+
+Older exports store the entity's full identity path instead, with an `id` (and an optional `label`) on each entry. Metabase still imports that form.
 
 ```yaml
 serdes/meta:
@@ -2222,9 +2229,7 @@ name: Minimal
 entity_id: cOlMiNiMaL000ExAmPlx2
 slug: minimal
 serdes/meta:
-- id: cOlMiNiMaL000ExAmPlx2
-  label: minimal
-  model: Collection
+- model: Collection
 ```
 
 **Subcollection** (with `parent_id`):
@@ -2234,9 +2239,7 @@ name: Reports
 entity_id: cOlRePorTs000ExAmPlx2
 parent_id: cOlMiNiMaL000ExAmPlx2
 serdes/meta:
-- id: cOlRePorTs000ExAmPlx2
-  label: reports
-  model: Collection
+- model: Collection
 ```
 
 ---
@@ -2308,9 +2311,7 @@ collection_id: M-Q4pcV0qkiyJ0kiSWECl
 parameters: []
 parameter_mappings: []
 serdes/meta:
-- id: f1C68pznmrpN1F5xFDj6d
-  label: products_question
-  model: Card
+- model: Card
 ```
 
 ---
@@ -2405,9 +2406,7 @@ parameters:
     - order_id
 parameter_mappings: []
 serdes/meta:
-- id: NJksetfXk2oh530o3RD_5
-  label: apply_discount
-  model: Action
+- model: Action
 ```
 
 **Implicit action** (deprecated; `collections/main/queries/create_order.yaml`):
@@ -2433,9 +2432,7 @@ visualization_settings:
       id: QUANTITY
       defaultValue: 1
 serdes/meta:
-- id: XgqYIEGPfvCklZUxOLp9m
-  label: create_order
-  model: Action
+- model: Action
 ```
 
 ---
@@ -2594,15 +2591,8 @@ dashcards:
   - card_id: OMuZ0wHe2O5Z_59-cLmn4
     position: 0
   visualization_settings: {}
-  serdes/meta:
-  - id: Q_jD-f-9clKLFZ2TfUG2h
-    model: Dashboard
-  - id: UkpFcfUZMZt9ehChwnrAO
-    model: DashboardCard
 serdes/meta:
-- id: Q_jD-f-9clKLFZ2TfUG2h
-  label: orders_overview
-  model: Dashboard
+- model: Dashboard
 ```
 
 ---
@@ -2745,9 +2735,7 @@ document:
 content_type: "application/json+vnd.prose-mirror"
 collection_id: null
 serdes/meta:
-- id: dOc1PrOdAnAlYsIsRpTx2
-  label: product_analysis_report
-  model: Document
+- model: Document
 ```
 
 ---
@@ -2800,9 +2788,7 @@ definition:
           - CATEGORY
       - Widget
 serdes/meta:
-- id: aB3kLmN9pQrStUvWxYz1a
-  label: widget_products
-  model: Segment
+- model: Segment
 ```
 
 ---
@@ -2854,9 +2840,7 @@ definition:
           - ORDERS
           - TOTAL
 serdes/meta:
-- id: xK7mPqR2sT4uVwXyZ9a1b
-  label: total_revenue
-  model: Measure
+- model: Measure
 ```
 
 ---
@@ -2892,9 +2876,7 @@ archived: false
 collection_id: Y6d4QwJgGKw-X1tRh3ir2
 template_tags: {}
 serdes/meta:
-- id: xK7mPqR2sT4uVwXyZ9a1b
-  label: active_order_filter
-  model: NativeQuerySnippet
+- model: NativeQuerySnippet
 ```
 
 ---
@@ -2990,9 +2972,6 @@ tags:
 - entity_id: TUtH6I5SqautNtUZoZ6Ti
   position: 0
   tag_id: hourlyhourlyhourlyxxx        # entity_id of the TransformTag
-  serdes/meta:
-  - id: TUtH6I5SqautNtUZoZ6Ti
-    model: TransformTransformTag
 ```
 
 ### TransformTag
@@ -3037,9 +3016,6 @@ job_tags:
 - entity_id: BPhRX8sTqcG5tZrXKeQuP
   position: 0
   tag_id: mXacguzCHQ5bBhqQPt3kd        # entity_id of the "daily" tag
-  serdes/meta:
-  - id: BPhRX8sTqcG5tZrXKeQuP
-    model: TransformJobTransformTag
 ```
 
 A job can reference multiple tags. Transforms tagged with any of the job's tags will be executed when the job runs.
@@ -3081,9 +3057,7 @@ target:
   name: product_summary
 collection_id: M-Q4pcV0qkiyJ0kiSWECl
 serdes/meta:
-- id: rT5vWxYz1aBcDeFgHiJkL
-  label: product_summary
-  model: Transform
+- model: Transform
 ```
 
 ---
@@ -3155,8 +3129,6 @@ allowed_hosts:
 - https://api.example.com
 serdes/meta:
 - model: DataApp
-  id: dApPmAnIfEsT000ExAmP1
-  label: order-desk
 ```
 
 **`resources/collection.yaml`:**
@@ -3165,9 +3137,7 @@ serdes/meta:
 name: "Data App: Order Desk"
 entity_id: dApPcOlLeCtIoN0ExAmP1
 serdes/meta:
-- id: dApPcOlLeCtIoN0ExAmP1
-  label: data_app_order_desk
-  model: Collection
+- model: Collection
 ```
 
 **`resources/cards/open_orders.yaml`** — a saved question the app queries:
@@ -3191,9 +3161,7 @@ dataset_query:
     limit: 100
 visualization_settings: {}
 serdes/meta:
-- id: dApPqUeStIoN00ExAmP12
-  label: open_orders
-  model: Card
+- model: Card
 ```
 
 **`resources/actions/update_order.yaml`** — the app's copy of a query action it runs:
@@ -3244,9 +3212,7 @@ parameters:
     - order_id
 parameter_mappings: []
 serdes/meta:
-- id: dApPaCtIoNcOpYExAmP12
-  label: update_order
-  model: Action
+- model: Action
 ```
 
 ---

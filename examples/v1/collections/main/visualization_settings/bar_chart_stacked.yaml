@@ -63,6 +63,4 @@ visualization_settings:
   "graph.max_categories": 4
   "graph.other_category_aggregation_fn": sum
 serdes/meta:
-- id: ciG63nSLHKRTImt5iWEte
-  label: bar_chart_stacked
-  model: Card
+- model: Card

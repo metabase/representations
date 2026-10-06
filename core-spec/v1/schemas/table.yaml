@@ -41,7 +41,7 @@ properties:
       and Table entries.
     items:
       type: object
-      required: [id, model]
+      required: [model]
       properties:
         id:
           type: string
