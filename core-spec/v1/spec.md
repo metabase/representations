@@ -96,7 +96,7 @@ serdes/meta:
 
 Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (only `segments/` and `measures/` subdirectories), `python_libraries/` (also accepted as `python-libraries/`), and `transforms/`, plus each data app's `data_apps/<slug>/data_app.yaml`. Files outside these directories are ignored during import.
 
-Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, `transforms` holds transform entities, and `data_apps` holds the collections of data apps (see Data App). Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
+Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, `transforms` holds transform entities, and `data_apps` holds the `data-apps` namespace, the collections of data apps (see Data App). Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
 ```
 export-root/
@@ -2216,7 +2216,7 @@ A collection is a folder-like container for organizing cards, dashboards, and ot
 | `archived` | boolean | No | Whether archived (default: `false`) |
 | `archived_directly` | boolean | No | Archived directly vs. inherited |
 | `type` | string | No | `null` or `"instance-analytics"` |
-| `namespace` | string | No | `null`, `"transforms"`, `"snippets"`, or `"data-apps"` |
+| `namespace` | string | No | `null`, `"transforms"`, `"snippets"`, `"data-apps"`, `"shared-tenant-collection"`, or `"tenant-specific"` |
 | `authority_level` | string | No | `null` or `"official"` |
 | `parent_id` | string | No | Collection FK (entity_id of parent). **Must** be set for subcollections; `null`/omitted = root-level collection |
 | `personal_owner_id` | string | No | User FK (email) for personal collections |
@@ -3108,14 +3108,14 @@ collections/
 The app's resources are what it reads and runs: a saved question for each query it makes, and copies of the metrics and query actions those use. They are copies because the app's viewers are granted access to the app's collection only. Each file is an ordinary [Collection](#collection), [Card](#card), or [Action](#action), loaded like any other entity file in the repository, with these constraints, which a pull checks before it loads anything:
 
 - **Every file** holds a single entity whose `serdes/meta` id is its `entity_id`, and no `entity_id` is defined by more than one file, nor by the files of two apps. An `entity_id` that already belongs to another app's collection, or to a card or action outside the app's collection, can't be used: a load would take that entity over.
-- **The collection** the manifest names has `namespace: data-apps` and is a root collection: no `parent_id`, `type`, `authority_level`, `personal_owner_id`, or `archive_operation_id`, and not `is_remote_synced`, `is_sample`, or archived. Two apps can't name one collection.
+- **The collection** the manifest names has `namespace: data-apps` and is a root collection: no `parent_id`, `type`, `authority_level`, `personal_owner_id`, or `archive_operation_id`, and not `is_remote_synced`, `is_sample`, or archived. Two apps can't name one collection. It holds only cards and actions: a collection with it as `parent_id`, or a dashboard or document in it, fails the pull.
 - **Cards** in it name their `creator_id`, are a `question` or `metric` with a `dataset_query`, and are not archived, not in a dashboard or document, and not public or embedded.
 - **Actions** in it name their `creator_id`; are `query` actions that belong to no model; carry exactly the one nested record their `type` uses; and are not archived, not public, and take no parameter values from a card.
 - **References** outside the app's collection may point only at databases, tables, fields, snippets, segments, and measures, all of which must already exist on the instance or load in the same pull. A card, collection, or dashboard outside the app cannot be referenced: a question or metric that reads another card must use the app's own copy of it.
 
 The app's collection is remote-synced content like the rest of the repository: a pull loads the files that changed, deletes a card or action whose file is gone, and puts back what was changed in Metabase; an export writes the collection and what it holds under `collections/data_apps/`, like any collection of a namespace. A file that breaks these rules fails the pull, naming the file, as any other invalid entity file does.
 
-Deleting an app means deleting its directory and its collection's files in one commit: the pull deletes the app, and with it its collection and everything in it. A collection file left behind is loaded back as a collection no app owns.
+Deleting an app means deleting its directory and its collection's files in one commit: the pull deletes the app, and with it its collection and everything in it. A pull that finds the collection's files without the app's directory refuses them, naming each file.
 
 ### Example
 
@@ -3142,9 +3142,7 @@ name: "Data App: Order Desk"
 namespace: data-apps
 entity_id: dApPcOlLeCtIoN0ExAmP1
 serdes/meta:
-- id: dApPcOlLeCtIoN0ExAmP1
-  label: data_app__order_desk
-  model: Collection
+- model: Collection
 ```
 
 **`collections/data_apps/data_app__order_desk/open_orders.yaml`** — a saved question the app queries:
