@@ -2216,7 +2216,7 @@ A collection is a folder-like container for organizing cards, dashboards, and ot
 | `archived` | boolean | No | Whether archived (default: `false`) |
 | `archived_directly` | boolean | No | Archived directly vs. inherited |
 | `type` | string | No | `null` or `"instance-analytics"` |
-| `namespace` | string | No | `null`, `"transforms"`, or `"snippets"` |
+| `namespace` | string | No | `null`, `"transforms"`, `"snippets"`, or `"data-apps"` |
 | `authority_level` | string | No | `null` or `"official"` |
 | `parent_id` | string | No | Collection FK (entity_id of parent). **Must** be set for subcollections; `null`/omitted = root-level collection |
 | `personal_owner_id` | string | No | User FK (email) for personal collections |
