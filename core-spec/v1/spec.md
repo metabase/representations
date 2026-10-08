@@ -94,9 +94,9 @@ serdes/meta:
 
 **Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
 
-Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (only `segments/` and `measures/` subdirectories), `python_libraries/` (also accepted as `python-libraries/`), and `transforms/`, plus each data app's `data_apps/<slug>/data_app.yaml` and `resources/`. Files outside these directories are ignored during import.
+Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (only `segments/` and `measures/` subdirectories), `python_libraries/` (also accepted as `python-libraries/`), and `transforms/`, plus each data app's `data_apps/<slug>/data_app.yaml`. Files outside these directories are ignored during import.
 
-Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, and `transforms` holds transform entities. Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
+Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, `transforms` holds transform entities, and `data_apps` holds the collections of data apps (see Data App). Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
 ```
 export-root/
@@ -106,9 +106,12 @@ export-root/
 ├── data_apps/                              # Data apps (see Data App)
 │   └── {app_slug}/
 │       ├── data_app.yaml                   # Manifest
-│       ├── dist/index.js                   # Built bundle, at the manifest's `path`
-│       └── resources/                      # The app's collection, cards, and actions
+│       └── dist/index.js                   # Built bundle, at the manifest's `path`
 ├── collections/
+│   ├── data_apps/                          # `data-apps` namespace: each data app's collection
+│   │   ├── {collection_slug}.yaml          # The app's collection (sibling of its folder)
+│   │   └── {collection_slug}/              # Its saved questions, and copies of metrics and actions
+│   │       └── {slug}.yaml
 │   ├── main/                               # Main namespace (regular content)
 │   │   ├── {slug}.yaml                     # Entities in root collection
 │   │   ├── {collection_slug}.yaml          # Collection definition (sibling of its folder)
@@ -3064,26 +3067,25 @@ serdes/meta:
 
 ## Data App
 
-A data app is a custom React application that runs inside Metabase, reading and writing data through the content it ships with. It lives in its own directory, `data_apps/{app_slug}/`, and is loaded when Metabase pulls the repository through remote sync. Unlike the other entities, it is not a single YAML file: it is a manifest (the app's own serialized entity), a built JavaScript bundle beside it, and a `resources/` directory of ordinary Collection, Card, and Action files that the app owns.
+A data app is a custom React application that runs inside Metabase, reading and writing data through the content it ships with. It lives in its own directory, `data_apps/{app_slug}/`, and is loaded when Metabase pulls the repository through remote sync. Unlike the other entities, it is not a single YAML file: it is a manifest (the app's own serialized entity) with a built JavaScript bundle beside it, and a collection of the `data-apps` namespace that the app owns, written under `collections/data_apps/` with the ordinary Card and Action files it holds.
 
 ### Directory Layout
 
 ```
 data_apps/
 └── {app_slug}/
-    ├── data_app.yaml           # Manifest (see below)
-    ├── dist/index.js           # Built bundle, at the manifest's `path`
-    └── resources/
-        ├── collection.yaml     # The app's collection
-        ├── cards/
-        │   └── {slug}.yaml     # Saved questions, and copies of the metrics they use
-        └── actions/
-            └── {slug}.yaml     # Copies of the query actions the app runs
+    ├── data_app.yaml                   # Manifest (see below)
+    └── dist/index.js                   # Built bundle, at the manifest's `path`
+collections/
+└── data_apps/
+    ├── {collection_slug}.yaml          # The app's collection, named in the manifest's `collection`
+    └── {collection_slug}/
+        └── {slug}.yaml                 # Saved questions, copies of the metrics they use, and copies of the query actions the app runs
 ```
 
 `{app_slug}` — the directory's name — is the app's slug, the manifest's `slug`, used verbatim as its URL: lowercase letters and numbers separated by single dashes (`sales-dashboard`), and neither `repo-status` nor `sandbox-host`, which collide with Metabase's own routes.
 
-Files under `resources/` are recognized by their location: `collection.yaml`, `cards/*.yaml`, and `actions/*.yaml`. Any other `.yaml` file there fails the pull. Files that aren't YAML, and dotfiles, are ignored, as they are everywhere else.
+`{collection_slug}` is the collection's name as Metabase slugs it (`data_app__order_desk` for `Data App: Order Desk`). As everywhere under `collections/`, the layout is how Metabase exports the content; a pull finds the app's files by their content: the collection whose `entity_id` the manifest's `collection` names, and the cards and actions whose `collection_id` is it. Other YAML under `data_apps/{app_slug}/` is the app's own and is ignored, as are files that aren't YAML and dotfiles.
 
 ### Manifest
 
@@ -3095,7 +3097,7 @@ Files under `resources/` are recognized by their location: `collection.yaml`, `c
 | `slug` | string | Yes | The app's slug, equal to its directory's name |
 | `entity_id` | string | Yes | NanoID identifier |
 | `path` | string | Yes | Path of the built bundle, relative to the app's directory (e.g., `./dist/index.js`). Must not contain `..` |
-| `collection` | string | Yes | Collection FK (entity_id) of the app's collection, the one `resources/collection.yaml` holds. Metabase loads a manifest without it as an app that isn't published yet, which no one can open |
+| `collection` | string | Yes | Collection FK (entity_id) of the app's collection, a root collection of the `data-apps` namespace under `collections/data_apps/`. A pull refuses a manifest without it, or one whose collection the repository doesn't hold |
 | `version` | integer | No | The data app contract version the app was built for: a positive integer, `1` when absent. An app below the version the instance supports is marked outdated and not served |
 | `description` | string | No | One-line summary, at most 255 characters |
 | `allowed_hosts` | array | No | Origins the app may call with `fetch`/XHR: a scheme and host, with an optional `*.` subdomain wildcard and port, and no path (e.g., `https://api.example.com`, `https://*.internal.example.com`). Every other origin is blocked |
@@ -3105,13 +3107,15 @@ Files under `resources/` are recognized by their location: `collection.yaml`, `c
 
 The app's resources are what it reads and runs: a saved question for each query it makes, and copies of the metrics and query actions those use. They are copies because the app's viewers are granted access to the app's collection only. Each file is an ordinary [Collection](#collection), [Card](#card), or [Action](#action), loaded like any other entity file in the repository, with these constraints, which a pull checks before it loads anything:
 
-- **Every file** holds a single entity whose `serdes/meta` id is its `entity_id`, and no `entity_id` is defined by more than one file. An `entity_id` that already belongs to a collection, card, or action outside the app can't be used: a load would take that entity over.
-- **`collection.yaml`** holds the collection the manifest names. It is a plain root collection: no `parent_id`, `namespace`, `type`, `authority_level`, or `personal_owner_id`, and not archived.
-- **Cards** have `collection_id` set to the app's collection, name their `creator_id`, are a `question`, `model`, or `metric` with a `dataset_query`, and are not archived, not in a dashboard or document, and not public or embedded.
-- **Actions** have `collection_id` set to the app's collection and name their `creator_id`; are `query` actions without a `model_id` (a deprecated `implicit` action, or an action with a `model_id`, still loads when its model is a model card in `resources/`); they carry exactly the one nested record their `type` uses; and they are not archived, not public, and take no parameter values from a card.
-- **References** outside `resources/` may point only at databases, tables, fields, snippets, segments, and measures, all of which must already exist on the instance. A card, collection, or dashboard outside the app cannot be referenced: a question or metric that reads another card must use the app's own copy of it.
+- **Every file** holds a single entity whose `serdes/meta` id is its `entity_id`, and no `entity_id` is defined by more than one file, nor by the files of two apps. An `entity_id` that already belongs to another app's collection, or to a card or action outside the app's collection, can't be used: a load would take that entity over.
+- **The collection** the manifest names has `namespace: data-apps` and is a root collection: no `parent_id`, `type`, `authority_level`, `personal_owner_id`, or `archive_operation_id`, and not `is_remote_synced`, `is_sample`, or archived. Two apps can't name one collection.
+- **Cards** in it name their `creator_id`, are a `question` or `metric` with a `dataset_query`, and are not archived, not in a dashboard or document, and not public or embedded.
+- **Actions** in it name their `creator_id`; are `query` actions that belong to no model; carry exactly the one nested record their `type` uses; and are not archived, not public, and take no parameter values from a card.
+- **References** outside the app's collection may point only at databases, tables, fields, snippets, segments, and measures, all of which must already exist on the instance or load in the same pull. A card, collection, or dashboard outside the app cannot be referenced: a question or metric that reads another card must use the app's own copy of it.
 
-The app's collection is remote-synced content like the rest of the repository: a pull loads the files that changed, deletes a card or action whose file is gone, and puts back what was changed in Metabase; an export writes the collection and what it holds under `resources/`, beside the app, rather than under `collections/`. A file that breaks these rules fails the pull, naming the file, as any other invalid entity file does.
+The app's collection is remote-synced content like the rest of the repository: a pull loads the files that changed, deletes a card or action whose file is gone, and puts back what was changed in Metabase; an export writes the collection and what it holds under `collections/data_apps/`, like any collection of a namespace. A file that breaks these rules fails the pull, naming the file, as any other invalid entity file does.
+
+Deleting an app means deleting its directory and its collection's files in one commit: the pull deletes the app, and with it its collection and everything in it. A collection file left behind is loaded back as a collection no app owns.
 
 ### Example
 
@@ -3131,16 +3135,19 @@ serdes/meta:
 - model: DataApp
 ```
 
-**`resources/collection.yaml`:**
+**`collections/data_apps/data_app__order_desk.yaml`:**
 
 ```yaml
 name: "Data App: Order Desk"
+namespace: data-apps
 entity_id: dApPcOlLeCtIoN0ExAmP1
 serdes/meta:
-- model: Collection
+- id: dApPcOlLeCtIoN0ExAmP1
+  label: data_app__order_desk
+  model: Collection
 ```
 
-**`resources/cards/open_orders.yaml`** — a saved question the app queries:
+**`collections/data_apps/data_app__order_desk/open_orders.yaml`** — a saved question the app queries:
 
 ```yaml
 name: Open orders
@@ -3164,7 +3171,7 @@ serdes/meta:
 - model: Card
 ```
 
-**`resources/actions/update_order.yaml`** — the app's copy of a query action it runs:
+**`collections/data_apps/data_app__order_desk/update_order.yaml`** — the app's copy of a query action it runs:
 
 ```yaml
 name: Update order
