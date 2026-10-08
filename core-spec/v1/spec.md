@@ -3089,7 +3089,7 @@ collections/
 
 ### Manifest
 
-`data_app.yaml` describes the app. It is the app's serialized entity, identified by its `entity_id` like every other, with a single-entry `serdes/meta` whose `model` is `DataApp` and whose `label` is the slug.
+`data_app.yaml` describes the app. It is the app's serialized entity, identified by its `entity_id` like every other, with a single-entry `serdes/meta` whose `model` is `DataApp`.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -3101,13 +3101,13 @@ collections/
 | `version` | integer | No | The data app contract version the app was built for: a positive integer, `1` when absent. An app below the version the instance supports is marked outdated and not served |
 | `description` | string | No | One-line summary, at most 255 characters |
 | `allowed_hosts` | array | No | Origins the app may call with `fetch`/XHR: a scheme and host, with an optional `*.` subdomain wildcard and port, and no path (e.g., `https://api.example.com`, `https://*.internal.example.com`). Every other origin is blocked |
-| `serdes/meta` | array | Yes | Identity path: `[{model: DataApp, id: <entity_id>, label: <slug>}]` |
+| `serdes/meta` | array | Yes | Identity path with `model: DataApp` |
 
 ### Resources
 
 The app's resources are what it reads and runs: a saved question for each query it makes, and copies of the metrics and query actions those use. They are copies because the app's viewers are granted access to the app's collection only. Each file is an ordinary [Collection](#collection), [Card](#card), or [Action](#action), loaded like any other entity file in the repository, with these constraints, which a pull checks before it loads anything:
 
-- **Every file** holds a single entity whose `serdes/meta` id is its `entity_id`, and no `entity_id` is defined by more than one file, nor by the files of two apps. An `entity_id` that already belongs to another app's collection, or to a card or action outside the app's collection, can't be used: a load would take that entity over.
+- **Every file** holds a single entity identified by its `entity_id`, which a `serdes/meta` entry that carries an `id` repeats, and no `entity_id` is defined by more than one file, nor by the files of two apps. An `entity_id` that already belongs to another app's collection, or to a card or action outside the app's collection, can't be used: a load would take that entity over.
 - **The collection** the manifest names has `namespace: data-apps` and is a root collection: no `parent_id`, `type`, `authority_level`, `personal_owner_id`, or `archive_operation_id`, and not `is_remote_synced`, `is_sample`, or archived. Two apps can't name one collection. It holds only cards and actions: a collection with it as `parent_id`, or a dashboard or document in it, fails the pull.
 - **Cards** in it name their `creator_id`, are a `question` or `metric` with a `dataset_query`, and are not archived, not in a dashboard or document, and not public or embedded.
 - **Actions** in it name their `creator_id`; are `query` actions that belong to no model; carry exactly the one nested record their `type` uses; and are not archived, not public, and take no parameter values from a card.
