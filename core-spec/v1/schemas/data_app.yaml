@@ -45,8 +45,8 @@ properties:
     pattern: ^\s*(?!(?:.*/)?\.\.(?:/|$))\S
   collection:
     description: >
-      Collection FK (entity_id) of the app's resource collection, the one in
-      `resources/collection.yaml`
+      Collection FK (entity_id) of the app's resource collection, the one
+      under `collections/data_apps/`
     $ref: "common/id.yaml#/$defs/entity_id"
   allowed_hosts:
     type: array

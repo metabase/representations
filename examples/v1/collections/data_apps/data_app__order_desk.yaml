@@ -1,4 +1,5 @@
 name: "Data App: Order Desk"
+namespace: data-apps
 entity_id: dApPcOlLeCtIoN0ExAmP1
 serdes/meta:
 - model: Collection

@@ -53,6 +53,7 @@ properties:
       - null
       - transforms
       - snippets
+      - data-apps
       - shared-tenant-collection
       - tenant-specific
   authority_level:

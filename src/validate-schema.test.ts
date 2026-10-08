@@ -58,8 +58,8 @@ describe("validateSchema", () => {
 
     it.each([
       [
-        "a data app's resources",
-        ["data_apps", "shop", "resources", "cards"],
+        "a data app's collection",
+        ["collections", "data_apps", "data_app__shop"],
         "broken.yaml",
       ],
       ["a data app's manifest", ["data_apps", "shop"], "data_app.yaml"],
