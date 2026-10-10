@@ -1,0 +1,231 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: TransformTest
+description: >
+  A test of a transform: inputs that stand in for the tables the transform
+  reads, and expectations checked against its output. Stored next to its
+  transform under collections/transforms/, in a folder named after the
+  transform.
+type: object
+required:
+  - name
+  - entity_id
+  - transform_id
+  - creator_id
+  - inputs
+  - expectations
+  - serdes/meta
+properties:
+  name:
+    $ref: "#/$defs/non_blank_string"
+    description: Test name
+  entity_id:
+    $ref: "common/id.yaml#/$defs/entity_id"
+  transform_id:
+    description: Transform FK (entity_id of the transform under test)
+    $ref: "common/id.yaml#/$defs/entity_id"
+  creator_id:
+    $ref: "common/id.yaml#/$defs/user_id"
+  description:
+    type:
+      - string
+      - "null"
+    description: Human-readable description
+  inputs:
+    type: array
+    description: >
+      Test data for the tables the transform reads. Every table the transform
+      reads needs one, and an input for a table it does not read is refused.
+    items:
+      $ref: "#/$defs/input"
+  expectations:
+    type: array
+    description: >
+      Checks run against the transform's output. Names must be unique within
+      a test.
+    items:
+      $ref: "#/$defs/expectation"
+  created_at:
+    type: string
+    description: ISO 8601 timestamp
+    format: date-time
+  serdes/meta:
+    type: array
+    description: Identity path for serialization
+    items:
+      type: object
+      required:
+        - model
+      properties:
+        id:
+          type: string
+          description: Entity identifier (matches entity_id)
+        label:
+          type: string
+          description: Slugified name
+        model:
+          type: string
+          const: TransformTest
+
+$defs:
+  non_blank_string:
+    type: string
+    pattern: "\\S"
+
+  table:
+    type: object
+    description: A table read by the transform, by schema and name
+    additionalProperties: false
+    required:
+      - name
+    properties:
+      schema:
+        description: Schema name (null or omitted for schemaless databases)
+        type: [string, "null"]
+        if: { type: string }
+        then: { $ref: "#/$defs/non_blank_string" }
+      name:
+        $ref: "#/$defs/non_blank_string"
+        description: Table name
+
+  column:
+    type: object
+    description: A column of inline test data and the type its cells are cast to
+    additionalProperties: false
+    required:
+      - name
+      - cast_type
+    properties:
+      name:
+        $ref: "#/$defs/non_blank_string"
+        description: Column name
+      cast_type:
+        $ref: "#/$defs/non_blank_string"
+        description: >
+          Type the cells are cast to, as the warehouse spells it in a CAST
+          (e.g. "INTEGER", "TEXT", "NUMERIC(12,2)")
+
+  columns:
+    type: array
+    minItems: 1
+    items:
+      $ref: "#/$defs/column"
+
+  rows:
+    type: array
+    description: >
+      Rows keyed by column name. Each row must carry exactly the declared
+      columns.
+    items:
+      type: object
+      additionalProperties:
+        type: [string, number, boolean, "null"]
+
+  input:
+    type: object
+    description: >
+      An input table replaced with test data, either written out as rows
+      (format: rows) or returned by a SQL query against the transform's
+      source database (format: sql).
+    required:
+      - format
+      - table
+    properties:
+      format:
+        type: string
+        enum:
+          - rows
+          - sql
+    allOf:
+      - if:
+          properties:
+            format: { const: rows }
+        then:
+          additionalProperties: false
+          required:
+            - columns
+            - rows
+          properties:
+            format: true
+            table: { $ref: "#/$defs/table" }
+            columns: { $ref: "#/$defs/columns" }
+            rows: { $ref: "#/$defs/rows" }
+      - if:
+          properties:
+            format: { const: sql }
+        then:
+          additionalProperties: false
+          required:
+            - sql
+          properties:
+            format: true
+            table: { $ref: "#/$defs/table" }
+            sql: { $ref: "#/$defs/non_blank_string" }
+
+  expectation:
+    type: object
+    description: >
+      A check on the transform's output. `equals` checks that the output, read
+      over the declared columns, holds exactly the declared rows; `empty`
+      checks that a SQL query over the output returns no rows.
+    required:
+      - type
+      - name
+    properties:
+      type:
+        type: string
+        enum:
+          - equals
+          - empty
+      name:
+        $ref: "#/$defs/non_blank_string"
+    allOf:
+      - if:
+          properties:
+            type: { const: equals }
+        then:
+          required:
+            - format
+          properties:
+            format:
+              type: string
+              enum:
+                - rows
+                - sql
+          allOf:
+            - if:
+                properties:
+                  format: { const: rows }
+              then:
+                additionalProperties: false
+                required:
+                  - columns
+                  - rows
+                properties:
+                  type: true
+                  name: true
+                  format: true
+                  columns: { $ref: "#/$defs/columns" }
+                  rows: { $ref: "#/$defs/rows" }
+            - if:
+                properties:
+                  format: { const: sql }
+              then:
+                additionalProperties: false
+                required:
+                  - sql
+                properties:
+                  type: true
+                  name: true
+                  format: true
+                  sql: { $ref: "#/$defs/non_blank_string" }
+      - if:
+          properties:
+            type: { const: empty }
+        then:
+          additionalProperties: false
+          required:
+            - sql
+          properties:
+            type: true
+            name: true
+            sql: { $ref: "#/$defs/non_blank_string" }

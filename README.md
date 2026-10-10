@@ -24,6 +24,7 @@ This repository contains the specification and examples for the Metabase Represe
 | Transform | Materializes query or Python script results into a database table |
 | TransformTag | Label for categorizing transforms (built-in or custom) |
 | TransformJob | Scheduled job that executes tagged transforms |
+| TransformTest | Test data for a transform's input tables and checks on its output |
 | PythonLibrary | Shared Python source file available to Python transforms |
 
 ## Schema Validation
