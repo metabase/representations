@@ -2,7 +2,6 @@ name: Apply discount
 entity_id: NJksetfXk2oh530o3RD_5
 creator_id: admin@example.com
 type: query
-collection_id: cOlQuErIeS0ExAmPlE2x1
 implicit: []
 query:
 - database_id: Sample Database

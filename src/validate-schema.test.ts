@@ -77,7 +77,9 @@ describe("validateSchema", () => {
       const example = (file: string): Record<string, unknown> =>
         yaml.load(
           readFileSync(
-            join(EXAMPLES, "collections", "main", "queries", file),
+            file === "apply_discount.yaml"
+              ? join(EXAMPLES, "collections", "data_actions", file)
+              : join(EXAMPLES, "collections", "main", "queries", file),
             "utf8",
           ),
         ) as Record<string, unknown>; // Example actions are YAML maps.
@@ -133,6 +135,115 @@ describe("validateSchema", () => {
         ],
       ])("accepts %s", (_, action) => {
         expect(validateAction(action).failed).toBe(0);
+      });
+    });
+
+    describe("transform tests", () => {
+      const example = yaml.load(
+        readFileSync(
+          join(
+            EXAMPLES,
+            "collections",
+            "transforms",
+            "native_transform",
+            "product_revenue_report__category_totals.yaml",
+          ),
+          "utf8",
+        ),
+      ) as Record<string, any>; // The example transform test is a YAML map.
+
+      const validateTransformTest = (transformTest: Record<string, any>) => {
+        mkdirSync(join(workdir, "collections", "transforms"), {
+          recursive: true,
+        });
+        writeFileSync(
+          join(workdir, "collections", "transforms", "test.yaml"),
+          yaml.dump(transformTest),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      const [rowsInput, sqlInput] = example.inputs;
+      const [equals, empty] = example.expectations;
+
+      it("accepts the example", () => {
+        expect(validateTransformTest(example).failed).toBe(0);
+      });
+
+      it.each([
+        [
+          "no transform",
+          (({ transform_id: _transformId, ...test }) => test)(example),
+        ],
+        [
+          "an unknown input format",
+          { ...example, inputs: [{ ...sqlInput, format: "csv" }] },
+        ],
+        [
+          "a rows input without columns",
+          {
+            ...example,
+            inputs: [(({ columns: _columns, ...input }) => input)(rowsInput)],
+          },
+        ],
+        [
+          "a sql input with rows",
+          { ...example, inputs: [{ ...sqlInput, rows: [] }] },
+        ],
+        [
+          "a column without a cast type",
+          {
+            ...example,
+            inputs: [{ ...rowsInput, columns: [{ name: "ID" }] }],
+          },
+        ],
+        [
+          "a table with an unknown key",
+          {
+            ...example,
+            inputs: [{ ...sqlInput, table: { name: "ORDERS", db: "x" } }],
+          },
+        ],
+        [
+          "an unknown expectation type",
+          { ...example, expectations: [{ ...empty, type: "contains" }] },
+        ],
+        [
+          "an empty expectation with a format",
+          { ...example, expectations: [{ ...empty, format: "sql" }] },
+        ],
+        [
+          "an equals expectation without a format",
+          {
+            ...example,
+            expectations: [(({ format: _format, ...e }) => e)(equals)],
+          },
+        ],
+        [
+          "an expectation without a name",
+          {
+            ...example,
+            expectations: [(({ name: _name, ...e }) => e)(empty)],
+          },
+        ],
+      ])("rejects a transform test with %s", (_, transformTest) => {
+        expect(validateTransformTest(transformTest).failed).toBe(1);
+      });
+
+      it("accepts an equals expectation over a SQL query", () => {
+        expect(
+          validateTransformTest({
+            ...example,
+            expectations: [
+              {
+                type: "equals",
+                name: "same as the query",
+                format: "sql",
+                sql: "SELECT 'Gadget' AS CATEGORY",
+              },
+            ],
+          }).failed,
+        ).toBe(0);
       });
     });
 

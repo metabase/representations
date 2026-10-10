@@ -127,7 +127,9 @@ export-root/
 │   │   └── {collection_slug}/              # Snippet collection contents
 │   │       └── {snippet_slug}.yaml
 │   └── transforms/                         # Transforms namespace
-│       └── {transform_slug}.yaml
+│       ├── {transform_slug}.yaml
+│       └── {transform_slug}/                   # The transform's tests
+│           └── {test_slug}.yaml
 ├── databases/
 │   └── {database_slug}/
 │       ├── {database_slug}.yaml
@@ -162,7 +164,7 @@ export-root/
 - Collection hierarchy is reflected in directory nesting within a namespace.
 - A collection's definition file (`{slug}.yaml`) is placed **outside** its folder, as a sibling: e.g., `main/my_collection.yaml` defines the collection whose contents live in `main/my_collection/`.
 - All entity types within a collection (cards, dashboards, documents, etc.) are stored flat in the same folder — no type-specific subdirectories.
-- Collections are partitioned by namespace: `main/` for regular content, `snippets/` for SQL snippets, `transforms/` for transforms.
+- Collections are partitioned by namespace: `main/` for regular content, `snippets/` for SQL snippets, `transforms/` for transforms and their tests.
 
 ### Entity Ownership and Containers
 
@@ -2215,7 +2217,7 @@ A collection is a folder-like container for organizing cards, dashboards, and ot
 | `slug` | string | No | URL-friendly name |
 | `archived` | boolean | No | Whether archived (default: `false`) |
 | `archived_directly` | boolean | No | Archived directly vs. inherited |
-| `type` | string | No | `null` or `"instance-analytics"` |
+| `type` | string | No | `null`, `"instance-analytics"`, `"trash"`, `"tenant-specific-root-collection"`, or a Library type: `"library"`, `"library-data"`, `"library-metrics"`, `"library-dashboards"` |
 | `namespace` | string | No | `null`, `"transforms"`, `"snippets"`, `"data-apps"`, `"shared-tenant-collection"`, or `"tenant-specific"` |
 | `authority_level` | string | No | `null` or `"official"` |
 | `parent_id` | string | No | Collection FK (entity_id of parent). **Must** be set for subcollections; `null`/omitted = root-level collection |
@@ -2243,6 +2245,21 @@ entity_id: cOlRePorTs000ExAmPlx2
 parent_id: cOlMiNiMaL000ExAmPlx2
 serdes/meta:
 - model: Collection
+```
+
+### Library
+
+The Library is a root collection of type `library` with fixed subcollections: Data (`library-data`, tables), Metrics (`library-metrics`, metrics) and Dashboards (`library-dashboards`, dashboards and their questions). Metabase creates them with fixed entity IDs, so every instance exports the same ones:
+
+```yaml
+name: Dashboards
+entity_id: librarylibrarydashbrd
+slug: dashboards
+type: library-dashboards
+parent_id: librarylibrarylibrary
+serdes/meta:
+- model: Collection
+is_remote_synced: true
 ```
 
 ---
@@ -2321,7 +2338,7 @@ serdes/meta:
 
 ## Action
 
-An action writes to a database. A **query** action runs parameterized native SQL; it lives in a collection like a card (`collection_id`), and its permissions follow that collection. An **implicit** action creates, updates, or deletes a row of a model card's table. Implicit actions, and attaching any action to a model (`model_id`), are **deprecated**: they remain only for actions made before actions had their own collection. Author query actions without a `model_id`.
+An action writes to a database. A **query** action runs parameterized native SQL; without a model it lives in the data actions namespace (its root, exported under `collections/data_actions/`, or a data actions collection) or in a data app's collection, set by `collection_id`, and its permissions follow that collection. An **implicit** action creates, updates, or deletes a row of a model card's table. Implicit actions, and attaching any action to a model (`model_id`), are **deprecated**: they remain only for actions made before actions had their own collection. Author query actions without a `model_id`.
 
 Actions are exported with their collection, like cards: `collections/main/{collection path}/{slug}.yaml`, or `collections/main/{slug}.yaml` in the root collection. Older exports kept them under a top-level `actions/` directory, which import still reads. Exactly one of the nested `implicit` and `query` arrays holds the action's definition, the one its `type` names; the other is empty.
 
@@ -2333,7 +2350,7 @@ Actions are exported with their collection, like cards: `collections/main/{colle
 | `entity_id` | string | Yes | NanoID identifier |
 | `type` | string | Yes | `"query"`, or `"implicit"` (deprecated) |
 | `serdes/meta` | array | Yes | Identity path with `model: Action` |
-| `collection_id` | string | No | Collection FK (entity_id); `null` for the root collection. An action with a model is always in its model's collection |
+| `collection_id` | string | No | Collection FK (entity_id); `null`/omitted for the data actions root. An action without a model goes only in the data actions root, a data actions collection, or a data app's collection; an action with a model is always in its model's collection |
 | `model_id` | string | No | **Deprecated.** Card FK (entity_id) of the model the action is attached to. Omit it, or leave it `null`, for a query action; an implicit action requires one |
 | `query` | array | No | `[{database_id, dataset_query}]` when `type` is `query`, otherwise `[]`. `database_id` is a Database FK; `dataset_query` is a [Native Query](#native-query) whose template tags the parameters target |
 | `implicit` | array | No | `[{kind}]` when `type` is `implicit`, otherwise `[]`. `kind`: `row/create`, `row/update`, `row/delete`, `bulk/create`, `bulk/update`, `bulk/delete` |
@@ -2361,14 +2378,13 @@ The rest (`title`, `description`, `placeholder`, `order`, `required`, `inputType
 
 ### Example
 
-**Query action** (`collections/main/queries/apply_discount.yaml`):
+**Query action** (`collections/data_actions/apply_discount.yaml`, at the data actions root):
 
 ```yaml
 name: Apply discount
 entity_id: NJksetfXk2oh530o3RD_5
 creator_id: admin@example.com
 type: query
-collection_id: cOlQuErIeS0ExAmPlE2x1
 implicit: []
 query:
 - database_id: Sample Database
@@ -2886,7 +2902,7 @@ serdes/meta:
 
 ## Transform
 
-A transform generates a table in the database by running a query or Python script. Transforms allow materializing results as persistent database tables. Transform entities are stored under `collections/transforms/`. Transform jobs and tags are stored separately under the top-level `transforms/` directory.
+A transform generates a table in the database by running a query or Python script. Transforms allow materializing results as persistent database tables. Transform entities, and their tests, are stored under `collections/transforms/`. Transform jobs and tags are stored separately under the top-level `transforms/` directory.
 
 The `source` defines how data is produced — either an MBQL/native query (`type: query`) or a Python script (`type: python`). The `target` specifies where the resulting table is written.
 
@@ -3022,6 +3038,84 @@ job_tags:
 ```
 
 A job can reference multiple tags. Transforms tagged with any of the job's tags will be executed when the job runs.
+
+### TransformTest
+
+A transform test runs a transform against test data and checks its output. Its `inputs` stand in for the tables the transform reads, and its `expectations` are checked against the table it writes. A test is stored next to its transform, in a folder named after the transform's file: `collections/transforms/{transform_slug}/{test_slug}.yaml`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Test name |
+| `entity_id` | string | Yes | NanoID identifier |
+| `transform_id` | string | Yes | Transform FK (entity_id of the transform under test) |
+| `creator_id` | string | Yes | User FK (email) |
+| `inputs` | array | Yes | Test data for the tables the transform reads (see below) |
+| `expectations` | array | Yes | Checks on the transform's output (see below) |
+| `serdes/meta` | array | Yes | Identity path with `model: TransformTest` |
+| `description` | string | No | Description |
+| `created_at` | string | No | ISO 8601 timestamp |
+
+Each entry in `inputs` replaces one table the transform reads. Every table the transform reads needs an input, and an input for a table it does not read is refused when the test runs.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `table` | object | Yes | The table replaced: `name`, and `schema` (omit or `null` for schemaless databases) |
+| `format` | string | Yes | `"rows"` (data written out) or `"sql"` (data returned by a query) |
+| `columns` | array | With `rows` | At least one column: `name` and `cast_type`, the type its cells are cast to as the warehouse spells it in a `CAST` (e.g. `"INTEGER"`, `"NUMERIC(12,2)"`) |
+| `rows` | array | With `rows` | Rows keyed by column name; each row carries exactly the declared columns. Cells are strings, numbers, booleans or `null` |
+| `sql` | string | With `sql` | Query run against the transform's source database |
+
+Each entry in `expectations` is a check named uniquely within the test:
+
+| `type` | Fields | Passes when |
+|--------|--------|-------------|
+| `equals` | `name`, `format`, and `columns` + `rows` (`format: rows`) or `sql` (`format: sql`) | The output, read over the given columns, holds exactly the given rows: order is ignored, duplicates count, and columns not given are not compared |
+| `empty` | `name`, `sql` | The query over the output returns no rows |
+
+SQL in inputs and expectations names tables by their real names, including the transform's target table; the test run rewrites them to temporary tables. No other keys are accepted in an input, a column, a table or an expectation.
+
+```yaml
+name: 'Product Revenue Report: category totals'
+entity_id: aRvM7DLesF1fOV4kRHidq
+transform_id: 7JwIkkAG-06-nsl4jzsaq       # entity_id of the transform
+creator_id: admin@example.com
+inputs:
+- table:
+    name: ORDERS
+  format: rows
+  columns:
+  - name: ID
+    cast_type: INTEGER
+  - name: PRODUCT_ID
+    cast_type: INTEGER
+  - name: TOTAL
+    cast_type: REAL
+  rows:
+  - ID: 1
+    PRODUCT_ID: 1
+    TOTAL: 10.0
+- table:
+    name: PRODUCTS
+  format: sql
+  sql: SELECT 1 AS ID, 'Gadget' AS CATEGORY
+expectations:
+- type: equals
+  name: revenue per category
+  format: rows
+  columns:
+  - name: CATEGORY
+    cast_type: TEXT
+  - name: total_revenue
+    cast_type: REAL
+  rows:
+  - CATEGORY: Gadget
+    total_revenue: 10.0
+- type: empty
+  name: one row per category
+  sql: SELECT CATEGORY FROM TRANSFORMS.product_revenue_report GROUP BY CATEGORY HAVING COUNT(*) > 1
+serdes/meta:
+- model: TransformTest
+```
 
 ### PythonLibrary
 
@@ -3227,7 +3321,7 @@ serdes/meta:
 - **1.0.0**: Initial release
   - Entity key system (NanoID and foreign key references)
   - Folder structure specification with namespace-based collection layout
-  - Collection, Card, Dashboard, Document, Segment, Measure, Snippet, Transform, TransformJob, TransformTag, PythonLibrary
+  - Collection, Card, Dashboard, Document, Segment, Measure, Snippet, Transform, TransformJob, TransformTag, TransformTest, PythonLibrary
 
 ---
 

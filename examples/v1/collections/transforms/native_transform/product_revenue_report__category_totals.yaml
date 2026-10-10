@@ -1,0 +1,57 @@
+name: 'Product Revenue Report: category totals'
+entity_id: aRvM7DLesF1fOV4kRHidq
+transform_id: 7JwIkkAG-06-nsl4jzsaq
+creator_id: admin@example.com
+description: 'Cases: two orders of one category are summed and averaged; a category with one order stands alone.'
+inputs:
+- table:
+    name: ORDERS
+  format: rows
+  columns:
+  - name: ID
+    cast_type: INTEGER
+  - name: PRODUCT_ID
+    cast_type: INTEGER
+  - name: TOTAL
+    cast_type: REAL
+  rows:
+  - ID: 1
+    PRODUCT_ID: 1
+    TOTAL: 10.0
+  - ID: 2
+    PRODUCT_ID: 1
+    TOTAL: 30.0
+  - ID: 3
+    PRODUCT_ID: 2
+    TOTAL: 25.0
+- table:
+    name: PRODUCTS
+  format: sql
+  sql: SELECT 1 AS ID, 'Gadget' AS CATEGORY UNION ALL SELECT 2, 'Widget'
+expectations:
+- type: equals
+  name: order count, revenue and average order value per category
+  format: rows
+  columns:
+  - name: CATEGORY
+    cast_type: TEXT
+  - name: order_count
+    cast_type: INTEGER
+  - name: total_revenue
+    cast_type: REAL
+  - name: avg_order_value
+    cast_type: REAL
+  rows:
+  - CATEGORY: Gadget
+    order_count: 2
+    total_revenue: 40.0
+    avg_order_value: 20.0
+  - CATEGORY: Widget
+    order_count: 1
+    total_revenue: 25.0
+    avg_order_value: 25.0
+- type: empty
+  name: one row per category
+  sql: SELECT CATEGORY FROM TRANSFORMS.product_revenue_report GROUP BY CATEGORY HAVING COUNT(*) > 1
+serdes/meta:
+- model: TransformTest

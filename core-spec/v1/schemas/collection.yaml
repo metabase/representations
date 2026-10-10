@@ -42,6 +42,7 @@ properties:
       - library
       - library-data
       - library-metrics
+      - library-dashboards
       - trash
       - tenant-specific-root-collection
   namespace:

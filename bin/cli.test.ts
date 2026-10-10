@@ -185,4 +185,32 @@ describe("cli", () => {
       }
     });
   });
+
+  describe("build", () => {
+    it("bundles the current schemas when rebuilt over an existing dist", () => {
+      for (let i = 0; i < 2; i++) {
+        const build = Bun.spawnSync({
+          cmd: ["bun", "run", "build"],
+          cwd: REPO_ROOT,
+        });
+        expect(build.exitCode).toBe(0);
+      }
+
+      const proc = Bun.spawnSync({
+        cmd: [
+          "node",
+          "dist/bin/cli.js",
+          "validate-schema",
+          "--folder",
+          "examples/v1",
+        ],
+        cwd: REPO_ROOT,
+      });
+      expect(proc.stderr.toString()).toBe("");
+      expect(proc.exitCode).toBe(0);
+      expect(
+        readdirSync(join(REPO_ROOT, "dist/core-spec/v1/schemas")).sort(),
+      ).toEqual(readdirSync(join(REPO_ROOT, "core-spec/v1/schemas")).sort());
+    }, 120_000);
+  });
 });
