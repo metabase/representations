@@ -30,7 +30,7 @@
     "representations": "dist/bin/cli.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && cp -r core-spec dist/core-spec",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && cp -r core-spec dist/core-spec",
     "type-check": "tsc --noEmit",
     "lint-eslint": "eslint --max-warnings 0 --report-unused-disable-directives bin src",
     "lint-format": "oxfmt --check bin src",
