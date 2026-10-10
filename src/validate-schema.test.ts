@@ -77,7 +77,9 @@ describe("validateSchema", () => {
       const example = (file: string): Record<string, unknown> =>
         yaml.load(
           readFileSync(
-            join(EXAMPLES, "collections", "main", "queries", file),
+            file === "apply_discount.yaml"
+              ? join(EXAMPLES, "collections", "data_actions", file)
+              : join(EXAMPLES, "collections", "main", "queries", file),
             "utf8",
           ),
         ) as Record<string, unknown>; // Example actions are YAML maps.

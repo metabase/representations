@@ -2338,7 +2338,7 @@ serdes/meta:
 
 ## Action
 
-An action writes to a database. A **query** action runs parameterized native SQL; it lives in a collection like a card (`collection_id`), and its permissions follow that collection. An **implicit** action creates, updates, or deletes a row of a model card's table. Implicit actions, and attaching any action to a model (`model_id`), are **deprecated**: they remain only for actions made before actions had their own collection. Author query actions without a `model_id`.
+An action writes to a database. A **query** action runs parameterized native SQL; without a model it lives in the data actions namespace (its root, exported under `collections/data_actions/`, or a data actions collection) or in a data app's collection, set by `collection_id`, and its permissions follow that collection. An **implicit** action creates, updates, or deletes a row of a model card's table. Implicit actions, and attaching any action to a model (`model_id`), are **deprecated**: they remain only for actions made before actions had their own collection. Author query actions without a `model_id`.
 
 Actions are exported with their collection, like cards: `collections/main/{collection path}/{slug}.yaml`, or `collections/main/{slug}.yaml` in the root collection. Older exports kept them under a top-level `actions/` directory, which import still reads. Exactly one of the nested `implicit` and `query` arrays holds the action's definition, the one its `type` names; the other is empty.
 
@@ -2350,7 +2350,7 @@ Actions are exported with their collection, like cards: `collections/main/{colle
 | `entity_id` | string | Yes | NanoID identifier |
 | `type` | string | Yes | `"query"`, or `"implicit"` (deprecated) |
 | `serdes/meta` | array | Yes | Identity path with `model: Action` |
-| `collection_id` | string | No | Collection FK (entity_id); `null` for the root collection. An action with a model is always in its model's collection |
+| `collection_id` | string | No | Collection FK (entity_id); `null`/omitted for the data actions root. An action without a model goes only in the data actions root, a data actions collection, or a data app's collection; an action with a model is always in its model's collection |
 | `model_id` | string | No | **Deprecated.** Card FK (entity_id) of the model the action is attached to. Omit it, or leave it `null`, for a query action; an implicit action requires one |
 | `query` | array | No | `[{database_id, dataset_query}]` when `type` is `query`, otherwise `[]`. `database_id` is a Database FK; `dataset_query` is a [Native Query](#native-query) whose template tags the parameters target |
 | `implicit` | array | No | `[{kind}]` when `type` is `implicit`, otherwise `[]`. `kind`: `row/create`, `row/update`, `row/delete`, `bulk/create`, `bulk/update`, `bulk/delete` |
@@ -2378,14 +2378,13 @@ The rest (`title`, `description`, `placeholder`, `order`, `required`, `inputType
 
 ### Example
 
-**Query action** (`collections/main/queries/apply_discount.yaml`):
+**Query action** (`collections/data_actions/apply_discount.yaml`, at the data actions root):
 
 ```yaml
 name: Apply discount
 entity_id: NJksetfXk2oh530o3RD_5
 creator_id: admin@example.com
 type: query
-collection_id: cOlQuErIeS0ExAmPlE2x1
 implicit: []
 query:
 - database_id: Sample Database
