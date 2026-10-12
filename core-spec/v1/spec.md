@@ -1,6 +1,6 @@
 # Metabase Representation Format
 
-**Version:** 1.0.0
+**Version:** 1.7.0
 
 ## Overview
 
@@ -27,6 +27,7 @@ This specification covers user-created content entities. Database metadata entit
 15. [Snippet](#snippet)
 16. [Transform](#transform)
 17. [Data App](#data-app)
+18. [Custom Viz Plugin](#custom-viz-plugin)
 
 ---
 
@@ -36,7 +37,7 @@ Metabase uses two ways of identifying entities: `entity_id` (NanoID) and natural
 
 ### NanoID
 
-`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **unique per entity type** within an instance — no two entities of the same type may share the same `entity_id`.
+`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Every entity carries one except a [Custom Viz Plugin](#custom-viz-plugin), whose `identifier` is its identity. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **unique per entity type** within an instance — no two entities of the same type may share the same `entity_id`.
 
 Generate a NanoID with the `nanoid` CLI:
 
@@ -56,15 +57,16 @@ head -c 21 /dev/urandom | base64 | tr -dc 'A-Za-z0-9_-' | head -c 21
 
 User content entities reference database objects using natural keys:
 
-| Reference | Format | Example |
-|-----------|--------|---------|
-| Database FK | database name | `"Sample Database"` |
-| Table FK | `[database, schema, table]` | `["Sample Database", "PUBLIC", "ORDERS"]` |
-| Field FK | `[database, schema, table, field, ...]` | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
-| Collection FK | entity_id of collection | `"M-Q4pcV0qkiyJ0kiSWECl"` |
-| Card FK | entity_id of card | `"f1C68pznmrpN1F5xFDj6d"` |
-| Dashboard FK | entity_id of dashboard | `"Q_jD-f-9clKLFZ2TfUG2h"` |
-| User FK | email address | `"internal@metabase.com"` |
+| Reference         | Format                                                     | Example                                            |
+| ----------------- | ---------------------------------------------------------- | -------------------------------------------------- |
+| Database FK       | database name                                              | `"Sample Database"`                                |
+| Table FK          | `[database, schema, table]`                                | `["Sample Database", "PUBLIC", "ORDERS"]`          |
+| Field FK          | `[database, schema, table, field, ...]`                    | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
+| Collection FK     | entity_id of collection                                    | `"M-Q4pcV0qkiyJ0kiSWECl"`                          |
+| Card FK           | entity_id of card                                          | `"f1C68pznmrpN1F5xFDj6d"`                          |
+| Dashboard FK      | entity_id of dashboard                                     | `"Q_jD-f-9clKLFZ2TfUG2h"`                          |
+| User FK           | email address                                              | `"internal@metabase.com"`                          |
+| Custom Viz Plugin | identifier, in a card's `display` as `custom:<identifier>` | `"custom:thumbs"`                                |
 
 For schemaless databases, the schema component is `null` (e.g., `["My Database", null, "my_table"]`).
 
@@ -94,7 +96,7 @@ serdes/meta:
 
 **Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
 
-Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (only `segments/` and `measures/` subdirectories), `python_libraries/` (also accepted as `python-libraries/`), and `transforms/`, plus each data app's `data_apps/<slug>/data_app.yaml`. Files outside these directories are ignored during import.
+Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (only `segments/` and `measures/` subdirectories), `python_libraries/` (also accepted as `python-libraries/`), and `transforms/`, plus each data app's `data_apps/<slug>/data_app.yaml` and each custom viz plugin's `custom_viz_plugins/<identifier>/custom_viz_plugin.yaml`. Files outside these directories are ignored during import.
 
 Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, `transforms` holds transform entities, and `data_apps` holds the `data-apps` namespace, the collections of data apps (see Data App). Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
@@ -107,6 +109,13 @@ export-root/
 │   └── {app_slug}/
 │       ├── data_app.yaml                   # Manifest
 │       └── dist/index.js                   # Built bundle, at the manifest's `path`
+├── custom_viz_plugins/                     # Custom viz plugins (see Custom Viz Plugin)
+│   └── {identifier}/
+│       ├── custom_viz_plugin.yaml          # The plugin's entity
+│       ├── metabase-plugin.json            # The bundle's manifest
+│       └── dist/
+│           ├── index.js                    # Built bundle
+│           └── assets/                     # The bundle's icon and other assets
 ├── collections/
 │   ├── data_apps/                          # `data-apps` namespace: each data app's collection
 │   │   ├── {collection_slug}.yaml          # The app's collection (sibling of its folder)
@@ -1630,6 +1639,14 @@ Visualization settings control how query results are displayed. They are stored 
 | `column_settings` | map | Per-column formatting keyed by column reference string |
 | `"dashcard.background"` | boolean | Show/hide dashcard background (dashcards only) |
 
+### Custom Visualization Settings
+
+Apply to `custom:<identifier>` displays. A [Custom Viz Plugin](#custom-viz-plugin) defines its own settings in its bundle; each is stored under the key `custom:<identifier>:<setting>`, namespaced by the plugin's identifier so two plugins' settings can't collide (which is why an identifier can't contain `:`). Host settings such as `column_settings` keep their usual keys. Dashcard overrides use the same keys.
+
+| Setting | Type | Description |
+|---------|------|-------------|
+| `"custom:<identifier>:<setting>"` | any | A setting the plugin `<identifier>` defines, with the value shape the plugin expects |
+
 ### Graph Settings
 
 Apply to `line`, `bar`, `area`, `combo`, `scatter`, `waterfall`, `row`, `boxplot` displays.
@@ -2274,7 +2291,7 @@ A card represents a Question, Model, or Metric in Metabase. Cards are the primar
 |-------|------|----------|-------------|
 | `name` | string | Yes | Card name |
 | `entity_id` | string | Yes | NanoID identifier |
-| `display` | string | Yes | Visualization type (see below) |
+| `display` | string | Yes | Visualization type (see below): a built-in display type, or `custom:<identifier>` |
 | `creator_id` | string | Yes | User FK (email) |
 | `dataset_query` | object | Yes | Query definition — MBQL or native |
 | `visualization_settings` | map | Yes | Display settings (can be empty `{}`) |
@@ -2304,6 +2321,8 @@ A card represents a Question, Model, or Metric in Metabase. Cards are the primar
 ### Display Types
 
 `table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `list`, `heading`, `text`, `link`, `iframe`, `action`, `sankey`, `boxplot`, `number`.
+
+A card rendered by a [Custom Viz Plugin](#custom-viz-plugin) has `display: custom:<identifier>`, where `<identifier>` is the plugin's identifier (e.g., `custom:thumbs`). The plugin need not be in the repository: it may be installed on the instance directly. Its settings are stored under `custom:<identifier>:<setting>` keys (see [Custom Visualization Settings](#custom-visualization-settings)).
 
 ### Card Parameters
 
@@ -3316,8 +3335,115 @@ serdes/meta:
 
 ---
 
+## Custom Viz Plugin
+
+A custom viz plugin adds a visualization to an instance: a bundle built with `@metabase/custom-viz` that cards render with `display: custom:<identifier>`. It lives in its own directory, `custom_viz_plugins/{identifier}/`, and is loaded when Metabase imports the repository. Like a data app, it is not a single YAML file: it is the plugin's serialized entity with the built bundle beside it, unpacked. It owns no collection and no content; cards that use it live wherever they live and name it only through their `display`.
+
+### Directory Layout
+
+```
+custom_viz_plugins/
+└── {identifier}/
+    ├── custom_viz_plugin.yaml          # The plugin's entity (see below)
+    ├── metabase-plugin.json            # The bundle's manifest
+    └── dist/
+        ├── index.js                    # Built bundle
+        └── assets/                     # The icon the manifest names, and other assets
+```
+
+The bundle is the output of `npm run build` in a `@metabase/custom-viz` project, laid out as the project is: the manifest at the root, the JavaScript at `dist/index.js`, and assets under `dist/assets/`. It is the same set of files the project's `pack` command archives for upload through Admin; the repository holds them unpacked so a change to the plugin is reviewable.
+
+**Identity.** A plugin has no `entity_id`: its `identifier` is its identity, and it is what cards reference. The identifier appears three times, and all three must agree or the pull fails naming the file: the directory's name `{identifier}`, the entity's `identifier`, and the `name` in `metabase-plugin.json`. An identifier contains no `:`, because `:` separates the parts of the `custom:<identifier>:<setting>` keys in visualization settings; no `/`, `\` or whitespace, because it names a directory; and doesn't start with `.`. Renaming a plugin means every card that uses it changes `display`.
+
+Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is ignored, as are dotfiles. Source files a developer keeps beside the bundle (`src/`, `package.json`) are ignored too; only the manifest and `dist/` are loaded.
+
+### Entity
+
+`custom_viz_plugin.yaml` is the plugin's serialized entity, with a single-entry `serdes/meta` whose `model` is `CustomVizPlugin`. What Metabase derives from the manifest on load (display name, icon, supported Metabase versions) is not repeated here.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `identifier` | string | Yes | The plugin's identifier, equal to its directory's name and the manifest's `name` |
+| `enabled` | boolean | No | Whether cards and dashboards may use the plugin. `false` when absent |
+| `created_at` | string | No | ISO 8601 timestamp |
+| `serdes/meta` | array | Yes | Identity path with `model: CustomVizPlugin` |
+
+### Manifest
+
+`metabase-plugin.json` is the bundle's manifest, owned by the `@metabase/custom-viz` SDK and written by the developer. Metabase reads it from the bundle on load. Its fields, all optional to the SDK:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | The plugin's identifier; must equal the entity's `identifier` |
+| `icon` | string | Filename of the plugin's icon under `dist/assets/` |
+| `metabase.version` | string | Semver range of Metabase versions the plugin supports (e.g., `">=1.64 <1.66"`); an instance outside it warns |
+| `sdk.version` | string | Version of `@metabase/custom-viz` the bundle was built with. `pack` stamps it into the archived copy, so it is usually absent on disk; an instance only warns when it's missing or mismatched |
+
+### Example
+
+**`custom_viz_plugins/thumbs/custom_viz_plugin.yaml`:**
+
+```yaml
+identifier: thumbs
+enabled: true
+serdes/meta:
+- model: CustomVizPlugin
+```
+
+**`custom_viz_plugins/thumbs/metabase-plugin.json`:**
+
+```json
+{
+  "name": "thumbs",
+  "icon": "icon.svg",
+  "metabase": {
+    "version": ">=1.64"
+  }
+}
+```
+
+**A card rendered by it**, anywhere under `collections/`:
+
+```yaml
+name: Average Rating (Thumbs)
+entity_id: cUsToMvIzCaRd0ExAmP12
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+type: question
+display: custom:thumbs
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - REVIEWS
+    aggregation:
+    - - avg
+      - "lib/uuid": 0f4b1c2e-6a7d-4e5f-9a8b-1c2d3e4f5a6b
+      - - field
+        - "lib/uuid": 7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d
+        - - Sample Database
+          - PUBLIC
+          - REVIEWS
+          - RATING
+visualization_settings:
+  "custom:thumbs:metric": avg
+  "custom:thumbs:threshold": 3.5
+  "custom:thumbs:show_value": true
+serdes/meta:
+- model: Card
+```
+
+---
+
 ## Version History
 
+- **1.7.0**: Custom Viz Plugin
+  - New `CustomVizPlugin` entity at `custom_viz_plugins/{identifier}/custom_viz_plugin.yaml`, keyed by `identifier` rather than `entity_id`, with its bundle unpacked beside it
+  - Card `display` accepts `custom:<identifier>`; custom visualization settings documented
 - **1.0.0**: Initial release
   - Entity key system (NanoID and foreign key references)
   - Folder structure specification with namespace-based collection layout

@@ -1,0 +1,50 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: Custom Viz Plugin
+description: >
+  The `custom_viz_plugin.yaml` at the root of a custom viz plugin's directory,
+  `custom_viz_plugins/<identifier>/custom_viz_plugin.yaml`: the plugin's own
+  serialized entity. Unlike other entities it has no `entity_id`: its
+  `identifier` is its identity, and must equal both the directory's name and
+  the `name` in the bundle's `metabase-plugin.json` beside it, which this file
+  can't check.
+type: object
+required:
+  - identifier
+  - serdes/meta
+properties:
+  identifier:
+    type: string
+    description: >
+      The plugin's identifier, the display type cards use as
+      `custom:<identifier>`. No `:` (it separates the parts of
+      `custom:<identifier>:<setting>` keys), no `/`, `\` or whitespace (it is
+      the directory's name), and no leading `.`.
+    pattern: '^[^:/\\\s.][^:/\\\s]*$'
+  enabled:
+    type: boolean
+    description: >
+      Whether cards and dashboards may use the plugin. `false` when absent.
+  created_at:
+    type: string
+    format: date-time
+    description: Creation timestamp (ISO 8601)
+  serdes/meta:
+    type: array
+    description: Identity path for serialization, a single `CustomVizPlugin` entry
+    minItems: 1
+    maxItems: 1
+    items:
+      type: object
+      required:
+        - model
+      properties:
+        id:
+          type: string
+          description: Entity identifier (matches identifier)
+        label:
+          type: string
+          description: The plugin's identifier
+        model:
+          type: string
+          const: CustomVizPlugin
+additionalProperties: true

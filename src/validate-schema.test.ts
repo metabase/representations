@@ -63,6 +63,11 @@ describe("validateSchema", () => {
         "broken.yaml",
       ],
       ["a data app's manifest", ["data_apps", "shop"], "data_app.yaml"],
+      [
+        "a custom viz plugin's entity",
+        ["custom_viz_plugins", "thumbs"],
+        "custom_viz_plugin.yaml",
+      ],
       ["actions", ["actions"], "broken.yaml"],
     ])("validates %s", (_, dirs, file) => {
       mkdirSync(join(workdir, ...dirs), { recursive: true });

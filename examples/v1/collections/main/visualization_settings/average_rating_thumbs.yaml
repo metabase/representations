@@ -1,0 +1,30 @@
+name: Average Rating (Thumbs)
+entity_id: cUsToMvIzCaRd0ExAmP12
+collection_id: cOlViZsEtTiNgS0ExAmP1
+creator_id: admin@example.com
+type: question
+display: custom:thumbs
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+  - "lib/type": mbql.stage/mbql
+    source-table:
+    - Sample Database
+    - PUBLIC
+    - REVIEWS
+    aggregation:
+    - - avg
+      - "lib/uuid": 0f4b1c2e-6a7d-4e5f-9a8b-1c2d3e4f5a6b
+      - - field
+        - "lib/uuid": 7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d
+        - - Sample Database
+          - PUBLIC
+          - REVIEWS
+          - RATING
+visualization_settings:
+  "custom:thumbs:metric": avg
+  "custom:thumbs:threshold": 3.5
+  "custom:thumbs:show_value": true
+serdes/meta:
+- model: Card

@@ -19,35 +19,39 @@ properties:
   entity_id:
     $ref: "common/id.yaml#/$defs/entity_id"
   display:
+    description: >
+      Visualization type: a built-in display type, or `custom:<identifier>`
+      for a custom visualization (see Custom Viz Plugin).
     type: string
-    description: Visualization type
-    enum:
-      - table
-      - bar
-      - line
-      - area
-      - row
-      - pie
-      - scalar
-      - smartscalar
-      - number
-      - combo
-      - pivot
-      - funnel
-      - map
-      - scatter
-      - waterfall
-      - progress
-      - gauge
-      - object
-      - list
-      - heading
-      - text
-      - link
-      - iframe
-      - action
-      - sankey
-      - boxplot
+    anyOf:
+      - enum:
+          - table
+          - bar
+          - line
+          - area
+          - row
+          - pie
+          - scalar
+          - smartscalar
+          - number
+          - combo
+          - pivot
+          - funnel
+          - map
+          - scatter
+          - waterfall
+          - progress
+          - gauge
+          - object
+          - list
+          - heading
+          - text
+          - link
+          - iframe
+          - action
+          - sankey
+          - boxplot
+      - pattern: '^custom:[^:]+$'
   creator_id:
     $ref: "common/id.yaml#/$defs/user_id"
   database_id:
