@@ -111,11 +111,7 @@ export-root/
 │       └── dist/index.js                   # Built bundle, at the manifest's `path`
 ├── custom_viz_plugins/                     # Custom viz plugins (see Custom Viz Plugin)
 │   └── {identifier}/
-│       ├── custom_viz_plugin.yaml          # The plugin's entity
-│       ├── metabase-plugin.json            # The bundle's manifest
-│       └── dist/
-│           ├── index.js                    # Built bundle
-│           └── assets/                     # The bundle's icon and other assets
+│       └── custom_viz_plugin.yaml          # The plugin's entity, bundle inline
 ├── collections/
 │   ├── data_apps/                          # `data-apps` namespace: each data app's collection
 │   │   ├── {collection_slug}.yaml          # The app's collection (sibling of its folder)
@@ -3337,25 +3333,21 @@ serdes/meta:
 
 ## Custom Viz Plugin
 
-A custom viz plugin adds a visualization to an instance: a bundle built with `@metabase/custom-viz` that cards render with `display: custom:<identifier>`. It lives in its own directory, `custom_viz_plugins/{identifier}/`, and is loaded when Metabase imports the repository. Like a data app, it is not a single YAML file: it is the plugin's serialized entity with the built bundle beside it, unpacked. It owns no collection and no content; cards that use it live wherever they live and name it only through their `display`.
+A custom viz plugin adds a visualization to an instance: a bundle built with `@metabase/custom-viz` that cards render with `display: custom:<identifier>`. It lives in its own directory, `custom_viz_plugins/{identifier}/`, and is loaded when Metabase imports the repository. Unlike a data app, it is a single YAML file: the plugin's serialized entity, carrying the bundle. It owns no collection and no content; cards that use it live wherever they live and name it only through their `display`.
 
 ### Directory Layout
 
 ```
 custom_viz_plugins/
 └── {identifier}/
-    ├── custom_viz_plugin.yaml          # The plugin's entity (see below)
-    ├── metabase-plugin.json            # The bundle's manifest
-    └── dist/
-        ├── index.js                    # Built bundle
-        └── assets/                     # The icon the manifest names, and other assets
+    └── custom_viz_plugin.yaml          # The plugin's entity (see below)
 ```
 
-The bundle is the output of `npm run build` in a `@metabase/custom-viz` project, laid out as the project is: the manifest at the root, the JavaScript at `dist/index.js`, and assets under `dist/assets/`. It is the same set of files the project's `pack` command archives for upload through Admin; the repository holds them unpacked so a change to the plugin is reviewable.
+The bundle is the archive the `pack` command of a `@metabase/custom-viz` project produces: a gzipped tar holding `metabase-plugin.json` at its root, the built JavaScript at `dist/index.js`, and the icon and other assets under `dist/assets/`. It is the same file an admin uploads through Admin → Custom visualizations, carried base64-encoded in the entity's `bundle`, so the repository holds exactly what the instance stores.
 
-**Identity.** A plugin has no `entity_id`: its `identifier` is its identity, and it is what cards reference. The identifier appears three times, and all three must agree or the pull fails naming the file: the directory's name `{identifier}`, the entity's `identifier`, and the `name` in `metabase-plugin.json`. An identifier contains no `:`, because `:` separates the parts of the `custom:<identifier>:<setting>` keys in visualization settings; no `/`, `\` or whitespace, because it names a directory; and doesn't start with `.`. Renaming a plugin means every card that uses it changes `display`.
+**Identity.** A plugin has no `entity_id`: its `identifier` is its identity, and it is what cards reference. Two places must agree: the entity's `identifier` and the `name` in the manifest inside the bundle. A mismatched name, or a bundle that can't be read, loads the plugin in an error state naming the reason. The directory name `{identifier}` is how Metabase writes the file and what this spec expects, but an instance does not check it. An identifier contains no `:`, because `:` separates the parts of the `custom:<identifier>:<setting>` keys in visualization settings; no `/`, `\` or whitespace, because it names a directory; and doesn't start with `.`. Renaming a plugin means every card that uses it changes `display`.
 
-Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is ignored, as are dotfiles. Source files a developer keeps beside the bundle (`src/`, `package.json`) are ignored too; only the manifest and `dist/` are loaded.
+Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is ignored, as are dotfiles. Source files a developer keeps beside the entity (`src/`, `package.json`, `dist/`, a `.tgz`) are ignored too; only `custom_viz_plugin.yaml` is loaded.
 
 ### Entity
 
@@ -3363,21 +3355,22 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `identifier` | string | Yes | The plugin's identifier, equal to its directory's name and the manifest's `name` |
+| `identifier` | string | Yes | The plugin's identifier, equal to the manifest's `name` inside `bundle` |
+| `bundle` | string | Yes | The plugin's tar.gz as `pack` writes it, base64-encoded |
 | `enabled` | boolean | No | Whether cards and dashboards may use the plugin. `false` when absent |
 | `created_at` | string | No | ISO 8601 timestamp |
 | `serdes/meta` | array | Yes | Identity path with `model: CustomVizPlugin` |
 
 ### Manifest
 
-`metabase-plugin.json` is the bundle's manifest, owned by the `@metabase/custom-viz` SDK and written by the developer. Metabase reads it from the bundle on load. Its fields, all optional to the SDK:
+`metabase-plugin.json`, at the root of the bundle, is the bundle's manifest, owned by the `@metabase/custom-viz` SDK and written by the developer. Metabase reads it from the archive on load. Its fields, all optional to the SDK:
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `name` | string | The plugin's identifier; must equal the entity's `identifier` |
 | `icon` | string | Filename of the plugin's icon under `dist/assets/` |
 | `metabase.version` | string | Semver range of Metabase versions the plugin supports (e.g., `">=1.64 <1.66"`); an instance outside it warns |
-| `sdk.version` | string | Version of `@metabase/custom-viz` the bundle was built with. `pack` stamps it into the archived copy, so it is usually absent on disk; an instance only warns when it's missing or mismatched |
+| `sdk.version` | string | Version of `@metabase/custom-viz` the bundle was built with. Always present, since `pack` stamps it into the archived manifest; an instance warns when it mismatches |
 
 ### Example
 
@@ -3386,20 +3379,9 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 ```yaml
 identifier: thumbs
 enabled: true
+bundle: H4sIAAAAAAAAE+1VPW/bMBT07F9x4NIl5oc+AcMymnbJ4jVzaIux6FCkIVKS4SL/vZAdd3ALdGjjoogOEJ50uieKgu5erYJcS69me9NutaU77+zkL4NzniUJhso5v66cR1xApFGWCBEnSQQuYpHlmPDJDdD6IJsJ/+O1rjf3n+DbFCBW1orMQULV1mtP7gZOb5wduKFS323PbP32u5A5hk6AdKrx+ixdFoJmCZkCryexL19+qYsop/wkm75O//UH+OAotQ9M21Id6M6/0xq/9X+SXvlfZPHo/5uAMdxj0/rganT6iPMY+OSxbrUJWLe2NOoO0uPJ7ms0rT3dKZ/gniHx+RII7PyMWaePU8awb9xObQL6RgfloQPF6k0J42TpESrt8ayNgrbBIVQKnfatNPoog3bDK3hpy7U70DEj3tn/0nsVPLtE/a39H+fxT/M/Gf1/Eyx8t8WhNtYXpAphP2es73vax9Q1WxZxztkw/NFp1X9xh4JwcIgMIiPLxV6GCmVBVhHyKu7yh+i4yiCSx9zEs1QKmmI4Ti2nM0HTx+xBJFJAXGgIGpmZQEqz+6uOaLhMjmTICVMQ66wi8KFxL6ogm7ZplA1fnXHNhZ31ugxVQQRNf1BGW7Vz2hakca0tCVsuhi0tx1QZMWLE5EPjOyFzqOgAEAAA
 serdes/meta:
 - model: CustomVizPlugin
-```
-
-**`custom_viz_plugins/thumbs/metabase-plugin.json`:**
-
-```json
-{
-  "name": "thumbs",
-  "icon": "icon.svg",
-  "metabase": {
-    "version": ">=1.64"
-  }
-}
 ```
 
 **A card rendered by it**, anywhere under `collections/`:
@@ -3442,7 +3424,7 @@ serdes/meta:
 ## Version History
 
 - **1.7.0**: Custom Viz Plugin
-  - New `CustomVizPlugin` entity at `custom_viz_plugins/{identifier}/custom_viz_plugin.yaml`, keyed by `identifier` rather than `entity_id`, with its bundle unpacked beside it
+  - New `CustomVizPlugin` entity at `custom_viz_plugins/{identifier}/custom_viz_plugin.yaml`, keyed by `identifier` rather than `entity_id`, with its bundle inline as base64
   - Card `display` accepts `custom:<identifier>`; custom visualization settings documented
 - **1.0.0**: Initial release
   - Entity key system (NanoID and foreign key references)
