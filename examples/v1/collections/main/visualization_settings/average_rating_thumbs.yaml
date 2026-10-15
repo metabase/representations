@@ -11,7 +11,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - REVIEWS
     aggregation:
     - - avg
@@ -19,7 +19,7 @@ dataset_query:
       - - field
         - "lib/uuid": 7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d
         - - Sample Database
-          - PUBLIC
+          - null
           - REVIEWS
           - RATING
 visualization_settings:

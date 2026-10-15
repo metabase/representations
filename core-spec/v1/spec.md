@@ -1639,9 +1639,10 @@ Visualization settings control how query results are displayed. They are stored 
 
 Apply to `custom:<identifier>` displays. A [Custom Viz Plugin](#custom-viz-plugin) defines its own settings in its bundle; each is stored under the key `custom:<identifier>:<setting>`, namespaced by the plugin's identifier so two plugins' settings can't collide (which is why an identifier can't contain `:`). Host settings such as `column_settings` keep their usual keys. Dashcard overrides use the same keys.
 
-| Setting | Type | Description |
-|---------|------|-------------|
-| `"custom:<identifier>:<setting>"` | any | A setting the plugin `<identifier>` defines, with the value shape the plugin expects |
+| Setting                           | Type | Description                                                                          |
+| --------------------------------- | ---- | ------------------------------------------------------------------------------------ |
+| `"custom:<identifier>:<setting>"` | any  | A setting the plugin `<identifier>` defines, with the value shape the plugin expects |
+
 
 ### Graph Settings
 
@@ -3400,7 +3401,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - REVIEWS
     aggregation:
     - - avg
@@ -3408,7 +3409,7 @@ dataset_query:
       - - field
         - "lib/uuid": 7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d
         - - Sample Database
-          - PUBLIC
+          - null
           - REVIEWS
           - RATING
 visualization_settings:
