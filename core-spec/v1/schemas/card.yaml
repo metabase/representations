@@ -51,7 +51,7 @@ properties:
           - action
           - sankey
           - boxplot
-      - pattern: '^custom:[^:]+$'
+      - pattern: '^custom:[A-Za-z0-9][A-Za-z0-9._-]*$'
   creator_id:
     $ref: "common/id.yaml#/$defs/user_id"
   database_id:

@@ -80,6 +80,12 @@ describe("custom viz plugin schema", () => {
     ],
     ["an identifier with a space", { ...PLUGIN, identifier: "sun burst" }],
     ["an identifier starting with a dot", { ...PLUGIN, identifier: ".thumbs" }],
+    [
+      "an identifier starting with a dash",
+      { ...PLUGIN, identifier: "-thumbs" },
+    ],
+    ["an identifier with an @", { ...PLUGIN, identifier: "@acme/thumbs" }],
+    ["an identifier with a #", { ...PLUGIN, identifier: "thumbs#2" }],
     ["no serdes/meta", without("serdes/meta")],
     [
       "serdes/meta of another model",
@@ -138,6 +144,8 @@ describe("card display", () => {
     ["an unknown display type", "thumbs"],
     ["a custom prefix with no identifier", "custom:"],
     ["a custom identifier with a colon", "custom:acme:thumbs"],
+    ["a custom identifier with a slash", "custom:acme/thumbs"],
+    ["a custom identifier starting with a dot", "custom:.thumbs"],
   ])("rejects %s", (_, display) => {
     expect(validateCard({ ...CARD, display })).toBe(false);
   });
