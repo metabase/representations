@@ -4,9 +4,7 @@ description: >
   The `custom_viz_plugin.yaml` at the root of a custom viz plugin's directory,
   `custom_viz_plugins/<identifier>/custom_viz_plugin.yaml`: the plugin's own
   serialized entity. Unlike other entities it has no `entity_id`: its
-  `identifier` is its identity, and must equal both the directory's name and
-  the `name` in the bundle's `metabase-plugin.json` beside it, which this file
-  can't check.
+  `identifier` is its identity.
 type: object
 required:
   - identifier

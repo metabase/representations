@@ -1,10 +1,10 @@
 import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 import type { FormatsPlugin } from "ajv-formats";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
 import { createRequire } from "node:module";
-import { resolve } from "path";
+import { basename, dirname, resolve } from "path";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
@@ -46,6 +46,52 @@ export type ValidateSchemaResult = {
   results: ValidationResult[];
   passed: number;
   failed: number;
+};
+
+// Rules a schema can't express because they reach outside the file: its
+// path, or a sibling file. Keyed by model, like the validators.
+type Check = (doc: any, fullPath: string) => ValidationError[];
+
+const CHECKS: Record<string, Check> = {
+  // The identifier appears three times and all must agree: the entity's
+  // `identifier`, the directory's name, and the manifest's `name`.
+  CustomVizPlugin(doc, fullPath) {
+    const errors: ValidationError[] = [];
+    const dir = dirname(fullPath);
+    const directory = basename(dir);
+    if (doc.identifier !== directory) {
+      errors.push({
+        path: "/identifier",
+        message: `must equal the directory's name "${directory}"`,
+      });
+    }
+
+    const manifestPath = resolve(dir, "metabase-plugin.json");
+    if (!existsSync(manifestPath)) {
+      errors.push({
+        path: "/",
+        message: "missing metabase-plugin.json beside the entity",
+      });
+      return errors;
+    }
+    let name: unknown;
+    try {
+      name = JSON.parse(readFileSync(manifestPath, "utf8")).name;
+    } catch (e: any) {
+      errors.push({
+        path: "/",
+        message: `invalid metabase-plugin.json: ${e.message}`,
+      });
+      return errors;
+    }
+    if (name !== doc.identifier) {
+      errors.push({
+        path: "/identifier",
+        message: `must equal the manifest's name ${JSON.stringify(name)}`,
+      });
+    }
+    return errors;
+  },
 };
 
 function extractModel(schema: any): string | null {
@@ -144,15 +190,19 @@ export function validateSchema({
       continue;
     }
 
-    if (validate(doc)) {
-      results.push({ file, model, status: "ok" });
-    } else {
-      const errors = (validate.errors ?? []).map((e) => ({
-        path: e.instancePath || "/",
-        message: e.message ?? "",
-      }));
-      results.push({ file, model, status: "fail", errors });
-    }
+    const errors: ValidationError[] = validate(doc)
+      ? []
+      : (validate.errors ?? []).map((e) => ({
+          path: e.instancePath || "/",
+          message: e.message ?? "",
+        }));
+    errors.push(...(CHECKS[model]?.(doc, fullPath) ?? []));
+
+    results.push(
+      errors.length === 0
+        ? { file, model, status: "ok" }
+        : { file, model, status: "fail", errors },
+    );
   }
 
   return {

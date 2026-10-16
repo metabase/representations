@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  renameSync,
   rmSync,
   writeFileSync,
 } from "fs";
@@ -76,6 +78,81 @@ describe("validateSchema", () => {
       const { failed, results } = validateSchema({ folder: workdir });
       expect(failed).toBe(1);
       expect(results[0].file).toBe(join(...dirs, file));
+    });
+
+    describe("custom viz plugins", () => {
+      const PLUGIN = join("custom_viz_plugins", "thumbs");
+      const ENTITY = join(PLUGIN, "custom_viz_plugin.yaml");
+      const MANIFEST = join(PLUGIN, "metabase-plugin.json");
+
+      // The thumbs example, copied whole so the manifest comes along.
+      beforeEach(() => {
+        cpSync(join(EXAMPLES, PLUGIN), join(workdir, PLUGIN), {
+          recursive: true,
+        });
+      });
+
+      const messages = () => {
+        const { results } = validateSchema({ folder: workdir });
+        const [result] = results;
+        return result.status === "fail"
+          ? result.errors.map((e) => e.message)
+          : [];
+      };
+
+      it("passes when the identifier, directory and manifest agree", () => {
+        const { passed, failed } = validateSchema({ folder: workdir });
+        expect(passed).toBe(1);
+        expect(failed).toBe(0);
+      });
+
+      it("fails when the directory's name differs", () => {
+        renameSync(
+          join(workdir, PLUGIN),
+          join(workdir, "custom_viz_plugins", "Thumbs"),
+        );
+
+        expect(messages()).toEqual([
+          'must equal the directory\'s name "Thumbs"',
+        ]);
+      });
+
+      it("fails when the manifest's name differs", () => {
+        writeFileSync(join(workdir, MANIFEST), '{ "name": "thumbs-up" }\n');
+
+        expect(messages()).toEqual([
+          'must equal the manifest\'s name "thumbs-up"',
+        ]);
+      });
+
+      it("fails when the manifest is missing", () => {
+        rmSync(join(workdir, MANIFEST));
+
+        expect(messages()).toEqual([
+          "missing metabase-plugin.json beside the entity",
+        ]);
+      });
+
+      it("fails when the manifest isn't JSON", () => {
+        writeFileSync(join(workdir, MANIFEST), "name: thumbs\n");
+
+        expect(messages()).toEqual([
+          expect.stringMatching(/^invalid metabase-plugin\.json: /),
+        ]);
+      });
+
+      it("reports schema errors and identifier errors together", () => {
+        writeFileSync(
+          join(workdir, ENTITY),
+          "identifier: thumbs-up\nserdes/meta:\n- model: CustomVizPlugin\n",
+        );
+        writeFileSync(join(workdir, MANIFEST), '{ "name": "thumbs-down" }\n');
+
+        expect(messages()).toEqual([
+          'must equal the directory\'s name "thumbs"',
+          'must equal the manifest\'s name "thumbs-down"',
+        ]);
+      });
     });
 
     describe("actions", () => {
