@@ -40,8 +40,6 @@ const validateCard = ajv.compile(loadSchema("card.yaml"));
 const PLUGIN = {
   identifier: "thumbs",
   enabled: true,
-  bundle:
-    "H4sIAAAAAAAAA+3BAQ0AAADCoPdPbQ43oAAAAAAAAAAAAAAAAAAAAIC3AYbSVKsAKAAA",
   "serdes/meta": [{ model: "CustomVizPlugin", id: "thumbs", label: "thumbs" }],
 };
 
@@ -52,7 +50,6 @@ describe("custom viz plugin schema", () => {
       "only the required fields",
       {
         identifier: "thumbs",
-        bundle: PLUGIN.bundle,
         "serdes/meta": [{ model: "CustomVizPlugin" }],
       },
     ],
@@ -83,12 +80,6 @@ describe("custom viz plugin schema", () => {
     ],
     ["an identifier with a space", { ...PLUGIN, identifier: "sun burst" }],
     ["an identifier starting with a dot", { ...PLUGIN, identifier: ".thumbs" }],
-    ["no bundle", without("bundle")],
-    ["a bundle that isn't base64", { ...PLUGIN, bundle: "not base64!" }],
-    [
-      "a bundle that isn't gzip",
-      { ...PLUGIN, bundle: "cHJldGVuZCB0Z3ogYnl0ZXM=" },
-    ],
     ["no serdes/meta", without("serdes/meta")],
     [
       "serdes/meta of another model",
