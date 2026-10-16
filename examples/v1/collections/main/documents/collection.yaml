@@ -1,0 +1,7 @@
+name: Documents
+entity_id: cOlDoCuMeNtS0ExAmPlx2
+slug: documents
+created_at: '2026-10-16T18:13:39.565416Z'
+serdes/meta:
+- model: Collection
+is_remote_synced: true

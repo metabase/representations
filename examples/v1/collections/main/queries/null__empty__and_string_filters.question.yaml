@@ -1,0 +1,160 @@
+name: Null, Empty, and String Filters
+entity_id: ZvHEBpdFQ-VSvem16KCkL
+created_at: '2026-10-16T18:13:40.420793Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - filters:
+    - - not-null
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - not-empty
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+    - - is-empty
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+    - - contains
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - widget
+    - - contains
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - gadget
+    - - contains
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - widget
+      - gadget
+    - - does-not-contain
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - LLC
+    - - does-not-contain
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - inc
+    - - does-not-contain
+      - case-sensitive: true
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - LLC
+      - Corp
+    - - starts-with
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - Awesome
+    - - starts-with
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - awesome
+    - - starts-with
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - Awesome
+      - Incredible
+    - - ends-with
+      - {}
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - EAN
+      - '0'
+    - - ends-with
+      - case-sensitive: false
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - EAN
+      - '9'
+    - - ends-with
+      - case-sensitive: true
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - EAN
+      - '0'
+      - '5'
+    limit: 20
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question

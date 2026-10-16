@@ -1,8 +1,0 @@
-name: Documents
-entity_id: cOlDoCuMeNtS0ExAmPlx2
-slug: documents
-parent_id: null
-namespace: null
-authority_level: null
-serdes/meta:
-- model: Collection

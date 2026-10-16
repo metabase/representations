@@ -1,8 +1,0 @@
-name: Minimal
-entity_id: cOlMiNiMaL000ExAmPlx2
-slug: minimal
-parent_id: null
-namespace: null
-authority_level: null
-serdes/meta:
-- model: Collection

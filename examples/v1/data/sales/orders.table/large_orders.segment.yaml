@@ -1,0 +1,25 @@
+created_at: '2026-10-16T18:13:40.682768Z'
+creator_id: admin@example.com
+definition:
+  database: Sample Database
+  stages:
+  - filters:
+    - - '>'
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+      - 50
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+entity_id: OaFXAvEzPvu9ZXW5PUMRa
+name: Large Orders
+serdes/meta:
+- model: Segment

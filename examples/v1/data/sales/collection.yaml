@@ -1,0 +1,9 @@
+name: Sales
+entity_id: M5OaLng8wTxK15J6U9srW
+slug: sales
+created_at: '2026-10-16T18:15:33.74164Z'
+type: library-data
+parent_id: librarylibrarydatadat
+serdes/meta:
+- model: Collection
+is_remote_synced: true

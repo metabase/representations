@@ -1,0 +1,7 @@
+name: Queries
+entity_id: cOlQuErIeS0ExAmPlE2x1
+slug: queries
+created_at: '2026-10-16T18:13:37.180621Z'
+serdes/meta:
+- model: Collection
+is_remote_synced: true

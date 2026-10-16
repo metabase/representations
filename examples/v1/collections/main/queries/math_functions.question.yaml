@@ -1,0 +1,92 @@
+name: Math Functions
+entity_id: jPrM-oh3r1BR42xSs4Ipj
+created_at: '2026-10-16T18:13:40.313266Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - expressions:
+    - - abs
+      - lib/expression-name: Absolute Discount
+      - - '-'
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - PRICE
+        - 50
+    - - ceil
+      - lib/expression-name: Price Ceiling
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+    - - floor
+      - lib/expression-name: Price Floor
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+    - - round
+      - lib/expression-name: Rounded Price
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+    - - power
+      - lib/expression-name: Rating Squared
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - RATING
+      - 2
+    - - sqrt
+      - lib/expression-name: Price Sqrt
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+    - - exp
+      - lib/expression-name: Price Exp
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - RATING
+    - - log
+      - lib/expression-name: Price Log
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+    limit: 10
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question

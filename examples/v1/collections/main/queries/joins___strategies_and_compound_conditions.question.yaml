@@ -1,0 +1,122 @@
+name: Joins - Strategies and Compound Conditions
+entity_id: wpW9JO5MsHQd0-7WrR7gN
+created_at: '2026-10-16T18:13:39.371277Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - joins:
+    - alias: Products
+      conditions:
+      - - =
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - PRODUCT_ID
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PRODUCTS
+            - ID
+      fields: all
+      stages:
+      - source-table:
+        - Sample Database
+        - null
+        - PRODUCTS
+        lib/type: mbql.stage/mbql
+      strategy: left-join
+      lib/type: mbql/join
+    - alias: People
+      conditions:
+      - - =
+        - {}
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - ORDERS
+            - USER_ID
+        - - field
+          - {}
+          - - Sample Database
+            - null
+            - PEOPLE
+            - ID
+      fields:
+      - - field
+        - join-alias: People
+        - - Sample Database
+          - null
+          - PEOPLE
+          - NAME
+      - - field
+        - join-alias: People
+        - - Sample Database
+          - null
+          - PEOPLE
+          - STATE
+      stages:
+      - source-table:
+        - Sample Database
+        - null
+        - PEOPLE
+        lib/type: mbql.stage/mbql
+      strategy: inner-join
+      lib/type: mbql/join
+    - alias: GoodReviews
+      conditions:
+      - - and
+        - {}
+        - - =
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - ORDERS
+              - PRODUCT_ID
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - REVIEWS
+              - PRODUCT_ID
+        - - '>='
+          - {}
+          - - field
+            - {}
+            - - Sample Database
+              - null
+              - REVIEWS
+              - RATING
+          - 4
+      fields: none
+      stages:
+      - source-table:
+        - Sample Database
+        - null
+        - REVIEWS
+        lib/type: mbql.stage/mbql
+      strategy: left-join
+      lib/type: mbql/join
+    limit: 10
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question

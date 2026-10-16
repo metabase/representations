@@ -1,0 +1,60 @@
+name: Fields and Expressions
+entity_id: fLdExPr3sS10nS0ExAmPl
+created_at: '2026-10-16T18:13:37.538354Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - expressions:
+    - - '-'
+      - lib/expression-name: Profit
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TAX
+    fields:
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - ORDERS
+        - TOTAL
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - ORDERS
+        - TAX
+    - - expression
+      - {}
+      - Profit
+    limit: 100
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question

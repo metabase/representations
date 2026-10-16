@@ -1,0 +1,105 @@
+name: Virtual Cards Dashboard
+entity_id: Ylbpm_iPeEYav_o0kpUVD
+created_at: '2026-10-16T18:13:40.264531Z'
+creator_id: admin@example.com
+collection_id: cOlDaShBoArDs0ExAmPlx
+parameters:
+- id: 9d9cddd4
+  name: Product Category
+  position: 0
+  sectionId: string
+  slug: product_category
+  type: string/=
+serdes/meta:
+- model: Dashboard
+dashcards:
+- entity_id: WcNpxqVEO_rIeWZwjYv7Z
+  created_at: '2026-10-16T18:13:40.264531Z'
+  row: 0
+  col: 0
+  size_x: 24
+  size_y: 1
+  inline_parameters: []
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    text: Sales Overview
+    virtual_card:
+      display: heading
+- entity_id: TF6Oiw2C13CgEKtPyHIow
+  created_at: '2026-10-16T18:13:40.264531Z'
+  row: 1
+  col: 0
+  size_x: 12
+  size_y: 3
+  inline_parameters: []
+  parameter_mappings:
+  - parameter_id: 9d9cddd4
+    target:
+    - text-tag
+    - product_category
+  series: []
+  visualization_settings:
+    text: |-
+      This dashboard provides an overview of sales metrics for {{product_category}}.
+      **Key metrics** include revenue, order count, and average order value.
+      Use the filters above to narrow down the data.
+    virtual_card:
+      display: text
+- entity_id: oGC6qBNiHOKo0tWAHWC1m
+  created_at: '2026-10-16T18:13:40.264531Z'
+  row: 1
+  col: 12
+  size_x: 8
+  size_y: 1
+  inline_parameters: []
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    link:
+      url: https://metabase.com/docs
+    virtual_card:
+      display: link
+- entity_id: 7jlJ-VFISvhlHqxeW7rWp
+  created_at: '2026-10-16T18:13:40.264531Z'
+  row: 2
+  col: 12
+  size_x: 8
+  size_y: 1
+  inline_parameters: []
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    link:
+      entity:
+        id: Q_jD-f-9clKLFZ2TfUG2h
+        model: dashboard
+    virtual_card:
+      display: link
+- entity_id: wn16Kfjjjik8153kj14yI
+  created_at: '2026-10-16T18:13:40.264531Z'
+  row: 4
+  col: 0
+  size_x: 12
+  size_y: 8
+  inline_parameters: []
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    iframe: <iframe src="https://example.com/embed" width="100%" height="400"></iframe>
+    virtual_card:
+      display: iframe
+- entity_id: HZ_JpYrkE8fMEYJg93RKd
+  created_at: '2026-10-16T18:13:40.264531Z'
+  row: 5
+  col: 12
+  size_x: 4
+  size_y: 4
+  inline_parameters: []
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: placeholder
+tabs: []
+width: fixed

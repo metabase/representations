@@ -1,0 +1,53 @@
+name: ORDERS
+display_name: Orders
+description: One row per order placed in the store.
+created_at: '2026-10-16T18:15:48.495013Z'
+db_id: Sample Database
+schema: null
+serdes/meta:
+- model: Table
+collection_id: M5OaLng8wTxK15J6U9srW
+description_set: true
+is_published: true
+table_id:
+- Sample Database
+- null
+- ORDERS
+columns:
+- name: ID
+- name: USER_ID
+- name: PRODUCT_ID
+  remapping:
+    created_at: '2026-10-16T18:15:49.18134Z'
+    entity_id: RxYli5RiXCeta2ZGBhZfo
+    field_id:
+    - Sample Database
+    - null
+    - ORDERS
+    - PRODUCT_ID
+    human_readable_field_id:
+    - Sample Database
+    - null
+    - PRODUCTS
+    - TITLE
+    name: Product
+    type: external
+- name: SUBTOTAL
+- name: TAX
+- name: TOTAL
+  created_at: '2026-10-16T18:15:49.128927Z'
+  description: Total billed, tax included.
+  description_set: true
+  display_name: Order total
+  field_id:
+  - Sample Database
+  - null
+  - ORDERS
+  - TOTAL
+  semantic_type: type/Currency
+  semantic_type_set: true
+  settings:
+    currency: USD
+- name: DISCOUNT
+- name: CREATED_AT
+- name: QUANTITY

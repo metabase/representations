@@ -8,7 +8,7 @@ This repository contains the specification and examples for the Metabase Represe
 
 - **[core-spec/v1/spec.md](core-spec/v1/spec.md)** — Full specification (v1.0.0) covering entity keys, folder structure, MBQL and native queries, parameters, and all entity types.
 - **[core-spec/v1/schemas/](core-spec/v1/schemas/)** — YAML schemas (JSON Schema format) for each entity type.
-- **[examples/v1/](examples/v1/)** — Complete examples using the Sample Database.
+- **[examples/v1/](examples/v1/)** — Complete examples using the Sample Database, in the folder layout Metabase exports (see the spec's Folder Structure section).
 
 ## Entity Types
 
@@ -26,6 +26,9 @@ This repository contains the specification and examples for the Metabase Represe
 | TransformJob | Scheduled job that executes tagged transforms |
 | TransformTest | Test data for a transform's input tables and checks on its output |
 | PythonLibrary | Shared Python source file available to Python transforms |
+| Table file | A table's and its columns' settings and remappings, in one file |
+| AI context | Metabot's instructions, synonyms and example questions for one item |
+| Glossary | A term and its definition |
 
 ## Schema Validation
 

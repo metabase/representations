@@ -77,9 +77,16 @@ describe("validateSchema", () => {
       const example = (file: string): Record<string, unknown> =>
         yaml.load(
           readFileSync(
-            file === "apply_discount.yaml"
-              ? join(EXAMPLES, "collections", "data_actions", file)
-              : join(EXAMPLES, "collections", "main", "queries", file),
+            file === "apply_discount.action.yaml"
+              ? join(EXAMPLES, "data_actions", file)
+              : join(
+                  EXAMPLES,
+                  "collections",
+                  "main",
+                  "queries",
+                  "orders_model.model",
+                  file,
+                ),
             "utf8",
           ),
         ) as Record<string, unknown>; // Example actions are YAML maps.
@@ -94,42 +101,48 @@ describe("validateSchema", () => {
       };
 
       it.each([
-        ["an unknown type", { ...example("create_order.yaml"), type: "magic" }],
+        [
+          "an unknown type",
+          { ...example("create_order.action.yaml"), type: "magic" },
+        ],
         [
           "the removed http type",
-          { ...example("apply_discount.yaml"), type: "http" },
+          { ...example("apply_discount.action.yaml"), type: "http" },
         ],
         [
           "an implicit type but no model",
           (({ model_id: _modelId, ...action }) => action)(
-            example("create_order.yaml"),
+            example("create_order.action.yaml"),
           ),
         ],
         [
           "an unknown implicit kind",
           {
-            ...example("create_order.yaml"),
+            ...example("create_order.action.yaml"),
             implicit: [{ kind: "row/upsert" }],
           },
         ],
         [
           "a query action without its query",
-          { ...example("apply_discount.yaml"), query: [] },
+          { ...example("apply_discount.action.yaml"), query: [] },
         ],
       ])("rejects an action with %s", (_, action) => {
         expect(validateAction(action).failed).toBe(1);
       });
 
       it.each([
-        ["a query action without a model", example("apply_discount.yaml")],
+        [
+          "a query action without a model",
+          example("apply_discount.action.yaml"),
+        ],
         [
           "a query action with a null model",
-          { ...example("apply_discount.yaml"), model_id: null },
+          { ...example("apply_discount.action.yaml"), model_id: null },
         ],
         [
           "a query action still on a model",
           {
-            ...example("apply_discount.yaml"),
+            ...example("apply_discount.action.yaml"),
             model_id: "4eroqa4ZYl4WkNjP8XTvu",
           },
         ],
@@ -143,10 +156,9 @@ describe("validateSchema", () => {
         readFileSync(
           join(
             EXAMPLES,
-            "collections",
             "transforms",
-            "native_transform",
-            "product_revenue_report__category_totals.yaml",
+            "product_revenue_report.transform",
+            "product_revenue_report__category_totals.transform_test.yaml",
           ),
           "utf8",
         ),
@@ -286,6 +298,134 @@ describe("validateSchema", () => {
         );
 
         expect(validateSchema({ folder: workdir }).failed).toBe(1);
+      });
+    });
+
+    it.each([
+      ["Library > Data", ["data", "sales"], "orders.table.yaml"],
+      ["a table's folder", ["data", "orders.table"], "big.segment.yaml"],
+      ["Library > Metrics", ["metrics"], "mrr.metric.yaml"],
+      ["an item's AI context", ["metrics", "mrr.metric"], "ai_context.yaml"],
+      ["Library > Dashboards", ["dashboards"], "kpis.dashboard.yaml"],
+      ["Library > Documents", ["documents"], "notes.document.yaml"],
+      ["the glossary", ["glossary"], "arr.term.yaml"],
+      ["a snippet folder", ["snippets", "shared"], "collection.yaml"],
+      ["data actions", ["data_actions"], "restart.action.yaml"],
+      ["transform tags", ["transform_tags"], "nightly.transform_tag.yaml"],
+      ["transform jobs", ["transform_jobs"], "nightly.transform_job.yaml"],
+      ["the Python library", ["python_library"], "common.py.yaml"],
+      ["a data app's resources", ["data_apps", "shop", "resources"], "q.yaml"],
+      ["a database", ["databases"], "sample.database.yaml"],
+      ["a table not published", ["databases", "sample"], "orders.table.yaml"],
+    ])("validates %s", (_, dirs, file) => {
+      mkdirSync(join(workdir, ...dirs), { recursive: true });
+      writeFileSync(join(workdir, ...dirs, file), "name: Broken\n");
+
+      const { failed, results } = validateSchema({ folder: workdir });
+      expect(failed).toBe(1);
+      expect(results[0].file).toBe(join(...dirs, file));
+    });
+
+    it.each([
+      ["a data app's own YAML", ["data_apps", "shop", "src"], "config.yaml"],
+      [
+        "a table row of an older export",
+        ["databases", "db", "tables", "t"],
+        "t.yaml",
+      ],
+    ])("ignores %s", (_, dirs, file) => {
+      mkdirSync(join(workdir, ...dirs), { recursive: true });
+      writeFileSync(join(workdir, ...dirs, file), "name: Broken\n");
+
+      expect(validateSchema({ folder: workdir }).results).toEqual([]);
+    });
+
+    describe("table files", () => {
+      const example = yaml.load(
+        readFileSync(
+          join(EXAMPLES, "data", "sales", "orders.table.yaml"),
+          "utf8",
+        ),
+      ) as Record<string, any>; // The example table file is a YAML map.
+
+      const validateTable = (table: Record<string, any>) => {
+        mkdirSync(join(workdir, "data"), { recursive: true });
+        writeFileSync(join(workdir, "data", "t.table.yaml"), yaml.dump(table));
+        return validateSchema({ folder: workdir });
+      };
+
+      it("accepts the example", () => {
+        expect(validateTable(example).failed).toBe(0);
+      });
+
+      it("accepts a table with its schema", () => {
+        expect(
+          validateTable({
+            ...example,
+            metadata: { name: "ORDERS", active: true },
+            columns: [{ name: "ID", metadata: { name: "ID" } }],
+          }).failed,
+        ).toBe(0);
+      });
+
+      it.each([
+        ["a column without a name", { ...example, columns: [{}] }],
+        [
+          "a remapping of an unknown type",
+          {
+            ...example,
+            columns: [{ name: "ID", remapping: { type: "magic" } }],
+          },
+        ],
+        ["columns that are not a list", { ...example, columns: {} }],
+      ])("rejects a table with %s", (_, table) => {
+        expect(validateTable(table).failed).toBe(1);
+      });
+    });
+
+    describe("AI context", () => {
+      const example = yaml.load(
+        readFileSync(
+          join(EXAMPLES, "metrics", "total_revenue.metric", "ai_context.yaml"),
+          "utf8",
+        ),
+      ) as Record<string, any>; // The example AI context is a YAML map.
+
+      const validateAiContext = (aiContext: Record<string, any>) => {
+        mkdirSync(join(workdir, "metrics", "m.metric"), { recursive: true });
+        writeFileSync(
+          join(workdir, "metrics", "m.metric", "ai_context.yaml"),
+          yaml.dump(aiContext),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      it.each([
+        ["the example", example],
+        [
+          "a table's AI context",
+          {
+            ...example,
+            entity_type: "table",
+            entity_local_id: ["Sample Database", null, "ORDERS"],
+          },
+        ],
+      ])("accepts %s", (_, aiContext) => {
+        expect(validateAiContext(aiContext).failed).toBe(0);
+      });
+
+      it.each([
+        ["an unknown kind of item", { ...example, entity_type: "dashboard" }],
+        [
+          "an unknown key",
+          { ...example, ai_context: { ...example.ai_context, tone: "dry" } },
+        ],
+        [
+          "no item",
+          (({ entity_local_id: _id, ...aiContext }) => aiContext)(example),
+        ],
+      ])("rejects an AI context with %s", (_, aiContext) => {
+        expect(validateAiContext(aiContext).failed).toBe(1);
       });
     });
 

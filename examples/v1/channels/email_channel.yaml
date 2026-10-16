@@ -1,9 +1,0 @@
-created_at: '2024-09-11T15:36:01.845352Z'
-description: Email notification channel
-details:
-  host: smtp.example.com
-  port: 587
-name: Email Channel
-type: channel/email
-serdes/meta:
-- model: Channel

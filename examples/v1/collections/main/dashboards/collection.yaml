@@ -1,0 +1,7 @@
+name: Dashboards
+entity_id: cOlDaShBoArDs0ExAmPlx
+slug: dashboards
+created_at: '2026-10-16T18:13:38.295292Z'
+serdes/meta:
+- model: Collection
+is_remote_synced: true

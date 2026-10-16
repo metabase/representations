@@ -1,0 +1,21 @@
+name: PRODUCTS
+created_at: '2026-10-16T18:15:48.676735Z'
+db_id: Sample Database
+schema: null
+serdes/meta:
+- model: Table
+collection_id: librarylibrarydatadat
+is_published: true
+table_id:
+- Sample Database
+- null
+- PRODUCTS
+columns:
+- name: ID
+- name: EAN
+- name: TITLE
+- name: CATEGORY
+- name: VENDOR
+- name: PRICE
+- name: RATING
+- name: CREATED_AT

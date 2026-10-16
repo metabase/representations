@@ -1,0 +1,32 @@
+name: Source Card Reference
+entity_id: gt4OaWYAuDWRHn5Irnd4h
+created_at: '2026-10-16T18:13:37.926448Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - filters:
+    - - '>'
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+      - 100
+    order-by:
+    - - desc
+      - {}
+      - - field
+        - base-type: type/Integer
+        - count
+    source-card: h5F2EjHsRd73Dqqh8sAtd
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question

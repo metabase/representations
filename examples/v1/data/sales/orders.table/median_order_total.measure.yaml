@@ -1,0 +1,24 @@
+created_at: '2026-10-16T18:13:40.7185Z'
+creator_id: admin@example.com
+definition:
+  database: Sample Database
+  stages:
+  - aggregation:
+    - - median
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+entity_id: d4G5fMj5smJ17Nd0dvE2A
+name: Median Order Total
+serdes/meta:
+- model: Measure

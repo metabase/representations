@@ -1,0 +1,7 @@
+name: Minimal
+entity_id: cOlMiNiMaL000ExAmPlx2
+slug: minimal
+created_at: '2026-10-16T18:13:38.90528Z'
+serdes/meta:
+- model: Collection
+is_remote_synced: true

@@ -1,0 +1,7 @@
+name: Shared
+entity_id: z_OMft2XFatsWtT0VpayT
+slug: shared
+created_at: '2026-10-16T18:15:34.789217Z'
+namespace: snippets
+serdes/meta:
+- model: Collection

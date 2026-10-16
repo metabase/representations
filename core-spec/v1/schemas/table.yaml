@@ -2,7 +2,12 @@ $schema: https://json-schema.org/draft/2020-12/schema
 title: Table
 description: >
   A database table definition. Tables belong to databases and contain fields.
-  Serialized to databases/{db}/schemas/{schema}/tables/{table}/{table}.yaml.
+  Older exports serialize the table row alone to
+  databases/{db}/schemas/{schema}/tables/{table}/{table}.yaml. A table file,
+  {table}.table.yaml, holds the table and its columns in one document: the
+  table's settings at the top, and `columns`, one entry per column. A
+  published table's file is under data/, in its collection's folder; an
+  export with the schema writes the other tables under databases/.
 type: object
 required:
   - name
@@ -34,11 +39,66 @@ properties:
     type: boolean
     description: Whether the table is active
     default: true
+  metadata:
+    type: object
+    description: >
+      Table file only, in an export with the schema: the table's own row
+      (the form of the older table file, without serdes/meta).
+    additionalProperties: true
+  columns:
+    type: array
+    description: >
+      Table file only: one entry per column, in the table's column order.
+    items:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Column name in the database
+        parents:
+          type: array
+          description: >
+            For a JSON-unfolded column, the names of its parent columns,
+            outermost first
+          items: { type: string }
+        field_id:
+          description: >
+            Present with the column's settings: the Field FK the settings
+            belong to. The entry's other keys are those settings
+            (display_name, description, semantic_type, settings, ...).
+          $ref: "common/id.yaml#/$defs/field_id"
+        remapping:
+          type: object
+          description: >
+            The column's remapping (a Dimension): type internal or
+            external, name, and for external the human_readable_field_id
+          required: [type]
+          properties:
+            type:
+              type: string
+              enum: [internal, external]
+            name:
+              type: string
+            field_id:
+              $ref: "common/id.yaml#/$defs/field_id"
+            human_readable_field_id:
+              type: [array, "null"]
+              if: { type: array }
+              then: { $ref: "common/id.yaml#/$defs/field_id" }
+          additionalProperties: true
+        metadata:
+          type: object
+          description: >
+            In an export with the schema: the column's own Field row (the
+            form of the older field file, without serdes/meta)
+          additionalProperties: true
+      additionalProperties: true
   serdes/meta:
     type: array
     description: >
       Identity path for serialization. Contains Database, optional Schema,
-      and Table entries.
+      and Table entries. A table file names only the Table.
     items:
       type: object
       required: [model]

@@ -1,0 +1,8 @@
+name: Marketing Analytics
+entity_id: M-Q4pcV0qkiyJ0kiSWECl
+slug: marketing_analytics
+created_at: '2026-10-16T18:13:38.942735Z'
+parent_id: cOlMiNiMaL000ExAmPlx2
+serdes/meta:
+- model: Collection
+is_remote_synced: true

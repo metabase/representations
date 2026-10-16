@@ -1,0 +1,56 @@
+name: Product Overview
+entity_id: f1C68pznmrpN1F5xFDj6d
+created_at: '2026-10-16T18:13:40.204452Z'
+creator_id: admin@example.com
+display: table
+collection_id: M-Q4pcV0qkiyJ0kiSWECl
+enable_embedding: true
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - aggregation:
+    - - count
+      - lib/uuid: 11111111-1111-1111-1111-111111111111
+    - - avg
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - PRICE
+    - - avg
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - RATING
+    breakout:
+    - - field
+      - {}
+      - - Sample Database
+        - null
+        - PRODUCTS
+        - CATEGORY
+    order-by:
+    - - desc
+      - {}
+      - - aggregation
+        - {}
+        - 11111111-1111-1111-1111-111111111111
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+embedding_type: guest-embed
+type: question

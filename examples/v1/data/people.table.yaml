@@ -1,0 +1,26 @@
+name: PEOPLE
+created_at: '2026-10-16T18:15:48.676735Z'
+db_id: Sample Database
+schema: null
+serdes/meta:
+- model: Table
+collection_id: librarylibrarydatadat
+is_published: true
+table_id:
+- Sample Database
+- null
+- PEOPLE
+columns:
+- name: ID
+- name: ADDRESS
+- name: EMAIL
+- name: PASSWORD
+- name: NAME
+- name: CITY
+- name: LONGITUDE
+- name: STATE
+- name: SOURCE
+- name: BIRTH_DATE
+- name: ZIP
+- name: LATITUDE
+- name: CREATED_AT

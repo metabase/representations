@@ -1,0 +1,22 @@
+name: Order Volume
+entity_id: pj55lcp40qPSYzOFPDLjZ
+created_at: '2026-10-16T18:57:34.246413Z'
+creator_id: admin@example.com
+collection_id: YdXM1ZkZV9BWR61GK7ujx
+parameters: []
+serdes/meta:
+- model: Dashboard
+dashcards:
+- entity_id: zBgM3FfZhrsVlXYRqIHsA
+  card_id: CiASCNF5HCbMWzqSDgXJv
+  created_at: '2026-10-16T18:57:34.4364Z'
+  row: 0
+  col: 0
+  size_x: 12
+  size_y: 6
+  inline_parameters: []
+  parameter_mappings: []
+  series: []
+  visualization_settings: {}
+tabs: []
+width: fixed

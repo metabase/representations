@@ -1,0 +1,13 @@
+ai_context:
+  examples:
+  - What was total revenue last quarter?
+  instructions: Revenue is the sum of order totals, tax included.
+  synonyms:
+  - sales
+  - gross revenue
+created_at: '2026-10-16T18:15:34.288104Z'
+entity_local_id: IW8kbqZVaMxdGtCM2F4U6
+entity_type: card
+updated_at: '2026-10-16T18:15:34.288104Z'
+serdes/meta:
+- model: OsiAiContext

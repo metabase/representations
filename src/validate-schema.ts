@@ -14,12 +14,26 @@ const IMPORT_PATHS = [
   "actions/**/*.yaml",
   "channels/**/*.yaml",
   "collections/**/*.yaml",
+  "dashboards/**/*.yaml",
+  "data/**/*.yaml",
+  "data_actions/**/*.yaml",
   "data_apps/*/data_app.yaml",
+  "data_apps/*/resources/**/*.yaml",
+  "databases/*.database.yaml",
+  "databases/**/*.table.yaml",
+  "databases/**/*.table/**/*.yaml",
   "databases/**/segments/**/*.yaml",
   "databases/**/measures/**/*.yaml",
+  "documents/**/*.yaml",
+  "glossary/**/*.yaml",
   "metabots/**/*.yaml",
+  "metrics/**/*.yaml",
+  "python_library/**/*.yaml",
   "python_libraries/**/*.yaml",
   "python-libraries/**/*.yaml",
+  "snippets/**/*.yaml",
+  "transform_jobs/**/*.yaml",
+  "transform_tags/**/*.yaml",
   "transforms/**/*.yaml",
 ];
 
@@ -47,10 +61,14 @@ export type ValidateSchemaResult = {
   failed: number;
 };
 
+// The model a schema validates: the `model` its `serdes/meta` entries name. A
+// schema whose entries may name the models of a whole identity path (an `enum`,
+// such as Database, Schema, Table) validates the last of them, the model whose
+// identity the path ends in.
 function extractModel(schema: any): string | null {
   const items = schema?.properties?.["serdes/meta"]?.items;
-  const props = items?.properties ?? items?.items?.properties;
-  return props?.model?.const ?? null;
+  const model = (items?.properties ?? items?.items?.properties)?.model;
+  return model?.const ?? model?.enum?.at(-1) ?? null;
 }
 
 function getModel(doc: any): string | null {

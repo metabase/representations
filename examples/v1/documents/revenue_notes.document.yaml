@@ -1,0 +1,28 @@
+name: Revenue Notes
+entity_id: dOcReVeNuEnOtEsExAmP1
+created_at: '2026-10-16T18:15:35.000000Z'
+creator_id: admin@example.com
+collection_id: librarylibrarydocumnt
+document:
+  type: doc
+  content:
+  - type: heading
+    attrs:
+      level: 1
+    content:
+    - type: text
+      text: Revenue Notes
+  - type: paragraph
+    content:
+    - type: text
+      text: Revenue by product category, from the Library's Total Revenue metric.
+  - type: cardEmbed
+    attrs:
+      id:
+      - model: Card
+        id: dOcQrEvByCaTeGoRyEx01
+      name: Revenue by Category
+content_type: application/json+vnd.prose-mirror
+archived: false
+serdes/meta:
+- model: Document

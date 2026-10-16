@@ -2,7 +2,9 @@ $schema: https://json-schema.org/draft/2020-12/schema
 title: Collection
 description: >
   A folder-like container for organizing cards, dashboards, and other entities.
-  Collection hierarchy is reflected in the directory structure.
+  Collection hierarchy is reflected in the directory structure: a collection
+  is a folder holding its own file, collection.yaml (older exports: a file
+  {slug}.yaml beside the folder).
 type: object
 required:
   - name

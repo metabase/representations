@@ -1,0 +1,121 @@
+name: Arithmetic Expressions
+entity_id: 1O_2jSo2fD6m3Qr6My7aa
+created_at: '2026-10-16T18:13:40.969002Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - aggregation:
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - SUBTOTAL
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TAX
+    - - sum
+      - {}
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+    - - avg
+      - {}
+      - - field
+        - base-type: type/Integer
+        - - Sample Database
+          - null
+          - ORDERS
+          - QUANTITY
+    breakout:
+    - - field
+      - temporal-unit: month
+      - - Sample Database
+        - null
+        - ORDERS
+        - CREATED_AT
+    expressions:
+    - - +
+      - lib/expression-name: Total Plus Tax
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - SUBTOTAL
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TAX
+    - - '-'
+      - lib/expression-name: Price Difference
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - SUBTOTAL
+    - - '*'
+      - lib/expression-name: Double Quantity
+      - - field
+        - base-type: type/Integer
+        - - Sample Database
+          - null
+          - ORDERS
+          - QUANTITY
+      - 2
+    - - /
+      - lib/expression-name: Per Unit Price
+      - - field
+        - base-type: type/Float
+        - - Sample Database
+          - null
+          - ORDERS
+          - TOTAL
+      - - field
+        - base-type: type/Integer
+        - - Sample Database
+          - null
+          - ORDERS
+          - QUANTITY
+    filters:
+    - - '>'
+      - {}
+      - - expression
+        - {}
+        - Per Unit Price
+      - 10
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question

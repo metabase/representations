@@ -1,0 +1,117 @@
+name: String Functions
+entity_id: HeLFZSVb4Jm25p4tWfVP9
+created_at: '2026-10-16T18:13:41.674496Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - expressions:
+    - - concat
+      - lib/expression-name: Title and Category
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - ' ('
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+      - )
+    - - substring
+      - lib/expression-name: First 10 Chars
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - 1
+      - 10
+    - - replace
+      - lib/expression-name: Cleaned Vendor
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - VENDOR
+      - Inc.
+      - Incorporated
+    - - trim
+      - lib/expression-name: Trimmed Title
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - ltrim
+      - lib/expression-name: Left Trimmed
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - rtrim
+      - lib/expression-name: Right Trimmed
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - upper
+      - lib/expression-name: Upper Category
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+    - - lower
+      - lib/expression-name: Lower Title
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - length
+      - lib/expression-name: Title Length
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+    - - substring
+      - lib/expression-name: Title From 5th Char
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - TITLE
+      - 5
+    limit: 10
+    source-table:
+    - Sample Database
+    - null
+    - PRODUCTS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question

@@ -1,0 +1,22 @@
+collection_id: cOlQuErIeS0ExAmPlE2x1
+created_at: '2026-10-16T18:13:38.795426Z'
+creator_id: admin@example.com
+entity_id: XgqYIEGPfvCklZUxOLp9m
+implicit:
+- kind: row/create
+model_id: 4eroqa4ZYl4WkNjP8XTvu
+name: Create order
+parameter_mappings: []
+parameters: []
+query: []
+type: implicit
+visualization_settings:
+  fields:
+    DISCOUNT:
+      hidden: true
+      id: DISCOUNT
+    QUANTITY:
+      defaultValue: 1
+      id: QUANTITY
+serdes/meta:
+- model: Action

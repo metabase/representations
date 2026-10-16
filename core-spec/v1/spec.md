@@ -6,7 +6,7 @@
 
 Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
-This specification covers user-created content entities. Database metadata entities (Database, Table, Field) are synced from connected databases and are outside the scope of this specification; they appear here only as foreign key references within user content.
+This specification covers user-created content entities. Database metadata entities (Database, Table, Field) are synced from connected databases and are outside the scope of this specification; they appear here as foreign key references within user content, and as the subject of a [Table File](#table-file), which holds the settings a user set on a table and its columns.
 
 ## Table of Contents
 
@@ -22,11 +22,14 @@ This specification covers user-created content entities. Database metadata entit
 10. [Action](#action)
 11. [Dashboard](#dashboard)
 12. [Document](#document)
-13. [Segment](#segment)
-14. [Measure](#measure)
-15. [Snippet](#snippet)
-16. [Transform](#transform)
-17. [Data App](#data-app)
+13. [Table File](#table-file)
+14. [AI Context](#ai-context)
+15. [Glossary](#glossary)
+16. [Segment](#segment)
+17. [Measure](#measure)
+18. [Snippet](#snippet)
+19. [Transform](#transform)
+20. [Data App](#data-app)
 
 ---
 
@@ -92,43 +95,159 @@ serdes/meta:
 
 ## Folder Structure
 
-**Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
+**Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field (and `parent_id` for a collection). The layout below is how Metabase writes content when exporting; it mirrors the content's homes on disk for readability, but only the fields in each file are authoritative.
 
-Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (only `segments/` and `measures/` subdirectories), `python_libraries/` (also accepted as `python-libraries/`), and `transforms/`, plus each data app's `data_apps/<slug>/data_app.yaml`. Files outside these directories are ignored during import.
+The path matters on import in these ways only:
 
-Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, `transforms` holds transform entities, and `data_apps` holds the `data-apps` namespace, the collections of data apps (see Data App). Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
+- Metabase reads `.yaml` files, except dotfiles, under these top-level folders: `collections/`, `data/`, `metrics/`, `dashboards/`, `documents/`, `glossary/`, `snippets/`, `data_actions/`, `transforms/`, `transform_tags/`, `transform_jobs/`, `python_library/`, `data_apps/`, `databases/`, `metabots/`, `channels/`, `embedding_themes/` and `custom_viz_plugins/`, and the older `actions/`, `python_libraries/` (also `python-libraries/`) and `osi_ai_context/`. Files outside these folders are ignored.
+- In `data/`, `metrics/`, `dashboards/`, `documents/`, `data_actions/`, `transform_tags/`, `transform_jobs/` and `python_library/`, and in a data app's `resources/` folder, a YAML file that is not an entity file is skipped: a repository may hold YAML of its own there.
+- A data app is `data_apps/{app_slug}/data_app.yaml`, and its bundle is read relative to that file (see [Data App](#data-app)).
+
+The layout of an older export, described under [Older Layout](#older-layout), still imports.
+
+```
+export-root/
+├── data/                                       # Library > Data: published tables
+│   ├── {table_slug}.table.yaml                 # A table file (see Table File)
+│   ├── {table_slug}.table/                     # What the table contains
+│   │   ├── {segment_slug}.segment.yaml
+│   │   ├── {measure_slug}.measure.yaml
+│   │   └── ai_context.yaml                     # The table's AI context (see AI Context)
+│   └── {collection_slug}/                      # A subcollection
+│       ├── collection.yaml
+│       └── {table_slug}.table.yaml
+├── metrics/                                    # Library > Metrics
+│   ├── {metric_slug}.metric.yaml
+│   └── {metric_slug}.metric/
+│       └── ai_context.yaml
+├── dashboards/                                 # Library > Dashboards
+│   ├── {dashboard_slug}.dashboard.yaml
+│   └── {dashboard_slug}.dashboard/
+│       └── {card_slug}.question.yaml           # A dashboard question
+├── documents/                                  # Library > Documents
+│   ├── {document_slug}.document.yaml
+│   └── {document_slug}.document/
+│       └── {card_slug}.question.yaml           # An embedded question
+├── glossary/
+│   └── {term_slug}.term.yaml
+├── snippets/                                   # The snippets namespace
+│   ├── {snippet_slug}.snippet.yaml
+│   └── {collection_slug}/
+│       ├── collection.yaml
+│       └── {snippet_slug}.snippet.yaml
+├── data_actions/                               # The data actions namespace
+│   └── {action_slug}.action.yaml
+├── transforms/                                 # The transforms namespace
+│   ├── {transform_slug}.transform.yaml
+│   └── {transform_slug}.transform/
+│       └── {test_slug}.transform_test.yaml
+├── transform_tags/
+│   └── {tag_slug}.transform_tag.yaml
+├── python_library/
+│   └── {path_slug}.yaml                        # e.g. common.py.yaml
+├── data_apps/
+│   └── {app_slug}/
+│       ├── data_app.yaml                       # Manifest
+│       ├── dist/index.js                       # Built bundle, at the manifest's `path`
+│       └── resources/                          # The app's collection
+│           ├── {card_slug}.question.yaml
+│           └── {action_slug}.action.yaml
+├── collections/                                # Collections outside the Library, one folder per namespace
+│   ├── main/                                   # The default namespace
+│   │   ├── {item_slug}.{kind}.yaml             # Items in the root collection
+│   │   └── {collection_slug}/
+│   │       ├── collection.yaml
+│   │       ├── {card_slug}.question.yaml
+│   │       ├── {model_slug}.model.yaml
+│   │       ├── {model_slug}.model/
+│   │       │   └── {action_slug}.action.yaml   # An action on the model (deprecated)
+│   │       ├── {dashboard_slug}.dashboard.yaml
+│   │       ├── {document_slug}.document.yaml
+│   │       ├── {timeline_slug}.timeline.yaml
+│   │       └── {child_slug}/                   # A child collection
+│   │           └── collection.yaml
+│   └── {namespace_folder}/                     # Another namespace, e.g. shared_tenant_collection/
+│       └── ...
+│
+│   Serialization export only (git sync does not write these):
+├── databases/
+│   ├── {database_slug}.database.yaml
+│   └── {database_slug}/
+│       └── {schema_slug}/                      # Omitted for a database without schemas
+│           ├── {table_slug}.table.yaml         # A table that is not published
+│           └── {table_slug}.table/
+│               └── {segment_slug}.segment.yaml
+├── transform_jobs/
+│   └── {job_slug}.transform_job.yaml
+├── metabots/
+│   └── {metabot_slug}.metabot.yaml
+├── channels/
+│   └── {channel_slug}.channel.yaml
+├── embedding_themes/
+├── custom_viz_plugins/
+└── settings.yaml
+```
+
+### Path Construction Rules
+
+- **Item files.** An item's file is `{slug}.{kind}.yaml`, where `{kind}` names the kind of item: `table`, `segment`, `measure`, `metric`, `question`, `model`, `dashboard`, `document`, `timeline`, `term`, `snippet`, `action`, `transform`, `transform_test`, `transform_tag`, `transform_job`, `database`, `metabot`, `channel`, `embedding_theme`, `custom_viz_plugin`, `field_values`. A card's kind is its `type`.
+- **Fixed file names.** `data_app.yaml`, `collection.yaml`, `ai_context.yaml` and `settings.yaml` have no kind word. A Python library file is its `path`, slugged with `.` kept, followed by `.yaml` (`common.py.yaml`).
+- **Contained items.** The items an item contains are in the folder `{slug}.{kind}/` beside its file: a dashboard's questions, a document's embedded questions, a table's segments and measures, a transform's tests, an action on a model, and the item's AI context.
+- **Collections.** A collection is a folder `{slug}/` holding its own file `collection.yaml` and its contents. Snippets, data actions and transforms keep their collection tree directly in `snippets/`, `data_actions/` and `transforms/`.
+- **The Library's collections have no files.** The folders `data/`, `metrics/`, `dashboards/` and `documents/` stand for the Library's Data, Metrics, Dashboards and Documents collections. These collections have fixed entity IDs (see [Library](#library)), and an import creates any that is missing. A data app's collection also has no file: `resources/` stands for it, and the manifest names it.
+- **Slugs.** A slug is the name lowercased, with slashes escaped as `__SLASH__` and backslashes as `__BACKSLASH__`, then each character other than a letter, a digit or `_` turned into `_` (e.g., `Orders (Map)` becomes `orders__map_`). So a `.` becomes `_`, and no folder name ends in `.{kind}`. A data app's folder is its `slug` as is.
+- **Name clashes.** Two items of one kind with one slug in one folder get `_2`, `_3`, in creation order (`created_at`, then `entity_id`).
+
+### Entity Ownership and Containers
+
+> **Critical:** Every entity's logical position in the collection hierarchy is determined **exclusively** by its `collection_id` field, not the folder structure on disk. The folder layout is for human organization only; Metabase imports entities based solely on their `collection_id`. **An entity without `collection_id` (or with `collection_id: null`) will appear in the root collection.** If you want a card, dashboard, document, snippet, or transform to be inside a specific collection, you **must** set its `collection_id` to the `entity_id` of that collection. Cards nested under a dashboard or document **must also** set `collection_id` to match the `collection_id` of their parent dashboard or document. Similarly, subcollections **must** set `parent_id` to the `entity_id` of their parent collection — without `parent_id`, a collection is treated as a root-level collection regardless of its position in the directory tree.
+
+Dashboards and documents act as **containers** for cards: a card with `dashboard_id` set is owned by that dashboard, and a card with `document_id` set is owned by that document. Container-owned cards behave as if the dashboard or document were a subcollection:
+
+- **`collection_id`** (**required for all collection items**) — Places the entity in a collection. `null` or omitted means root collection. **Must always be set** to place an entity in a specific collection. Even when `dashboard_id` or `document_id` is set, `collection_id` **must** be set and must match the `collection_id` of the parent dashboard or document.
+- **`dashboard_id`** — Nests the card under a dashboard. The card should only be used within that dashboard. To reuse a card outside its dashboard, unset `dashboard_id` and place it directly in a collection.
+- **`document_id`** — Nests the card under a document. Same semantics as `dashboard_id`: the card should only be used within that document.
+
+When a dashboard or document moves collections, all cards nested under it move too. A card should never have both `dashboard_id` and `document_id` set.
+
+A published table is in a collection of the Library's Data collection, set by its `collection_id`. Its segments and measures go with it: each names its table in its `definition`.
+
+### Older Layout
+
+Exports from earlier Metabase versions use this layout. Metabase still imports it, and rewrites a git sync repository into the current layout at its next push.
 
 ```
 export-root/
 ├── settings.yaml
 ├── actions/                                # Read on import only: older exports kept actions here
 │   └── {slug}.yaml
-├── data_apps/                              # Data apps (see Data App)
+├── data_apps/
 │   └── {app_slug}/
-│       ├── data_app.yaml                   # Manifest
-│       └── dist/index.js                   # Built bundle, at the manifest's `path`
+│       ├── data_app.yaml
+│       └── dist/index.js
 ├── collections/
-│   ├── data_apps/                          # `data-apps` namespace: each data app's collection
-│   │   ├── {collection_slug}.yaml          # The app's collection (sibling of its folder)
-│   │   └── {collection_slug}/              # Its saved questions, and copies of metrics and actions
+│   ├── data_apps/                          # Each data app's collection
+│   │   ├── {collection_slug}.yaml
+│   │   └── {collection_slug}/
 │   │       └── {slug}.yaml
-│   ├── main/                               # Main namespace (regular content)
+│   ├── data_actions/                       # The data actions namespace
+│   │   └── {slug}.yaml
+│   ├── main/                               # Main namespace, the Library included
 │   │   ├── {slug}.yaml                     # Entities in root collection
 │   │   ├── {collection_slug}.yaml          # Collection definition (sibling of its folder)
-│   │   └── {collection_slug}/              # Collection contents
-│   │       ├── {card_slug}.yaml            # Cards, dashboards, documents, actions, etc.
-│   │       ├── {dashboard_slug}.yaml       #   — all flat in the same folder
-│   │       ├── {child_slug}.yaml           # Child collection definition
-│   │       └── {child_slug}/              # Child collection contents
-│   │           └── ...
-│   ├── snippets/                           # Snippets namespace
-│   │   ├── {snippet_slug}.yaml             # Snippets in root snippet collection
-│   │   ├── {collection_slug}.yaml          # Snippet collection definition
-│   │   └── {collection_slug}/              # Snippet collection contents
+│   │   └── {collection_slug}/              # Collection contents, all kinds flat in one folder
+│   │       ├── {card_slug}.yaml
+│   │       ├── {dashboard_slug}.yaml
+│   │       └── {dashboard_slug}/           # The dashboard's questions
+│   │           └── {card_slug}.yaml
+│   ├── snippets/
+│   │   ├── {snippet_slug}.yaml
+│   │   ├── {collection_slug}.yaml
+│   │   └── {collection_slug}/
 │   │       └── {snippet_slug}.yaml
-│   └── transforms/                         # Transforms namespace
+│   └── transforms/
 │       ├── {transform_slug}.yaml
-│       └── {transform_slug}/                   # The transform's tests
+│       └── {transform_slug}/               # The transform's tests
 │           └── {test_slug}.yaml
 ├── databases/
 │   └── {database_slug}/
@@ -144,11 +263,7 @@ export-root/
 │       │                   └── {slug}.yaml
 │       └── tables/                         # Schemaless databases
 │           └── {table_slug}/
-│               ├── {table_slug}.yaml
-│               ├── segments/
-│               │   └── {slug}.yaml
-│               └── measures/
-│                   └── {slug}.yaml
+│               └── ...
 ├── python_libraries/
 │   └── {slug}.yaml
 └── transforms/                             # Transform jobs and tags
@@ -158,31 +273,7 @@ export-root/
         └── {slug}.yaml
 ```
 
-### Path Construction Rules
-
-- Entity files are named `{slug}.yaml` where slug is the slugified entity name (lowercase, spaces to underscores).
-- Collection hierarchy is reflected in directory nesting within a namespace.
-- A collection's definition file (`{slug}.yaml`) is placed **outside** its folder, as a sibling: e.g., `main/my_collection.yaml` defines the collection whose contents live in `main/my_collection/`.
-- All entity types within a collection (cards, dashboards, documents, etc.) are stored flat in the same folder — no type-specific subdirectories.
-- Collections are partitioned by namespace: `main/` for regular content, `snippets/` for SQL snippets, `transforms/` for transforms and their tests.
-
-### Entity Ownership and Containers
-
-> **Critical:** Every entity's logical position in the collection hierarchy is determined **exclusively** by its `collection_id` field, not the folder structure on disk. The folder layout is for human organization only; Metabase imports entities based solely on their `collection_id`. **An entity without `collection_id` (or with `collection_id: null`) will appear in the root collection.** If you want a card, dashboard, document, snippet, or transform to be inside a specific collection, you **must** set its `collection_id` to the `entity_id` of that collection. Cards nested under a dashboard or document **must also** set `collection_id` to match the `collection_id` of their parent dashboard or document. Similarly, subcollections **must** set `parent_id` to the `entity_id` of their parent collection — without `parent_id`, a collection is treated as a root-level collection regardless of its position in the directory tree.
-
-Dashboards and documents act as **containers** for cards: a card with `dashboard_id` set is owned by that dashboard, and a card with `document_id` set is owned by that document. Container-owned cards behave as if the dashboard or document were a subcollection:
-
-- **`collection_id`** (**required for all collection items**) — Places the entity in a collection. `null` or omitted means root collection. **Must always be set** to place an entity in a specific collection. Even when `dashboard_id` or `document_id` is set, `collection_id` **must** be set and must match the `collection_id` of the parent dashboard or document.
-- **`dashboard_id`** — Nests the card under a dashboard. The card should only be used within that dashboard. To reuse a card outside its dashboard, unset `dashboard_id` and place it directly in a collection.
-- **`document_id`** — Nests the card under a document. Same semantics as `dashboard_id`: the card should only be used within that document.
-
-When a dashboard or document moves collections, all cards nested under it move too. A card should never have both `dashboard_id` and `document_id` set.
-
-On disk, cards nested under a dashboard or document are placed in a subfolder matching the parent's slug (e.g., `my_dashboard/card.yaml` as a sibling of `my_dashboard.yaml`, within the same collection folder).
-
-- Segments and measures live under their table's directory in the `databases/` tree.
-- Database, schema, and table folder names are slugified (e.g., `test-data (h2)` becomes `test_data__h2_`).
-- Slashes in names are escaped as `__SLASH__`, backslashes as `__BACKSLASH__`.
+In this layout an entity file is `{slug}.yaml`, with no kind word, and a collection's file is placed beside its folder: `main/my_collection.yaml` defines the collection whose contents are in `main/my_collection/`. The Library's collections have files, under `collections/main/library/`.
 
 ---
 
@@ -2227,7 +2318,9 @@ A collection is a folder-like container for organizing cards, dashboards, and ot
 
 ### Example
 
-**Root collection:**
+A collection's file is `collection.yaml` in its folder.
+
+**Root collection** (`collections/main/minimal/collection.yaml`):
 
 ```yaml
 name: Minimal
@@ -2237,7 +2330,7 @@ serdes/meta:
 - model: Collection
 ```
 
-**Subcollection** (with `parent_id`):
+**Subcollection** (with `parent_id`; `collections/main/minimal/reports/collection.yaml`):
 
 ```yaml
 name: Reports
@@ -2249,7 +2342,9 @@ serdes/meta:
 
 ### Library
 
-The Library is a root collection of type `library` with fixed subcollections: Data (`library-data`, tables), Metrics (`library-metrics`, metrics) and Dashboards (`library-dashboards`, dashboards and their questions). Metabase creates them with fixed entity IDs, so every instance exports the same ones:
+The Library is a root collection of type `library` with fixed subcollections: Data (`library-data`, published tables), Metrics (`library-metrics`, metrics), Dashboards (`library-dashboards`, dashboards and their questions) and Documents (documents and their embedded questions). Metabase creates them with fixed entity IDs: `librarylibrarylibrary` (Library), `librarylibrarydatadat` (Data), `librarylibrarymetrics` (Metrics) and `librarylibrarydashbrd` (Dashboards). A collection inside Data has type `library-data`.
+
+In the current layout these collections have no files: the folders `data/`, `metrics/`, `dashboards/` and `documents/` stand for them, and an import creates any that is missing. Content in them sets its `collection_id` to the fixed entity ID. Older exports hold a file for each, under `collections/main/library/`:
 
 ```yaml
 name: Dashboards
@@ -2338,9 +2433,9 @@ serdes/meta:
 
 ## Action
 
-An action writes to a database. A **query** action runs parameterized native SQL; without a model it lives in the data actions namespace (its root, exported under `collections/data_actions/`, or a data actions collection) or in a data app's collection, set by `collection_id`, and its permissions follow that collection. An **implicit** action creates, updates, or deletes a row of a model card's table. Implicit actions, and attaching any action to a model (`model_id`), are **deprecated**: they remain only for actions made before actions had their own collection. Author query actions without a `model_id`.
+An action writes to a database. A **query** action runs parameterized native SQL; without a model it lives in the data actions namespace (its root, exported to `data_actions/`, or a data actions collection) or in a data app's collection, set by `collection_id`, and its permissions follow that collection. An **implicit** action creates, updates, or deletes a row of a model card's table. Implicit actions, and attaching any action to a model (`model_id`), are **deprecated**: they remain only for actions made before actions had their own collection. Author query actions without a `model_id`.
 
-Actions are exported with their collection, like cards: `collections/main/{collection path}/{slug}.yaml`, or `collections/main/{slug}.yaml` in the root collection. Older exports kept them under a top-level `actions/` directory, which import still reads. Exactly one of the nested `implicit` and `query` arrays holds the action's definition, the one its `type` names; the other is empty.
+An action without a model is exported to its collection's folder: `data_actions/{collection path}/{slug}.action.yaml`, or the folder of its data app's collection. An action on a model is exported to the model's folder: `collections/main/{collection path}/{model_slug}.model/{slug}.action.yaml`. Older exports kept actions under a top-level `actions/` directory, or flat in their collection's folder; import still reads both. Exactly one of the nested `implicit` and `query` arrays holds the action's definition, the one its `type` names; the other is empty.
 
 ### Schema
 
@@ -2378,7 +2473,7 @@ The rest (`title`, `description`, `placeholder`, `order`, `required`, `inputType
 
 ### Example
 
-**Query action** (`collections/data_actions/apply_discount.yaml`, at the data actions root):
+**Query action** (`data_actions/apply_discount.action.yaml`, at the data actions root):
 
 ```yaml
 name: Apply discount
@@ -2428,7 +2523,7 @@ serdes/meta:
 - model: Action
 ```
 
-**Implicit action** (deprecated; `collections/main/queries/create_order.yaml`):
+**Implicit action** (deprecated; `collections/main/queries/orders_model.model/create_order.action.yaml`):
 
 ```yaml
 name: Create order
@@ -2759,13 +2854,134 @@ serdes/meta:
 
 ---
 
+## Table File
+
+A table file, `{table_slug}.table.yaml`, holds one table and its columns: the settings a user set on them, and their remappings. A published table's file is in `data/`, in the folder of the table's collection. Git sync writes only published tables, and writes their settings without the schema. A serialization export also writes each table that is not published, to `databases/{database_slug}/{schema_slug}/{table_slug}.table.yaml`, and adds the schema to every table file: the table's and each column's own rows, under `metadata`.
+
+The import splits a table file into the rows it holds and loads each one. The table and its fields must exist on the instance, from a sync of the database or from the file's `metadata`.
+
+### Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Table name in the database |
+| `db_id` | string | Yes | Database FK (database name) |
+| `schema` | string | No | Schema name; `null` for schemaless databases |
+| `serdes/meta` | array | Yes | `[{model: Table}]` |
+| `columns` | array | Yes | One entry per column, in the table's column order (see below) |
+| `table_id` | array | No | Table FK. Present with the table's settings: the keys beside it are those settings |
+| `display_name` | string | No | Setting: display name |
+| `description` | string | No | Setting: description |
+| `collection_id` | string | No | Setting: Collection FK of the Library collection the table is published in |
+| `is_published` | boolean | No | Setting: whether the table is published |
+| `metadata` | map | No | Serialization export only: the table's own row |
+
+Each entry in `columns`:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Column name in the database |
+| `parents` | array | No | For a JSON-unfolded column, its parent columns' names, outermost first |
+| `field_id` | array | No | Field FK. Present with the column's settings: the keys beside it are those settings (`display_name`, `description`, `semantic_type`, `settings`, `visibility_type`, ...) |
+| `remapping` | map | No | The column's remapping: `type` (`internal` or `external`), `name`, `entity_id`, `field_id`, and for `external` the `human_readable_field_id` (Field FK of the column whose values are shown) |
+| `metadata` | map | No | Serialization export only: the column's own row |
+
+### Example
+
+`data/sales/orders.table.yaml`, a table published in the collection Sales inside Library > Data:
+
+```yaml
+name: ORDERS
+display_name: Orders
+description: One row per order placed in the store.
+db_id: Sample Database
+schema: null
+serdes/meta:
+- model: Table
+collection_id: M5OaLng8wTxK15J6U9srW
+is_published: true
+table_id:
+- Sample Database
+- null
+- ORDERS
+columns:
+- name: ID
+- name: PRODUCT_ID
+  remapping:
+    entity_id: RxYli5RiXCeta2ZGBhZfo
+    field_id: [Sample Database, null, ORDERS, PRODUCT_ID]
+    human_readable_field_id: [Sample Database, null, PRODUCTS, TITLE]
+    name: Product
+    type: external
+- name: TOTAL
+  field_id: [Sample Database, null, ORDERS, TOTAL]
+  display_name: Order total
+  description: Total billed, tax included.
+  semantic_type: type/Currency
+  settings:
+    currency: USD
+```
+
+---
+
+## AI Context
+
+AI context gives Metabot instructions, synonyms and example questions for one item: a metric or model, a table, a segment or a measure. It is the file `ai_context.yaml` in the item's folder, for example `metrics/total_revenue.metric/ai_context.yaml`, and it syncs when its item syncs.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `entity_type` | string | Yes | `card`, `table`, `measure` or `segment` |
+| `entity_local_id` | string or array | Yes | The item: its entity_id, or a Table FK for a table |
+| `ai_context` | map | Yes | `instructions` (string), `synonyms` (list of strings), `examples` (list of strings); no other keys. Lists hold at most 50 entries |
+| `serdes/meta` | array | Yes | `[{model: OsiAiContext}]` |
+| `created_at`, `updated_at` | string | No | ISO 8601 timestamps |
+
+```yaml
+ai_context:
+  instructions: Revenue is the sum of order totals, tax included.
+  synonyms:
+  - sales
+  - gross revenue
+  examples:
+  - What was total revenue last quarter?
+entity_type: card
+entity_local_id: IW8kbqZVaMxdGtCM2F4U6
+serdes/meta:
+- model: OsiAiContext
+```
+
+---
+
+## Glossary
+
+A glossary term defines a word for Metabot and for readers. Each term is a file in `glossary/`: `glossary/{term_slug}.term.yaml`.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `term` | string | Yes | The word defined |
+| `definition` | string | Yes | Its definition |
+| `entity_id` | string | Yes | NanoID identifier |
+| `creator_id` | string | No | User FK (email) |
+| `serdes/meta` | array | Yes | `[{model: Glossary}]` |
+
+```yaml
+term: Revenue
+definition: The sum of order totals, tax included.
+entity_id: 3vVo2DIGpNRkVpUqS_mwW
+creator_id: admin@example.com
+serdes/meta:
+- model: Glossary
+```
+
+---
+
 ## Segment
 
 A segment is a saved filter definition. Segments allow reusable filters that can be applied across multiple questions and dashboards.
 
 Each segment holds a `definition` that specifies the source table and filter criteria. See [MBQL Query](#mbql-query) for filter syntax.
 
-Segments are stored under their table's directory: `databases/{db_slug}/schemas/{schema_slug}/tables/{table_slug}/segments/`.
+Segments are stored in their table's folder, beside the table's file (see [Table File](#table-file)): `data/{collection path}/{table_slug}.table/{slug}.segment.yaml` for a published table. Older exports used `databases/{db_slug}/schemas/{schema_slug}/tables/{table_slug}/segments/`.
 
 ### Schema
 
@@ -2818,7 +3034,7 @@ A measure is a saved aggregation definition. Measures allow reusable aggregation
 
 Each measure holds a `definition` that specifies the database and aggregation clause. See [MBQL Query](#mbql-query) for aggregation syntax.
 
-Measures are stored under their table's directory: `databases/{db_slug}/schemas/{schema_slug}/tables/{table_slug}/measures/`.
+Measures are stored in their table's folder, beside the table's file (see [Table File](#table-file)): `data/{collection path}/{table_slug}.table/{slug}.measure.yaml` for a published table. Older exports used `databases/{db_slug}/schemas/{schema_slug}/tables/{table_slug}/measures/`.
 
 ### Schema
 
@@ -2866,7 +3082,7 @@ serdes/meta:
 
 ## Snippet
 
-A snippet is a reusable SQL fragment that can be referenced in native queries using `{{snippet: Snippet Name}}`. Snippets are stored under `collections/snippets/`, organized by snippet collection hierarchy.
+A snippet is a reusable SQL fragment that can be referenced in native queries using `{{snippet: Snippet Name}}`. Snippets are stored under `snippets/`, organized by snippet collection hierarchy (`collections/snippets/` in older exports).
 
 ### Schema
 
@@ -2902,7 +3118,7 @@ serdes/meta:
 
 ## Transform
 
-A transform generates a table in the database by running a query or Python script. Transforms allow materializing results as persistent database tables. Transform entities, and their tests, are stored under `collections/transforms/`. Transform jobs and tags are stored separately under the top-level `transforms/` directory.
+A transform generates a table in the database by running a query or Python script. Transforms allow materializing results as persistent database tables. Transforms are stored under `transforms/`, organized by transform collection hierarchy, and each transform's tests are in its folder. Transform tags are stored in `transform_tags/`, and transform jobs in `transform_jobs/` (serialization export only). Older exports stored transforms under `collections/transforms/`, and jobs and tags under `transforms/transform_jobs/` and `transforms/transform_tags/`.
 
 The `source` defines how data is produced — either an MBQL/native query (`type: query`) or a Python script (`type: python`). The `target` specifies where the resulting table is written.
 
@@ -2995,7 +3211,7 @@ tags:
 
 ### TransformTag
 
-A transform tag is a label for categorizing transforms. Tags can be built-in (`hourly`, `daily`, `weekly`, `monthly`) or custom. Stored in `transforms/transform_tags/`.
+A transform tag is a label for categorizing transforms. Tags can be built-in (`hourly`, `daily`, `weekly`, `monthly`) or custom. Stored in `transform_tags/{slug}.transform_tag.yaml`. Git sync writes only custom tags: every instance has the built-in ones, with the same entity IDs.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -3007,7 +3223,7 @@ A transform tag is a label for categorizing transforms. Tags can be built-in (`h
 
 ### TransformJob
 
-A transform job is a scheduled task that executes transforms matching specific tags. Stored in `transforms/transform_jobs/`.
+A transform job is a scheduled task that executes transforms matching specific tags. A serialization export stores it in `transform_jobs/{slug}.transform_job.yaml`; git sync does not write transform jobs.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -3041,7 +3257,7 @@ A job can reference multiple tags. Transforms tagged with any of the job's tags 
 
 ### TransformTest
 
-A transform test runs a transform against test data and checks its output. Its `inputs` stand in for the tables the transform reads, and its `expectations` are checked against the table it writes. A test is stored next to its transform, in a folder named after the transform's file: `collections/transforms/{transform_slug}/{test_slug}.yaml`.
+A transform test runs a transform against test data and checks its output. Its `inputs` stand in for the tables the transform reads, and its `expectations` are checked against the table it writes. A test is stored in its transform's folder: `transforms/{transform_slug}.transform/{test_slug}.transform_test.yaml`.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -3119,7 +3335,7 @@ serdes/meta:
 
 ### PythonLibrary
 
-A shared Python source file available to transforms. Stored in `python_libraries/`.
+A shared Python source file available to transforms. Stored in `python_library/`, as its `path` followed by `.yaml` (`python_library/common.py.yaml`; `python_libraries/` in older exports).
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -3161,7 +3377,7 @@ serdes/meta:
 
 ## Data App
 
-A data app is a custom React application that runs inside Metabase, reading and writing data through the content it ships with. It lives in its own directory, `data_apps/{app_slug}/`, and is loaded when Metabase pulls the repository through remote sync. Unlike the other entities, it is not a single YAML file: it is a manifest (the app's own serialized entity) with a built JavaScript bundle beside it, and a collection of the `data-apps` namespace that the app owns, written under `collections/data_apps/` with the ordinary Card and Action files it holds.
+A data app is a custom React application that runs inside Metabase, reading and writing data through the content it ships with. It lives in its own directory, `data_apps/{app_slug}/`, and is loaded when Metabase pulls the repository through remote sync. Unlike the other entities, it is not a single YAML file: it is a manifest (the app's own serialized entity) with a built JavaScript bundle beside it, and a collection of the `data-apps` namespace that the app owns, whose Card and Action files are in the app's `resources/` folder.
 
 ### Directory Layout
 
@@ -3169,17 +3385,16 @@ A data app is a custom React application that runs inside Metabase, reading and 
 data_apps/
 └── {app_slug}/
     ├── data_app.yaml                   # Manifest (see below)
-    └── dist/index.js                   # Built bundle, at the manifest's `path`
-collections/
-└── data_apps/
-    ├── {collection_slug}.yaml          # The app's collection, named in the manifest's `collection`
-    └── {collection_slug}/
-        └── {slug}.yaml                 # Saved questions, copies of the metrics they use, and copies of the query actions the app runs
+    ├── dist/index.js                   # Built bundle, at the manifest's `path`
+    └── resources/                      # The app's collection, named in the manifest's `collection`
+        └── {slug}.{kind}.yaml          # Saved questions, copies of the metrics they use, and copies of the query actions the app runs
 ```
 
 `{app_slug}` — the directory's name — is the app's slug, the manifest's `slug`, used verbatim as its URL: lowercase letters and numbers separated by single dashes (`sales-dashboard`), and neither `repo-status` nor `sandbox-host`, which collide with Metabase's own routes.
 
-`{collection_slug}` is the collection's name as Metabase slugs it (`data_app__order_desk` for `Data App: Order Desk`). As everywhere under `collections/`, the layout is how Metabase exports the content; a pull finds the app's files by their content: the collection whose `entity_id` the manifest's `collection` names, and the cards and actions whose `collection_id` is it. Other YAML under `data_apps/{app_slug}/` is the app's own and is ignored, as are files that aren't YAML and dotfiles.
+The collection has no file: `resources/` stands for it, and a pull creates it from the manifest's `collection`. A pull finds the app's files by their content: the cards and actions whose `collection_id` is the manifest's `collection`. Other YAML under `data_apps/{app_slug}/` is the app's own and is ignored, as are files that aren't YAML and dotfiles.
+
+An older export writes the collection under `collections/data_apps/`: its file `{collection_slug}.yaml` (the collection's name as Metabase slugs it, `data_app__order_desk` for `Data App: Order Desk`) and its contents in `{collection_slug}/`. That layout still loads.
 
 ### Manifest
 
@@ -3191,7 +3406,7 @@ collections/
 | `slug` | string | Yes | The app's slug, equal to its directory's name |
 | `entity_id` | string | Yes | NanoID identifier |
 | `path` | string | Yes | Path of the built bundle, relative to the app's directory (e.g., `./dist/index.js`). Must not contain `..` |
-| `collection` | string | Yes | Collection FK (entity_id) of the app's collection, a root collection of the `data-apps` namespace under `collections/data_apps/`. A pull refuses a manifest without it, or one whose collection the repository doesn't hold |
+| `collection` | string | Yes | Collection FK (entity_id) of the app's collection, a root collection of the `data-apps` namespace. A pull refuses a manifest without it, and creates the collection when the repository has no file for it |
 | `version` | integer | No | The data app contract version the app was built for: a positive integer, `1` when absent. An app below the version the instance supports is marked outdated and not served |
 | `description` | string | No | One-line summary, at most 255 characters |
 | `allowed_hosts` | array | No | Origins the app may call with `fetch`/XHR: a scheme and host, with an optional `*.` subdomain wildcard and port, and no path (e.g., `https://api.example.com`, `https://*.internal.example.com`). Every other origin is blocked |
@@ -3207,9 +3422,9 @@ The app's resources are what it reads and runs: a saved question for each query 
 - **Actions** in it name their `creator_id`; are `query` actions that belong to no model; carry exactly the one nested record their `type` uses; and are not archived, not public, and take no parameter values from a card.
 - **References** outside the app's collection may point only at databases, tables, fields, snippets, segments, and measures, all of which must already exist on the instance or load in the same pull. A card, collection, or dashboard outside the app cannot be referenced: a question or metric that reads another card must use the app's own copy of it.
 
-The app's collection is remote-synced content like the rest of the repository: a pull loads the files that changed, deletes a card or action whose file is gone, and puts back what was changed in Metabase; an export writes the collection and what it holds under `collections/data_apps/`, like any collection of a namespace. A file that breaks these rules fails the pull, naming the file, as any other invalid entity file does.
+The app's collection is remote-synced content like the rest of the repository: a pull loads the files that changed, deletes a card or action whose file is gone, and puts back what was changed in Metabase; an export writes what the collection holds to the app's `resources/` folder. A file that breaks these rules fails the pull, naming the file, as any other invalid entity file does.
 
-Deleting an app means deleting its directory and its collection's files in one commit: the pull deletes the app, and with it its collection and everything in it. A pull that finds the collection's files without the app's directory refuses them, naming each file.
+Deleting an app means deleting its directory: the pull deletes the app, and with it its collection and everything in it. In the older layout, the collection's files under `collections/data_apps/` are deleted in the same commit; a pull that finds the collection's files without the app's directory refuses them, naming each file.
 
 ### Example
 
@@ -3229,17 +3444,7 @@ serdes/meta:
 - model: DataApp
 ```
 
-**`collections/data_apps/data_app__order_desk.yaml`:**
-
-```yaml
-name: "Data App: Order Desk"
-namespace: data-apps
-entity_id: dApPcOlLeCtIoN0ExAmP1
-serdes/meta:
-- model: Collection
-```
-
-**`collections/data_apps/data_app__order_desk/open_orders.yaml`** — a saved question the app queries:
+**`data_apps/order-desk/resources/open_orders.question.yaml`** — a saved question the app queries:
 
 ```yaml
 name: Open orders
@@ -3263,7 +3468,7 @@ serdes/meta:
 - model: Card
 ```
 
-**`collections/data_apps/data_app__order_desk/update_order.yaml`** — the app's copy of a query action it runs:
+**`data_apps/order-desk/resources/update_order.action.yaml`** — the app's copy of a query action it runs:
 
 ```yaml
 name: Update order

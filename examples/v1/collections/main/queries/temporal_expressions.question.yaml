@@ -1,0 +1,91 @@
+name: Temporal Expressions
+entity_id: DBBrqcMAmOO0sbM_CzM_Z
+created_at: '2026-10-16T18:13:39.810465Z'
+creator_id: admin@example.com
+display: table
+collection_id: cOlQuErIeS0ExAmPlE2x1
+parameters: []
+parameter_mappings: []
+dataset_query:
+  database: Sample Database
+  stages:
+  - expressions:
+    - - datetime-add
+      - lib/expression-name: Ship By
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+      - 7
+      - day
+    - - datetime-subtract
+      - lib/expression-name: Week Before
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+      - 1
+      - week
+    - - datetime-diff
+      - lib/expression-name: Days Since Order
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+      - - now
+        - {}
+      - day
+    - - +
+      - lib/expression-name: Ship By Deadline
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+      - - interval
+        - {}
+        - 7
+        - day
+    - - date
+      - lib/expression-name: Order Date
+      - - field
+        - {}
+        - - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
+    - - datetime
+      - lib/expression-name: Parsed Datetime
+      - '2024-06-15T10:30:00'
+    - - datetime
+      - mode: unix-seconds
+        lib/expression-name: Parsed Unix
+      - - field
+        - base-type: type/Integer
+        - - Sample Database
+          - null
+          - ORDERS
+          - QUANTITY
+    - - now
+      - lib/expression-name: Current Time
+    - - today
+      - lib/expression-name: Today Date
+    limit: 10
+    source-table:
+    - Sample Database
+    - null
+    - ORDERS
+    lib/type: mbql.stage/mbql
+  lib/type: mbql/query
+visualization_settings: {}
+card_schema: 24
+serdes/meta:
+- model: Card
+type: question
