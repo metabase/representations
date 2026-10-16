@@ -66,7 +66,7 @@ User content entities reference database objects using natural keys:
 | Card FK           | entity_id of card                                          | `"f1C68pznmrpN1F5xFDj6d"`                          |
 | Dashboard FK      | entity_id of dashboard                                     | `"Q_jD-f-9clKLFZ2TfUG2h"`                          |
 | User FK           | email address                                              | `"internal@metabase.com"`                          |
-| Custom Viz Plugin | identifier, in a card's `display` as `custom:<identifier>` | `"custom:thumbs"`                                |
+| Custom Viz Plugin | identifier, in a card's `display` as `custom:<identifier>` | `"custom:thumbs"`                                  |
 
 For schemaless databases, the schema component is `null` (e.g., `["My Database", null, "my_table"]`).
 
