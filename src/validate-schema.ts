@@ -54,7 +54,8 @@ type Check = (doc: any, fullPath: string) => ValidationError[];
 
 const CHECKS: Record<string, Check> = {
   // The identifier appears three times and all must agree: the entity's
-  // `identifier`, the directory's name, and the manifest's `name`.
+  // `identifier`, the directory's name, and the manifest's `name`. The bundle
+  // the manifest describes must be there too.
   CustomVizPlugin(doc, fullPath) {
     const errors: ValidationError[] = [];
     const dir = dirname(fullPath);
@@ -63,6 +64,12 @@ const CHECKS: Record<string, Check> = {
       errors.push({
         path: "/identifier",
         message: `must equal the directory's name "${directory}"`,
+      });
+    }
+    if (!existsSync(resolve(dir, "dist", "index.js"))) {
+      errors.push({
+        path: "/",
+        message: "missing dist/index.js beside the entity",
       });
     }
 

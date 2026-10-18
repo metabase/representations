@@ -131,6 +131,12 @@ describe("validateSchema", () => {
         expect(messages()).toEqual(["metabase-plugin.json has no name"]);
       });
 
+      it("fails when the bundle is missing", () => {
+        rmSync(join(workdir, PLUGIN, "dist", "index.js"));
+
+        expect(messages()).toEqual(["missing dist/index.js beside the entity"]);
+      });
+
       it("fails when the manifest is missing", () => {
         rmSync(join(workdir, MANIFEST));
 
