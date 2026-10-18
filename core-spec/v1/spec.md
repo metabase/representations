@@ -115,7 +115,7 @@ export-root/
 │       ├── metabase-plugin.json            # The bundle's manifest
 │       └── dist/
 │           ├── index.js                    # Built bundle
-│           └── assets/                     # The icon and assets the manifest names
+│           └── assets/                     # The icon the manifest names
 ├── collections/
 │   ├── data_apps/                          # `data-apps` namespace: each data app's collection
 │   │   ├── {collection_slug}.yaml          # The app's collection (sibling of its folder)
@@ -3349,14 +3349,14 @@ custom_viz_plugins/
     ├── metabase-plugin.json            # The bundle's manifest
     └── dist/
         ├── index.js                    # Built bundle
-        └── assets/                     # The icon and assets the manifest names
+        └── assets/                     # The icon the manifest names
 ```
 
-The bundle is the output of `npm run build` in a `@metabase/custom-viz` project, laid out as the project is: the manifest at the root, the JavaScript at `dist/index.js`, and assets under `dist/assets/`. It is the same set of files the project's `pack` command archives for upload through Admin; the repository holds them unpacked so a change to the plugin is reviewable.
+The bundle is the output of `npm run build` in a `@metabase/custom-viz` project, laid out as the project is: the manifest at the root, the JavaScript at `dist/index.js`, and its icon under `dist/assets/`. It is the same set of files the project's `pack` command archives for upload through Admin; the repository holds them unpacked so a change to the plugin is reviewable.
 
 **Identity.** A plugin has no `entity_id`: its `identifier` is its identity, and it is what cards reference. The identifier appears three times, and all three must agree or the pull fails naming the file: the directory's name `{identifier}`, the entity's `identifier`, and the `name` in `metabase-plugin.json`. An identifier is letters, digits, `.`, `_` and `-`, starting with a letter or digit: it names a directory, and `:` separates the parts of the `custom:<identifier>:<setting>` keys in visualization settings. Renaming a plugin means every card that uses it changes `display`.
 
-Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is ignored, as are dotfiles. Source files a developer keeps beside the bundle (`src/`, `package.json`) are ignored too. The files loaded are the manifest, `dist/index.js`, and the files under `dist/assets/` that the manifest's `icon` and `assets` name, which is exactly what `pack` archives. Other files under `dist/` are ignored.
+Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is ignored, as are dotfiles. Source files a developer keeps beside the bundle (`src/`, `package.json`) are ignored too. The files loaded are the manifest, `dist/index.js`, and the icon the manifest names under `dist/assets/`, which is exactly what `pack` archives. Other files under `dist/` are ignored.
 
 ### Entity
 
@@ -3377,7 +3377,6 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 |-------|------|----------|-------------|
 | `name` | string | Yes | The plugin's identifier; must equal the entity's `identifier`. Without it the plugin has no identity, and the validator fails the entity |
 | `icon` | string | No | Filename of the plugin's icon under `dist/assets/` |
-| `assets` | array of strings | No | Filenames of other files under `dist/assets/` the plugin loads at runtime |
 | `metabase.version` | string | No | Semver range of Metabase versions the plugin supports (e.g., `">=1.64 <1.66"`); an instance outside it warns |
 | `sdk.version` | string | No | Version of `@metabase/custom-viz` the bundle was built with. `pack` stamps it into the archived copy, so it is usually absent on disk; an instance only warns when it's missing or mismatched |
 
