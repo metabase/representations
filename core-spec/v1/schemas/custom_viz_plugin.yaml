@@ -21,7 +21,7 @@ properties:
   enabled:
     type: boolean
     description: >
-      Whether cards and dashboards may use the plugin. `false` when absent.
+      Whether cards and dashboards may use the plugin. `true` when absent.
   created_at:
     type: string
     format: date-time

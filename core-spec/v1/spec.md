@@ -3365,7 +3365,7 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `identifier` | string | Yes | The plugin's identifier, equal to its directory's name and the manifest's `name` |
-| `enabled` | boolean | No | Whether cards and dashboards may use the plugin. `false` when absent |
+| `enabled` | boolean | No | Whether cards and dashboards may use the plugin. `true` when absent |
 | `created_at` | string | No | ISO 8601 timestamp |
 | `serdes/meta` | array | Yes | Identity path with `model: CustomVizPlugin` |
 
