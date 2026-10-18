@@ -3371,15 +3371,15 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 
 ### Manifest
 
-`metabase-plugin.json` is the bundle's manifest, owned by the `@metabase/custom-viz` SDK and written by the developer. Metabase reads it from the bundle on load. Its fields, all optional to the SDK:
+`metabase-plugin.json` is the bundle's manifest, owned by the `@metabase/custom-viz` SDK and written by the developer. Metabase reads it from the bundle on load. The SDK treats every field as optional; the format requires `name`:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | string | The plugin's identifier; must equal the entity's `identifier` |
-| `icon` | string | Filename of the plugin's icon under `dist/assets/` |
-| `assets` | array of strings | Filenames of other files under `dist/assets/` the plugin loads at runtime |
-| `metabase.version` | string | Semver range of Metabase versions the plugin supports (e.g., `">=1.64 <1.66"`); an instance outside it warns |
-| `sdk.version` | string | Version of `@metabase/custom-viz` the bundle was built with. `pack` stamps it into the archived copy, so it is usually absent on disk; an instance only warns when it's missing or mismatched |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | The plugin's identifier; must equal the entity's `identifier`. Without it the plugin has no identity, and the validator fails the entity |
+| `icon` | string | No | Filename of the plugin's icon under `dist/assets/` |
+| `assets` | array of strings | No | Filenames of other files under `dist/assets/` the plugin loads at runtime |
+| `metabase.version` | string | No | Semver range of Metabase versions the plugin supports (e.g., `">=1.64 <1.66"`); an instance outside it warns |
+| `sdk.version` | string | No | Version of `@metabase/custom-viz` the bundle was built with. `pack` stamps it into the archived copy, so it is usually absent on disk; an instance only warns when it's missing or mismatched |
 
 ### Example
 

@@ -125,6 +125,12 @@ describe("validateSchema", () => {
         ]);
       });
 
+      it("fails when the manifest has no name", () => {
+        writeFileSync(join(workdir, MANIFEST), '{ "icon": "icon.svg" }\n');
+
+        expect(messages()).toEqual(["metabase-plugin.json has no name"]);
+      });
+
       it("fails when the manifest is missing", () => {
         rmSync(join(workdir, MANIFEST));
 

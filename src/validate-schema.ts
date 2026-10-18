@@ -84,7 +84,9 @@ const CHECKS: Record<string, Check> = {
       });
       return errors;
     }
-    if (name !== doc.identifier) {
+    if (name === undefined) {
+      errors.push({ path: "/", message: "metabase-plugin.json has no name" });
+    } else if (name !== doc.identifier) {
       errors.push({
         path: "/identifier",
         message: `must equal the manifest's name ${JSON.stringify(name)}`,
