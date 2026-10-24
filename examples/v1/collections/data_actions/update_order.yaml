@@ -1,0 +1,20 @@
+name: Update order
+entity_id: Tq3vYp8mWc1LxNz5RbK0d
+creator_id: admin@example.com
+type: implicit
+implicit:
+- kind: row/update
+  table_id:
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+query: []
+parameters: []
+parameter_mappings: []
+visualization_settings:
+  fields:
+    discount:
+      id: discount
+      hidden: true
+serdes/meta:
+- model: Action

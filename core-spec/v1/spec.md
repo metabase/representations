@@ -2340,7 +2340,7 @@ serdes/meta:
 
 ## Action
 
-An action writes to a database. A **query** action runs parameterized native SQL; without a model it lives in the data actions namespace (its root, exported under `collections/data_actions/`, or a data actions collection) or in a data app's collection, set by `collection_id`, and its permissions follow that collection. An **implicit** action creates, updates, or deletes a row of a model card's table. Implicit actions, and attaching any action to a model (`model_id`), are **deprecated**: they remain only for actions made before actions had their own collection. Author query actions without a `model_id`.
+An action writes to a database. A **query** action runs parameterized native SQL; without a model it lives in the data actions namespace (its root, exported under `collections/data_actions/`, or a data actions collection) or in a data app's collection, set by `collection_id`, and its permissions follow that collection. An **implicit** action creates, updates, or deletes one row of a table: without a model, the table its `implicit` entry names, in the same collections as a query action; with a model, the model card's table. Attaching any action to a model (`model_id`) is **deprecated**: it remains only for actions made before actions had their own collection. Author actions without a `model_id`.
 
 An action is exported with its collection, like a card, under that collection's namespace folder (`collections/main/…`, `collections/data_actions/…`, `collections/data_apps/…`); the data actions root is `collections/data_actions/{slug}.yaml`. Older exports kept them under a top-level `actions/` directory, which import still reads. Exactly one of the nested `implicit` and `query` arrays holds the action's definition, the one its `type` names; the other is empty.
 
@@ -2350,13 +2350,13 @@ An action is exported with its collection, like a card, under that collection's 
 |-------|------|----------|-------------|
 | `name` | string | Yes | Action name |
 | `entity_id` | string | Yes | NanoID identifier |
-| `type` | string | Yes | `"query"`, or `"implicit"` (deprecated) |
+| `type` | string | Yes | `"query"` or `"implicit"` |
 | `serdes/meta` | array | Yes | Identity path with `model: Action` |
 | `collection_id` | string | No | Collection FK (entity_id); `null`/omitted for the data actions root. An action without a model goes only in the data actions root, a data actions collection, or a data app's collection; an action with a model is always in its model's collection |
-| `model_id` | string | No | **Deprecated.** Card FK (entity_id) of the model the action is attached to. Omit it, or leave it `null`, for a query action; an implicit action requires one |
-| `query` | array | No | `[{database_id, dataset_query}]` when `type` is `query`, otherwise `[]`. `database_id` is a Database FK; `dataset_query` is a [Native Query](#native-query) whose template tags the parameters target |
-| `implicit` | array | No | `[{kind}]` when `type` is `implicit`, otherwise `[]`. `kind`: `row/create`, `row/update`, `row/delete`, `bulk/create`, `bulk/update`, `bulk/delete` |
-| `parameters` | array | No | The action's inputs: `id`, `type`, and for a query action a `target` on one of its template tags (see [Parameter Targets](#parameter-targets)), plus optional `name`, `slug`, `required`. An implicit action's parameters are computed from the model's fields, so they are stored empty `[]` |
+| `model_id` | string | No | **Deprecated.** Card FK (entity_id) of the model the action is attached to. Omit it, or leave it `null`; an implicit action without one names its table instead |
+| `query` | array | No | `[{database_id, dataset_query}]` when `type` is `query`, otherwise `[]`. `database_id` is a Database FK that Metabase derives from `dataset_query` on import, so omit it when authoring; `dataset_query` is a [Native Query](#native-query) whose template tags the parameters target |
+| `implicit` | array | No | `[{kind, table_id}]` when `type` is `implicit`, otherwise `[]`. `kind`: `row/create`, `row/update`, `row/delete`, `bulk/create`, `bulk/update`, `bulk/delete`. `table_id` is a Table FK `[database, schema, table]`, required without a `model_id`, omitted or `null` with one; the table must have exactly one primary key, and be published to the Library for an action in a data app's collection; a table missing on import is created as a stub |
+| `parameters` | array | No | The action's inputs: `id`, `type`, and for a query action a `target` on one of its template tags (see [Parameter Targets](#parameter-targets)), plus optional `name`, `slug`, `required`. An implicit action's parameters are computed from its table's fields (without sensitive and retired ones) or its model's, so they are stored empty `[]` |
 | `parameter_mappings` | array | No | Unused, usually empty `[]` |
 | `visualization_settings` | map | No | The action's form (see below) |
 | `creator_id` | string | No | User FK (email) |
@@ -2430,7 +2430,32 @@ serdes/meta:
 - model: Action
 ```
 
-**Implicit action** (deprecated; `collections/main/queries/create_order.yaml`):
+**Implicit action on a table** (`collections/data_actions/update_order.yaml`, at the data actions root). Its parameter ids, and the keys of `visualization_settings.fields`, are the table's column names, slugified:
+
+```yaml
+name: Update order
+entity_id: Tq3vYp8mWc1LxNz5RbK0d
+creator_id: admin@example.com
+type: implicit
+implicit:
+- kind: row/update
+  table_id:
+  - Sample Database
+  - PUBLIC
+  - ORDERS
+query: []
+parameters: []
+parameter_mappings: []
+visualization_settings:
+  fields:
+    discount:
+      id: discount
+      hidden: true
+serdes/meta:
+- model: Action
+```
+
+**Implicit action of a model** (deprecated; `collections/main/queries/create_order.yaml`):
 
 ```yaml
 name: Create order

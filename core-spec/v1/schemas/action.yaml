@@ -3,8 +3,9 @@ title: Action
 description: >
   An action that writes to a database. A query action runs parameterized SQL and
   lives in a collection like a card. An implicit action creates, updates, or
-  deletes a row of a model card's table; it is deprecated, as is attaching any
-  action to a model. Exactly one of `implicit` and `query` holds the action's
+  deletes one row of a table: the table its `implicit` entry names, or, for an
+  action of a model, the model card's table. Attaching any action to a model is
+  deprecated. Exactly one of `implicit` and `query` holds the action's
   definition, the one its `type` names.
 type: object
 required:
@@ -20,7 +21,7 @@ properties:
     $ref: "common/id.yaml#/$defs/entity_id"
   type:
     type: string
-    description: Which of `implicit` (deprecated) or `query` defines the action
+    description: Which of `implicit` or `query` defines the action
     enum:
       - implicit
       - query
@@ -34,8 +35,8 @@ properties:
   model_id:
     description: >
       Deprecated. Card FK (entity_id) of the model the action is attached to,
-      kept only for actions made before actions had their own collection; an
-      implicit action needs one. Omit it, or leave it null, for a query action.
+      kept only for actions made before actions had their own collection. Omit
+      it, or leave it null; an implicit action without one names its table.
     deprecated: true
     type: [string, "null"]
     if: { type: string }
@@ -58,14 +59,16 @@ properties:
     default: false
   implicit:
     type: array
-    description: The implicit action's definition, when `type` is `implicit` (deprecated); otherwise empty
+    description: The implicit action's definition, when `type` is `implicit`; otherwise empty
     maxItems: 1
     items:
       type: object
+      required:
+        - kind
       properties:
         kind:
           type: string
-          description: What the action does to a row of the model's table
+          description: What the action does to a row of its table
           enum:
             - row/create
             - row/update
@@ -73,6 +76,15 @@ properties:
             - bulk/create
             - bulk/update
             - bulk/delete
+        table_id:
+          description: >
+            The table the action writes to, required without a `model_id` and
+            omitted or null with one. It needs exactly one primary key, and must
+            be published to the Library for an action in a data app's
+            collection. A table missing on import is created as a stub.
+          oneOf:
+            - $ref: "common/id.yaml#/$defs/table_id"
+            - type: "null"
   query:
     type: array
     description: The query action's definition, when `type` is `query`; otherwise empty
@@ -80,10 +92,12 @@ properties:
     items:
       type: object
       required:
-        - database_id
         - dataset_query
       properties:
         database_id:
+          description: >
+            The database of `dataset_query`, which Metabase derives from the
+            query on import; omit it when authoring.
           $ref: "common/id.yaml#/$defs/database_id"
         dataset_query:
           description: The native query the action runs, with its template tags
@@ -92,8 +106,8 @@ properties:
     type: array
     description: >
       The action's inputs. A query action maps each one to a template tag of
-      its query; an implicit action's are computed from the model's fields and
-      stored empty.
+      its query; an implicit action's are computed from its table's fields
+      (without sensitive and retired ones) or its model's, and stored empty.
     items:
       type: object
       required:
@@ -192,8 +206,12 @@ properties:
 allOf:
   - if: { properties: { type: { const: implicit } }, required: [type] }
     then:
-      required: [implicit, model_id]
-      properties: { implicit: { type: array, minItems: 1 }, model_id: { type: string } }
+      required: [implicit]
+      properties: { implicit: { type: array, minItems: 1 } }
+      anyOf:
+        - { required: [model_id], properties: { model_id: { type: string } } }
+        - properties:
+            implicit: { type: array, items: { type: object, required: [table_id], properties: { table_id: { type: array } } } }
   - if: { properties: { type: { const: query } }, required: [type] }
     then: { required: [query], properties: { query: { type: array, minItems: 1 } } }
 additionalProperties: true
