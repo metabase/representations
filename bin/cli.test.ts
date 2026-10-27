@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
@@ -7,6 +15,8 @@ import { mutateExamples } from "../src/lint-mutations.js";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
 const CLI = "bin/cli.ts";
+const EXAMPLES = join(REPO_ROOT, "examples", "v1");
+const TOP_CATEGORIES = "collections/transforms/top_categories.yaml";
 
 type RunResult = {
   stdout: string;
@@ -220,6 +230,40 @@ describe("cli", () => {
         .filter((finding) => finding.severity === "error");
       expect(exitCode).toBe(1);
       expect(errors.map((finding) => finding.rule)).toEqual(["missing-input"]);
+    });
+
+    it("exits 0 when two transforms write one table, and reports it as a warning", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const text = readFileSync(join(workdir, TOP_CATEGORIES), "utf8");
+      expect(text).toContain("entity_id: jf55MTi7z8cWQjPG2PEgz");
+      writeFileSync(
+        join(workdir, "collections/transforms/top_categories_copy.yaml"),
+        text.replace(
+          "entity_id: jf55MTi7z8cWQjPG2PEgz",
+          "entity_id: TopCategoriesCopy000a",
+        ),
+      );
+      const { stdout, stderr, exitCode } = runCli([
+        "lint",
+        "--folder",
+        workdir,
+      ]);
+      const findings = stdout
+        .trim()
+        .split("\n")
+        .map((line): unknown => JSON.parse(line));
+      expect(findings).toEqual([
+        expect.objectContaining({
+          rule: "duplicate-target",
+          severity: "warning",
+        }),
+        expect.objectContaining({
+          rule: "duplicate-target",
+          severity: "warning",
+        }),
+      ]);
+      expect(stderr).toMatch(/ 0 errors, 2 warnings/);
+      expect(exitCode).toBe(0);
     });
 
     it("errors when the folder has no YAML files", () => {

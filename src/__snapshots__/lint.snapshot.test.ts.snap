@@ -71,7 +71,7 @@ exports[`lint output on a broken copy of the examples matches the recording: dup
         "collections/transforms/native_transform_copy.yaml",
       ],
       "rule": "duplicate-target",
-      "severity": "error",
+      "severity": "warning",
     },
     {
       "entity": {
@@ -85,7 +85,7 @@ exports[`lint output on a broken copy of the examples matches the recording: dup
         "collections/transforms/native_transform.yaml",
       ],
       "rule": "duplicate-target",
-      "severity": "error",
+      "severity": "warning",
     },
   ],
 }
@@ -144,7 +144,7 @@ exports[`lint output on a broken copy of the examples matches the recording: tra
         "name": "Product Revenue Report",
       },
       "file": "collections/transforms/native_transform.yaml",
-      "message": "transforms read each other's targets: Product Revenue Report → Top Categories",
+      "message": "transforms read each other's targets: Product Revenue Report → Top Categories → Product Revenue Report",
       "related": [
         "collections/transforms/top_categories.yaml",
       ],
@@ -357,7 +357,7 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
         "collections/transforms/native_transform_copy.yaml",
       ],
       "rule": "duplicate-target",
-      "severity": "error",
+      "severity": "warning",
     },
     {
       "entity": {
@@ -371,7 +371,7 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
         "collections/transforms/native_transform.yaml",
       ],
       "rule": "duplicate-target",
-      "severity": "error",
+      "severity": "warning",
     },
     {
       "entity": {
@@ -380,7 +380,7 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
         "name": "Product Revenue Report",
       },
       "file": "collections/transforms/native_transform_copy.yaml",
-      "message": "transforms read each other's targets: Product Revenue Report → Top Categories",
+      "message": "transforms read each other's targets: Product Revenue Report → Top Categories → Product Revenue Report",
       "related": [
         "collections/transforms/top_categories.yaml",
       ],

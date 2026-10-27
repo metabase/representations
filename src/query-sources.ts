@@ -2,12 +2,18 @@ import type { ValidateFunction } from "ajv/dist/2020.js";
 import { posix } from "path";
 
 import type { Schemas } from "./schemas.js";
-import { fold, type TableKey } from "./tables.js";
+import { snippetIdsOf } from "./snippets.js";
+import { valuedTagNames } from "./sql-tables.js";
+import { type TableKey, uniqueTables } from "./tables.js";
 import { isRecord, stringOrNull } from "./values.js";
 
 export type NativeSql = {
   sql: string;
   database: string | null;
+  /** The template tags with a value when Metabase compiles the query (`valuedTagNames`). */
+  valuedTags: ReadonlySet<string>;
+  /** The entity id of each snippet the template tags name, by snippet name (`snippetIdsOf`). */
+  snippetIds: ReadonlyMap<string, string>;
 };
 
 /** The data sources a document names, found where its schema types them. */
@@ -40,18 +46,6 @@ const unescapePointer = (part: string) =>
   part.replace(/~1/g, "/").replace(/~0/g, "~");
 
 const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
-
-function uniqueBy<T>(items: readonly T[], key: (item: T) => string): T[] {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    const k = key(item);
-    if (seen.has(k)) {
-      return false;
-    }
-    seen.add(k);
-    return true;
-  });
-}
 
 /** The table a `table_id` or `field_id` names: its first three parts. */
 const tableOfId = (id: readonly unknown[], name: string): TableKey => ({
@@ -142,7 +136,12 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
         isRecord(value) &&
         typeof value.native === "string"
       ) {
-        sources.natives.push({ sql: value.native, database: context.database });
+        sources.natives.push({
+          sql: value.native,
+          database: context.database,
+          valuedTags: valuedTagNames(value["template-tags"]),
+          snippetIds: snippetIdsOf(value["template-tags"]),
+        });
       }
     };
 
@@ -219,11 +218,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
 
     walk(doc, { file, pointer: "" }, { inQuery: false, database: null });
     return {
-      tables: uniqueBy(sources.tables, (t) =>
-        JSON.stringify(
-          [t.database, t.schema, t.name].map((part) => fold(part)),
-        ),
-      ),
+      tables: uniqueTables(sources.tables),
       entities: [...new Set(sources.entities)],
       natives: sources.natives,
     };

@@ -11,6 +11,7 @@ export {
 export { generateEntityId } from "./generate-entity-id.js";
 export { generateUuid } from "./generate-uuid.js";
 export {
+  LINT_RULE_SEVERITY,
   LINT_RULES,
   type LintEntity,
   type LintFinding,

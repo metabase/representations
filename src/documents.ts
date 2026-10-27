@@ -43,6 +43,7 @@ function createTableFileCheck(): (
 
 /** A Python source table, from `transform.yaml#/$defs/python_source`. */
 type PythonSourceTable = {
+  alias: string;
   database_id: string;
   schema?: string | null;
   table?: string;
@@ -130,12 +131,17 @@ export function displayName(doc: Doc): string {
   return stringOrNull(doc.body.name) ?? doc.file;
 }
 
+/** A file `loadDocs` could not read as a YAML map, and why. */
+export type UnreadableFile = { file: string; reason: string };
+
 /**
- * Every representation file and table file in `folder` that parses to a YAML
- * map, in path order. Files that do not parse, or parse to something else, are
- * left out.
+ * Every representation file and table file in `folder`, in path order: those
+ * that parse to a YAML map as documents, and the others as unreadable files.
  */
-export function loadDocs(folder: string): Doc[] {
+export function loadDocs(folder: string): {
+  docs: Doc[];
+  unreadable: UnreadableFile[];
+} {
   const invalid = new Set(
     validateSchema({ folder })
       .results.filter((r) => r.status === "fail")
@@ -144,6 +150,7 @@ export function loadDocs(folder: string): Doc[] {
   const imported = new Set(globSync(IMPORT_PATHS, { cwd: folder }));
   const matchesSchema = createTableFileCheck();
   const docs: Doc[] = [];
+  const unreadable: UnreadableFile[] = [];
   const files = new Set([
     ...imported,
     ...globSync(TABLE_PATHS, { cwd: folder }),
@@ -152,10 +159,13 @@ export function loadDocs(folder: string): Doc[] {
     let body: unknown;
     try {
       body = yaml.load(readFileSync(resolve(folder, file), "utf8"));
-    } catch {
+    } catch (e) {
+      const reason = e instanceof yaml.YAMLException ? e.reason : String(e);
+      unreadable.push({ file, reason: `does not parse as YAML: ${reason}` });
       continue;
     }
     if (!isRecord(body)) {
+      unreadable.push({ file, reason: "is not a YAML map" });
       continue;
     }
     const model = stringOrNull(getModel(body));
@@ -168,7 +178,7 @@ export function loadDocs(folder: string): Doc[] {
         : matchesSchema(model, body),
     });
   }
-  return docs;
+  return { docs, unreadable };
 }
 
 /** Every document with an entity_id, keyed by it; several when the id is duplicated. */

@@ -9,9 +9,12 @@ import { createSourceFinder, type NativeSql } from "./query-sources.js";
 import { loadSchemas } from "./schemas.js";
 import { expandSnippets } from "./snippets.js";
 import { tablesReadBySql } from "./sql-tables.js";
-import type { TableKey } from "./tables.js";
+import { type TableKey, uniqueTables } from "./tables.js";
 
-/** The tables a document reads, in order, or why they could not be found. */
+/**
+ * The tables a document reads, in order and each once, or why they could not
+ * be found.
+ */
 export type Reads =
   | { status: "read"; tables: TableKey[] }
   | { status: "unread"; reason: string };
@@ -28,21 +31,27 @@ const SNIPPET_MODEL = "NativeQuerySnippet";
 /**
  * The tables of native queries, in order, after pasting their snippets in;
  * unread at the first query with a missing snippet or SQL the scan cannot read.
+ * A snippet a query's template tag names is found by its entity id, and any
+ * other by its name.
  */
 function nativeReads(
   natives: readonly NativeSql[],
-  snippets: ReadonlyMap<string, string>,
+  snippetById: (id: string) => string | undefined,
+  snippetByName: ReadonlyMap<string, string>,
 ): Reads {
   const tables: TableKey[] = [];
   for (const native of natives) {
-    const sql = expandSnippets(native.sql, snippets);
+    const sql = expandSnippets(native.sql, (name) => {
+      const id = native.snippetIds.get(name);
+      return id === undefined ? snippetByName.get(name) : snippetById(id);
+    });
     if (sql === null) {
       return {
         status: "unread",
         reason: "a snippet it uses is not in the folder",
       };
     }
-    const result = tablesReadBySql(sql);
+    const result = tablesReadBySql(sql, native.valuedTags);
     if (result.status === "unread") {
       return result;
     }
@@ -57,18 +66,26 @@ function nativeReads(
 }
 
 function pythonReads(source: PythonSource): Reads {
-  const tables: TableKey[] = source["source-tables"].map((t) =>
-    t.table_id === undefined
-      ? {
-          database: t.database_id,
-          schema: t.schema ?? null,
-          // The schema does not require a table name; this keeps the earlier
-          // reading of a missing one.
-          name: String(t.table),
-        }
-      : { database: t.table_id[0], schema: t.table_id[1], name: t.table_id[2] },
-  );
-  return { status: "read", tables };
+  const tables: TableKey[] = [];
+  for (const t of source["source-tables"]) {
+    if (t.table_id !== undefined) {
+      const [database, schema, name] = t.table_id;
+      tables.push({ database, schema, name });
+    } else if (t.table !== undefined) {
+      tables.push({
+        database: t.database_id,
+        schema: t.schema ?? null,
+        name: t.table,
+      });
+    } else {
+      // The schema requires neither `table` nor `table_id`.
+      return {
+        status: "unread",
+        reason: `source table ${t.alias} names no table`,
+      };
+    }
+  }
+  return { status: "read", tables: uniqueTables(tables) };
 }
 
 /**
@@ -81,11 +98,14 @@ export function createReader(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
 ) {
   const findSources = createSourceFinder(loadSchemas());
-  const snippets = new Map(
-    docs
-      .filter((d) => d.model === SNIPPET_MODEL)
-      .map((d) => [String(d.body.name), String(d.body.content)]),
+  const snippetDocs = docs.filter((d) => d.model === SNIPPET_MODEL);
+  const snippetByName = new Map(
+    snippetDocs.map((d) => [String(d.body.name), String(d.body.content)]),
   );
+  const snippetById = (id: string) => {
+    const doc = byEntityId.get(id)?.find((d) => d.model === SNIPPET_MODEL);
+    return doc === undefined ? undefined : String(doc.body.content);
+  };
   const memo = new Map<Doc, Reads>();
 
   const readsOf = (doc: Doc, visiting: Set<Doc>): Reads => {
@@ -105,7 +125,7 @@ export function createReader(
     }
     const sources = findSources(doc.body, doc.model ?? "");
     const tables: TableKey[] = [...sources.tables];
-    const native = nativeReads(sources.natives, snippets);
+    const native = nativeReads(sources.natives, snippetById, snippetByName);
     if (native.status === "unread") {
       return native;
     }
@@ -131,7 +151,7 @@ export function createReader(
       }
       tables.push(...reads.tables);
     }
-    const reads: Reads = { status: "read", tables };
+    const reads: Reads = { status: "read", tables: uniqueTables(tables) };
     memo.set(doc, reads);
     return reads;
   };

@@ -64,6 +64,22 @@ export function sameTable(
   return fold(a.schema) === fold(b.schema);
 }
 
+/**
+ * `tables` without repeats, keeping the first of each: two keys repeat when
+ * their database, schema and name are equal ignoring case (`fold`).
+ */
+export function uniqueTables(tables: readonly TableKey[]): TableKey[] {
+  const seen = new Set<string>();
+  return tables.filter((t) => {
+    const key = JSON.stringify([t.database, t.schema, t.name].map(fold));
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 /** The table as messages name it: `schema.name`, or `name` without a schema. */
 export function tableLabel(table: TableName): string {
   return table.schema === null ? table.name : `${table.schema}.${table.name}`;

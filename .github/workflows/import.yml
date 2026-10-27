@@ -22,10 +22,12 @@ jobs:
           git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Examples"
 
       - name: Start Metabase
+        env:
+          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
-            -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
+            -e MB_PREMIUM_EMBEDDING_TOKEN \
             -v "$RUNNER_TEMP/sync-repo:/sync-repo:ro" \
             -p 3000:3000 \
             metabase/metabase-enterprise-head:latest
@@ -189,14 +191,15 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.9"
 
       - name: Install the lint's dependencies
-        run: bun install
+        run: bun install --frozen-lockfile
 
-      # The lint finds the tables each transform reads from the files alone.
-      # Metabase is the reference: a transform test must have an input for
-      # each table it lists. Any difference is a lint bug.
+      # The lint reads the files alone; Metabase is the reference. The step
+      # compares the tables each transform reads, and Metabase's verdict on
+      # each transform test with the lint's errors on it. Any difference is a
+      # lint bug, and a run that compares nothing fails.
       - name: Compare the lint's transform reads with Metabase's
         run: |
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
@@ -233,4 +236,27 @@ jobs:
             exit 1
           fi
 
-          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1
+          # H2 supports transform tests since Metabase commit 86b1f4bca4c
+          # (2026-09-18). Record which build runs, so a refusal can be traced
+          # to an image older than that.
+          echo "Metabase version:"
+          curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" | jq '.version' \
+            || echo "(could not read the version)"
+          echo "Image created: $(docker image inspect --format '{{.Created}}' metabase/metabase-enterprise-head:latest)"
+
+          # H2, the Sample Database's engine, resolves an unqualified table in PUBLIC.
+          STATUS=0
+          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1 \
+            --default-schema "Sample Database=PUBLIC" || STATUS=$?
+          if [ "$STATUS" != "0" ]; then
+            # When a driver's feature check throws, Metabase logs this message
+            # and answers that the feature is unsupported.
+            FEATURE_ERRORS=$(docker logs metabase 2>&1 | grep "Failed to check feature" || true)
+            if [ -n "$FEATURE_ERRORS" ]; then
+              echo "Metabase failed to check a driver feature:"
+              echo "$FEATURE_ERRORS"
+            else
+              echo "Metabase logged no failed feature check"
+            fi
+          fi
+          exit "$STATUS"

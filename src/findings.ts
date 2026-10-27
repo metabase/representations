@@ -22,6 +22,28 @@ export type LintRule = (typeof LINT_RULES)[number];
 
 export type LintSeverity = "error" | "warning";
 
+/**
+ * The severity of each rule's findings. An error is a reference Metabase
+ * refuses or cannot resolve. A warning is a check the lint could not decide,
+ * or a tree Metabase accepts but that is likely a mistake.
+ */
+export const LINT_RULE_SEVERITY: Readonly<Record<LintRule, LintSeverity>> = {
+  schema: "error",
+  "duplicate-entity-id": "error",
+  "dangling-transform-id": "error",
+  "wrong-type-transform-id": "error",
+  "duplicate-target": "warning",
+  "transform-cycle": "error",
+  "missing-input": "error",
+  "unused-input": "error",
+  "untestable-transform": "error",
+  "duplicate-input": "error",
+  "expectation-reads-other-table": "error",
+  "unknown-table": "warning",
+  "input-match-undecided": "warning",
+  "reads-not-checked": "warning",
+};
+
 export type LintEntity = {
   model: string | null;
   entity_id: string | null;
@@ -37,10 +59,12 @@ export type LintFinding = {
   related: string[];
 };
 
-/** Records a finding on `doc`; `related` names the other files involved. */
+/**
+ * Records a finding on `doc` at its rule's severity; `related` names the other
+ * files involved.
+ */
 export type Report = (
   rule: LintRule,
-  severity: LintSeverity,
   doc: Doc,
   message: string,
   related?: string[],

@@ -155,8 +155,34 @@ describe("createSourceFinder", () => {
       "Transform",
     );
     expect(sources.natives).toEqual([
-      { sql: "SELECT * FROM ORDERS", database: DB },
+      {
+        sql: "SELECT * FROM ORDERS",
+        database: DB,
+        valuedTags: new Set(),
+        snippetIds: new Map(),
+      },
     ]);
+  });
+
+  it("returns the names of a native stage's tags that have a value", () => {
+    const sources = findSources(
+      transform([
+        {
+          "lib/type": "mbql.stage/native",
+          native: "SELECT * FROM ORDERS [[WHERE STATE = {{state}}]]",
+          "template-tags": [
+            {
+              type: "text",
+              name: "state",
+              id: "1d4e9fdf-49ae-4fbe-ae27-05e7c6a5cfe8",
+              default: "CA",
+            },
+          ],
+        },
+      ]),
+      "Transform",
+    );
+    expect(sources.natives.map((n) => [...n.valuedTags])).toEqual([["state"]]);
   });
 
   it("finds the card, snippet and table of a native stage's template tags", () => {

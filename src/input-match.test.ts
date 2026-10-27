@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { inputCovers, tableKeys } from "./input-match.js";
+import { inputCovers, inputsCollide } from "./input-match.js";
 
 const t = (schema: string | null, name: string) => ({ schema, name });
 
@@ -69,23 +69,74 @@ describe("inputCovers", () => {
   });
 });
 
-describe("tableKeys", () => {
+describe("inputsCollide", () => {
   it.each([
-    ["an unqualified table", t(null, "ORDERS"), undefined, ["orders"]],
     [
-      "a table in the default schema",
+      "one table, in two cases",
+      t(null, "ORDERS"),
+      t(null, "orders"),
+      undefined,
+      "match",
+    ],
+    [
+      "one schema, in two cases",
+      t("PUBLIC", "ORDERS"),
+      t("public", "orders"),
+      undefined,
+      "match",
+    ],
+    [
+      "unqualified and in the default schema",
+      t(null, "ORDERS"),
       t("PUBLIC", "ORDERS"),
       "public",
-      ["public.orders", "orders"],
+      "match",
     ],
-    ["a table in another schema", t("RAW", "ORDERS"), "public", ["raw.orders"]],
     [
-      "a qualified table, the default unknown",
-      t("PUBLIC", "ORDERS"),
-      undefined,
-      ["public.orders"],
+      "unqualified and in another schema",
+      t(null, "ORDERS"),
+      t("RAW", "ORDERS"),
+      "public",
+      "no-match",
     ],
-  ] as const)("%s", (_, table, defaultSchema, expected) => {
-    expect(tableKeys(table, defaultSchema)).toEqual([...expected]);
+    [
+      "unqualified and qualified, the default unknown",
+      t("PUBLIC", "ORDERS"),
+      t(null, "ORDERS"),
+      undefined,
+      "undecided",
+    ],
+    [
+      "unqualified and qualified, a database with no default schema",
+      t(null, "ORDERS"),
+      t("PUBLIC", "ORDERS"),
+      null,
+      "no-match",
+    ],
+    [
+      "two schemas, one the default",
+      t("PUBLIC", "ORDERS"),
+      t("RAW", "ORDERS"),
+      "public",
+      "no-match",
+    ],
+    [
+      "two schemas, the default unknown",
+      t("PUBLIC", "ORDERS"),
+      t("RAW", "ORDERS"),
+      undefined,
+      "no-match",
+    ],
+    [
+      "a dot in the schema, and one in the name",
+      t("a.b", "c"),
+      t("a", "b.c"),
+      undefined,
+      "no-match",
+    ],
+    ["two names", t(null, "ORDERS"), t(null, "PEOPLE"), undefined, "no-match"],
+  ] as const)("%s", (_, a, b, defaultSchema, expected) => {
+    expect(inputsCollide(a, b, defaultSchema)).toBe(expected);
+    expect(inputsCollide(b, a, defaultSchema)).toBe(expected);
   });
 });

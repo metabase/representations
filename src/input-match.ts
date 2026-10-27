@@ -33,25 +33,52 @@ export function inputCovers(
 }
 
 /**
- * The names a query can use for a table, as Metabase rewrites them: qualified
- * when it has a schema, and unqualified when it has none or sits in the default
- * schema. Folded to lower case. With an unknown default schema, a qualified
- * table gets no unqualified name.
+ * Whether Metabase rewrites `read`, a table an expectation's SQL names, to the
+ * stand-in for `table`, an input or the transform's target. A read is
+ * rewritten by the key of its own schema and name, or else by `table`'s
+ * unqualified key, which `table` has when it is unqualified or in the default
+ * schema. So, unlike `inputCovers`, a qualified read is rewritten to an
+ * unqualified table of its name.
  */
-export function tableKeys(
+export function rewriteCovers(
+  read: TableName,
   table: TableName,
   defaultSchema: DefaultSchema,
-): string[] {
-  const name = fold(table.name);
-  const keys: string[] = [];
-  if (table.schema !== null) {
-    keys.push(`${fold(table.schema)}.${name}`);
+): Match {
+  if (fold(read.name) !== fold(table.name)) {
+    return "no-match";
   }
-  if (
-    table.schema === null ||
-    (defaultSchema !== undefined && fold(table.schema) === fold(defaultSchema))
-  ) {
-    keys.push(name);
+  if (fold(read.schema) === fold(table.schema) || table.schema === null) {
+    return "match";
   }
-  return keys;
+  if (defaultSchema === undefined) {
+    return "undecided";
+  }
+  return fold(table.schema) === fold(defaultSchema) ? "match" : "no-match";
+}
+
+/**
+ * Whether a query could not tell two test inputs apart, by Metabase's rule:
+ * names equal, ignoring case, and either schemas equal, ignoring case, or one
+ * unqualified and the other in the default schema.
+ */
+export function inputsCollide(
+  a: TableName,
+  b: TableName,
+  defaultSchema: DefaultSchema,
+): Match {
+  if (fold(a.name) !== fold(b.name)) {
+    return "no-match";
+  }
+  if (fold(a.schema) === fold(b.schema)) {
+    return "match";
+  }
+  const qualified = a.schema ?? b.schema;
+  if (a.schema !== null && b.schema !== null) {
+    return "no-match";
+  }
+  if (defaultSchema === undefined) {
+    return "undecided";
+  }
+  return fold(qualified) === fold(defaultSchema) ? "match" : "no-match";
 }

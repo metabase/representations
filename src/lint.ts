@@ -6,12 +6,13 @@ import {
   validDocsOf,
 } from "./documents.js";
 import {
+  LINT_RULE_SEVERITY,
   LINT_RULES,
   type LintEntity,
   type LintFinding,
   type Report,
 } from "./findings.js";
-import { cycles } from "./graph.js";
+import { cyclePath, cycles } from "./graph.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import {
   type DefaultSchemaOf,
@@ -77,7 +78,7 @@ function readEdges(
 
 /**
  * For each transform in turn: a warning when its sources could not be read,
- * then an error when another transform writes the same target.
+ * then a warning when another transform writes the same target.
  */
 function reportUnreadSourcesAndDuplicateTargets(
   transforms: readonly Transform[],
@@ -88,7 +89,6 @@ function reportUnreadSourcesAndDuplicateTargets(
     if (transform.reads.status === "unread") {
       report(
         "reads-not-checked",
-        "warning",
         transform.doc,
         `could not find the tables this transform reads: ${transform.reads.reason}`,
       );
@@ -101,7 +101,6 @@ function reportUnreadSourcesAndDuplicateTargets(
     if (clashes.length > 0) {
       report(
         "duplicate-target",
-        "error",
         transform.doc,
         `target ${tableLabel(transform.target)} is also written by ${clashes.length} other transform(s)`,
         clashes.map((c) => c.doc.file),
@@ -154,7 +153,6 @@ function createUnknownTableCheck(
     ) {
       report(
         "unknown-table",
-        "warning",
         doc,
         `table ${tableLabel(table)} is defined by no table file or transform target`,
       );
@@ -162,7 +160,11 @@ function createUnknownTableCheck(
   };
 }
 
-/** Reports each cycle among transforms, on its first member in file order. */
+/**
+ * Reports each cycle among transforms, on its first member in file order. The
+ * message follows one cycle from that member, each transform reading the
+ * next one's target.
+ */
 function reportCycles(
   transforms: readonly Transform[],
   defaultSchemaOf: DefaultSchemaOf,
@@ -173,9 +175,8 @@ function reportCycles(
     const [first, ...rest] = component.map((i) => transforms[i]);
     report(
       "transform-cycle",
-      "error",
       first.doc,
-      `transforms read each other's targets: ${component
+      `transforms read each other's targets: ${cyclePath(edges, component)
         .map((i) => displayName(transforms[i].doc))
         .join(" → ")}`,
       rest.map((t) => t.doc.file),
@@ -193,7 +194,6 @@ function reportDuplicateEntityIds(
       for (const doc of holders) {
         report(
           "duplicate-entity-id",
-          "error",
           doc,
           `entity_id ${id} is also in ${holders.length - 1} other file(s)`,
           holders.filter((h) => h !== doc).map((h) => h.file),
@@ -219,7 +219,7 @@ function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
       doc.model !== null &&
       LINTED_MODELS.has(doc.model)
     ) {
-      report("schema", "error", doc, `${doc.model} does not match its schema`);
+      report("schema", doc, `${doc.model} does not match its schema`);
     }
   }
 }
@@ -228,13 +228,15 @@ export type TransformReads = {
   file: string;
   entity_id: string | null;
   name: string | null;
+  /** Whether the transform's source is a query, the only kind Metabase can test. */
+  queryTransform: boolean;
   /** The tables the transform reads, or null when the lint could not read them. */
   tables: TableName[] | null;
 };
 
 /** The tables each schema-valid transform in the folder reads, as `lint` finds them. */
 export function transformReads({ folder }: LintOptions): TransformReads[] {
-  const docs = loadDocs(folder);
+  const { docs } = loadDocs(folder);
   const readsOf = createReader(docs, indexByEntityId(docs));
   return validDocsOf(docs, "Transform").map((doc) => {
     const reads = readsOf(doc);
@@ -242,6 +244,7 @@ export function transformReads({ folder }: LintOptions): TransformReads[] {
       file: doc.file,
       entity_id: doc.body.entity_id,
       name: doc.body.name,
+      queryTransform: doc.body.source.type === "query",
       tables:
         reads.status === "read"
           ? reads.tables.map(({ schema, name }) => ({ schema, name }))
@@ -256,12 +259,12 @@ export function transformReads({ folder }: LintOptions): TransformReads[] {
  * Findings are grouped by rule, in the order of `LINT_RULES`, then by file.
  */
 export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
-  const docs = loadDocs(folder);
+  const { docs, unreadable } = loadDocs(folder);
   const findings: LintFinding[] = [];
-  const report: Report = (rule, severity, doc, message, related = []) =>
+  const report: Report = (rule, doc, message, related = []) =>
     findings.push({
       rule,
-      severity,
+      severity: LINT_RULE_SEVERITY[rule],
       file: doc.file,
       entity: entityOf(doc),
       message,
@@ -273,6 +276,13 @@ export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
       ? defaultSchemas[database]
       : undefined;
 
+  for (const { file, reason } of unreadable) {
+    report(
+      "schema",
+      { file, model: null, body: {}, schemaValid: false },
+      `the file ${reason}`,
+    );
+  }
   reportSchemaMismatches(docs, report);
 
   const byEntityId = indexByEntityId(docs);
@@ -304,5 +314,8 @@ export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
     report,
   );
 
-  return { files: docs.length, findings: findings.sort(byRuleThenFile) };
+  return {
+    files: docs.length + unreadable.length,
+    findings: findings.sort(byRuleThenFile),
+  };
 }
