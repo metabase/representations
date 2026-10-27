@@ -68,6 +68,22 @@ describe("tablesReadBySql", () => {
       "SELECT 'FROM fake' AS x -- FROM nope\n/* JOIN nada */ FROM ORDERS",
       [{ schema: null, name: "ORDERS" }],
     ],
+    [
+      "a quoted schema holding a dot, apart from a quoted name holding one",
+      'SELECT * FROM "a.b".c JOIN "a"."b.c" ON 1 = 1',
+      [
+        { schema: "a.b", name: "c" },
+        { schema: "a", name: "b.c" },
+      ],
+    ],
+    [
+      "an empty quoted schema, apart from no schema",
+      'SELECT * FROM "".c JOIN c ON 1 = 1',
+      [
+        { schema: "", name: "c" },
+        { schema: null, name: "c" },
+      ],
+    ],
     ["no FROM", "SELECT 1", []],
     [
       "a variable in an optional clause",

@@ -1,10 +1,15 @@
-import { type Doc, sourceTypeOf } from "./documents.js";
+import {
+  asValid,
+  type Doc,
+  isPythonSource,
+  type PythonSource,
+  type ValidDoc,
+} from "./documents.js";
 import { createSourceFinder, type NativeSql } from "./query-sources.js";
 import { loadSchemas } from "./schemas.js";
 import { expandSnippets } from "./snippets.js";
-import { type SqlTable, tablesReadBySql } from "./sql-tables.js";
+import { tablesReadBySql } from "./sql-tables.js";
 import type { TableKey } from "./tables.js";
-import { stringOrNull } from "./values.js";
 
 /** The tables a document reads, in order, or why they could not be found. */
 export type Reads =
@@ -13,8 +18,8 @@ export type Reads =
 
 /** A transform document with the table it writes and the tables it reads. */
 export type Transform = {
-  doc: Doc;
-  target: TableKey | null;
+  doc: ValidDoc<"Transform">;
+  target: TableKey;
   reads: Reads;
 };
 
@@ -42,7 +47,7 @@ function nativeReads(
       return result;
     }
     tables.push(
-      ...result.tables.map((t: SqlTable) => ({
+      ...result.tables.map((t) => ({
         database: native.database,
         ...t,
       })),
@@ -51,21 +56,17 @@ function nativeReads(
   return { status: "read", tables };
 }
 
-function pythonReads(body: Record<string, any>): Reads {
-  const database = stringOrNull(body.source_database_id);
-  const tables: TableKey[] = (body.source["source-tables"] ?? []).map(
-    (t: Record<string, any>) =>
-      Array.isArray(t.table_id)
-        ? {
-            database: t.table_id[0],
-            schema: t.table_id[1],
-            name: t.table_id[2],
-          }
-        : {
-            database: stringOrNull(t.database_id) ?? database,
-            schema: stringOrNull(t.schema),
-            name: String(t.table),
-          },
+function pythonReads(source: PythonSource): Reads {
+  const tables: TableKey[] = source["source-tables"].map((t) =>
+    t.table_id === undefined
+      ? {
+          database: t.database_id,
+          schema: t.schema ?? null,
+          // The schema does not require a table name; this keeps the earlier
+          // reading of a missing one.
+          name: String(t.table),
+        }
+      : { database: t.table_id[0], schema: t.table_id[1], name: t.table_id[2] },
   );
   return { status: "read", tables };
 }
@@ -98,8 +99,9 @@ export function createReader(
         reason: `${doc.file} uses itself as a source`,
       };
     }
-    if (sourceTypeOf(doc) === "python") {
-      return pythonReads(doc.body);
+    const source = asValid(doc, "Transform")?.body.source;
+    if (source !== undefined && isPythonSource(source)) {
+      return pythonReads(source);
     }
     const sources = findSources(doc.body, doc.model ?? "");
     const tables: TableKey[] = [...sources.tables];
@@ -139,21 +141,20 @@ export function createReader(
 
 /**
  * The transform in `doc`. Its target is in the transform's source database
- * unless the target names one, and null when the target has no string name.
+ * unless the target names one.
  */
-export function transformOf(doc: Doc, readsOf: (doc: Doc) => Reads): Transform {
-  const database = stringOrNull(doc.body.source_database_id);
-  const target = doc.body.target;
+export function transformOf(
+  doc: ValidDoc<"Transform">,
+  readsOf: (doc: Doc) => Reads,
+): Transform {
+  const { target, source_database_id } = doc.body;
   return {
     doc,
-    target:
-      typeof target?.name === "string"
-        ? {
-            database: stringOrNull(target.database) ?? database,
-            schema: stringOrNull(target.schema),
-            name: target.name,
-          }
-        : null,
+    target: {
+      database: target.database ?? source_database_id,
+      schema: target.schema ?? null,
+      name: target.name,
+    },
     reads: readsOf(doc),
   };
 }

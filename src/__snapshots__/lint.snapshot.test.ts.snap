@@ -488,3 +488,23 @@ exports[`lint output on a broken copy of the examples matches the recording: exp
   ],
 }
 `;
+
+exports[`lint output on a broken copy of the examples matches the recording: broken table file 1`] = `
+{
+  "files": 113,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": null,
+        "model": "Table",
+        "name": null,
+      },
+      "file": "databases/sample_database/tables/orders/orders.yaml",
+      "message": "Table does not match its schema",
+      "related": [],
+      "rule": "schema",
+      "severity": "error",
+    },
+  ],
+}
+`;

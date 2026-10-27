@@ -1,11 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import {
+  cpSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
-import { type LintFinding, lint } from "./lint.js";
+import type { LintFinding } from "./findings.js";
+import { lint, transformReads } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
+import { isRecord } from "./values.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
@@ -93,6 +102,47 @@ describe("lint", () => {
       expect(rules(findings)).toEqual(["missing-input", "unused-input"]);
     });
 
+    it("reads a Python transform's source tables in both forms", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = join(
+        workdir,
+        "collections/transforms/python_hello_world.yaml",
+      );
+      const doc: unknown = yaml.load(readFileSync(file, "utf8"));
+      if (!isRecord(doc)) {
+        throw new Error(`${file} is not a YAML map`);
+      }
+      writeFileSync(
+        file,
+        yaml.dump({
+          ...doc,
+          source: {
+            type: "python",
+            body: "def transform(): pass",
+            "source-tables": [
+              {
+                alias: "people",
+                database_id: "Sample Database",
+                table_id: ["Sample Database", "PUBLIC", "PEOPLE"],
+              },
+              {
+                alias: "orders",
+                database_id: "Sample Database",
+                table: "ORDERS",
+              },
+            ],
+          },
+        }),
+      );
+      const python = transformReads({ folder: workdir }).find(
+        (t) => t.name === "Python Hello World",
+      );
+      expect(python?.tables).toEqual([
+        { schema: "PUBLIC", name: "PEOPLE" },
+        { schema: null, name: "ORDERS" },
+      ]);
+    });
+
     it("names the missing table", () => {
       mutateExamples("missing-input", workdir);
       expect(findings(workdir).map((f) => f.message)).toEqual([
@@ -140,6 +190,95 @@ describe("lint", () => {
         "table PEOPLE is defined by no table file or transform target",
         "table PRODUCTS is defined by no table file or transform target",
       ]);
+    });
+  });
+
+  // Two names for a table, one unqualified: without a default schema the
+  // lint takes them as one table; with one, only when the qualified name is in
+  // the default schema.
+  describe("with a table named once unqualified and once qualified", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-schemas-"));
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const replaceIn = (file: string, from: string, to: string) => {
+      const path = join(workdir, file);
+      const text = readFileSync(path, "utf8");
+      expect(text).toContain(from);
+      writeFileSync(path, text.replace(from, to));
+    };
+
+    const rulesWithDefault = (schema?: string): string[] =>
+      rules(
+        lint({
+          folder: workdir,
+          defaultSchemas:
+            schema === undefined ? {} : { "Sample Database": schema },
+        }).findings,
+      );
+
+    it("finds a cycle through an unqualified read only in the default schema", () => {
+      mutateExamples("transform-cycle", workdir);
+      replaceIn(
+        "collections/transforms/native_transform.yaml",
+        "JOIN TRANSFORMS.top_categories",
+        "JOIN top_categories",
+      );
+      expect(rulesWithDefault()).toContain("transform-cycle");
+      expect(rulesWithDefault("transforms")).toContain("transform-cycle");
+      expect(rulesWithDefault("PUBLIC")).not.toContain("transform-cycle");
+    });
+
+    it("finds a duplicate target written unqualified only in the default schema", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const copy = "collections/transforms/top_categories_copy.yaml";
+      cpSync(
+        join(workdir, "collections/transforms/top_categories.yaml"),
+        join(workdir, copy),
+      );
+      replaceIn(
+        copy,
+        "entity_id: jf55MTi7z8cWQjPG2PEgz",
+        "entity_id: TopCategoriesCopy000a",
+      );
+      replaceIn(copy, "  schema: TRANSFORMS\n", "");
+      expect(rulesWithDefault()).toEqual(["duplicate-target"]);
+      expect(rulesWithDefault("TRANSFORMS")).toEqual(["duplicate-target"]);
+      expect(rulesWithDefault("PUBLIC")).toEqual([]);
+    });
+
+    it("counts a table file as the table read unqualified only in the default schema", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const dir = join(workdir, "databases/sample_database/tables/orders");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "orders.yaml"),
+        yaml.dump({
+          name: "ORDERS",
+          db_id: "Sample Database",
+          schema: "PUBLIC",
+          "serdes/meta": [{ model: "Table" }],
+        }),
+      );
+      const unknownTables = (schema?: string) =>
+        lint({
+          folder: workdir,
+          defaultSchemas:
+            schema === undefined ? {} : { "Sample Database": schema },
+        })
+          .findings.filter((f) => f.rule === "unknown-table")
+          .map((f) => f.message);
+      const ordersUnknown =
+        "table ORDERS is defined by no table file or transform target";
+      expect(unknownTables()).not.toContain(ordersUnknown);
+      expect(unknownTables("public")).not.toContain(ordersUnknown);
+      expect(unknownTables("OTHER")).toContain(ordersUnknown);
     });
   });
 });

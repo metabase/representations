@@ -3,6 +3,7 @@ import { globSync } from "glob";
 import yaml from "js-yaml";
 import { resolve } from "path";
 
+import { loadSchemas, type Schemas } from "./schemas.js";
 import { getModel, IMPORT_PATHS, validateSchema } from "./validate-schema.js";
 import { isRecord, stringOrNull } from "./values.js";
 
@@ -10,17 +11,118 @@ import { isRecord, stringOrNull } from "./values.js";
 export type Doc = {
   file: string;
   model: string | null;
-  body: Record<string, any>;
-  /** False when `validateSchema` refuses the file; always true for a table file, which it does not check. */
+  body: Record<string, unknown>;
+  /** False when the file fails its model's schema; true when it passes, or when its model has no schema. */
   schemaValid: boolean;
 };
 
 /** The table files of a folder. They are not imported, so `validateSchema` does not check them. */
 export const TABLE_PATHS = ["databases/**/tables/**/*.yaml"];
 
+/**
+ * Returns a check of a file that `validateSchema` does not see against its
+ * model's schema: `table.yaml` for a Table, which has no `serdes/meta` model
+ * constant to find it by. True when the model has no schema.
+ */
+function createTableFileCheck(): (
+  model: string | null,
+  body: unknown,
+) => boolean {
+  let schemas: Schemas | undefined;
+  return (model, body) => {
+    if (model === null) {
+      return true;
+    }
+    schemas ??= loadSchemas();
+    const file = model === "Table" ? "table.yaml" : schemas.models.get(model);
+    const validate =
+      file === undefined ? undefined : schemas.ajv.getSchema(file);
+    return validate === undefined || validate(body) === true;
+  };
+}
+
+/** A Python source table, from `transform.yaml#/$defs/python_source`. */
+type PythonSourceTable = {
+  database_id: string;
+  schema?: string | null;
+  table?: string;
+  /** `[database, schema, table]`, from `common/id.yaml#/$defs/table_id`. */
+  table_id?: readonly [string, string | null, string];
+};
+
+/** A schema-valid Python source, from `transform.yaml#/$defs/python_source`. */
+export type PythonSource = {
+  type: "python";
+  "source-tables": readonly PythonSourceTable[];
+};
+
+/**
+ * A schema-valid transform's source. `transform.yaml` requires a `type` and
+ * checks the rest only when the type is "query" or "python".
+ */
+type TransformSource = PythonSource | { type: unknown };
+
+/** The fields the lint reads from a schema-valid Transform, as `transform.yaml` types them. */
+type TransformBody = {
+  name: string;
+  entity_id: string;
+  source_database_id: string;
+  source: TransformSource;
+  target: { name: string; schema?: string | null; database?: string };
+};
+
+/** The fields the lint reads from a schema-valid TransformTest, as `transform_test.yaml` types them. */
+type TransformTestBody = {
+  name: string;
+  entity_id: string;
+  transform_id: string;
+  inputs: readonly { table: { schema?: string | null; name: string } }[];
+  expectations: readonly { name: string; sql?: string }[];
+};
+
+/** The fields the lint reads from a schema-valid Table, as `table.yaml` types them. */
+type TableBody = {
+  name: string;
+  db_id: string;
+  schema?: string | null;
+};
+
+type ValidBodies = {
+  Transform: TransformBody;
+  TransformTest: TransformTestBody;
+  Table: TableBody;
+};
+
+/** A document of model `M` that matches its schema, with the body that schema guarantees. */
+export type ValidDoc<M extends keyof ValidBodies> = Doc & {
+  model: M;
+  body: ValidBodies[M];
+};
+
+/** `doc` as a schema-valid document of `model`, or null when it is of another model or fails its schema. */
+export function asValid<M extends keyof ValidBodies>(
+  doc: Doc,
+  model: M,
+): ValidDoc<M> | null {
+  // The body passed the schema of `model`, and ValidBodies declares only
+  // fields that schema requires or types.
+  return doc.model === model && doc.schemaValid ? (doc as ValidDoc<M>) : null;
+}
+
 /** The documents of one model that match their schema. */
-export function validDocsOf(docs: readonly Doc[], model: string): Doc[] {
-  return docs.filter((d) => d.model === model && d.schemaValid);
+export function validDocsOf<M extends keyof ValidBodies>(
+  docs: readonly Doc[],
+  model: M,
+): ValidDoc<M>[] {
+  return docs.flatMap((doc) => asValid(doc, model) ?? []);
+}
+
+/** Whether a schema-valid transform's source is a Python source. */
+export function isPythonSource(
+  source: TransformSource,
+): source is PythonSource {
+  // A source of type "python" passed `python_source`, which PythonSource follows.
+  return source.type === "python";
 }
 
 /** The document's name, or its file when it has none. */
@@ -39,10 +141,13 @@ export function loadDocs(folder: string): Doc[] {
       .results.filter((r) => r.status === "fail")
       .map((r) => r.file),
   );
+  const imported = new Set(globSync(IMPORT_PATHS, { cwd: folder }));
+  const matchesSchema = createTableFileCheck();
   const docs: Doc[] = [];
-  const files = new Set(
-    globSync([...IMPORT_PATHS, ...TABLE_PATHS], { cwd: folder }),
-  );
+  const files = new Set([
+    ...imported,
+    ...globSync(TABLE_PATHS, { cwd: folder }),
+  ]);
   for (const file of [...files].sort()) {
     let body: unknown;
     try {
@@ -53,19 +158,17 @@ export function loadDocs(folder: string): Doc[] {
     if (!isRecord(body)) {
       continue;
     }
+    const model = stringOrNull(getModel(body));
     docs.push({
       file,
-      model: stringOrNull(getModel(body)),
+      model,
       body,
-      schemaValid: !invalid.has(file),
+      schemaValid: imported.has(file)
+        ? !invalid.has(file)
+        : matchesSchema(model, body),
     });
   }
   return docs;
-}
-
-/** The `type` of the document's `source`, such as `"query"` or `"python"`; undefined when it has no source. */
-export function sourceTypeOf(doc: Doc): unknown {
-  return doc.body.source?.type;
 }
 
 /** Every document with an entity_id, keyed by it; several when the id is duplicated. */

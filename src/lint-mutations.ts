@@ -1,8 +1,8 @@
-import { cpSync, readFileSync, writeFileSync } from "fs";
+import { cpSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import yaml from "js-yaml";
-import { join, resolve } from "path";
+import { dirname, join, resolve } from "path";
 
-import type { LintRule } from "./lint.js";
+import type { LintRule } from "./findings.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
@@ -20,6 +20,7 @@ const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
 const WIDGET_PRODUCTS_SEGMENT_ENTITY_ID = "aB3kLmN9pQrStUvWxYz1a";
 const DB = "Sample Database";
+const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
 
 export type Mutation = {
   name: string;
@@ -37,6 +38,17 @@ function edit(
   const path = join(folder, file);
   const doc = yaml.load(readFileSync(path, "utf8")) as Record<string, any>; // Representation files are YAML maps.
   change(doc);
+  writeFileSync(path, yaml.dump(doc, { lineWidth: -1 }));
+}
+
+/** Writes `doc` as YAML to `file`, creating its folder. */
+function write(
+  folder: string,
+  file: string,
+  doc: Record<string, unknown>,
+): void {
+  const path = join(folder, file);
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, yaml.dump(doc, { lineWidth: -1 }));
 }
 
@@ -250,6 +262,18 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       edit(folder, TOP_CATEGORIES_TEST, (doc) => {
         doc.expectations[0].type = "contains";
+      }),
+  },
+  {
+    name: "broken-table-file",
+    description:
+      "A table file has no name and a number for its schema; the lint must not count it as a table.",
+    rules: ["schema"],
+    apply: (folder) =>
+      write(folder, ORDERS_TABLE_FILE, {
+        db_id: DB,
+        schema: 5,
+        "serdes/meta": [{ model: "Table" }],
       }),
   },
 ];

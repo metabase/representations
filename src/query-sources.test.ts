@@ -40,6 +40,35 @@ describe("createSourceFinder", () => {
     ]);
   });
 
+  it("keeps a schema named null apart from no schema, and a table once in any case", () => {
+    const sources = findSources(
+      transform([
+        mbql({
+          "source-table": [DB, "null", "ORDERS"],
+          joins: [
+            {
+              alias: "Orders",
+              stages: [mbql({ "source-table": [DB, null, "ORDERS"] })],
+              conditions: [
+                [
+                  "=",
+                  {},
+                  field("orders", "ID"),
+                  field("ORDERS", "ID", { "join-alias": "Orders" }),
+                ],
+              ],
+            },
+          ],
+        }),
+      ]),
+      "Transform",
+    );
+    expect(sources.tables).toEqual([
+      { database: DB, schema: "null", name: "ORDERS" },
+      { database: DB, schema: null, name: "ORDERS" },
+    ]);
+  });
+
   it("finds a joined table and the tables of the fields in its conditions", () => {
     const sources = findSources(
       transform([

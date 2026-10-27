@@ -10,10 +10,14 @@
 import { parseArgs } from "node:util";
 
 import { transformReads } from "../src/lint.js";
+import { isRecord } from "../src/values.js";
 
 type Probe =
   | { kind: "tables"; tables: string[] }
+  /** Metabase refused this test, with an error code; the transform may be untestable. */
   | { kind: "refused"; status: number; code: string }
+  /** Metabase answered something else, such as a 403; the probe did not run. */
+  | { kind: "failed"; answer: string }
   | { kind: "none" };
 
 const { values } = parseArgs({
@@ -35,18 +39,42 @@ if (!url || !apiKey || !folder) {
 
 const headers = { "X-API-Key": apiKey, "Content-Type": "application/json" };
 
-async function api(method: string, path: string, body?: unknown) {
+/**
+ * Metabase's answer: its status, and its body parsed as JSON, or undefined when
+ * the body is not JSON. Metabase answers some refusals, such as a 403, in plain
+ * text, which `text` keeps.
+ */
+type Answer = { status: number; json: unknown; text: string };
+
+async function api(
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<Answer> {
   const response = await fetch(`${url}${path}`, {
     method,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const text = await response.text();
-  return { status: response.status, json: text ? JSON.parse(text) : null };
+  let json: unknown;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = undefined;
+  }
+  return { status: response.status, json, text };
 }
 
+/** The answer as a failure message names it: its status and its body. */
+const describe = (answer: Answer) =>
+  `${answer.status} ${answer.text.trim() || "(empty body)"}`;
+
+const isStringArray = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
+
 async function probe(transformId: number): Promise<Probe> {
-  const { status, json } = await api("POST", "/api/ee/transform-test", {
+  const answer = await api("POST", "/api/ee/transform-test", {
     name: "lint parity probe",
     transform_id: transformId,
     inputs: [],
@@ -54,19 +82,22 @@ async function probe(transformId: number): Promise<Probe> {
       { type: "empty", name: "probe", sql: "SELECT 1 WHERE 1 = 0" },
     ],
   });
-  const code = json?.["error-code"] ?? json?.error_code;
-  if (status === 400 && code === "transform-test.missing-inputs") {
+  const json = isRecord(answer.json) ? answer.json : {};
+  const code = json["error-code"] ?? json.error_code;
+  if (
+    answer.status === 400 &&
+    code === "transform-test.missing-inputs" &&
+    isStringArray(json.tables)
+  ) {
     return { kind: "tables", tables: json.tables };
   }
-  if (status === 200 && typeof json?.id === "number") {
+  if (answer.status === 200 && typeof json.id === "number") {
     await api("DELETE", `/api/ee/transform-test/${json.id}`);
     return { kind: "none" };
   }
-  return {
-    kind: "refused",
-    status,
-    code: String(code ?? json?.message ?? json ?? ""),
-  };
+  return typeof code === "string"
+    ? { kind: "refused", status: answer.status, code }
+    : { kind: "failed", answer: describe(answer) };
 }
 
 // A label is "schema.name" or "name"; compare by name, ignoring case, because
@@ -77,15 +108,16 @@ const names = (labels: string[]) =>
   ].sort();
 
 const listed = await api("GET", "/api/transform");
-if (listed.status !== 200) {
-  console.error(`GET /api/transform answered ${listed.status}`);
+if (listed.status !== 200 || !Array.isArray(listed.json)) {
+  console.error(`GET /api/transform answered ${describe(listed)}`);
   process.exit(1);
 }
 const idByEntityId = new Map<string, number>(
-  listed.json.map((t: { entity_id: string; id: number }) => [
-    t.entity_id,
-    t.id,
-  ]),
+  listed.json.flatMap((t: unknown) =>
+    isRecord(t) && typeof t.entity_id === "string" && typeof t.id === "number"
+      ? [[t.entity_id, t.id] as const]
+      : [],
+  ),
 );
 
 let failed = false;
@@ -112,6 +144,11 @@ for (const transform of transformReads({ folder })) {
     console.log(
       `SKIP  ${label}: Metabase refused the probe, ${answer.status} ${answer.code}`,
     );
+    continue;
+  }
+  if (answer.kind === "failed") {
+    console.log(`FAIL  ${label}: Metabase answered the probe ${answer.answer}`);
+    failed = true;
     continue;
   }
   const metabaseTables = answer.kind === "none" ? [] : names(answer.tables);

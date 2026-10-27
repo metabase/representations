@@ -1,22 +1,10 @@
-export type TableName = {
-  schema: string | null;
-  name: string;
-};
+import { type DefaultSchema, fold, type TableName } from "./tables.js";
 
 /**
  * `"undecided"` when the answer depends on a default schema the caller does
  * not know.
  */
 export type Match = "match" | "no-match" | "undecided";
-
-/**
- * The schema an unqualified table name resolves to in a database: a string, or
- * null when the database has none. `undefined` means unknown.
- */
-export type DefaultSchema = string | null | undefined;
-
-const fold = (identifier: string | null): string | null =>
-  identifier === null ? null : identifier.toLowerCase();
 
 /**
  * Whether a test input stands in for a table the transform reads, by Metabase's
@@ -54,10 +42,10 @@ export function tableKeys(
   table: TableName,
   defaultSchema: DefaultSchema,
 ): string[] {
-  const name = table.name.toLowerCase();
+  const name = fold(table.name);
   const keys: string[] = [];
   if (table.schema !== null) {
-    keys.push(`${table.schema.toLowerCase()}.${name}`);
+    keys.push(`${fold(table.schema)}.${name}`);
   }
   if (
     table.schema === null ||

@@ -1,10 +1,7 @@
-export type SqlTable = {
-  schema: string | null;
-  name: string;
-};
+import { fold, type TableName } from "./tables.js";
 
 export type SqlTablesResult =
-  | { status: "read"; tables: SqlTable[] }
+  | { status: "read"; tables: TableName[] }
   | { status: "unread"; reason: string };
 
 type Token =
@@ -124,7 +121,7 @@ function cteNames(tokens: readonly Token[]): Set<string> {
   return names;
 }
 
-type TableRef = { table: SqlTable; next: number } | { table: null };
+type TableRef = { table: TableName; next: number } | { table: null };
 
 function readTableRef(tokens: readonly Token[], start: number): TableRef {
   const parts: string[] = [];
@@ -183,19 +180,19 @@ export function tablesReadBySql(sql: string): SqlTablesResult {
   }
   const tokens = tokenize(stripCommentsAndStrings(replaceTemplateTags(sql)));
   const ctes = cteNames(tokens);
-  const tables: SqlTable[] = [];
+  const tables: TableName[] = [];
   const seen = new Set<string>();
   // One entry per open parenthesis: whether it opens a query.
   const frames: boolean[] = [];
 
-  const add = (table: SqlTable) => {
+  const add = (table: TableName) => {
     if (
       table.schema === null &&
       (table.name === TAG_PLACEHOLDER || ctes.has(table.name.toUpperCase()))
     ) {
       return;
     }
-    const key = `${table.schema?.toUpperCase() ?? ""}.${table.name.toUpperCase()}`;
+    const key = JSON.stringify([fold(table.schema), fold(table.name)]);
     if (!seen.has(key)) {
       seen.add(key);
       tables.push(table);

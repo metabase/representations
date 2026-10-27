@@ -55,6 +55,7 @@ const TREES: [string, (folder: string) => void][] = [
       writeOrdersTable(f);
     },
   ],
+  ["broken table file", (f) => mutateExamples("broken-table-file", f)],
   ["untestable transform", (f) => mutateExamples("python-transform-test", f)],
   ["duplicate input", (f) => mutateExamples("duplicate-input", f)],
   [

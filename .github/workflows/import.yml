@@ -204,4 +204,33 @@ jobs:
             echo "The token lacks the transforms-testing feature"
             exit 1
           fi
+
+          # A self-hosted instance keeps transforms off until the
+          # transforms-enabled setting is set, and GET /api/transform answers
+          # 403 while they are off.
+          HTTP_CODE=$(curl -s -o /tmp/transforms-enabled.txt -w '%{http_code}' \
+            -X PUT http://localhost:3000/api/setting/transforms-enabled \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"value":true}')
+          if [ "$HTTP_CODE" != "204" ]; then
+            cat /tmp/transforms-enabled.txt
+            echo "Enabling transforms failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          # In read-only remote sync no transform can be written, and creating
+          # a transform test needs write access to its transform: every probe
+          # would answer 403. The import is done, so switch to read-write.
+          HTTP_CODE=$(curl -s -o /tmp/read-write.txt -w '%{http_code}' \
+            -X PUT http://localhost:3000/api/ee/remote-sync/settings \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"remote-sync-url":"file:///sync-repo/.git","remote-sync-branch":"main","remote-sync-type":"read-write"}')
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat /tmp/read-write.txt
+            echo "Switching remote sync to read-write failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
           bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1

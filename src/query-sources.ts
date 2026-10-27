@@ -2,13 +2,8 @@ import type { ValidateFunction } from "ajv/dist/2020.js";
 import { posix } from "path";
 
 import type { Schemas } from "./schemas.js";
+import { fold, type TableKey } from "./tables.js";
 import { isRecord, stringOrNull } from "./values.js";
-
-export type SourceTable = {
-  database: string | null;
-  schema: string | null;
-  name: string;
-};
 
 export type NativeSql = {
   sql: string;
@@ -17,7 +12,7 @@ export type NativeSql = {
 
 /** The data sources a document names, found where its schema types them. */
 export type DataSources = {
-  tables: SourceTable[];
+  tables: TableKey[];
   /** Entity ids of cards, metrics, measures, segments and snippets a query uses. */
   entities: string[];
   natives: NativeSql[];
@@ -59,7 +54,7 @@ function uniqueBy<T>(items: readonly T[], key: (item: T) => string): T[] {
 }
 
 /** The table a `table_id` or `field_id` names: its first three parts. */
-const tableOfId = (id: readonly unknown[], name: string): SourceTable => ({
+const tableOfId = (id: readonly unknown[], name: string): TableKey => ({
   database: stringOrNull(id[0]),
   schema: stringOrNull(id[1]),
   name,
@@ -225,7 +220,9 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
     walk(doc, { file, pointer: "" }, { inQuery: false, database: null });
     return {
       tables: uniqueBy(sources.tables, (t) =>
-        `${t.database}\u0000${t.schema}\u0000${t.name}`.toUpperCase(),
+        JSON.stringify(
+          [t.database, t.schema, t.name].map((part) => fold(part)),
+        ),
       ),
       entities: [...new Set(sources.entities)],
       natives: sources.natives,
