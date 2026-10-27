@@ -2,6 +2,7 @@ import type { ValidateFunction } from "ajv/dist/2020.js";
 import { posix } from "path";
 
 import type { Schemas } from "./schemas.js";
+import { isRecord, stringOrNull } from "./values.js";
 
 export type SourceTable = {
   database: string | null;
@@ -45,7 +46,7 @@ const unescapePointer = (part: string) =>
 
 const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
 
-function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
+function uniqueBy<T>(items: readonly T[], key: (item: T) => string): T[] {
   const seen = new Set<string>();
   return items.filter((item) => {
     const k = key(item);
@@ -57,11 +58,12 @@ function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
   });
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const nameOrNull = (value: unknown): string | null =>
-  typeof value === "string" ? value : null;
+/** The table a `table_id` or `field_id` names: its first three parts. */
+const tableOfId = (id: readonly unknown[], name: string): SourceTable => ({
+  database: stringOrNull(id[0]),
+  schema: stringOrNull(id[1]),
+  name,
+});
 
 /**
  * Returns a function that finds the data sources in a representation
@@ -121,11 +123,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
         Array.isArray(value) &&
         typeof value[2] === "string"
       ) {
-        sources.tables.push({
-          database: nameOrNull(value[0]),
-          schema: nameOrNull(value[1]),
-          name: value[2],
-        });
+        sources.tables.push(tableOfId(value, value[2]));
       }
       if (!context.inQuery) {
         return;
@@ -135,11 +133,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
         Array.isArray(value) &&
         typeof value[2] === "string"
       ) {
-        sources.tables.push({
-          database: nameOrNull(value[0]),
-          schema: nameOrNull(value[1]),
-          name: value[2],
-        });
+        sources.tables.push(tableOfId(value, value[2]));
       } else if (key === ENTITY_ID && typeof value === "string") {
         sources.entities.push(value);
       } else if (
@@ -178,7 +172,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
           key === QUERY
             ? {
                 inQuery: true,
-                database: isRecord(value) ? nameOrNull(value.database) : null,
+                database: isRecord(value) ? stringOrNull(value.database) : null,
               }
             : context;
         walk(value, target, inner);

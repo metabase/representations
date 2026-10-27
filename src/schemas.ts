@@ -13,7 +13,7 @@ const SCHEMAS_DIR = resolve(import.meta.dirname, "..", "core-spec/v1/schemas");
 export type Schemas = {
   ajv: Ajv2020;
   /** Each schema file's body, keyed by its path under `core-spec/v1/schemas`. */
-  files: Map<string, any>;
+  files: Map<string, unknown>;
   /** The schema file of each entity model, keyed by the model in `serdes/meta`. */
   models: Map<string, string>;
 };
@@ -39,7 +39,7 @@ export function loadSchemas(): Schemas {
   });
   addFormats(ajv);
 
-  const files = new Map<string, any>();
+  const files = new Map<string, unknown>();
   const models = new Map<string, string>();
   for (const file of globSync(["common/*.yaml", "*.yaml"], {
     cwd: SCHEMAS_DIR,

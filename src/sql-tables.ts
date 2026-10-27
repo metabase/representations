@@ -82,7 +82,7 @@ function isIdentifier(token: Token | undefined): boolean {
   return token?.kind === "quoted" || token?.kind === "word";
 }
 
-function closingParen(tokens: Token[], open: number): number {
+function closingParen(tokens: readonly Token[], open: number): number {
   let depth = 0;
   for (let i = open; i < tokens.length; i++) {
     if (isPunct(tokens[i], "(")) {
@@ -97,7 +97,7 @@ function closingParen(tokens: Token[], open: number): number {
   return tokens.length;
 }
 
-function cteNames(tokens: Token[]): Set<string> {
+function cteNames(tokens: readonly Token[]): Set<string> {
   const names = new Set<string>();
   for (let i = 0; i < tokens.length; i++) {
     if (!isWord(tokens[i], "WITH")) {
@@ -126,7 +126,7 @@ function cteNames(tokens: Token[]): Set<string> {
 
 type TableRef = { table: SqlTable; next: number } | { table: null };
 
-function readTableRef(tokens: Token[], start: number): TableRef {
+function readTableRef(tokens: readonly Token[], start: number): TableRef {
   const parts: string[] = [];
   let i = start;
   while (isIdentifier(tokens[i])) {
@@ -145,7 +145,7 @@ function readTableRef(tokens: Token[], start: number): TableRef {
   return { table: { schema, name }, next: i };
 }
 
-function skipAlias(tokens: Token[], start: number): number {
+function skipAlias(tokens: readonly Token[], start: number): number {
   let i = start;
   if (isWord(tokens[i], "AS")) {
     i++;

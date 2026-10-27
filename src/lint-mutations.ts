@@ -51,6 +51,18 @@ function editNativeSql(
   });
 }
 
+/** Appends an input for `table` to the test in `file`, filled by `sql`. */
+function addSqlInput(
+  folder: string,
+  file: string,
+  table: { schema?: string; name: string },
+  sql: string,
+): void {
+  edit(folder, file, (doc) => {
+    doc.inputs.push({ table, format: "sql", sql });
+  });
+}
+
 /**
  * Known-broken edits to the `examples/v1` tree. Each one breaks the
  * references between transforms, tables and transform tests in one way.
@@ -121,13 +133,12 @@ export const MUTATIONS: Mutation[] = [
     description: "A test declares two inputs for the same table.",
     rules: ["duplicate-input"],
     apply: (folder) =>
-      edit(folder, DAILY_ORDER_SUMMARY_TEST, (doc) => {
-        doc.inputs.push({
-          table: { name: "orders" },
-          format: "sql",
-          sql: "SELECT 1 AS ID",
-        });
-      }),
+      addSqlInput(
+        folder,
+        DAILY_ORDER_SUMMARY_TEST,
+        { name: "orders" },
+        "SELECT 1 AS ID",
+      ),
   },
   {
     name: "expectation-reads-other-table",
@@ -191,13 +202,12 @@ export const MUTATIONS: Mutation[] = [
           "JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID\nJOIN TRANSFORMS.top_categories t ON t.CATEGORY = p.CATEGORY",
         ),
       );
-      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
-        doc.inputs.push({
-          table: { schema: "TRANSFORMS", name: "top_categories" },
-          format: "sql",
-          sql: "SELECT 'Gadget' AS CATEGORY, 40.0 AS total_revenue",
-        });
-      });
+      addSqlInput(
+        folder,
+        CATEGORY_TOTALS_TEST,
+        { schema: "TRANSFORMS", name: "top_categories" },
+        "SELECT 'Gadget' AS CATEGORY, 40.0 AS total_revenue",
+      );
     },
   },
   {
@@ -216,13 +226,12 @@ export const MUTATIONS: Mutation[] = [
     description: "A test has an input for a table its transform does not read.",
     rules: ["unused-input"],
     apply: (folder) =>
-      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
-        doc.inputs.push({
-          table: { name: "PEOPLE" },
-          format: "sql",
-          sql: "SELECT 1 AS ID",
-        });
-      }),
+      addSqlInput(
+        folder,
+        CATEGORY_TOTALS_TEST,
+        { name: "PEOPLE" },
+        "SELECT 1 AS ID",
+      ),
   },
   {
     name: "table-name-typo",
