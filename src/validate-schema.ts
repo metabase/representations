@@ -134,7 +134,7 @@ export function validateSchema({
     }
 
     const validate = validators[model];
-    if (!validate) {
+    if (!Object.hasOwn(validators, model)) {
       results.push({
         file,
         status: "fail",
