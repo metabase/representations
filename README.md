@@ -12,20 +12,21 @@ This repository contains the specification and examples for the Metabase Represe
 
 ## Entity Types
 
-| Entity | Description |
-|--------|-------------|
-| Collection | Folder-like container for organizing content |
-| Card | Question, model, or metric — holds an MBQL or native query |
-| Action | A parameterized native SQL write in a collection; implicit row actions on a model are deprecated |
-| Dashboard | Grid layout of cards with filter parameters and tabs |
-| Segment | Saved filter definition scoped to a table |
-| Measure | Saved aggregation definition scoped to a table |
-| Snippet | Reusable SQL fragment for native queries |
-| Transform | Materializes query or Python script results into a database table |
-| TransformTag | Label for categorizing transforms (built-in or custom) |
-| TransformJob | Scheduled job that executes tagged transforms |
-| TransformTest | Test data for a transform's input tables and checks on its output |
-| PythonLibrary | Shared Python source file available to Python transforms |
+| Entity          | Description                                                                                      |
+| --------------- | ------------------------------------------------------------------------------------------------ |
+| Collection      | Folder-like container for organizing content                                                     |
+| Card            | Question, model, or metric — holds an MBQL or native query                                       |
+| Action          | A parameterized native SQL write in a collection; implicit row actions on a model are deprecated |
+| Dashboard       | Grid layout of cards with filter parameters and tabs                                             |
+| Segment         | Saved filter definition scoped to a table                                                        |
+| Measure         | Saved aggregation definition scoped to a table                                                   |
+| Snippet         | Reusable SQL fragment for native queries                                                         |
+| Transform       | Materializes query or Python script results into a database table                                |
+| TransformTag    | Label for categorizing transforms (built-in or custom)                                           |
+| TransformJob    | Scheduled job that executes tagged transforms                                                    |
+| TransformTest   | Test data for a transform's input tables and checks on its output                                |
+| PythonLibrary   | Shared Python source file available to Python transforms                                         |
+| CustomVizPlugin | Installed custom visualization: a built bundle cards render with `display: custom:<identifier>`  |
 
 ## Schema Validation
 
