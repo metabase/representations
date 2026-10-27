@@ -7,12 +7,14 @@ import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
 import { generateUuid } from "../src/generate-uuid.js";
+import { lint } from "../src/lint.js";
 import { validateSchema } from "../src/validate-schema.js";
 
 type ParsedValues = {
   folder?: string;
   file?: string;
   count?: string;
+  "default-schema"?: string[];
   help?: boolean;
 };
 
@@ -21,6 +23,14 @@ const HELP = `Usage: representations <command> [options]
 Commands:
   validate-schema    Validate YAML files against Metabase representation schemas
     --folder <path>    Folder to validate (default: cwd)
+
+  lint               Check references between transforms, tables and transform
+                     tests; prints one JSON finding per line, grouped
+                     by rule, then by file
+    --folder <path>    Folder to lint (default: cwd)
+    --default-schema <database>=<schema>
+                       The schema unqualified table names resolve to in
+                       a database (repeatable; <database>= for none)
 
   extract-spec       Copy the bundled spec.md into a target file
     --file <path>      Destination file (default: ./spec.md)
@@ -42,6 +52,7 @@ function parseArguments() {
     allowPositionals: true,
     options: {
       folder: { type: "string" },
+      "default-schema": { type: "string", multiple: true },
       file: { type: "string" },
       count: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
@@ -80,6 +91,43 @@ function handleValidateSchema(values: ParsedValues): void {
 
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed > 0 ? 1 : 0);
+}
+
+// "DATABASE=SCHEMA" pairs; "DATABASE=" means the database has no schemas.
+function parseDefaultSchemas(pairs: string[]): Record<string, string | null> {
+  const schemas: Record<string, string | null> = {};
+  for (const pair of pairs) {
+    const at = pair.lastIndexOf("=");
+    if (at <= 0) {
+      console.error(
+        `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
+      );
+      process.exit(1);
+    }
+    const schema = pair.slice(at + 1);
+    schemas[pair.slice(0, at)] = schema === "" ? null : schema;
+  }
+  return schemas;
+}
+
+function handleLint(values: ParsedValues): void {
+  const folder = values.folder ?? process.cwd();
+  const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+  const { files, findings } = lint({ folder, defaultSchemas });
+
+  if (files === 0) {
+    console.error(`No YAML files found in ${folder}`);
+    process.exit(1);
+  }
+
+  for (const finding of findings) {
+    console.log(JSON.stringify(finding));
+  }
+
+  const errors = findings.filter((f) => f.severity === "error").length;
+  const warnings = findings.length - errors;
+  console.error(`${files} files, ${errors} errors, ${warnings} warnings`);
+  process.exit(errors > 0 ? 1 : 0);
 }
 
 function handleExtractSpec(values: ParsedValues): void {
@@ -122,6 +170,8 @@ function main(): void {
   switch (command) {
     case "validate-schema":
       return handleValidateSchema(values);
+    case "lint":
+      return handleLint(values);
     case "extract-spec":
       return handleExtractSpec(values);
     case "extract-schema":

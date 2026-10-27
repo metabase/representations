@@ -1,16 +1,12 @@
-import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
-import type { FormatsPlugin } from "ajv-formats";
+import type { ValidateFunction } from "ajv/dist/2020.js";
 import { readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
-import { createRequire } from "node:module";
 import { resolve } from "path";
 
-const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
+import { loadSchemas } from "./schemas.js";
 
-const PACKAGE_ROOT = resolve(import.meta.dirname, "..");
-
-const IMPORT_PATHS = [
+export const IMPORT_PATHS = [
   "actions/**/*.yaml",
   "channels/**/*.yaml",
   "collections/**/*.yaml",
@@ -47,13 +43,7 @@ export type ValidateSchemaResult = {
   failed: number;
 };
 
-function extractModel(schema: any): string | null {
-  const items = schema?.properties?.["serdes/meta"]?.items;
-  const props = items?.properties ?? items?.items?.properties;
-  return props?.model?.const ?? null;
-}
-
-function getModel(doc: any): string | null {
+export function getModel(doc: any): string | null {
   const meta = doc?.["serdes/meta"];
   if (!Array.isArray(meta) || meta.length === 0) {
     return null;
@@ -64,40 +54,14 @@ function getModel(doc: any): string | null {
 export function validateSchema({
   folder,
 }: ValidateSchemaOptions): ValidateSchemaResult {
-  const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
-
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strictTuples: false,
-    allowUnionTypes: true,
-  });
-  addFormats(ajv);
-
-  for (const file of globSync("common/*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    ajv.addSchema(body, file);
-  }
-
-  const schemas: Record<string, any> = {};
-  for (const file of globSync("*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    const model = extractModel(raw);
-    if (model) {
-      schemas[model] = body;
-    } else {
-      ajv.addSchema(body, file);
-    }
-  }
+  const { ajv, models } = loadSchemas();
 
   const validators: Record<string, ValidateFunction> = {};
-  for (const [model, schema] of Object.entries(schemas)) {
-    validators[model] = ajv.compile(schema);
+  for (const [model, file] of models) {
+    const validate = ajv.getSchema(file);
+    if (validate) {
+      validators[model] = validate;
+    }
   }
 
   const files = globSync(IMPORT_PATHS, { cwd: folder });

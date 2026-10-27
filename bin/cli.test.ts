@@ -3,6 +3,8 @@ import { existsSync, mkdtempSync, readdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
+import { mutateExamples } from "../src/lint-mutations.js";
+
 const REPO_ROOT = resolve(import.meta.dirname, "..");
 const CLI = "bin/cli.ts";
 
@@ -186,6 +188,47 @@ describe("cli", () => {
     });
   });
 
+  describe("lint", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-cli-lint-"));
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    it("exits 0 on the bundled examples, printing no finding", () => {
+      const { stdout, stderr, exitCode } = runCli([
+        "lint",
+        "--folder",
+        "examples/v1",
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toBe("");
+      expect(stderr).toMatch(/\d+ files, 0 errors, 0 warnings/);
+    });
+
+    it("exits 1 with one JSON line per finding on a broken tree", () => {
+      mutateExamples("missing-input", workdir);
+      const { stdout, exitCode } = runCli(["lint", "--folder", workdir]);
+      const errors = stdout
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line))
+        .filter((finding) => finding.severity === "error");
+      expect(exitCode).toBe(1);
+      expect(errors.map((finding) => finding.rule)).toEqual(["missing-input"]);
+    });
+
+    it("errors when the folder has no YAML files", () => {
+      const { stderr, exitCode } = runCli(["lint", "--folder", workdir]);
+      expect(exitCode).toBe(1);
+      expect(stderr).toContain("No YAML files found");
+    });
+  });
+
   describe("build", () => {
     it("bundles the current schemas when rebuilt over an existing dist", () => {
       for (let i = 0; i < 2; i++) {
@@ -211,6 +254,31 @@ describe("cli", () => {
       expect(
         readdirSync(join(REPO_ROOT, "dist/core-spec/v1/schemas")).sort(),
       ).toEqual(readdirSync(join(REPO_ROOT, "core-spec/v1/schemas")).sort());
+
+      // The built package carries the examples, so a mutation runs from it.
+      const broken = mkdtempSync(join(tmpdir(), "representations-cli-dist-"));
+      try {
+        const mutate = Bun.spawnSync({
+          cmd: [
+            "node",
+            "--input-type=module",
+            "-e",
+            `import { mutateExamples } from "./dist/src/index.js"; mutateExamples("dangling-transform-id", ${JSON.stringify(broken)});`,
+          ],
+          cwd: REPO_ROOT,
+        });
+        expect(mutate.stderr.toString()).toBe("");
+        const linted = Bun.spawnSync({
+          cmd: ["node", "dist/bin/cli.js", "lint", "--folder", broken],
+          cwd: REPO_ROOT,
+        });
+        expect(linted.exitCode).toBe(1);
+        expect(JSON.parse(linted.stdout.toString()).rule).toBe(
+          "dangling-transform-id",
+        );
+      } finally {
+        rmSync(broken, { recursive: true, force: true });
+      }
     }, 120_000);
   });
 });

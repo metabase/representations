@@ -1,0 +1,30 @@
+name: 'Daily Order Summary: orders per day'
+entity_id: LfXNcELKeCrAfD4htCFDH
+transform_id: 7XqqzlsonSq4KFyOvtrAm
+creator_id: admin@example.com
+description: 'Cases: two orders on one day are counted and summed; a later day stands alone.'
+inputs:
+- table:
+    name: ORDERS
+  format: rows
+  columns:
+  - name: CREATED_AT
+    cast_type: TIMESTAMP
+  - name: TOTAL
+    cast_type: REAL
+  rows:
+  - CREATED_AT: '2024-01-01 09:00:00'
+    TOTAL: 10.0
+  - CREATED_AT: '2024-01-01 17:30:00'
+    TOTAL: 15.0
+  - CREATED_AT: '2024-01-02 12:00:00'
+    TOTAL: 20.0
+expectations:
+- type: empty
+  name: one row per day
+  sql: SELECT order_date FROM TRANSFORMS.daily_order_summary GROUP BY order_date HAVING COUNT(*) > 1
+- type: empty
+  name: no negative revenue
+  sql: SELECT * FROM TRANSFORMS.daily_order_summary WHERE total_revenue < 0
+serdes/meta:
+- model: TransformTest

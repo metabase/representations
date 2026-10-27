@@ -186,3 +186,22 @@ jobs:
             echo "$WARNINGS"
             exit 1
           fi
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install the lint's dependencies
+        run: bun install
+
+      # The lint finds the tables each transform reads from the files alone.
+      # Metabase is the reference: a transform test must have an input for
+      # each table it lists. Any difference is a lint bug.
+      - name: Compare the lint's transform reads with Metabase's
+        run: |
+          if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
+            | jq -e '.["token-features"]["transforms-testing"]' > /dev/null; then
+            echo "The token lacks the transforms-testing feature"
+            exit 1
+          fi
+          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1

@@ -1,0 +1,42 @@
+name: 'Top Categories: three highest'
+entity_id: r6q1WcFoBcq1eCQC9Yztl
+transform_id: jf55MTi7z8cWQjPG2PEgz
+creator_id: admin@example.com
+description: 'Cases: four categories, of which the lowest is left out.'
+inputs:
+- table:
+    schema: TRANSFORMS
+    name: product_revenue_report
+  format: rows
+  columns:
+  - name: CATEGORY
+    cast_type: TEXT
+  - name: total_revenue
+    cast_type: REAL
+  rows:
+  - CATEGORY: Doohickey
+    total_revenue: 10.0
+  - CATEGORY: Gadget
+    total_revenue: 40.0
+  - CATEGORY: Gizmo
+    total_revenue: 30.0
+  - CATEGORY: Widget
+    total_revenue: 20.0
+expectations:
+- type: equals
+  name: the three highest categories by revenue
+  format: rows
+  columns:
+  - name: CATEGORY
+    cast_type: TEXT
+  - name: total_revenue
+    cast_type: REAL
+  rows:
+  - CATEGORY: Gadget
+    total_revenue: 40.0
+  - CATEGORY: Gizmo
+    total_revenue: 30.0
+  - CATEGORY: Widget
+    total_revenue: 20.0
+serdes/meta:
+- model: TransformTest
