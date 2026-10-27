@@ -19,6 +19,9 @@ export type Reads =
   | { status: "read"; tables: TableKey[] }
   | { status: "unread"; reason: string };
 
+/** The tables a document reads. */
+export type ReadsOf = (doc: Doc) => Reads;
+
 /** A transform document with the table it writes and the tables it reads. */
 export type Transform = {
   doc: ValidDoc<"Transform">;
@@ -96,7 +99,7 @@ function pythonReads(source: PythonSource): Reads {
 export function createReader(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
-) {
+): ReadsOf {
   const findSources = createSourceFinder(loadSchemas());
   const snippetDocs = docs.filter((d) => d.model === SNIPPET_MODEL);
   const snippetByName = new Map(
@@ -132,24 +135,24 @@ export function createReader(
     tables.push(...native.tables);
     const inner = new Set([...visiting, doc]);
     for (const id of sources.entities) {
-      const source = byEntityId.get(id)?.[0];
-      if (source === undefined) {
+      const sourceDoc = byEntityId.get(id)?.[0];
+      if (sourceDoc === undefined) {
         return {
           status: "unread",
           reason: `source ${id} is not in the folder`,
         };
       }
-      if (source.model === SNIPPET_MODEL) {
+      if (sourceDoc.model === SNIPPET_MODEL) {
         continue;
       }
-      const reads = readsOf(source, inner);
-      if (reads.status === "unread") {
+      const sourceReads = readsOf(sourceDoc, inner);
+      if (sourceReads.status === "unread") {
         return {
           status: "unread",
-          reason: `through ${source.file}: ${reads.reason}`,
+          reason: `through ${sourceDoc.file}: ${sourceReads.reason}`,
         };
       }
-      tables.push(...reads.tables);
+      tables.push(...sourceReads.tables);
     }
     const reads: Reads = { status: "read", tables: uniqueTables(tables) };
     memo.set(doc, reads);
@@ -165,7 +168,7 @@ export function createReader(
  */
 export function transformOf(
   doc: ValidDoc<"Transform">,
-  readsOf: (doc: Doc) => Reads,
+  readsOf: ReadsOf,
 ): Transform {
   const { target, source_database_id } = doc.body;
   return {

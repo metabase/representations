@@ -2,8 +2,11 @@ import {
   displayName,
   type Doc,
   indexByEntityId,
+  isQuerySource,
   loadDocs,
+  type UnreadableFile,
   validDocsOf,
+  type ValidDoc,
 } from "./documents.js";
 import {
   LINT_RULE_SEVERITY,
@@ -32,7 +35,7 @@ export type LintOptions = {
    * Metabase's driver reports it; null for a database with no schemas. A
    * database not listed has an unknown default schema.
    */
-  defaultSchemas?: Record<string, string | null>;
+  defaultSchemas?: Readonly<Record<string, string | null>>;
 };
 
 export type LintResult = {
@@ -76,13 +79,9 @@ function readEdges(
   return edges;
 }
 
-/**
- * For each transform in turn: a warning when its sources could not be read,
- * then a warning when another transform writes the same target.
- */
-function reportUnreadSourcesAndDuplicateTargets(
+/** A warning for each transform whose sources could not be read. */
+function reportUnreadSources(
   transforms: readonly Transform[],
-  defaultSchemaOf: DefaultSchemaOf,
   report: Report,
 ): void {
   for (const transform of transforms) {
@@ -93,6 +92,16 @@ function reportUnreadSourcesAndDuplicateTargets(
         `could not find the tables this transform reads: ${transform.reads.reason}`,
       );
     }
+  }
+}
+
+/** A warning for each transform whose target another transform also writes (`sameTable`). */
+function reportDuplicateTargets(
+  transforms: readonly Transform[],
+  defaultSchemaOf: DefaultSchemaOf,
+  report: Report,
+): void {
+  for (const transform of transforms) {
     const clashes = transforms.filter(
       (other) =>
         other !== transform &&
@@ -123,6 +132,15 @@ function checkReadTablesKnown(
   }
 }
 
+/** The table a table file defines. */
+function tableOfFile(doc: ValidDoc<"Table">): TableKey {
+  return {
+    database: doc.body.db_id,
+    schema: doc.body.schema ?? null,
+    name: doc.body.name,
+  };
+}
+
 /**
  * Returns a check that warns when a table, named by a document, is defined by
  * no table file and no transform target. It checks only tables of databases
@@ -139,11 +157,7 @@ function createUnknownTableCheck(
     tableDocs.map((d) => fold(d.body.db_id)),
   );
   const knownTables: TableKey[] = [
-    ...tableDocs.map((d) => ({
-      database: d.body.db_id,
-      schema: d.body.schema ?? null,
-      name: d.body.name,
-    })),
+    ...tableDocs.map(tableOfFile),
     ...transforms.map((t) => t.target),
   ];
   return (doc: Doc, table: TableKey) => {
@@ -211,6 +225,20 @@ function byRuleThenFile(a: LintFinding, b: LintFinding): number {
   );
 }
 
+/** Reports each file that is not a YAML map, as a schema error with no model. */
+function reportUnreadableFiles(
+  unreadable: readonly UnreadableFile[],
+  report: Report,
+): void {
+  for (const { file, reason } of unreadable) {
+    report(
+      "schema",
+      { file, model: null, body: {}, schemaValid: false },
+      `the file ${reason}`,
+    );
+  }
+}
+
 /** Reports each transform, transform test or table file that fails its schema. */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
@@ -237,20 +265,50 @@ export type TransformReads = {
 /** The tables each schema-valid transform in the folder reads, as `lint` finds them. */
 export function transformReads({ folder }: LintOptions): TransformReads[] {
   const { docs } = loadDocs(folder);
-  const readsOf = createReader(docs, indexByEntityId(docs));
-  return validDocsOf(docs, "Transform").map((doc) => {
-    const reads = readsOf(doc);
+  return transformsOf(docs, indexByEntityId(docs)).map(({ doc, reads }) => {
     return {
       file: doc.file,
       entity_id: doc.body.entity_id,
       name: doc.body.name,
-      queryTransform: doc.body.source.type === "query",
+      queryTransform: isQuerySource(doc.body.source),
       tables:
         reads.status === "read"
           ? reads.tables.map(({ schema, name }) => ({ schema, name }))
           : null,
     };
   });
+}
+
+/** The schema-valid transforms among `docs`, in order, with their targets and reads. */
+function transformsOf(
+  docs: readonly Doc[],
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+): Transform[] {
+  const readsOf = createReader(docs, byEntityId);
+  return validDocsOf(docs, "Transform").map((doc) => transformOf(doc, readsOf));
+}
+
+/** A `Report` that appends each finding to `findings`. */
+function createReport(findings: LintFinding[]): Report {
+  return (rule, doc, message, related = []) =>
+    findings.push({
+      rule,
+      severity: LINT_RULE_SEVERITY[rule],
+      file: doc.file,
+      entity: entityOf(doc),
+      message,
+      related,
+    });
+}
+
+/** Looks a database up in `defaultSchemas`; a database not listed, or null, has an unknown default schema. */
+function createDefaultSchemaOf(
+  defaultSchemas: Readonly<Record<string, string | null>>,
+): DefaultSchemaOf {
+  return (database) =>
+    database !== null && Object.hasOwn(defaultSchemas, database)
+      ? defaultSchemas[database]
+      : undefined;
 }
 
 /**
@@ -261,39 +319,20 @@ export function transformReads({ folder }: LintOptions): TransformReads[] {
 export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
   const { docs, unreadable } = loadDocs(folder);
   const findings: LintFinding[] = [];
-  const report: Report = (rule, doc, message, related = []) =>
-    findings.push({
-      rule,
-      severity: LINT_RULE_SEVERITY[rule],
-      file: doc.file,
-      entity: entityOf(doc),
-      message,
-      related,
-    });
+  const report = createReport(findings);
 
-  const defaultSchemaOf: DefaultSchemaOf = (database) =>
-    database !== null && Object.hasOwn(defaultSchemas, database)
-      ? defaultSchemas[database]
-      : undefined;
+  const defaultSchemaOf = createDefaultSchemaOf(defaultSchemas);
 
-  for (const { file, reason } of unreadable) {
-    report(
-      "schema",
-      { file, model: null, body: {}, schemaValid: false },
-      `the file ${reason}`,
-    );
-  }
+  reportUnreadableFiles(unreadable, report);
   reportSchemaMismatches(docs, report);
 
   const byEntityId = indexByEntityId(docs);
   reportDuplicateEntityIds(byEntityId, report);
 
-  const readsOf = createReader(docs, byEntityId);
-  const transforms = validDocsOf(docs, "Transform").map((doc) =>
-    transformOf(doc, readsOf),
-  );
+  const transforms = transformsOf(docs, byEntityId);
 
-  reportUnreadSourcesAndDuplicateTargets(transforms, defaultSchemaOf, report);
+  reportUnreadSources(transforms, report);
+  reportDuplicateTargets(transforms, defaultSchemaOf, report);
 
   reportCycles(transforms, defaultSchemaOf, report);
 

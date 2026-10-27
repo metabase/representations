@@ -69,14 +69,19 @@ function parseCount(raw: string | undefined): number {
   return count;
 }
 
+/** Exits with status 1, saying so, when a command found no files in `folder`. */
+function exitIfNoFiles(files: number, folder: string): void {
+  if (files === 0) {
+    console.error(`No YAML files found in ${folder}`);
+    process.exit(1);
+  }
+}
+
 function handleValidateSchema(values: ParsedValues): void {
   const folder = values.folder ?? process.cwd();
   const { results, passed, failed } = validateSchema({ folder });
 
-  if (results.length === 0) {
-    console.error(`No YAML files found in ${folder}`);
-    process.exit(1);
-  }
+  exitIfNoFiles(results.length, folder);
 
   for (const result of results) {
     if (result.status === "ok") {
@@ -94,7 +99,9 @@ function handleValidateSchema(values: ParsedValues): void {
 }
 
 // "DATABASE=SCHEMA" pairs; "DATABASE=" means the database has no schemas.
-function parseDefaultSchemas(pairs: string[]): Record<string, string | null> {
+function parseDefaultSchemas(
+  pairs: readonly string[],
+): Record<string, string | null> {
   const schemas: Record<string, string | null> = {};
   for (const pair of pairs) {
     const at = pair.lastIndexOf("=");
@@ -115,10 +122,7 @@ function handleLint(values: ParsedValues): void {
   const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
   const { files, findings } = lint({ folder, defaultSchemas });
 
-  if (files === 0) {
-    console.error(`No YAML files found in ${folder}`);
-    process.exit(1);
-  }
+  exitIfNoFiles(files, folder);
 
   for (const finding of findings) {
     console.log(JSON.stringify(finding));
@@ -142,20 +146,21 @@ function handleExtractSchema(values: ParsedValues): void {
   process.exit(0);
 }
 
-function handleGenerateEntityId(values: ParsedValues): void {
+/** Prints `--count` values of `generate`, one per line, then exits. */
+function handleGenerate(values: ParsedValues, generate: () => string): void {
   const count = parseCount(values.count);
   for (let i = 0; i < count; i++) {
-    console.log(generateEntityId());
+    console.log(generate());
   }
   process.exit(0);
 }
 
+function handleGenerateEntityId(values: ParsedValues): void {
+  handleGenerate(values, generateEntityId);
+}
+
 function handleGenerateUuid(values: ParsedValues): void {
-  const count = parseCount(values.count);
-  for (let i = 0; i < count; i++) {
-    console.log(generateUuid());
-  }
-  process.exit(0);
+  handleGenerate(values, generateUuid);
 }
 
 function main(): void {

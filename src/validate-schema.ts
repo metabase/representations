@@ -6,6 +6,7 @@ import { resolve } from "path";
 
 import { loadSchemas } from "./schemas.js";
 
+/** The files of a folder that Metabase imports, as globs relative to the folder. */
 export const IMPORT_PATHS = [
   "actions/**/*.yaml",
   "channels/**/*.yaml",
@@ -43,6 +44,10 @@ export type ValidateSchemaResult = {
   failed: number;
 };
 
+/**
+ * The `model` of the last `serdes/meta` entry, or null when there is none.
+ * Not checked to be a string.
+ */
 export function getModel(doc: any): string | null {
   const meta = doc?.["serdes/meta"];
   if (!Array.isArray(meta) || meta.length === 0) {
@@ -51,6 +56,16 @@ export function getModel(doc: any): string | null {
   return meta[meta.length - 1]?.model ?? null;
 }
 
+/** A failure of the whole file, before any schema check: no model, one error at the root. */
+function fileFailure(file: string, message: string): ValidationResult {
+  return { file, status: "fail", errors: [{ path: "/", message }] };
+}
+
+/**
+ * Checks each file of `folder` under `IMPORT_PATHS`, in path order, against
+ * the schema of its model. A file that does not parse as YAML, has no model,
+ * or names a model with no schema fails with one error at "/".
+ */
 export function validateSchema({
   folder,
 }: ValidateSchemaOptions): ValidateSchemaResult {
@@ -75,35 +90,23 @@ export function validateSchema({
   for (const file of files.sort()) {
     const fullPath = resolve(folder, file);
 
-    let doc: any;
+    let doc: unknown;
     try {
       doc = yaml.load(readFileSync(fullPath, "utf8"));
     } catch (e: any) {
-      results.push({
-        file,
-        status: "fail",
-        errors: [{ path: "/", message: `invalid YAML: ${e.message}` }],
-      });
+      results.push(fileFailure(file, `invalid YAML: ${e.message}`));
       continue;
     }
 
     const model = getModel(doc);
     if (!model) {
-      results.push({
-        file,
-        status: "fail",
-        errors: [{ path: "/", message: "missing serdes/meta or model" }],
-      });
+      results.push(fileFailure(file, "missing serdes/meta or model"));
       continue;
     }
 
     const validate = validators[model];
     if (!validate) {
-      results.push({
-        file,
-        status: "fail",
-        errors: [{ path: "/", message: `unknown model "${model}"` }],
-      });
+      results.push(fileFailure(file, `unknown model "${model}"`));
       continue;
     }
 

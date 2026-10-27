@@ -6,6 +6,8 @@ import yaml from "js-yaml";
 import { createRequire } from "node:module";
 import { resolve } from "path";
 
+import { isRecord, stringOrNull } from "./values.js";
+
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
 const SCHEMAS_DIR = resolve(import.meta.dirname, "..", "core-spec/v1/schemas");
@@ -18,10 +20,18 @@ export type Schemas = {
   models: Map<string, string>;
 };
 
-function extractModel(schema: any): string | null {
-  const items = schema?.properties?.["serdes/meta"]?.items;
-  const props = items?.properties ?? items?.items?.properties;
-  return props?.model?.const ?? null;
+/** The model a schema's `serdes/meta` items fix by `const`, or null. */
+function extractModel(schema: unknown): string | null {
+  const propertyOf = (value: unknown, key: string): unknown =>
+    isRecord(value) ? value[key] : undefined;
+  const items = propertyOf(
+    propertyOf(propertyOf(schema, "properties"), "serdes/meta"),
+    "items",
+  );
+  const props =
+    propertyOf(items, "properties") ??
+    propertyOf(propertyOf(items, "items"), "properties");
+  return stringOrNull(propertyOf(propertyOf(props, "model"), "const"));
 }
 
 /**
@@ -45,7 +55,8 @@ export function loadSchemas(): Schemas {
     cwd: SCHEMAS_DIR,
   }).sort()) {
     const raw = yaml.load(readFileSync(resolve(SCHEMAS_DIR, file), "utf8"));
-    const { $schema: _$schema, ...body } = raw as any;
+    // Every bundled schema file is a YAML map.
+    const { $schema: _$schema, ...body } = raw as Record<string, unknown>;
     files.set(file, body);
     ajv.addSchema(body, file);
     const model = extractModel(raw);

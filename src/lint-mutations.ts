@@ -45,7 +45,7 @@ function edit(
 function write(
   folder: string,
   file: string,
-  doc: Record<string, unknown>,
+  doc: Readonly<Record<string, unknown>>,
 ): void {
   const path = join(folder, file);
   mkdirSync(dirname(path), { recursive: true });

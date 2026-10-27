@@ -1,6 +1,7 @@
 import {
   displayName,
   type Doc,
+  isQuerySource,
   validDocsOf,
   type ValidDoc,
 } from "./documents.js";
@@ -30,6 +31,52 @@ function testInputs(test: TestDoc, transform: Transform): TableKey[] {
 }
 
 /**
+ * The query transform `test` tests. Null after an error when its transform_id
+ * names nothing, names no Transform, or names a transform that is not a query
+ * transform; null without one when the Transform it names fails its schema.
+ */
+function testedTransform(
+  test: TestDoc,
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  transformsById: ReadonlyMap<string, Transform>,
+  report: Report,
+): Transform | null {
+  const transformId = test.body.transform_id;
+  const holders = byEntityId.get(transformId) ?? [];
+  if (holders.length === 0) {
+    report(
+      "dangling-transform-id",
+      test,
+      `transform_id ${transformId} matches no entity`,
+    );
+    return null;
+  }
+  if (!holders.some((h) => h.model === "Transform")) {
+    report(
+      "wrong-type-transform-id",
+      test,
+      `transform_id ${transformId} names a ${holders[0].model ?? "file with no model"}, not a Transform`,
+      holders.map((h) => h.file),
+    );
+    return null;
+  }
+  const transform = transformsById.get(transformId);
+  if (transform === undefined) {
+    return null;
+  }
+  if (!isQuerySource(transform.doc.body.source)) {
+    report(
+      "untestable-transform",
+      test,
+      `transform ${displayName(transform.doc)} is not a query transform; Metabase tests only query transforms`,
+      [transform.doc.file],
+    );
+    return null;
+  }
+  return transform;
+}
+
+/**
  * For each valid transform test: an error when its transform_id names nothing
  * or names no Transform; otherwise, when its transform's sources were read,
  * the mismatches between those sources and the test's inputs.
@@ -46,49 +93,14 @@ export function reportTestFindings(
     transforms.map((t) => [t.doc.body.entity_id, t]),
   );
   for (const test of validDocsOf(docs, "TransformTest")) {
-    const transformId = test.body.transform_id;
-    const holders = byEntityId.get(transformId) ?? [];
-    if (holders.length === 0) {
-      report(
-        "dangling-transform-id",
-        test,
-        `transform_id ${transformId} matches no entity`,
-      );
+    const transform = testedTransform(test, byEntityId, transformsById, report);
+    if (transform === null) {
       continue;
     }
-    if (!holders.some((h) => h.model === "Transform")) {
-      report(
-        "wrong-type-transform-id",
-        test,
-        `transform_id ${transformId} names a ${holders[0].model ?? "file with no model"}, not a Transform`,
-        holders.map((h) => h.file),
-      );
-      continue;
-    }
-    const transform = transformsById.get(transformId);
-    if (transform === undefined) {
-      continue;
-    }
-    if (transform.doc.body.source.type !== "query") {
-      report(
-        "untestable-transform",
-        test,
-        `transform ${displayName(transform.doc)} is not a query transform; Metabase tests only query transforms`,
-        [transform.doc.file],
-      );
-      continue;
-    }
-    const defaultSchema = defaultSchemaOf(
-      transform.doc.body.source_database_id,
-    );
+    const database = transform.doc.body.source_database_id;
+    const defaultSchema = defaultSchemaOf(database);
     const inputs = testInputs(test, transform);
-    reportDuplicateInputs(
-      test,
-      inputs,
-      transform.doc.body.source_database_id,
-      defaultSchema,
-      report,
-    );
+    reportDuplicateInputs(test, inputs, database, defaultSchema, report);
     reportExpectationReads(test, transform, inputs, defaultSchema, report);
     if (transform.reads.status !== "read") {
       continue;
@@ -96,6 +108,7 @@ export function reportTestFindings(
     reportInputMismatches(
       test,
       transform,
+      inputs,
       transform.reads.tables,
       checkKnown,
       defaultSchema,
@@ -213,12 +226,12 @@ function reportExpectationReads(
 function reportInputMismatches(
   test: TestDoc,
   transform: Transform,
+  inputs: readonly TableKey[],
   reads: readonly TableKey[],
   checkKnown: TableCheck,
   defaultSchema: DefaultSchema,
   report: Report,
 ): void {
-  const inputs = testInputs(test, transform);
   const transformName = displayName(transform.doc);
   const covers = (read: TableKey, input: TableKey) =>
     inputCovers(read, input, defaultSchema) !== "no-match";

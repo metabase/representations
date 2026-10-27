@@ -126,6 +126,11 @@ export function isPythonSource(
   return source.type === "python";
 }
 
+/** Whether a schema-valid transform's source is a query, the only kind Metabase can test. */
+export function isQuerySource(source: TransformSource): boolean {
+  return source.type === "query";
+}
+
 /** The document's name, or its file when it has none. */
 export function displayName(doc: Doc): string {
   return stringOrNull(doc.body.name) ?? doc.file;
