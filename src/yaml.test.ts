@@ -141,6 +141,16 @@ describe("readYaml", () => {
       "01: a\n1: b\n",
       "duplicated mapping key (2:1)",
     ],
+    [
+      "two keys SnakeYAML reads as 1.0",
+      "1.0: a\n1.00: b\n",
+      "duplicated mapping key (2:1)",
+    ],
+    [
+      "two keys SnakeYAML reads as NaN",
+      ".nan: a\n.nan: b\n",
+      "duplicated mapping key (2:1)",
+    ],
     ["an unknown tag", "a: !foo x\n", "Unresolved tag: !foo (1:4)"],
     ["a float with no digits", "a: ._\n", "._ is not a float (1:4)"],
     [
@@ -177,6 +187,17 @@ describe("readYaml", () => {
   ])("refuses %s", (_, text, message) => {
     expect(() => readYaml(text)).toThrow(YamlReadError);
     expect(() => readYaml(text)).toThrow(message);
+  });
+
+  it.each([
+    ["an integer and a float", "1: a\n1.0: b\n", { "1": "a", "1.0": "b" }],
+    [
+      "zero and negative zero floats",
+      "0.0: a\n-0.0: b\n",
+      { "0.0": "a", "-0.0": "b" },
+    ],
+  ])("reads %s as two keys, as SnakeYAML does", (_, text, value) => {
+    expect(valueOf(text)).toEqual(value);
   });
 
   it("accepts 50 aliases to a list, and any number to a scalar", () => {

@@ -44,6 +44,7 @@ The validator reads each file as Metabase does: YAML 1.1 with SnakeYAML's rules,
 Known differences from Metabase's reading:
 
 - An integer beyond 2^53 loses precision, where Metabase reads a `Long` or `BigInteger`. Two such keys that differ only past 2^53 are a duplicate key in the validator and two keys in Metabase.
+- Two date keys for the same time, such as `2024-01-05:` twice, are not reported as a duplicate key. Metabase reads one key and keeps the last value.
 - An explicit tag on a value outside its type's plain form, such as `!!float 1` or `!!bool y`, is refused; Metabase reads `1.0` and `null`.
 - `!!binary`, `!!set`, `!!omap` and `!!pairs` read as JavaScript's `Uint8Array`, `Set`, `Map` and a list of one-key maps.
 - Nesting deeper than about 6,000 levels is refused for lack of stack. Metabase's limit is 10,000 levels, or less when its thread's stack runs out first.

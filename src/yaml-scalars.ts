@@ -1,4 +1,4 @@
-import type { ScalarTag, Tags } from "yaml";
+import { isScalar, type ParsedNode, type ScalarTag, type Tags } from "yaml";
 
 // The implicit resolvers of SnakeYAML's `Resolver`: YAML 1.1 as SnakeYAML
 // reads it, which differs from the 1.1 spec (no `y`/`n` booleans, an octal
@@ -113,4 +113,22 @@ export function snakeTags(tags: Tags): Tags {
     ),
     ...SNAKE_SCALAR_TAGS,
   ];
+}
+
+/**
+ * Whether SnakeYAML reads the map keys `a` and `b` as one key. Numbers compare
+ * as Java's `equals`: an integer never equals a float, NaN equals NaN, and 0.0
+ * and -0.0 differ. Two dates are never one key.
+ */
+export function sameKey(a: ParsedNode, b: ParsedNode): boolean {
+  if (!isScalar(a) || !isScalar(b)) {
+    return a === b;
+  }
+  if (typeof a.value === "number" && typeof b.value === "number") {
+    return (
+      Object.is(a.value, b.value) &&
+      FLOAT.test(a.source ?? "") === FLOAT.test(b.source ?? "")
+    );
+  }
+  return a.value === b.value;
 }

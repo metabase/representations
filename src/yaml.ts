@@ -13,7 +13,7 @@ import {
   type YAMLMap,
 } from "yaml";
 
-import { snakeTags } from "./yaml-scalars.js";
+import { sameKey, snakeTags } from "./yaml-scalars.js";
 
 /**
  * A YAML text that Metabase would refuse to read. `reason` says why;
@@ -275,7 +275,7 @@ export function readYaml(text: string): YamlDocument {
     // Keeps SnakeYAML's types under a `%YAML 1.2` directive, as SnakeYAML does.
     schema: "yaml-1.1",
     customTags: snakeTags,
-    uniqueKeys: true,
+    uniqueKeys: sameKey,
     // "silent" would also drop the error for a second document.
     logLevel: "error",
   });
