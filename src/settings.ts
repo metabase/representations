@@ -45,6 +45,7 @@ export function readSettingsFile(folder: string): LintSettings {
   let settings: unknown;
   try {
     settings = JSON.parse(readFileSync(path, "utf8"));
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     throw new LintSetupError(
       `${CONFIG_FILE} does not parse as JSON: ${e instanceof Error ? e.message : String(e)}`,

@@ -277,6 +277,7 @@ export function loadDocs(
     let read: YamlDocument;
     try {
       read = readYaml(readFileSync(resolve(folder, file), "utf8"));
+      // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
     } catch (e) {
       const reason = e instanceof YamlReadError ? e.reason : errorMessage(e);
       unreadable.push({ file, reason: `does not parse as YAML: ${reason}` });

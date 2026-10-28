@@ -123,6 +123,7 @@ export function validateFolder(
     let doc: unknown;
     try {
       doc = readYaml(readFileSync(fullPath, "utf8")).value;
+      // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
     } catch (e) {
       results.push(fileFailure(file, `invalid YAML: ${errorMessage(e)}`));
       continue;

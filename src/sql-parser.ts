@@ -158,6 +158,7 @@ export function answerOf(
   let parsed: unknown;
   try {
     parsed = JSON.parse(text.slice(ANSWER_MARK.length));
+    // eslint-disable-next-line no-restricted-syntax -- wraps JSON.parse only
   } catch (e) {
     return {
       status: "unread",
@@ -388,6 +389,7 @@ export async function withSqlParser<T>(
   if (!sqlParserStarted()) {
     try {
       return use(UNLOADED_SQL_PARSER);
+      // eslint-disable-next-line no-restricted-syntax -- rethrows all but the stand-in's throw
     } catch (e) {
       if (!(e instanceof SqlParserUnloaded)) {
         throw e;
