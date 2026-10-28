@@ -1,5 +1,3 @@
-import type { Doc } from "./documents.js";
-
 export type LintSeverity = "error" | "warning";
 
 /**
@@ -10,6 +8,7 @@ export type LintSeverity = "error" | "warning";
  */
 export const LINT_RULE_SEVERITY = {
   schema: "error",
+  "skipped-by-metabase": "warning",
   "duplicate-entity-id": "error",
   "dangling-transform-id": "error",
   "wrong-type-transform-id": "error",
@@ -60,13 +59,20 @@ export type LintFinding = {
   related: string[];
 };
 
+/** The file a finding is on, with the model and the body the lint read from it. */
+export type FindingSubject = {
+  file: string;
+  model: string | null;
+  body: Readonly<Record<string, unknown>>;
+};
+
 /**
- * Records a finding on `doc` at its rule's severity; `related` names the other
- * files involved.
+ * Records a finding on `subject` at its rule's severity; `related` names the
+ * other files involved.
  */
 export type Report = (
   rule: LintRule,
-  doc: Doc,
+  subject: FindingSubject,
   message: string,
   related?: string[],
 ) => void;

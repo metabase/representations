@@ -83,22 +83,36 @@ function exitIfNoFiles(files: number, folder: string): void {
 
 function handleValidateSchema(values: ParsedValues): void {
   const folder = values.folder ?? process.cwd();
-  const { results, passed, failed } = validateSchema({ folder });
+  const { results, passed, failed, skipped } = validateSchema({ folder });
 
   exitIfNoFiles(results.length, folder);
 
   for (const result of results) {
-    if (result.status === "ok") {
-      continue;
-    }
     const path = relative(process.cwd(), `${folder}/${result.file}`);
-    console.error(`FAIL  ${path}${result.model ? ` (${result.model})` : ""}`);
-    for (const error of result.errors) {
-      console.error(`      ${error.path} ${error.message}`);
+    switch (result.status) {
+      case "ok":
+        break;
+      case "skipped":
+        console.error(`WARN  ${path}`);
+        console.error(`      ${result.warning}`);
+        break;
+      case "fail":
+        console.error(
+          `FAIL  ${path}${result.model ? ` (${result.model})` : ""}`,
+        );
+        for (const error of result.errors) {
+          console.error(`      ${error.path} ${error.message}`);
+        }
+        break;
     }
   }
 
-  console.log(`\n${passed} passed, ${failed} failed`);
+  const counts = [
+    `${passed} passed`,
+    `${failed} failed`,
+    ...(skipped > 0 ? [`${skipped} skipped`] : []),
+  ];
+  console.log(`\n${counts.join(", ")}`);
   process.exit(failed > 0 ? 1 : 0);
 }
 

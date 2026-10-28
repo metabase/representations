@@ -51,7 +51,7 @@ export function reportCollectionNamespaces(
       report(
         "transform-collection",
         transform,
-        `collection_id ${id} names a ${collection.model ?? "file with no model"}, not a Collection`,
+        `collection_id ${id} names a ${collection.model}, not a Collection`,
         [collection.file],
       );
     } else {

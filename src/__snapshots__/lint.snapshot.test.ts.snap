@@ -17,6 +17,23 @@ exports[`lint output on a broken copy of the examples matches the recording: sch
 ]
 `;
 
+exports[`lint output on a broken copy of the examples matches the recording: skipped by metabase 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": null,
+      "model": null,
+      "name": null,
+    },
+    "file": "collections/transforms/notes.yaml",
+    "message": "Metabase skips this file because it has no serdes/meta",
+    "related": [],
+    "rule": "skipped-by-metabase",
+    "severity": "warning",
+  },
+]
+`;
+
 exports[`lint output on a broken copy of the examples matches the recording: duplicate entity id and target 1`] = `
 [
   {

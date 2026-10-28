@@ -7,7 +7,7 @@ import {
   reportUnsupportedTransformEngines,
   reportUntestableEngines,
 } from "./engine-checks.js";
-import type { LintRule } from "./findings.js";
+import type { LintRule, Report } from "./findings.js";
 import { type Transform, transformOf } from "./reads.js";
 import { testedTransformsOf } from "./test-checks.js";
 
@@ -98,9 +98,9 @@ const enginesOf =
     database === null ? null : (engines[database] ?? null);
 
 const recorder =
-  (recorded: Recorded[]) =>
-  (rule: LintRule, doc: Doc, message: string, related: string[] = []) =>
-    recorded.push({ rule, file: doc.file, message, related });
+  (recorded: Recorded[]): Report =>
+  (rule, { file }, message, related = []) =>
+    recorded.push({ rule, file, message, related });
 
 function targetSchemaFindings(
   docs: readonly Doc[],

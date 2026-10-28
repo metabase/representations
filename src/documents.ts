@@ -3,9 +3,8 @@ import { resolve } from "path";
 
 import type { Schemas } from "./schemas.js";
 import {
+  checkSchema,
   entityFiles,
-  getModel,
-  schemaErrors,
   type ValidationError,
 } from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
@@ -16,10 +15,10 @@ import {
   YamlReadError,
 } from "./yaml.js";
 
-/** A file of `entityFiles` that parses to a YAML map. */
+/** A file of `entityFiles` that parses to a YAML map whose `serdes/meta` names a model. */
 export type Doc = {
   file: string;
-  model: string | null;
+  model: string;
   body: Record<string, unknown>;
   /** The first way the file fails its model's schema; null when it passes. */
   schemaError: ValidationError | null;
@@ -215,21 +214,24 @@ export function displayName(doc: Doc): string {
   return stringOrNull(doc.body.name) ?? doc.file;
 }
 
-/** A file `loadDocs` could not read as a YAML map, and why. */
+/** A file `loadDocs` could not read as an entity, and why. */
 export type UnreadableFile = { file: string; reason: string };
 
 /**
- * Each of `entityFiles(folder)`, in path order: those that parse to a YAML map
- * as documents, and the others as unreadable files.
+ * Each of `entityFiles(folder)`, in path order: as documents, as files
+ * Metabase skips for having no `serdes/meta`, or as unreadable files, which
+ * do not parse to a YAML map or whose `serdes/meta` names no model.
  */
 export function loadDocs(
   folder: string,
   schemas: Schemas,
 ): {
   docs: Doc[];
+  skipped: string[];
   unreadable: UnreadableFile[];
 } {
   const docs: Doc[] = [];
+  const skipped: string[] = [];
   const unreadable: UnreadableFile[] = [];
   for (const file of entityFiles(folder)) {
     let read: YamlDocument;
@@ -242,19 +244,24 @@ export function loadDocs(
       continue;
     }
     const { value: body, nonStringKeys } = read;
-    if (!isRecord(body)) {
+    const check = checkSchema(body, schemas);
+    if (check.status === "skipped") {
+      skipped.push(file);
+    } else if (!isRecord(body)) {
       unreadable.push({ file, reason: "is not a YAML map" });
-      continue;
+    } else if (check.status === "no-model") {
+      unreadable.push({ file, reason: "names no model in serdes/meta" });
+    } else {
+      docs.push({
+        file,
+        model: check.model,
+        body,
+        schemaError: check.errors[0] ?? null,
+        nonStringKeys,
+      });
     }
-    docs.push({
-      file,
-      model: getModel(body),
-      body,
-      schemaError: schemaErrors(body, schemas)[0] ?? null,
-      nonStringKeys,
-    });
   }
-  return { docs, unreadable };
+  return { docs, skipped, unreadable };
 }
 
 /** Every document with an entity_id, keyed by it; several when the id is duplicated. */

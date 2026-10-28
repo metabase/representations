@@ -42,6 +42,7 @@ function applyMutation(name: string, folder: string): void {
 // recorded with `bun test --update-snapshots` and reviewed in the diff.
 const TREES: [string, (folder: string) => void][] = [
   ["schema", (f) => mutateExamples("invalid-test", f)],
+  ["skipped by metabase", (f) => mutateExamples("skipped-by-metabase", f)],
   [
     "duplicate entity id and target",
     (f) => mutateExamples("copied-transform", f),

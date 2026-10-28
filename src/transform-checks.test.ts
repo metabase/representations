@@ -315,8 +315,8 @@ describe("reportMissingTargetDatabases", () => {
     const recorded: Recorded[] = [];
     reportMissingTargetDatabases(
       [doc],
-      (rule: LintRule, d: Doc, message: string, related: string[] = []) =>
-        recorded.push({ rule, file: d.file, message, related }),
+      (rule, { file }, message, related = []) =>
+        recorded.push({ rule, file, message, related }),
     );
     return recorded;
   };

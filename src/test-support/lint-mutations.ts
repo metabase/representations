@@ -505,6 +505,14 @@ export const MUTATIONS: Mutation[] = [
       ),
   },
   {
+    name: "skipped-by-metabase",
+    description:
+      "A YAML file of notes with no serdes/meta sits beside the transforms; Metabase skips it.",
+    rules: ["skipped-by-metabase"],
+    apply: (folder) =>
+      write(folder, "collections/transforms/notes.yaml", { name: "Notes" }),
+  },
+  {
     name: "invalid-test",
     description: "A test has an expectation type the schema does not allow.",
     rules: ["schema"],

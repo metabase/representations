@@ -40,20 +40,30 @@ describe("validateSchema", () => {
       expect(failed).toBe(0);
     });
 
-    it("fails files missing serdes/meta", () => {
+    it.each([
+      ["a map with no serdes/meta", "name: Notes\n"],
+      ["a map whose serdes/meta is null", "name: Notes\nserdes/meta:\n"],
+      ["an empty file", ""],
+      ["a file that holds only a comment", "# notes\n"],
+    ])("passes %s, which Metabase skips, with a warning", (_, content) => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
-        join(workdir, "collections", "main", "broken.yaml"),
-        "name: Broken\n",
+        join(workdir, "collections", "main", "notes.yaml"),
+        content,
       );
 
-      const { passed, failed, results } = validateSchema({ folder: workdir });
-      expect(passed).toBe(0);
-      expect(failed).toBe(1);
-      expect(results[0].status).toBe("fail");
-      if (results[0].status === "fail") {
-        expect(results[0].errors[0].message).toMatch(/serdes\/meta/);
-      }
+      expect(validateSchema({ folder: workdir })).toEqual({
+        results: [
+          {
+            file: join("collections", "main", "notes.yaml"),
+            status: "skipped",
+            warning: "Metabase skips this file because it has no serdes/meta",
+          },
+        ],
+        passed: 0,
+        failed: 0,
+        skipped: 1,
+      });
     });
 
     it.each([
@@ -66,7 +76,10 @@ describe("validateSchema", () => {
       ["actions", ["actions"], "broken.yaml"],
     ])("validates %s", (_, dirs, file) => {
       mkdirSync(join(workdir, ...dirs), { recursive: true });
-      writeFileSync(join(workdir, ...dirs, file), "name: Broken\n");
+      writeFileSync(
+        join(workdir, ...dirs, file),
+        "name: 5\nserdes/meta:\n- model: Collection\n",
+      );
 
       const { failed, results } = validateSchema({ folder: workdir });
       expect(failed).toBe(1);
@@ -97,7 +110,7 @@ describe("validateSchema", () => {
       });
       const statuses = (): string[] =>
         validateSchema({ folder: workdir }).results.map((r) =>
-          [r.file, r.model, r.status].join(" "),
+          [r.file, "model" in r ? r.model : "", r.status].join(" "),
         );
 
       it("checks a file against the schema of its model, wherever it sits under an imported folder", () => {
@@ -117,13 +130,13 @@ describe("validateSchema", () => {
 
       it("reads a file under a dot folder, and a data app manifest at any depth", () => {
         write("collections/.archive/archive.yaml", collection);
-        write("data_apps/data_app.yaml", "name: Broken\n");
-        write("data_apps/group/shop/data_app.yaml", "name: Broken\n");
+        write("data_apps/data_app.yaml", collection);
+        write("data_apps/group/shop/data_app.yaml", collection);
 
         expect(statuses()).toEqual([
           "collections/.archive/archive.yaml Collection ok",
-          "data_apps/data_app.yaml  fail",
-          "data_apps/group/shop/data_app.yaml  fail",
+          "data_apps/data_app.yaml Collection ok",
+          "data_apps/group/shop/data_app.yaml Collection ok",
         ]);
       });
 
@@ -420,12 +433,15 @@ describe("validateSchema", () => {
       ]);
     });
 
-    it("fails a file whose model is not a string as having no model", () => {
+    it.each([
+      ["a model that is not a string", "serdes/meta:\n- model: [Transform]\n"],
+      ["an entry with no model", "serdes/meta:\n- id: x\n"],
+      ["an empty serdes/meta", "serdes/meta: []\n"],
+      ["a serdes/meta that is not a list", "serdes/meta: 5\n"],
+      ["a list in place of a map", "- serdes/meta\n"],
+    ])("fails a file with %s as having no model", (_, content) => {
       mkdirSync(join(workdir, "transforms"), { recursive: true });
-      writeFileSync(
-        join(workdir, "transforms", "listed.yaml"),
-        "name: Listed\nserdes/meta:\n- model: [Transform]\n",
-      );
+      writeFileSync(join(workdir, "transforms", "listed.yaml"), content);
 
       expect(validateSchema({ folder: workdir }).results).toEqual([
         {

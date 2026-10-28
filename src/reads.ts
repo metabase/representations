@@ -169,7 +169,7 @@ export function createSnippetFinder(
         unusable:
           doc.model === SNIPPET_MODEL
             ? failsSchema(name, doc)
-            : `snippet ${name} (${id}) names a ${doc.model ?? "file with no model"}, not a snippet`,
+            : `snippet ${name} (${id}) names a ${doc.model}, not a snippet`,
       };
     }
     const content = snippetByName.get(name);
@@ -210,7 +210,7 @@ export function createReader(
     if (source !== undefined && isPythonSource(source)) {
       return pythonReads(source);
     }
-    const sources = findSources(doc.body, doc.model ?? "");
+    const sources = findSources(doc.body, doc.model);
     const tables: TableKey[] = [...sources.tables];
     const native = nativeReads(sources.natives, findSnippet, readSql);
     if (native.status === "unread") {

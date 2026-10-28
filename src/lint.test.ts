@@ -439,6 +439,42 @@ describe("lint", () => {
       );
     });
 
+    it("warns on a file with no serdes/meta, which Metabase skips, and reads no entity from it", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const empty = "collections/transforms/empty.yaml";
+      const notes = "collections/transforms/notes.yaml";
+      writeFileSync(join(workdir, empty), "");
+      // Product Revenue Report's entity_id, which a file Metabase skips does not hold.
+      writeFileSync(
+        join(workdir, notes),
+        yaml.dump({ name: "Notes", entity_id: "7JwIkkAG-06-nsl4jzsaq" }),
+      );
+      expect(await findings(workdir)).toEqual(
+        [empty, notes].map((file) => ({
+          rule: "skipped-by-metabase",
+          severity: "warning",
+          file,
+          entity: { model: null, entity_id: null, name: null },
+          message: "Metabase skips this file because it has no serdes/meta",
+          related: [],
+        })),
+      );
+    });
+
+    it("reports a file whose serdes/meta names no model as a schema error", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "collections/transforms/listed.yaml";
+      writeFileSync(
+        join(workdir, file),
+        "name: Listed\nserdes/meta:\n- model: [Transform]\n",
+      );
+      expect(
+        (await findings(workdir)).map(
+          (f) => `${f.rule} ${f.file}: ${f.message}`,
+        ),
+      ).toEqual([`schema ${file}: the file names no model in serdes/meta`]);
+    });
+
     it("reports a Database file that fails its schema", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = "databases/sample_database/sample_database.yaml";

@@ -85,7 +85,7 @@ export function reportTransformIds(
       report(
         "wrong-type-transform-id",
         test,
-        `transform_id ${transformId} names a ${holder.model ?? "file with no model"}, not a Transform`,
+        `transform_id ${transformId} names a ${holder.model}, not a Transform`,
         (byEntityId.get(transformId) ?? []).map((h) => h.file),
       );
     } else {

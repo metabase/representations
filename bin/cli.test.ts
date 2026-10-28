@@ -199,6 +199,30 @@ describe("cli", () => {
       expect(stdout).toMatch(/\d+ passed, 0 failed/);
     });
 
+    it("passes a file Metabase skips, with a warning that names it", () => {
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-skip-"));
+      try {
+        mkdirSync(join(folder, "collections"));
+        writeFileSync(
+          join(folder, "collections", "notes.yaml"),
+          "name: Notes\n",
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stderr.trimEnd().split("\n")).toEqual([
+          expect.stringMatching(/^WARN {2}\S*collections\/notes\.yaml$/),
+          "      Metabase skips this file because it has no serdes/meta",
+        ]);
+        expect(stdout.trim()).toBe("0 passed, 0 failed, 1 skipped");
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    });
+
     it("errors when the folder has no YAML files", () => {
       const empty = mkdtempSync(join(tmpdir(), "representations-cli-empty-"));
       try {

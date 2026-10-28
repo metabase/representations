@@ -36,7 +36,7 @@ Validate a folder of YAML files against the schemas:
 npx @metabase/representations validate-schema --folder ./my-export
 ```
 
-Omit `--folder` to validate the current directory. It exits 1 when a file fails, or when the folder has no YAML files.
+Omit `--folder` to validate the current directory. It exits 1 when a file fails, or when the folder has no YAML files. A file with no `serdes/meta`, or an empty file, passes with a warning: Metabase skips it.
 
 The validator reads YAML as Metabase does, with a few [known differences](https://github.com/metabase/representations/blob/main/docs/lint.md#how-yaml-is-read).
 
@@ -83,7 +83,8 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, or a file that is not a YAML map. |
+| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map, or a file whose `serdes/meta` names no model. |
+| `skipped-by-metabase` | warning | A file with no `serdes/meta`, or an empty file, which Metabase skips. |
 | `duplicate-entity-id` | error | Two files that hold the same `entity_id`. |
 | `dangling-transform-id` | error | A test whose `transform_id` matches no entity. |
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |

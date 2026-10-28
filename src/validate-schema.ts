@@ -52,6 +52,8 @@ export type ValidationError = {
 
 export type ValidationResult =
   | { file: string; model: string; status: "ok" }
+  // A file Metabase skips without an error, and why.
+  | { file: string; status: "skipped"; warning: string }
   | {
       file: string;
       model?: string;
@@ -63,19 +65,38 @@ export type ValidateSchemaResult = {
   results: ValidationResult[];
   passed: number;
   failed: number;
+  skipped: number;
 };
+
+/** How a parsed file stands as Metabase imports it, and against the schema of its model. */
+export type SchemaCheck =
+  // Metabase skips the file without an error: it has no `serdes/meta`.
+  | { status: "skipped" }
+  // Metabase reads the file and cannot load it: its `serdes/meta` names no model.
+  | { status: "no-model" }
+  | { status: "checked"; model: string; errors: ValidationError[] };
 
 /**
  * The `model` of the last `serdes/meta` entry, or null when there is none or
  * it is not a string.
  */
-export function getModel(doc: unknown): string | null {
+function getModel(doc: unknown): string | null {
   const meta = isRecord(doc) ? doc["serdes/meta"] : undefined;
   if (!Array.isArray(meta) || meta.length === 0) {
     return null;
   }
   const last: unknown = meta[meta.length - 1];
   return isRecord(last) ? stringOrNull(last.model) : null;
+}
+
+/**
+ * Whether Metabase skips `doc`, a parsed file, without an error: the file is
+ * empty, or a map whose `serdes/meta` is absent or null.
+ */
+function skippedByMetabase(doc: unknown): boolean {
+  return (
+    doc === null || (isRecord(doc) && (doc["serdes/meta"] ?? null) === null)
+  );
 }
 
 /** One error at the root of the file. */
@@ -85,8 +106,9 @@ const rootError = (message: string): ValidationError[] => [
 
 /**
  * Checks each of `entityFiles(folder)`, in path order, against the schema of
- * its model. A file that does not parse as YAML, has no model, or names a
- * model with no schema fails with one error at "/".
+ * its model. A file Metabase skips, with no `serdes/meta`, is skipped with a
+ * warning. A file that does not parse as YAML, has no model, or names a model
+ * with no schema fails with one error at "/".
  */
 export function validateSchema({
   folder,
@@ -95,10 +117,13 @@ export function validateSchema({
   const results = entityFiles(folder).map((file) =>
     validateFile(folder, file, schemas),
   );
+  const count = (status: ValidationResult["status"]): number =>
+    results.filter((r) => r.status === status).length;
   return {
     results,
-    passed: results.filter((r) => r.status === "ok").length,
-    failed: results.filter((r) => r.status === "fail").length,
+    passed: count("ok"),
+    failed: count("fail"),
+    skipped: count("skipped"),
   };
 }
 
@@ -118,14 +143,27 @@ function validateFile(
       errors: rootError(`invalid YAML: ${errorMessage(e)}`),
     };
   }
-  const model = getModel(doc);
-  const errors = schemaErrors(doc, schemas);
-  if (model === null) {
-    return { file, status: "fail", errors };
+  const check = checkSchema(doc, schemas);
+  switch (check.status) {
+    case "skipped":
+      return {
+        file,
+        status: "skipped",
+        warning: "Metabase skips this file because it has no serdes/meta",
+      };
+    case "no-model":
+      return {
+        file,
+        status: "fail",
+        errors: rootError("missing serdes/meta or model"),
+      };
+    case "checked": {
+      const { model, errors } = check;
+      return errors.length === 0
+        ? { file, model, status: "ok" }
+        : { file, model, status: "fail", errors };
+    }
   }
-  return errors.length === 0
-    ? { file, model, status: "ok" }
-    : { file, model, status: "fail", errors };
 }
 
 /** The ways `doc` fails `validate`, in Ajv's order; empty when it passes. */
@@ -142,21 +180,29 @@ function validationErrors(
 }
 
 /**
- * The ways `doc`, a parsed representation file, fails the schema of its
- * `serdes/meta` model, in Ajv's order: empty when it passes, one error at "/"
- * when it has no model or its model has no schema.
+ * How `doc`, a parsed representation file, stands as Metabase imports it, and
+ * the ways it fails the schema of its `serdes/meta` model, in Ajv's order. A
+ * model with no schema fails with one error at "/".
  */
-export function schemaErrors(
+export function checkSchema(
   doc: unknown,
   { ajv, models }: Schemas,
-): ValidationError[] {
+): SchemaCheck {
+  if (skippedByMetabase(doc)) {
+    return { status: "skipped" };
+  }
   const model = getModel(doc);
   if (model === null) {
-    return rootError("missing serdes/meta or model");
+    return { status: "no-model" };
   }
   const file = models.get(model);
   const validate = file === undefined ? undefined : ajv.getSchema(file);
-  return validate === undefined
-    ? rootError(`unknown model "${model}"`)
-    : validationErrors(validate, doc);
+  return {
+    status: "checked",
+    model,
+    errors:
+      validate === undefined
+        ? rootError(`unknown model "${model}"`)
+        : validationErrors(validate, doc),
+  };
 }

@@ -20,6 +20,7 @@ import {
   reportUntestableEngines,
 } from "./engine-checks.js";
 import {
+  type FindingSubject,
   LINT_RULE_SEVERITY,
   LINT_RULES,
   type LintEntity,
@@ -85,11 +86,11 @@ const LINTED_MODELS = new Set([
   "NativeQuerySnippet",
 ]);
 
-function entityOf(doc: Doc): LintEntity {
+function entityOf({ model, body }: FindingSubject): LintEntity {
   return {
-    model: doc.model,
-    entity_id: stringOrNull(doc.body.entity_id),
-    name: stringOrNull(doc.body.name),
+    model,
+    entity_id: stringOrNull(body.entity_id),
+    name: stringOrNull(body.name),
   };
 }
 
@@ -309,23 +310,23 @@ function byRuleThenFile(a: LintFinding, b: LintFinding): number {
   );
 }
 
-/** Reports each file that is not a YAML map, as a schema error with no model. */
+/** Reports each file `loadDocs` could not read as an entity, as a schema error with no model. */
 function reportUnreadableFiles(
   unreadable: readonly UnreadableFile[],
   report: Report,
 ): void {
   for (const { file, reason } of unreadable) {
-    const message = `the file ${reason}`;
+    report("schema", { file, model: null, body: {} }, `the file ${reason}`);
+  }
+}
+
+/** Warns on each file Metabase skips for having no `serdes/meta`. */
+function reportSkippedFiles(skipped: readonly string[], report: Report): void {
+  for (const file of skipped) {
     report(
-      "schema",
-      {
-        file,
-        model: null,
-        body: {},
-        schemaError: { path: "/", message },
-        nonStringKeys: [],
-      },
-      message,
+      "skipped-by-metabase",
+      { file, model: null, body: {} },
+      "Metabase skips this file because it has no serdes/meta",
     );
   }
 }
@@ -334,7 +335,7 @@ function reportUnreadableFiles(
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
     const { model, schemaError } = doc;
-    if (schemaError !== null && model !== null && LINTED_MODELS.has(model)) {
+    if (schemaError !== null && LINTED_MODELS.has(model)) {
       report(
         "schema",
         doc,
@@ -395,12 +396,12 @@ function transformsOf(
 
 /** A `Report` that appends each finding to `findings`. */
 function createReport(findings: LintFinding[]): Report {
-  return (rule, doc, message, related = []) =>
+  return (rule, subject, message, related = []) =>
     findings.push({
       rule,
       severity: LINT_RULE_SEVERITY[rule],
-      file: doc.file,
-      entity: entityOf(doc),
+      file: subject.file,
+      entity: entityOf(subject),
       message,
       related,
     });
@@ -469,10 +470,10 @@ export async function lint({
 }: LintOptions): Promise<LintResult> {
   const settings = readSettingsFile(folder);
   const schemas = loadSchemas();
-  const { docs, unreadable } = loadDocs(folder, schemas);
+  const { docs, skipped, unreadable } = loadDocs(folder, schemas);
   const engineOf = createEngineOf(docs, settings.engines);
   const byEntityId = indexByEntityId(docs);
-  const files = docs.length + unreadable.length;
+  const files = docs.length + skipped.length + unreadable.length;
   return withSqlParser((parser) => {
     const readSql = createSqlTableReader(parser, engineOf);
     const transforms = transformsOf(docs, byEntityId, schemas, readSql);
@@ -494,6 +495,7 @@ export async function lint({
     const report = createReport(findings);
 
     reportUnreadableFiles(unreadable, report);
+    reportSkippedFiles(skipped, report);
     reportSchemaMismatches(docs, report);
     reportDuplicateEntityIds(byEntityId, report);
 
