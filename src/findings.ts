@@ -1,46 +1,14 @@
 import type { Doc } from "./documents.js";
 
-/** Every rule, in the order the lint's output groups its findings. */
-export const LINT_RULES = [
-  "schema",
-  "duplicate-entity-id",
-  "dangling-transform-id",
-  "wrong-type-transform-id",
-  "duplicate-target",
-  "transform-cycle",
-  "transform-collection",
-  "missing-incremental-table-tag",
-  "missing-target-database",
-  "missing-target-schema",
-  "unsupported-transform-engine",
-  "missing-input",
-  "unused-input",
-  "untestable-transform",
-  "untestable-engine",
-  "duplicate-input",
-  "expectation-reads-other-table",
-  "row-columns-mismatch",
-  "duplicate-expectation-name",
-  "unknown-table",
-  "null-schema-reference",
-  "no-expectations",
-  "input-missing-read-column",
-  "upstream-column-mismatch",
-  "table-qualified-column",
-  "live-sql-input",
-  "reads-not-checked",
-] as const;
-
-export type LintRule = (typeof LINT_RULES)[number];
-
 export type LintSeverity = "error" | "warning";
 
 /**
- * The severity of each rule's findings. An error is something Metabase
- * refuses or cannot resolve. A warning is a check the lint could not decide,
- * or a tree Metabase accepts but that is likely a mistake.
+ * Every rule, in the order the lint's output groups its findings, with the
+ * severity of its findings. An error is something Metabase refuses or cannot
+ * resolve. A warning is a check the lint could not decide, or a tree Metabase
+ * accepts but that is likely a mistake.
  */
-export const LINT_RULE_SEVERITY: Readonly<Record<LintRule, LintSeverity>> = {
+export const LINT_RULE_SEVERITY = {
   schema: "error",
   "duplicate-entity-id": "error",
   "dangling-transform-id": "error",
@@ -68,7 +36,14 @@ export const LINT_RULE_SEVERITY: Readonly<Record<LintRule, LintSeverity>> = {
   "table-qualified-column": "warning",
   "live-sql-input": "warning",
   "reads-not-checked": "warning",
-};
+} as const satisfies Record<string, LintSeverity>;
+
+export type LintRule = keyof typeof LINT_RULE_SEVERITY;
+
+/** Every rule, in the order the lint's output groups its findings. */
+export const LINT_RULES = Object.keys(
+  LINT_RULE_SEVERITY,
+) as readonly LintRule[];
 
 export type LintEntity = {
   model: string | null;
