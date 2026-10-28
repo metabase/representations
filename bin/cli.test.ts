@@ -13,7 +13,7 @@ import {
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
-import { mutateExamples } from "../src/lint-mutations.js";
+import { mutateExamples } from "../src/test-support/lint-mutations.js";
 import { isRecord } from "../src/values.js";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
@@ -411,27 +411,32 @@ describe("cli", () => {
           : undefined,
       ).toMatch(/^\d+\.\d+\.\d+$/);
 
-      // The built package carries the examples, so a mutation runs from it.
+      // The test mutations and the examples they copy stay out of the package.
+      expect(
+        packedPaths.filter(
+          (path) =>
+            path.startsWith("dist/examples/") ||
+            path.includes("lint-mutations"),
+        ),
+      ).toEqual([]);
+
+      // The built package's lint runs under Node.
       const broken = mkdtempSync(join(tmpdir(), "representations-cli-dist-"));
       try {
-        const mutate = Bun.spawnSync({
+        mutateExamples("dangling-transform-id", broken);
+        const linted = Bun.spawnSync({
           cmd: [
             "node",
             "--input-type=module",
             "-e",
-            `import { mutateExamples } from "./dist/src/index.js"; mutateExamples("dangling-transform-id", ${JSON.stringify(broken)});`,
+            `import { lint } from "./dist/src/index.js"; const { findings } = await lint({ folder: ${JSON.stringify(broken)} }); console.log(JSON.stringify(findings.map((f) => f.rule)));`,
           ],
           cwd: REPO_ROOT,
         });
-        expect(mutate.stderr.toString()).toBe("");
-        const linted = Bun.spawnSync({
-          cmd: ["node", "dist/bin/cli.js", "lint", "--folder", broken],
-          cwd: REPO_ROOT,
-        });
-        expect(linted.exitCode).toBe(1);
-        expect(JSON.parse(linted.stdout.toString()).rule).toBe(
+        expect(linted.stderr.toString()).toBe("");
+        expect(JSON.parse(linted.stdout.toString())).toEqual([
           "dangling-transform-id",
-        );
+        ]);
       } finally {
         rmSync(broken, { recursive: true, force: true });
       }

@@ -23,7 +23,7 @@ import { MissingDefaultSchemasError } from "./default-schemas.js";
 import type { LintFinding } from "./findings.js";
 import { LINT_RULE_SEVERITY, LINT_RULES } from "./index.js";
 import { lint, transformReads } from "./lint.js";
-import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
+import { MUTATIONS, mutateExamples } from "./test-support/lint-mutations.js";
 import * as schemas from "./schemas.js";
 import { CONFIG_FILE, LintSetupError } from "./settings.js";
 import { loadSqlParser } from "./sql-parser.js";

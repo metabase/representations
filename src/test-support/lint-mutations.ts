@@ -2,10 +2,10 @@ import { cpSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import yaml from "js-yaml";
 import { dirname, join, resolve } from "path";
 
-import type { LintRule } from "./findings.js";
-import { CONFIG_FILE } from "./settings.js";
+import type { LintRule } from "../findings.js";
+import { CONFIG_FILE } from "../settings.js";
 
-const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
+const EXAMPLES = resolve(import.meta.dirname, "..", "..", "examples", "v1");
 
 const PRODUCT_REVENUE_REPORT = "collections/transforms/native_transform.yaml";
 const TOP_CATEGORIES = "collections/transforms/top_categories.yaml";
@@ -541,7 +541,9 @@ export function mutateExamples(name: string, folder: string): Mutation {
 if (import.meta.main) {
   const [name, folder] = process.argv.slice(2);
   if (name === undefined || folder === undefined) {
-    console.log("Usage: bun run src/lint-mutations.ts <mutation> <folder>\n");
+    console.log(
+      "Usage: bun run src/test-support/lint-mutations.ts <mutation> <folder>\n",
+    );
     for (const mutation of MUTATIONS) {
       console.log(`  ${mutation.name.padEnd(24)} ${mutation.description}`);
     }

@@ -25,7 +25,6 @@ export {
 } from "./findings.js";
 export { lint, type LintOptions, type LintResult } from "./lint.js";
 export { CONFIG_FILE, LintSetupError, type LintSettings } from "./settings.js";
-export { type Mutation, MUTATIONS, mutateExamples } from "./lint-mutations.js";
 export {
   validateSchema,
   type ValidateSchemaOptions,

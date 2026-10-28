@@ -12,7 +12,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 
 import { lint } from "./lint.js";
-import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
+import { MUTATIONS, mutateExamples } from "./test-support/lint-mutations.js";
 import { loadSqlParser } from "./sql-parser.js";
 
 function writeOrdersTable(folder: string): void {
