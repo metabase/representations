@@ -70,7 +70,7 @@ const BYTE_ORDER_MARK = "\uFEFF";
  */
 const REFUSED_WARNINGS = new Set(["TAG_RESOLVE_FAILED", "BAD_COLLECTION_TYPE"]);
 
-/** The reason for an error, in js-yaml's words where the lint reported those before. */
+/** The reason for an error; a duplicate key keeps js-yaml's wording for `validate-schema` users. */
 function reasonOf(error: YAMLError): string {
   return error.code === "DUPLICATE_KEY"
     ? "duplicated mapping key"

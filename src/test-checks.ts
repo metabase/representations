@@ -99,9 +99,11 @@ function testedTransform(
 }
 
 /**
- * For each valid transform test: an error when its transform_id names nothing
- * or names no Transform; otherwise, when its transform's sources were read,
- * the mismatches between those sources and the test's inputs.
+ * For each valid test of a query transform: its duplicate inputs, the tables
+ * its expectations read, and, when the transform's sources were read, the
+ * inputs that match no read and the reads with no input. A test whose
+ * transform_id names nothing, no Transform, or no query transform gets the
+ * matching error instead.
  */
 export function reportTestFindings(
   docs: readonly Doc[],

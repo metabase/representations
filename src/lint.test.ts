@@ -967,7 +967,7 @@ describe("lint", () => {
       rmSync(join(workdir, CONFIG_FILE));
       writeDatabase("sqlite");
       expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
-      // SQLGlot has no MongoDB dialect, so the native transforms are unread
+      // MongoDB's native queries are not SQL, so the native transforms are unread
       // and give no input finding. The tests' unqualified inputs still need
       // the default schema, which the engine gives.
       writeDatabase("mongo");

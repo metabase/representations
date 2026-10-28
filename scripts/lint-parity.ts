@@ -288,8 +288,10 @@ for (const [entityId, file] of testFiles) {
     continue;
   }
   testsCompared++;
-  // Guard B refuses the transform's own SQL as well as an expectation's; the
-  // lint checks only expectations.
+  // Metabase's unremapped-reference refusal covers the transform's SQL as well
+  // as an expectation's. The error rule that predicts it,
+  // expectation-reads-other-table, checks expectations only, and
+  // table-qualified-column is a warning, which the comparison ignores.
   const refusal =
     answer.kind === "accepted"
       ? null

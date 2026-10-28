@@ -91,10 +91,7 @@ function addSqlInput(
   });
 }
 
-/**
- * Known-broken edits to the `examples/v1` tree. Each one breaks the
- * references between transforms, tables and transform tests in one way.
- */
+/** Known-broken edits to the `examples/v1` tree, each named for what it breaks. */
 export const MUTATIONS: Mutation[] = [
   {
     name: "implicit-join",
