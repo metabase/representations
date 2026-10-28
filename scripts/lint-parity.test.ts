@@ -26,6 +26,10 @@ const TESTS = validDocsOf(loadDocs(EXAMPLES, loadSchemas()).docs, "TransformTest
   }),
 );
 
+// Each parity run lints the examples in a new process, which loads the SQL
+// parser and takes seconds.
+const PARITY_PROCESS_TIMEOUT_MS = 30_000;
+
 type Transform = (typeof TRANSFORMS)[number];
 type Reply = { status: number; body: unknown };
 
@@ -123,91 +127,120 @@ async function runParity({
 }
 
 describe("lint-parity", () => {
-  it("passes when Metabase reads what the lint reads and accepts every test", async () => {
-    const { exitCode, output } = await runParity({});
-    expect(output).not.toContain("FAIL");
-    expect(exitCode).toBe(0);
-  });
+  it(
+    "passes when Metabase reads what the lint reads and accepts every test",
+    async () => {
+      const { exitCode, output } = await runParity({});
+      expect(output).not.toContain("FAIL");
+      expect(exitCode).toBe(0);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
 
-  it("fails when it compared nothing, every probe refused for the database", async () => {
-    const unsupported = () => refusal(422, "transform-test.unsupported-driver");
-    const { exitCode, output } = await runParity({
-      readsProbe: (t) =>
-        t.queryTransform
-          ? unsupported()
-          : refusal(422, "transform-test.unsupported-transform"),
-      testProbe: unsupported,
-    });
-    expect(output).toContain("FAIL  compared no transform with Metabase");
-    expect(output).toContain("FAIL  compared no transform test with Metabase");
-    expect(exitCode).toBe(1);
-  });
-
-  it("prints Metabase's message with each refusal it skips", async () => {
-    const unsupported = () =>
-      refusal(422, "transform-test.unsupported-driver", {
-        message:
-          "The sqlite database of this transform does not support transform testing.",
+  it(
+    "fails when it compared nothing, every probe refused for the database",
+    async () => {
+      const unsupported = () =>
+        refusal(422, "transform-test.unsupported-driver");
+      const { exitCode, output } = await runParity({
+        readsProbe: (t) =>
+          t.queryTransform
+            ? unsupported()
+            : refusal(422, "transform-test.unsupported-transform"),
+        testProbe: unsupported,
       });
-    const { output } = await runParity({
-      readsProbe: (t) =>
-        t.name === "Top Categories" ? unsupported() : missingInputs(t),
-      testProbe: (t) =>
-        t.name === "Top Categories"
-          ? refusal(422, "transform-test.unsupported-driver", {
-              message: undefined,
-            })
-          : { status: 200, body: { id: 999 } },
-    });
-    expect(output).toContain(
-      'SKIP  transform Top Categories (collections/transforms/top_categories.yaml): Metabase refused the probe with transform-test.unsupported-driver ("The sqlite database of this transform does not support transform testing.")\n',
-    );
-    // A refusal with no message names the code alone.
-    expect(output).toContain(
-      "SKIP  test collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refused the probe with transform-test.unsupported-driver\n",
-    );
-  });
+      expect(output).toContain("FAIL  compared no transform with Metabase");
+      expect(output).toContain(
+        "FAIL  compared no transform test with Metabase",
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
 
-  it("fails on a refusal the lint does not explain", async () => {
-    const { exitCode, output } = await runParity({
-      readsProbe: (t) =>
-        t.name === "Product Revenue Report"
-          ? refusal(400, "transform-test.unparseable-source", {
-              message: "Could not parse the SQL.",
-            })
-          : missingInputs(t),
-    });
-    expect(output).toContain(
-      'Product Revenue Report (collections/transforms/native_transform.yaml): Metabase refused the probe with transform-test.unparseable-source ("Could not parse the SQL."), which the lint does not explain',
-    );
-    expect(exitCode).toBe(1);
-  });
+  it(
+    "prints Metabase's message with each refusal it skips",
+    async () => {
+      const unsupported = () =>
+        refusal(422, "transform-test.unsupported-driver", {
+          message:
+            "The sqlite database of this transform does not support transform testing.",
+        });
+      const { output } = await runParity({
+        readsProbe: (t) =>
+          t.name === "Top Categories" ? unsupported() : missingInputs(t),
+        testProbe: (t) =>
+          t.name === "Top Categories"
+            ? refusal(422, "transform-test.unsupported-driver", {
+                message: undefined,
+              })
+            : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        'SKIP  transform Top Categories (collections/transforms/top_categories.yaml): Metabase refused the probe with transform-test.unsupported-driver ("The sqlite database of this transform does not support transform testing.")\n',
+      );
+      // A refusal with no message names the code alone.
+      expect(output).toContain(
+        "SKIP  test collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refused the probe with transform-test.unsupported-driver\n",
+      );
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
 
-  it("compares schemas where both sides name one", async () => {
-    const { exitCode, output } = await runParity({
-      readsProbe: (t) =>
-        t.name === "Top Categories"
-          ? refusal(400, "transform-test.missing-inputs", {
-              tables: ["OTHER.product_revenue_report"],
-            })
-          : missingInputs(t),
-    });
-    expect(output).toContain(
-      "only the lint reads TRANSFORMS.product_revenue_report; only Metabase reads OTHER.product_revenue_report",
-    );
-    expect(exitCode).toBe(1);
-  });
+  it(
+    "fails on a refusal the lint does not explain",
+    async () => {
+      const { exitCode, output } = await runParity({
+        readsProbe: (t) =>
+          t.name === "Product Revenue Report"
+            ? refusal(400, "transform-test.unparseable-source", {
+                message: "Could not parse the SQL.",
+              })
+            : missingInputs(t),
+      });
+      expect(output).toContain(
+        'Product Revenue Report (collections/transforms/native_transform.yaml): Metabase refused the probe with transform-test.unparseable-source ("Could not parse the SQL."), which the lint does not explain',
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
 
-  it("fails when Metabase refuses a test the lint finds nothing wrong with", async () => {
-    const { exitCode, output } = await runParity({
-      testProbe: (t) =>
-        t.name === "Daily Order Summary"
-          ? refusal(400, "transform-test.unused-inputs", { tables: ["ORDERS"] })
-          : { status: 200, body: { id: 999 } },
-    });
-    expect(output).toContain(
-      "Metabase refuses it with transform-test.unused-inputs; the lint reports no unused-input",
-    );
-    expect(exitCode).toBe(1);
-  });
+  it(
+    "compares schemas where both sides name one",
+    async () => {
+      const { exitCode, output } = await runParity({
+        readsProbe: (t) =>
+          t.name === "Top Categories"
+            ? refusal(400, "transform-test.missing-inputs", {
+                tables: ["OTHER.product_revenue_report"],
+              })
+            : missingInputs(t),
+      });
+      expect(output).toContain(
+        "only the lint reads TRANSFORMS.product_revenue_report; only Metabase reads OTHER.product_revenue_report",
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails when Metabase refuses a test the lint finds nothing wrong with",
+    async () => {
+      const { exitCode, output } = await runParity({
+        testProbe: (t) =>
+          t.name === "Daily Order Summary"
+            ? refusal(400, "transform-test.unused-inputs", {
+                tables: ["ORDERS"],
+              })
+            : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        "Metabase refuses it with transform-test.unused-inputs; the lint reports no unused-input",
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
 });

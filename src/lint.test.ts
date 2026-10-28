@@ -1,4 +1,12 @@
-import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  spyOn,
+} from "bun:test";
 import {
   cpSync,
   mkdirSync,
@@ -18,6 +26,7 @@ import { lint, transformReads } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
 import * as schemas from "./schemas.js";
 import { CONFIG_FILE, LintSetupError } from "./settings.js";
+import { loadSqlParser } from "./sql-parser.js";
 import { isRecord } from "./values.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
@@ -25,6 +34,12 @@ const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 function rules(findings: LintFinding[]): string[] {
   return [...new Set(findings.map((f) => f.rule))].sort();
 }
+
+// Loads the SQL parser under a hook's timeout, so that no test's own timeout
+// bears the load.
+beforeAll(async () => {
+  await loadSqlParser();
+}, 60_000);
 
 describe("lint", () => {
   it("finds nothing in the bundled examples", async () => {
@@ -121,26 +136,18 @@ describe("lint", () => {
       (await lint({ folder })).findings;
 
     it.each(MUTATIONS.map((m) => [m.name, m.rules]))(
-      "reports %s as %p",
+      "reports %s as %p, each at the severity LINT_RULE_SEVERITY gives it",
       async (name, expected) => {
         mutateExamples(name, workdir);
-        expect(rules(await findings(workdir))).toEqual([...expected].sort());
-      },
-    );
-
-    it("reports each rule at the severity LINT_RULE_SEVERITY gives it", async () => {
-      const mismatched: string[] = [];
-      for (const m of MUTATIONS) {
-        const folder = join(workdir, m.name);
-        mutateExamples(m.name, folder);
-        mismatched.push(
-          ...(await findings(folder))
+        const found = await findings(workdir);
+        expect(rules(found)).toEqual([...expected].sort());
+        expect(
+          found
             .filter((f) => f.severity !== LINT_RULE_SEVERITY[f.rule])
             .map((f) => `${f.rule} as ${f.severity}`),
-        );
-      }
-      expect(mismatched).toEqual([]);
-    });
+        ).toEqual([]);
+      },
+    );
 
     it("names the test and the missing transform for a dangling transform_id", async () => {
       mutateExamples("dangling-transform-id", workdir);

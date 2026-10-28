@@ -37,6 +37,10 @@ function runCli(args: string[]): RunResult {
   };
 }
 
+// A lint of a folder with SQL loads the SQL parser in the new process, which
+// takes seconds; a test that runs one or two such lints gets this timeout.
+const LINT_PROCESS_TIMEOUT_MS = 30_000;
+
 const UUID_REGEX = /^[0-9a-f-]{36}$/i;
 const NANOID_REGEX = /^[\w-]{21}$/;
 
@@ -210,83 +214,101 @@ describe("cli", () => {
       rmSync(workdir, { recursive: true, force: true });
     });
 
-    it("exits 0 on the bundled examples, printing no finding", () => {
-      const { stdout, stderr, exitCode } = runCli([
-        "lint",
-        "--folder",
-        "examples/v1",
-      ]);
-      expect(exitCode).toBe(0);
-      expect(stdout).toBe("");
-      expect(stderr).toMatch(/\d+ files, 0 errors, 0 warnings/);
-    });
+    it(
+      "exits 0 on the bundled examples, printing no finding",
+      () => {
+        const { stdout, stderr, exitCode } = runCli([
+          "lint",
+          "--folder",
+          "examples/v1",
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stdout).toBe("");
+        expect(stderr).toMatch(/\d+ files, 0 errors, 0 warnings/);
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
 
-    it("exits 1 with one JSON line per finding on a broken tree", () => {
-      mutateExamples("missing-input", workdir);
-      const { stdout, exitCode } = runCli(["lint", "--folder", workdir]);
-      const errors = stdout
-        .trim()
-        .split("\n")
-        .map((line) => JSON.parse(line))
-        .filter((finding) => finding.severity === "error");
-      expect(exitCode).toBe(1);
-      expect(errors.map((finding) => finding.rule)).toEqual(["missing-input"]);
-    });
+    it(
+      "exits 1 with one JSON line per finding on a broken tree",
+      () => {
+        mutateExamples("missing-input", workdir);
+        const { stdout, exitCode } = runCli(["lint", "--folder", workdir]);
+        const errors = stdout
+          .trim()
+          .split("\n")
+          .map((line) => JSON.parse(line))
+          .filter((finding) => finding.severity === "error");
+        expect(exitCode).toBe(1);
+        expect(errors.map((finding) => finding.rule)).toEqual([
+          "missing-input",
+        ]);
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
 
-    it("exits 0 when two transforms write one table, and reports it as a warning", () => {
-      cpSync(EXAMPLES, workdir, { recursive: true });
-      const text = readFileSync(join(workdir, TOP_CATEGORIES), "utf8");
-      expect(text).toContain("entity_id: jf55MTi7z8cWQjPG2PEgz");
-      writeFileSync(
-        join(workdir, "collections/transforms/top_categories_copy.yaml"),
-        text.replace(
-          "entity_id: jf55MTi7z8cWQjPG2PEgz",
-          "entity_id: TopCategoriesCopy000a",
-        ),
-      );
-      const { stdout, stderr, exitCode } = runCli([
-        "lint",
-        "--folder",
-        workdir,
-      ]);
-      const findings = stdout
-        .trim()
-        .split("\n")
-        .map((line): unknown => JSON.parse(line));
-      expect(findings).toEqual([
-        expect.objectContaining({
-          rule: "duplicate-target",
-          severity: "warning",
-        }),
-        expect.objectContaining({
-          rule: "duplicate-target",
-          severity: "warning",
-        }),
-      ]);
-      expect(stderr).toMatch(/ 0 errors, 2 warnings/);
-      expect(exitCode).toBe(0);
-    });
+    it(
+      "exits 0 when two transforms write one table, and reports it as a warning",
+      () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const text = readFileSync(join(workdir, TOP_CATEGORIES), "utf8");
+        expect(text).toContain("entity_id: jf55MTi7z8cWQjPG2PEgz");
+        writeFileSync(
+          join(workdir, "collections/transforms/top_categories_copy.yaml"),
+          text.replace(
+            "entity_id: jf55MTi7z8cWQjPG2PEgz",
+            "entity_id: TopCategoriesCopy000a",
+          ),
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "lint",
+          "--folder",
+          workdir,
+        ]);
+        const findings = stdout
+          .trim()
+          .split("\n")
+          .map((line): unknown => JSON.parse(line));
+        expect(findings).toEqual([
+          expect.objectContaining({
+            rule: "duplicate-target",
+            severity: "warning",
+          }),
+          expect.objectContaining({
+            rule: "duplicate-target",
+            severity: "warning",
+          }),
+        ]);
+        expect(stderr).toMatch(/ 0 errors, 2 warnings/);
+        expect(exitCode).toBe(0);
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
 
-    it("exits 2, printing no finding, when a database's default schema is unknown", () => {
-      mutateExamples("missing-input", workdir);
-      rmSync(join(workdir, ".metabase-lint.json"));
-      const refused = runCli(["lint", "--folder", workdir]);
-      expect(refused.stdout).toBe("");
-      expect(refused.stderr).toContain(
-        "Sample Database: names ORDERS without a schema",
-      );
-      expect(refused.exitCode).toBe(2);
+    it(
+      "exits 2, printing no finding, when a database's default schema is unknown",
+      () => {
+        mutateExamples("missing-input", workdir);
+        rmSync(join(workdir, ".metabase-lint.json"));
+        const refused = runCli(["lint", "--folder", workdir]);
+        expect(refused.stdout).toBe("");
+        expect(refused.stderr).toContain(
+          "Sample Database: names ORDERS without a schema",
+        );
+        expect(refused.exitCode).toBe(2);
 
-      const given = runCli([
-        "lint",
-        "--folder",
-        workdir,
-        "--default-schema",
-        "Sample Database=PUBLIC",
-      ]);
-      expect(given.exitCode).toBe(1);
-      expect(JSON.parse(given.stdout).rule).toBe("missing-input");
-    });
+        const given = runCli([
+          "lint",
+          "--folder",
+          workdir,
+          "--default-schema",
+          "Sample Database=PUBLIC",
+        ]);
+        expect(given.exitCode).toBe(1);
+        expect(JSON.parse(given.stdout).rule).toBe("missing-input");
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
 
     it("errors when the folder has no YAML files", () => {
       const { stderr, exitCode } = runCli(["lint", "--folder", workdir]);

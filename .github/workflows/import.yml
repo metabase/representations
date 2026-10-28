@@ -69,10 +69,11 @@ jobs:
           echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
           # A new instance seeds the Sample Database's tables and fields from a
-          # snapshot and leaves fingerprinting to the hourly "Sync and Analyze" job.
-          # Run that sync now, and wait until every field has a fingerprint, so
-          # nothing checks a half-analyzed database. Primary keys are never
-          # fingerprinted.
+          # snapshot. The H2 snapshot carries fingerprints, so the wait below
+          # ends at once; on SQLite, fingerprinting waits for the hourly "Sync
+          # and Analyze" job. Run that sync now, and wait until every field has
+          # a fingerprint, so nothing checks a half-analyzed database. Primary
+          # keys are never fingerprinted.
           SAMPLE_DB_ID=$(curl -sf http://localhost:3000/api/database -H "X-API-Key: $API_KEY" \
             | jq -er '.data[] | select(.is_sample == true) | .id')
           curl -sf -X POST "http://localhost:3000/api/database/$SAMPLE_DB_ID/sync_schema" \

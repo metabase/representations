@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import yaml from "js-yaml";
 import { tmpdir } from "os";
@@ -6,6 +13,7 @@ import { join, resolve } from "path";
 
 import { lint } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
+import { loadSqlParser } from "./sql-parser.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
@@ -102,6 +110,12 @@ const TREES: [string, (folder: string) => void][] = [
     },
   ],
 ];
+
+// Loads the SQL parser under a hook's timeout, so that no test's own timeout
+// bears the load.
+beforeAll(async () => {
+  await loadSqlParser();
+}, 60_000);
 
 describe("lint output", () => {
   it("is empty for the bundled examples", async () => {
