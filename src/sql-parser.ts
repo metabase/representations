@@ -54,8 +54,7 @@ export type ReplacedTableKey = { schema?: string; table: string };
 
 /**
  * Metabase's SQL parser: SQLGlot, and Metabase's `sql_tools.py`, under
- * Pyodide. Each function is also unread when Pyodide garbles the answer, as
- * it can once the parser holds more than 2 GiB.
+ * Pyodide.
  */
 export type SqlParser = {
   /**
@@ -113,14 +112,24 @@ export function dialectOf(engine: string | null): string | null {
   return Object.hasOwn(DIALECTS, engine) ? DIALECTS[engine] : engine;
 }
 
-// Calls one of Metabase's functions and answers in JSON, so that no Python
-// object crosses into JavaScript. An error keeps its first line: SQLGlot's
-// next lines quote the SQL, with terminal escapes underlining where it
-// stopped.
+// Pyodide 314.0.7 garbles an ASCII-only string of 64 or more characters held
+// above 2 GiB of its memory on its way to JavaScript; a string with a
+// non-ASCII character takes a conversion that does not. json.dumps escapes
+// every non-ASCII character, so the mark occurs only where the wrapper puts
+// it. A character below U+0100 keeps Python's string at one byte per
+// character.
+const ANSWER_MARK = "\u00b6";
+
+// Calls one of Metabase's functions and answers in JSON after ANSWER_MARK, so
+// that no Python object crosses into JavaScript. An error keeps its first
+// line: SQLGlot's next lines quote the SQL, with terminal escapes underlining
+// where it stopped.
 const CALL_SQL_TOOLS_PY = `
 import json
 
 import sql_tools
+
+ANSWER_MARK = ${JSON.stringify(ANSWER_MARK)}
 
 
 def lint_call_sql_tools(function, *args):
@@ -128,21 +137,27 @@ def lint_call_sql_tools(function, *args):
         answer = getattr(sql_tools, function)(*args)
     except Exception as e:
         lines = str(e).splitlines()
-        return json.dumps({"error": type(e).__name__, "message": lines[0] if lines else ""})
-    return json.dumps({"answer": answer})
+        return ANSWER_MARK + json.dumps({"error": type(e).__name__, "message": lines[0] if lines else ""})
+    return ANSWER_MARK + json.dumps({"answer": answer})
 `;
 
 /**
  * The answer of `lint_call_sql_tools`: the function's own answer, or why it
- * raised. Unread when the text is not JSON, or not an answer: Pyodide
- * returns a string held above 2 GiB of its memory as other bytes.
+ * raised. Unread when the text does not start with `ANSWER_MARK`, or the rest
+ * is not JSON, or not an answer.
  */
 export function answerOf(
-  json: string,
+  text: string,
 ): { status: "read"; answer: unknown } | Unread {
+  if (!text.startsWith(ANSWER_MARK)) {
+    return {
+      status: "unread",
+      reason: "the SQL parser answered without its mark",
+    };
+  }
   let parsed: unknown;
   try {
-    parsed = JSON.parse(json);
+    parsed = JSON.parse(text.slice(ANSWER_MARK.length));
   } catch (e) {
     return {
       status: "unread",

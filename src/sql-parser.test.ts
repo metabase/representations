@@ -8,6 +8,7 @@ import {
   dialectOf,
   loadSqlParser,
   type SqlParser,
+  type Unread,
 } from "./sql-parser.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
@@ -30,26 +31,45 @@ describe("dialectOf", () => {
 });
 
 describe("answerOf", () => {
-  it("gives the answer, or the error sql_tools raised", () => {
-    expect(answerOf('{"answer": [1]}')).toEqual({
+  it("strips the mark, then gives the answer or the error sql_tools raised", () => {
+    expect(answerOf('\u00b6{"answer": [1]}')).toEqual({
       status: "read",
       answer: [1],
     });
     expect(
-      answerOf('{"error": "ParseError", "message": "Invalid expression"}'),
+      answerOf(
+        '\u00b6{"error": "ParseError", "message": "Invalid expression"}',
+      ),
     ).toEqual({ status: "unread", reason: "ParseError: Invalid expression" });
   });
 
-  // Pyodide 314.0.7 returns a string held above 2 GiB of its memory as the
-  // bytes at another address.
-  it("is unread when the answer is not JSON, or not an answer", () => {
-    expect(answerOf("\u0000\u0000@t\u001eB")).toEqual({
+  // Pyodide 314.0.7 returns an ASCII-only string held above 2 GiB of its
+  // memory as the bytes at another address, and these can be valid JSON.
+  it("is unread when the mark is missing or not first", () => {
+    const unmarked: Unread = {
+      status: "unread",
+      reason: "the SQL parser answered without its mark",
+    };
+    expect(answerOf('{"answer": [1]}')).toEqual(unmarked);
+    expect(answerOf('{"answer": [1]}\u00b6')).toEqual(unmarked);
+    expect(answerOf(' \u00b6{"answer": [1]}')).toEqual(unmarked);
+    expect(answerOf("")).toEqual(unmarked);
+  });
+
+  it("is unread when the marked answer is not JSON, or not an answer", () => {
+    expect(answerOf("\u00b6\u0000\u0000@t\u001eB")).toEqual({
       status: "unread",
       reason: expect.stringMatching(
         /^the SQL parser answered with text that is not JSON: /,
       ),
     });
-    expect(answerOf('{"other": 1}')).toEqual({
+    expect(answerOf('\u00b6\u00b6{"answer": [1]}')).toEqual({
+      status: "unread",
+      reason: expect.stringMatching(
+        /^the SQL parser answered with text that is not JSON: /,
+      ),
+    });
+    expect(answerOf('\u00b6{"other": 1}')).toEqual({
       status: "unread",
       reason: "the SQL parser answered with JSON that is not an answer",
     });
@@ -95,6 +115,21 @@ describe("loadSqlParser", () => {
     expect(
       parser.referencedTables("SELECT * FROM `proj.ds.orders`", "bigquery"),
     ).toEqual({ status: "read", tables: [{ schema: "ds", name: "orders" }] });
+  });
+
+  it("reads a table whose name holds the mark or other non-ASCII characters", () => {
+    expect(
+      parser.referencedTables(
+        'SELECT * FROM "\u00b6orders" JOIN "caf\u00e9" ON 1 = 1',
+        "postgres",
+      ),
+    ).toEqual({
+      status: "read",
+      tables: [
+        { schema: null, name: "caf\u00e9" },
+        { schema: null, name: "\u00b6orders" },
+      ],
+    });
   });
 
   it("parses in SQLGlot's default dialect when given none", () => {

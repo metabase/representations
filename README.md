@@ -194,13 +194,14 @@ Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the
 
 When neither a Database file nor the settings file gives a database's engine, the lint parses its SQL in SQLGlot's default dialect, where Metabase uses the engine's. Engine-specific syntax then fails to parse, for example backticked names in MySQL and BigQuery or bracketed names in SQL Server, and the query is reported as `reads-not-checked`.
 
+A query near Metabase's limit of 10,000,000 characters takes the parser about 80 seconds and 3.5 GB of memory to read. The parser's memory never shrinks, so the rest of the run keeps that memory.
+
 Reported as `reads-not-checked`:
 
 - SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
 - An expression nested deeper than Python's recursion limit: about 46 levels of parentheses.
 - A snippet left in the query after pasting, such as one whose file is not in the folder.
 - Snippets Metabase refuses to paste: a snippet that uses itself through any chain of snippets, more than 10,000 pastes in one query, or SQL longer than 10,000,000 characters after pasting.
-- A query whose parse takes the parser past 2 GiB of memory, about 10,000,000 characters of SQL. Pyodide then garbles the parser's answers, so the queries read after it in the same run can be reported too.
 - A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
 
 Read differently from what the database runs, with no warning:
