@@ -109,7 +109,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `upstream-column-mismatch` | warning | A test input for another transform's target, with a column that transform does not return. |
 | `table-qualified-column` | warning | A SQL column qualifier that names no table or alias once a transform test replaces the tables. |
 | `live-sql-input` | warning | A test's SQL input that reads a real table, so the test depends on live data. |
-| `reads-not-checked` | warning | A transform, input or expectation whose tables the lint could not find, such as SQL the parser cannot read. |
+| `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
 ## Other commands
 

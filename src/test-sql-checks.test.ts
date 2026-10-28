@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import type { EngineOf } from "./databases.js";
 import { type Doc, indexByEntityId, validDocsOf } from "./documents.js";
 import type { LintRule } from "./findings.js";
-import { type Transform, transformOf } from "./reads.js";
+import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas } from "./schemas.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { loadSqlParser } from "./sql-parser.js";
@@ -13,6 +13,7 @@ import {
   reportLiveSqlInputs,
   reportMissingReadColumns,
   reportQualifiedColumns,
+  reportTestSql,
   reportUpstreamColumns,
   type TestSqlChecks,
 } from "./test-sql-checks.js";
@@ -36,9 +37,9 @@ beforeAll(async () => {
   const columns = createSqlColumnReader(parser, engineOf);
   checksOf = (docs) => {
     const byEntityId = indexByEntityId(docs);
-    // The checks never read a transform's tables.
+    const readsOf = createReader(docs, byEntityId, schemas, readSql);
     const transforms = validDocsOf(docs, "Transform").map((doc) =>
-      transformOf(doc, () => ({ status: "read", tables: [] })),
+      transformOf(doc, readsOf),
     );
     const transformOfDoc = new Map<Doc, Transform>(
       transforms.map((t) => [t.doc, t]),
@@ -125,6 +126,18 @@ function testDoc(
     },
   };
 }
+
+/** SQL whose tables SQLGlot reads, but whose columns `field_references` cannot. */
+const TWO_STATEMENTS =
+  "SELECT o.id FROM public.orders o; SELECT o.total FROM public.orders o";
+
+/** The warning for a query whose columns could not be read. */
+const unreadColumns = (file: string, query: string): Recorded => ({
+  rule: "reads-not-checked",
+  file,
+  message: `could not find the columns ${query}: field_references could not parse it`,
+  related: [],
+});
 
 const table = (schema: string | null, name: string) =>
   schema === null ? { name } : { schema, name };
@@ -260,6 +273,26 @@ describe("reportMissingReadColumns", () => {
     ]);
     expect(run(reportMissingReadColumns, [transform, test])).toEqual([]);
   });
+
+  it("warns once on a transform whose tables it reads but whose columns it cannot, however many tests it has", () => {
+    const transform = transformDoc("orders_ids", [nativeStage(TWO_STATEMENTS)]);
+    const first = testDoc(transform, [rowsInput("public", "orders", ["id"])]);
+    const second = {
+      ...testDoc(transform, [rowsInput("public", "orders", ["total"])]),
+      file: "collections/transforms/orders_ids/second_test.yaml",
+    };
+    expect(run(reportMissingReadColumns, [transform, first, second])).toEqual([
+      unreadColumns(transform.file, "this transform reads or returns"),
+    ]);
+  });
+
+  it("gives no column warning for a transform whose tables it cannot read", () => {
+    const transform = transformDoc("orders_ids", [
+      nativeStage("SELECT o.id FROM public.orders o WHERE"),
+    ]);
+    const test = testDoc(transform, [rowsInput("public", "orders", ["id"])]);
+    expect(run(reportMissingReadColumns, [transform, test])).toEqual([]);
+  });
 });
 
 describe("reportUpstreamColumns", () => {
@@ -304,6 +337,16 @@ describe("reportUpstreamColumns", () => {
     ["SELECT id FROM raw.orders WHERE", "is SQL the parser cannot read"],
   ])("finds nothing when the other transform's SQL %s", (sql) => {
     expect(findings(sql, ["id", "amount"])).toEqual([]);
+  });
+
+  it("warns on the other transform when it reads its tables but not its columns", () => {
+    const source = upstream(TWO_STATEMENTS);
+    const test = testDoc(downstream, [
+      rowsInput("analytics", "orders_clean", ["id"]),
+    ]);
+    expect(run(reportUpstreamColumns, [source, downstream, test])).toEqual([
+      unreadColumns(source.file, "this transform reads or returns"),
+    ]);
   });
 
   it("finds nothing for an input that stands in for no other transform's output", () => {
@@ -429,5 +472,50 @@ describe("reportQualifiedColumns", () => {
       rowsInput("public", "orders", ["id"]),
     ]);
     expect(run(reportQualifiedColumns, [transform, test])).toEqual([]);
+  });
+
+  it("warns once on each query whose tables it reads but whose columns it cannot", () => {
+    const transform = transformDoc("orders_ids", [nativeStage(TWO_STATEMENTS)]);
+    const test = testDoc(
+      transform,
+      [rowsInput("public", "orders", ["id", "total"])],
+      [
+        {
+          type: "empty",
+          name: "no ids",
+          sql: "SELECT id FROM analytics.orders_ids; SELECT 1",
+        },
+        {
+          type: "empty",
+          name: "unparsed",
+          sql: "SELECT * FROM a b c",
+        },
+      ],
+    );
+    expect(run(reportQualifiedColumns, [transform, test])).toEqual([
+      unreadColumns(transform.file, "this transform reads or returns"),
+      unreadColumns(test.file, "expectation no ids reads"),
+    ]);
+  });
+});
+
+describe("reportTestSql", () => {
+  it("warns once on a transform whose columns every column rule fails to read", () => {
+    const source = transformDoc("orders_clean", [nativeStage(TWO_STATEMENTS)]);
+    const sourceTest = testDoc(source, [
+      rowsInput("public", "orders", ["id", "total"]),
+    ]);
+    const downstream = transformDoc("order_totals", [
+      nativeStage("SELECT sum(c.total) AS total FROM analytics.orders_clean c"),
+    ]);
+    const downstreamTest = {
+      ...testDoc(downstream, [
+        rowsInput("analytics", "orders_clean", ["total"]),
+      ]),
+      file: "collections/transforms/order_totals/test.yaml",
+    };
+    expect(
+      run(reportTestSql, [source, sourceTest, downstream, downstreamTest]),
+    ).toEqual([unreadColumns(source.file, "this transform reads or returns")]);
   });
 });

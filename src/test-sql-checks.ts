@@ -10,7 +10,11 @@ import { createSourceFinder } from "./query-sources.js";
 import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
 import type { Schemas } from "./schemas.js";
 import type { SqlColumnReader } from "./sql-columns.js";
-import type { ReplacedTableKey, TableReplacement } from "./sql-parser.js";
+import type {
+  ReplacedTableKey,
+  TableReplacement,
+  Unread,
+} from "./sql-parser.js";
 import type { SqlTableReader } from "./sql-tables.js";
 import {
   type ColumnKey,
@@ -82,6 +86,40 @@ function createQueryReader(
   };
 }
 
+/**
+ * Warns that the column rules could not read the columns of a query in
+ * `doc`. `query` names the query and what its columns do, as "this
+ * transform reads or returns".
+ */
+export type ReportUnreadColumns = (
+  doc: Doc,
+  query: string,
+  unread: Unread,
+) => void;
+
+/** The subject of a transform's query in a `ReportUnreadColumns` warning. */
+const TRANSFORM_COLUMNS = "this transform reads or returns";
+
+/**
+ * Returns a `ReportUnreadColumns` that reports each query once, as a
+ * reads-not-checked warning, however many rules and tests read it.
+ */
+function createUnreadColumnsReport(report: Report): ReportUnreadColumns {
+  const reported = new Map<Doc, Set<string>>();
+  return (doc, query, { reason }) => {
+    const queries = reported.get(doc) ?? new Set<string>();
+    if (queries.has(query)) {
+      return;
+    }
+    reported.set(doc, queries.add(query));
+    report(
+      "reads-not-checked",
+      doc,
+      `could not find the columns ${query}: ${reason}`,
+    );
+  };
+}
+
 /** The table a test input stands in for. */
 const inputTableOf = (table: {
   schema?: string | null;
@@ -128,19 +166,40 @@ export function reportLiveSqlInputs(
 }
 
 /**
+ * Passes `unread` to `reportUnread` for `transform`'s query when the
+ * transform's tables were read: otherwise its tables are already reported
+ * as unread.
+ */
+function reportUnreadTransformColumns(
+  transform: Transform,
+  unread: Unread,
+  reportUnread: ReportUnreadColumns,
+): void {
+  if (transform.reads.status === "read") {
+    reportUnread(transform.doc, TRANSFORM_COLUMNS, unread);
+  }
+}
+
+/**
  * The columns a transform's query reads: the column of each field id in it,
  * and each column of its native SQL that `columns.readColumns` places in one
- * table.
+ * table. Native SQL whose columns cannot be read goes to `reportUnread`.
  */
 function readColumnsOf(
+  transform: Transform,
   query: TransformQuery,
   columns: SqlColumnReader,
+  reportUnread: ReportUnreadColumns,
 ): ColumnKey[] {
   return [
     ...query.fields,
     ...query.natives.flatMap(({ sql, database, valuedTags }) => {
       const result = columns.readColumns(sql, database, valuedTags);
-      return result.status === "read" ? result.columns : [];
+      if (result.status === "unread") {
+        reportUnreadTransformColumns(transform, result, reportUnread);
+        return [];
+      }
+      return result.columns;
     }),
   ];
 }
@@ -148,19 +207,25 @@ function readColumnsOf(
 /**
  * Warns on each column a test's transform reads from the table of one of its
  * `rows` inputs that the input does not declare: Metabase runs the transform
- * on the input, and the SQL fails. Columns compare ignoring case. A column of
- * SQL the parser cannot read, or cannot place in one table, gives no
- * finding.
+ * on the input, and the SQL fails. Columns compare ignoring case. A column
+ * the parser cannot place in one table gives no finding. SQL whose tables
+ * were read but whose columns cannot be goes to `reportUnread`.
  */
 export function reportMissingReadColumns(
   checks: TestSqlChecks,
   report: Report,
+  reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
   const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const defaultSchema = checks.defaultSchemaOf(database);
-    const read = readColumnsOf(queryOf(transform), checks.columns);
+    const read = readColumnsOf(
+      transform,
+      queryOf(transform),
+      checks.columns,
+      reportUnread,
+    );
     for (const input of test.body.inputs) {
       if (input.format !== "rows") {
         continue;
@@ -189,10 +254,13 @@ export function reportMissingReadColumns(
 /**
  * The names of the columns a transform returns, when its query is one native
  * stage whose every column `columns.returnedNames` names; null otherwise.
+ * SQL whose columns cannot be read goes to `reportUnread`.
  */
 function returnedNamesOf(
+  transform: Transform,
   query: TransformQuery,
   columns: SqlColumnReader,
+  reportUnread: ReportUnreadColumns,
 ): string[] | null {
   const [native] = query.natives;
   if (!query.nativeOnly || native === undefined) {
@@ -203,18 +271,25 @@ function returnedNamesOf(
     native.database,
     native.valuedTags,
   );
-  return result.status === "read" ? result.names : null;
+  if (result.status === "unread") {
+    reportUnreadTransformColumns(transform, result, reportUnread);
+    return null;
+  }
+  return result.names;
 }
 
 /**
  * Warns on each column of a test's `rows` input that stands in for another
  * transform's target (`sameTable`) when that transform does not return the
  * column. Only a transform whose query is one native stage, with a name for
- * each column it returns, is compared. Names compare ignoring case.
+ * each column it returns, is compared. Names compare ignoring case. SQL
+ * whose tables were read but whose columns cannot be goes to
+ * `reportUnread`.
  */
 export function reportUpstreamColumns(
   checks: TestSqlChecks,
   report: Report,
+  reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
   const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
@@ -235,7 +310,12 @@ export function reportUpstreamColumns(
         ) {
           continue;
         }
-        const names = returnedNamesOf(queryOf(upstream), checks.columns);
+        const names = returnedNamesOf(
+          upstream,
+          queryOf(upstream),
+          checks.columns,
+          reportUnread,
+        );
         if (names === null) {
           continue;
         }
@@ -298,11 +378,13 @@ function standInReplacements(
  * SQL of a test's transform or of one of its expectations: Metabase refuses
  * such a test as an `unremapped-reference`. Such a qualifier is usually the
  * bare name of a replaced table whose reference carries a schema the
- * qualifier lacks. SQL the parser cannot read gives no finding.
+ * qualifier lacks. SQL whose tables were read but whose columns cannot be
+ * goes to `reportUnread`.
  */
 export function reportQualifiedColumns(
   checks: TestSqlChecks,
   report: Report,
+  reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
   const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
@@ -316,14 +398,11 @@ export function reportQualifiedColumns(
       checks.defaultSchemaOf(database),
     );
     const reportQualifiers = (
-      result: ReturnType<SqlColumnReader["danglingQualifiers"]>,
+      names: readonly string[],
       subject: string,
       related: string[],
     ) => {
-      if (result.status === "unread") {
-        return;
-      }
-      for (const qualifier of uniqueFolded(result.names)) {
+      for (const qualifier of uniqueFolded(names)) {
         const table = replaced.find((t) => fold(t.name) === fold(qualifier));
         report(
           "table-qualified-column",
@@ -336,37 +415,48 @@ export function reportQualifiedColumns(
       }
     };
     for (const native of queryOf(transform).natives) {
-      reportQualifiers(
-        checks.columns.danglingQualifiers(
-          native.sql,
-          native.database,
-          replacements,
-          native.valuedTags,
-        ),
-        `transform ${displayName(transform.doc)}`,
-        [transform.doc.file],
+      const result = checks.columns.danglingQualifiers(
+        native.sql,
+        native.database,
+        replacements,
+        native.valuedTags,
       );
+      if (result.status === "unread") {
+        reportUnreadTransformColumns(transform, result, reportUnread);
+      } else {
+        reportQualifiers(
+          result.names,
+          `transform ${displayName(transform.doc)}`,
+          [transform.doc.file],
+        );
+      }
     }
     for (const expectation of test.body.expectations) {
-      if ("sql" in expectation) {
-        reportQualifiers(
-          checks.columns.danglingQualifiers(
-            expectation.sql,
-            database,
-            replacements,
-          ),
-          `expectation ${expectation.name}`,
-          [],
-        );
+      if (!("sql" in expectation)) {
+        continue;
+      }
+      const result = checks.columns.danglingQualifiers(
+        expectation.sql,
+        database,
+        replacements,
+      );
+      if (result.status === "read") {
+        reportQualifiers(result.names, `expectation ${expectation.name}`, []);
+      } else if (checks.readSql(expectation.sql, database).status === "read") {
+        reportUnread(test, `expectation ${expectation.name} reads`, result);
       }
     }
   }
 }
 
-/** Runs every check of a transform test's SQL. */
+/**
+ * Runs every check of a transform test's SQL. A query whose columns cannot
+ * be read is reported once, however many rules read it.
+ */
 export function reportTestSql(checks: TestSqlChecks, report: Report): void {
-  reportMissingReadColumns(checks, report);
-  reportUpstreamColumns(checks, report);
-  reportQualifiedColumns(checks, report);
+  const reportUnread = createUnreadColumnsReport(report);
+  reportMissingReadColumns(checks, report, reportUnread);
+  reportUpstreamColumns(checks, report, reportUnread);
+  reportQualifiedColumns(checks, report, reportUnread);
   reportLiveSqlInputs(checks, report);
 }
