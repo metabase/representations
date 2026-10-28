@@ -12,6 +12,7 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 
 import { mutateExamples } from "../src/lint-mutations.js";
+import { isRecord } from "../src/values.js";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
 const CLI = "bin/cli.ts";
@@ -266,6 +267,27 @@ describe("cli", () => {
       expect(exitCode).toBe(0);
     });
 
+    it("exits 2, printing no finding, when a database's default schema is unknown", () => {
+      mutateExamples("missing-input", workdir);
+      rmSync(join(workdir, ".metabase-lint.json"));
+      const refused = runCli(["lint", "--folder", workdir]);
+      expect(refused.stdout).toBe("");
+      expect(refused.stderr).toContain(
+        "Sample Database: names ORDERS without a schema",
+      );
+      expect(refused.exitCode).toBe(2);
+
+      const given = runCli([
+        "lint",
+        "--folder",
+        workdir,
+        "--default-schema",
+        "Sample Database=PUBLIC",
+      ]);
+      expect(given.exitCode).toBe(1);
+      expect(JSON.parse(given.stdout).rule).toBe("missing-input");
+    });
+
     it("errors when the folder has no YAML files", () => {
       const { stderr, exitCode } = runCli(["lint", "--folder", workdir]);
       expect(exitCode).toBe(1);
@@ -298,6 +320,37 @@ describe("cli", () => {
       expect(
         readdirSync(join(REPO_ROOT, "dist/core-spec/v1/schemas")).sort(),
       ).toEqual(readdirSync(join(REPO_ROOT, "core-spec/v1/schemas")).sort());
+
+      // The published package carries the SQL parser's files; Pyodide comes
+      // as a dependency, pinned exactly.
+      const pack = Bun.spawnSync({
+        cmd: ["npm", "pack", "--dry-run", "--json"],
+        cwd: REPO_ROOT,
+      });
+      const packed: unknown = JSON.parse(pack.stdout.toString());
+      const packedPaths =
+        Array.isArray(packed) &&
+        isRecord(packed[0]) &&
+        Array.isArray(packed[0].files)
+          ? packed[0].files.flatMap((f: unknown) =>
+              isRecord(f) && typeof f.path === "string" ? [f.path] : [],
+            )
+          : [];
+      expect(packedPaths).toEqual(
+        expect.arrayContaining([
+          "dist/vendor/sources.json",
+          "dist/vendor/sql_tools.py",
+          "dist/vendor/sqlglot-30.20.0-py3-none-any.whl",
+        ]),
+      );
+      const manifest: unknown = JSON.parse(
+        readFileSync(join(REPO_ROOT, "package.json"), "utf8"),
+      );
+      expect(
+        isRecord(manifest) && isRecord(manifest.dependencies)
+          ? manifest.dependencies.pyodide
+          : undefined,
+      ).toMatch(/^\d+\.\d+\.\d+$/);
 
       // The built package carries the examples, so a mutation runs from it.
       const broken = mkdtempSync(join(tmpdir(), "representations-cli-dist-"));

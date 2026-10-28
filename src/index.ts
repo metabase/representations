@@ -1,4 +1,9 @@
 export {
+  type DefaultSchemas,
+  type DefaultSchemaWanted,
+  MissingDefaultSchemasError,
+} from "./default-schemas.js";
+export {
   extractSchema,
   type ExtractSchemaOptions,
   type ExtractSchemaResult,
@@ -19,6 +24,7 @@ export {
   type LintSeverity,
 } from "./findings.js";
 export { lint, type LintOptions, type LintResult } from "./lint.js";
+export { CONFIG_FILE, LintSetupError, type LintSettings } from "./settings.js";
 export { type Mutation, MUTATIONS, mutateExamples } from "./lint-mutations.js";
 export {
   validateSchema,

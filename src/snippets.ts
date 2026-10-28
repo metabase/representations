@@ -23,36 +23,48 @@ export function snippetIdsOf(templateTags: unknown): Map<string, string> {
   return ids;
 }
 
+/** A snippet's content, or why it cannot be pasted. */
+export type SnippetLookup = { content: string } | { unusable: string };
+
+/** SQL with its snippets pasted in, or why they could not be. */
+export type ExpandedSql =
+  | { status: "expanded"; sql: string }
+  | { status: "unread"; reason: string };
+
 /**
  * Pastes each `{{snippet: name}}` in, with the content `snippets` gives for
- * the name, and then the snippets the pasted text uses. Null when a snippet is
- * missing, or when snippets remain after nine rounds, as with a snippet that
- * uses itself. Callers omit `depth`.
+ * the name, and then the snippets the pasted text uses. Unread at the first
+ * snippet `snippets` cannot give, or when snippets remain after
+ * `MAX_SNIPPET_DEPTH + 1` rounds, as with a snippet that uses itself.
+ * Callers omit `depth`.
  */
 export function expandSnippets(
   sql: string,
-  snippets: (name: string) => string | undefined,
+  snippets: (name: string) => SnippetLookup,
   depth = 0,
-): string | null {
-  let missing = false;
+): ExpandedSql {
+  let unusable: string | null = null;
   const expanded = sql.replace(
     /\{\{\s*snippet:\s*([^}]*?)\s*\}\}/gi,
     (_, name: string) => {
-      const content = snippets(name);
-      if (content === undefined) {
-        missing = true;
+      const snippet = snippets(name);
+      if ("unusable" in snippet) {
+        unusable ??= snippet.unusable;
         return "";
       }
-      return content;
+      return snippet.content;
     },
   );
-  if (missing) {
-    return null;
+  if (unusable !== null) {
+    return { status: "unread", reason: unusable };
   }
-  if (/\{\{\s*snippet:/i.test(expanded)) {
-    return depth < MAX_SNIPPET_DEPTH
-      ? expandSnippets(expanded, snippets, depth + 1)
-      : null;
+  if (!/\{\{\s*snippet:/i.test(expanded)) {
+    return { status: "expanded", sql: expanded };
   }
-  return expanded;
+  return depth < MAX_SNIPPET_DEPTH
+    ? expandSnippets(expanded, snippets, depth + 1)
+    : {
+        status: "unread",
+        reason: `snippets remain after ${MAX_SNIPPET_DEPTH + 1} rounds of pasting, as when a snippet uses itself`,
+      };
 }

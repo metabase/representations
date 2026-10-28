@@ -212,7 +212,7 @@ describe("reportIncrementalTags", () => {
     const recorded: Recorded[] = [];
     reportIncrementalTags(
       [doc],
-      () => undefined,
+      () => null,
       (rule, d, message, related = []) =>
         recorded.push({ rule, file: d.file, message, related }),
     );

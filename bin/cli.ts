@@ -7,7 +7,8 @@ import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
 import { generateUuid } from "../src/generate-uuid.js";
-import { lint } from "../src/lint.js";
+import { lint, type LintResult } from "../src/lint.js";
+import { CONFIG_FILE, LintSetupError } from "../src/settings.js";
 import { validateSchema } from "../src/validate-schema.js";
 
 type ParsedValues = {
@@ -26,11 +27,13 @@ Commands:
 
   lint               Check references between transforms, tables and transform
                      tests; prints one JSON finding per line, grouped
-                     by rule, then by file
+                     by rule, then by file. Exits 1 on an error finding,
+                     and 2 when it cannot run
     --folder <path>    Folder to lint (default: cwd)
     --default-schema <database>=<schema>
                        The schema unqualified table names resolve to in
-                       a database (repeatable; <database>= for none)
+                       a database (repeatable; <database>= for none),
+                       over ${CONFIG_FILE} in the folder
 
   extract-spec       Copy the bundled spec.md into a target file
     --file <path>      Destination file (default: ./spec.md)
@@ -117,10 +120,20 @@ function parseDefaultSchemas(
   return schemas;
 }
 
-function handleLint(values: ParsedValues): void {
+async function handleLint(values: ParsedValues): Promise<void> {
   const folder = values.folder ?? process.cwd();
   const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
-  const { files, findings } = lint({ folder, defaultSchemas });
+  let result: LintResult;
+  try {
+    result = await lint({ folder, defaultSchemas });
+  } catch (e) {
+    if (e instanceof LintSetupError) {
+      console.error(e.message);
+      process.exit(2);
+    }
+    throw e;
+  }
+  const { files, findings } = result;
 
   exitIfNoFiles(files, folder);
 
@@ -163,7 +176,7 @@ function handleGenerateUuid(values: ParsedValues): void {
   handleGenerate(values, generateUuid);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const { values, positionals } = parseArguments();
   const command = positionals[0];
 
@@ -191,4 +204,4 @@ function main(): void {
   }
 }
 
-main();
+await main();

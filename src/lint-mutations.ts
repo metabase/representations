@@ -120,11 +120,11 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "qualified-input",
     description:
-      "A test's input names a schema for a table its transform reads unqualified; it matches only if that is the default schema.",
-    rules: ["input-match-undecided"],
+      "A test's input names a schema other than the default for a table its transform reads unqualified; Metabase never matches the two.",
+    rules: ["missing-input", "unused-input"],
     apply: (folder) =>
       edit(folder, DAILY_ORDER_SUMMARY_TEST, (doc) => {
-        doc.inputs[0].table.schema = "PUBLIC";
+        doc.inputs[0].table.schema = "OTHER";
       }),
   },
   {

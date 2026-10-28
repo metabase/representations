@@ -1,18 +1,37 @@
-import { describe, expect, it } from "bun:test";
+import { beforeAll, describe, expect, it } from "bun:test";
 
-import { tablesReadBySql, valuedTagNames } from "./sql-tables.js";
+import type { EngineOf } from "./databases.js";
+import { loadSqlParser } from "./sql-parser.js";
+import {
+  createSqlTableReader,
+  type SqlTableReader,
+  valuedTagNames,
+} from "./sql-tables.js";
 
-describe("tablesReadBySql", () => {
+const ENGINES: Readonly<Record<string, string>> = {
+  Warehouse: "postgres",
+  Lake: "bigquery-cloud-sdk",
+};
+const engineOf: EngineOf = (database) =>
+  database !== null && Object.hasOwn(ENGINES, database)
+    ? ENGINES[database]
+    : null;
+
+let readSql: SqlTableReader;
+
+beforeAll(async () => {
+  readSql = createSqlTableReader(await loadSqlParser(), engineOf);
+}, 60_000);
+
+describe("a SQL table reader", () => {
   it.each([
     [
-      "a bare table",
-      "SELECT * FROM ORDERS",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "a schema-qualified table",
-      "SELECT * FROM TRANSFORMS.product_revenue_report",
-      [{ schema: "TRANSFORMS", name: "product_revenue_report" }],
+      "the tables Metabase reads, sorted, each once whatever its case",
+      "SELECT * FROM PUBLIC.ORDERS o JOIN PEOPLE p ON o.USER_ID = p.ID JOIN people x ON x.ID = p.ID",
+      [
+        { schema: null, name: "PEOPLE" },
+        { schema: "PUBLIC", name: "ORDERS" },
+      ],
     ],
     [
       "a catalog-qualified table, keeping schema and name",
@@ -20,146 +39,26 @@ describe("tablesReadBySql", () => {
       [{ schema: "PUBLIC", name: "ORDERS" }],
     ],
     [
-      "quoted identifiers",
-      'SELECT * FROM "PUBLIC"."ORDERS"',
-      [{ schema: "PUBLIC", name: "ORDERS" }],
-    ],
-    [
-      "a join with aliases",
-      "SELECT * FROM ORDERS o JOIN PRODUCTS AS p ON o.PRODUCT_ID = p.ID",
-      [
-        { schema: null, name: "ORDERS" },
-        { schema: null, name: "PRODUCTS" },
-      ],
-    ],
-    [
-      "a comma list",
-      "SELECT * FROM ORDERS o, PRODUCTS p WHERE o.PRODUCT_ID = p.ID",
-      [
-        { schema: null, name: "ORDERS" },
-        { schema: null, name: "PRODUCTS" },
-      ],
-    ],
-    [
-      "a table read twice, once",
-      "SELECT * FROM ORDERS a JOIN orders b ON a.ID = b.ID",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "a subquery",
-      "SELECT * FROM (SELECT * FROM ORDERS) o JOIN PEOPLE p ON o.USER_ID = p.ID",
-      [
-        { schema: null, name: "ORDERS" },
-        { schema: null, name: "PEOPLE" },
-      ],
-    ],
-    [
-      "a CTE, leaving out its name",
-      "WITH recent AS (SELECT * FROM ORDERS), big (id) AS (SELECT ID FROM recent) SELECT * FROM big",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "the real table a CTE of the same name reads",
+      "the real table a CTE of the same name reads, and not the CTE",
       "WITH orders AS (SELECT * FROM orders WHERE TOTAL > 0) SELECT * FROM orders",
       [{ schema: null, name: "orders" }],
     ],
     [
-      "a table named like a CTE of a subquery, outside that subquery",
-      "SELECT * FROM (WITH recent AS (SELECT * FROM ORDERS) SELECT * FROM recent) r JOIN recent x ON r.ID = x.ID",
-      [
-        { schema: null, name: "ORDERS" },
-        { schema: null, name: "recent" },
-      ],
-    ],
-    [
-      "a recursive CTE reading itself, as no table",
-      "WITH RECURSIVE n (i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 3) SELECT * FROM n",
+      "no table from a table function, as Metabase",
+      "SELECT * FROM generate_series(1, 3)",
       [],
     ],
     [
-      "FROM inside a function call, ignored",
-      "SELECT EXTRACT(YEAR FROM CREATED_AT), TRIM(BOTH ' ' FROM NAME) FROM ORDERS",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "comments and string literals, ignored",
-      "SELECT 'FROM fake' AS x -- FROM nope\n/* JOIN nada */ FROM ORDERS",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "a quoted schema holding a dot, apart from a quoted name holding one",
-      'SELECT * FROM "a.b".c JOIN "a"."b.c" ON 1 = 1',
-      [
-        { schema: "a.b", name: "c" },
-        { schema: "a", name: "b.c" },
-      ],
-    ],
-    [
-      "an empty quoted schema, apart from no schema",
-      'SELECT * FROM "".c JOIN c ON 1 = 1',
-      [
-        { schema: "", name: "c" },
-        { schema: null, name: "c" },
-      ],
-    ],
-    [
-      "IS DISTINCT FROM, as an operator",
-      "SELECT * FROM ORDERS o WHERE o.TOTAL IS DISTINCT FROM o.SUBTOTAL OR o.TAX IS NOT DISTINCT FROM NULL",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "FROM ONLY and JOIN ONLY, leaving out ONLY",
-      "SELECT * FROM ONLY PUBLIC.ORDERS o, ONLY PRODUCTS JOIN ONLY PEOPLE p ON o.USER_ID = p.ID",
-      [
-        { schema: "PUBLIC", name: "ORDERS" },
-        { schema: null, name: "PRODUCTS" },
-        { schema: null, name: "PEOPLE" },
-      ],
-    ],
-    [
-      "a table after a subquery in a comma list",
-      "SELECT * FROM (SELECT * FROM ORDERS) o, PEOPLE p WHERE o.USER_ID = p.ID",
+      "the table a statement writes, as Metabase",
+      "INSERT INTO audit SELECT * FROM ORDERS",
       [
         { schema: null, name: "ORDERS" },
-        { schema: null, name: "PEOPLE" },
+        { schema: null, name: "audit" },
       ],
     ],
     [
-      "a table after a join in a comma list",
-      "SELECT * FROM ORDERS o JOIN PEOPLE p ON o.USER_ID = p.ID, PRODUCTS",
-      [
-        { schema: null, name: "ORDERS" },
-        { schema: null, name: "PEOPLE" },
-        { schema: null, name: "PRODUCTS" },
-      ],
-    ],
-    [
-      "a parenthesized join",
-      "SELECT * FROM (ORDERS o JOIN PEOPLE p ON o.USER_ID = p.ID)",
-      [
-        { schema: null, name: "ORDERS" },
-        { schema: null, name: "PEOPLE" },
-      ],
-    ],
-    [
-      "comment markers inside string literals, as text",
-      "SELECT '--' AS a, '/*' AS b FROM ORDERS WHERE NOTE <> '*/'",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "quotes inside a comment, as comment text",
-      "SELECT * -- it's\nFROM ORDERS",
-      [{ schema: null, name: "ORDERS" }],
-    ],
-    [
-      "a backtick-quoted name holding its qualifiers",
-      "SELECT * FROM `project.dataset.ORDERS`",
-      [{ schema: "dataset", name: "ORDERS" }],
-    ],
-    ["no FROM", "SELECT 1", []],
-    [
-      "a variable in an optional clause",
-      "SELECT * FROM ORDERS WHERE TRUE [[AND TOTAL > {{min_total}}]]",
+      "a variable, as a value",
+      "SELECT * FROM ORDERS WHERE TOTAL > {{min_total}} LIMIT {{n}}",
       [{ schema: null, name: "ORDERS" }],
     ],
     [
@@ -167,23 +66,47 @@ describe("tablesReadBySql", () => {
       "SELECT * FROM {{#12-orders}} o JOIN PEOPLE p ON o.USER_ID = p.ID",
       [{ schema: null, name: "PEOPLE" }],
     ],
+    [
+      "the text of an optional clause, without a list of valued tags",
+      "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.STATE = {{state}}]]",
+      [
+        { schema: null, name: "ORDERS" },
+        { schema: null, name: "PEOPLE" },
+      ],
+    ],
   ])("reads %s", (_, sql, tables) => {
-    expect(tablesReadBySql(sql)).toEqual({ status: "read", tables });
+    expect(readSql(sql, null)).toEqual({ status: "read", tables });
   });
 
-  it.each([
-    ["a snippet", "SELECT * FROM {{snippet: orders}}"],
-    ["a table function", "SELECT * FROM generate_series(1, 3)"],
-    ["a FROM with no table", "SELECT * FROM"],
-  ])("refuses %s", (_, sql) => {
-    expect(tablesReadBySql(sql).status).toBe("unread");
+  it("parses in the dialect of the database's engine", () => {
+    const backticked = "SELECT * FROM `proj.ds.orders`";
+    expect(readSql(backticked, "Lake")).toEqual({
+      status: "read",
+      tables: [{ schema: "ds", name: "orders" }],
+    });
+    expect(readSql(backticked, "Warehouse").status).toBe("unread");
+  });
+
+  it("refuses a query with a snippet left in it, which SQLGlot would parse", () => {
+    expect(readSql("SELECT * FROM a WHERE {{snippet: filters}}", null)).toEqual(
+      { status: "unread", reason: "the query has a snippet" },
+    );
+  });
+
+  it("refuses SQL SQLGlot cannot parse, giving SQLGlot's error", () => {
+    const result = readSql("SELECT * FROM a b c", "Warehouse");
+    expect(result).toEqual({
+      status: "unread",
+      reason:
+        "SQLGlot could not parse it: ParseError: Invalid expression / Unexpected token. Line 1, Col: 19.",
+    });
   });
 });
 
 // Metabase compiles a transform with no parameter values: an optional clause
 // stays only when every tag in it has a value of its own (a default, or a
 // card, snippet or table).
-describe("tablesReadBySql with the tags that have values", () => {
+describe("a SQL table reader with the tags that have values", () => {
   const JOIN_PEOPLE =
     "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.ID = o.USER_ID AND p.STATE = {{state}}]]";
 
@@ -219,7 +142,7 @@ describe("tablesReadBySql with the tags that have values", () => {
       [{ schema: null, name: "ORDERS" }],
     ],
   ] as const)("%s", (_, sql, valued, tables) => {
-    expect(tablesReadBySql(sql, new Set(valued))).toEqual({
+    expect(readSql(sql, null, new Set(valued))).toEqual({
       status: "read",
       tables: [...tables],
     });

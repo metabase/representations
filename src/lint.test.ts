@@ -11,11 +11,13 @@ import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
+import { MissingDefaultSchemasError } from "./default-schemas.js";
 import type { LintFinding } from "./findings.js";
 import { LINT_RULE_SEVERITY, LINT_RULES } from "./index.js";
 import { lint, transformReads } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
 import * as schemas from "./schemas.js";
+import { CONFIG_FILE, LintSetupError } from "./settings.js";
 import { isRecord } from "./values.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
@@ -25,11 +27,42 @@ function rules(findings: LintFinding[]): string[] {
 }
 
 describe("lint", () => {
-  it("finds nothing in the bundled examples", () => {
-    expect(lint({ folder: EXAMPLES }).findings).toEqual([]);
+  it("finds nothing in the bundled examples", async () => {
+    expect((await lint({ folder: EXAMPLES })).findings).toEqual([]);
   });
 
-  it("has a mutation that reports each error rule", () => {
+  // In a fresh process each: this test process loaded the parser long ago.
+  it("loads the SQL parser only for a folder that holds SQL", async () => {
+    const parserStarted = (folder: string) => {
+      const run = Bun.spawnSync({
+        cmd: [
+          "bun",
+          "-e",
+          `import { lint } from "./src/lint.ts";
+           import { sqlParserStarted } from "./src/sql-parser.ts";
+           await lint({ folder: process.env.LINT_FOLDER });
+           console.log(sqlParserStarted());`,
+        ],
+        cwd: resolve(import.meta.dirname, ".."),
+        env: { ...process.env, LINT_FOLDER: folder },
+      });
+      expect(run.stderr.toString()).toBe("");
+      return run.stdout.toString().trim();
+    };
+    const mbqlOnly = mkdtempSync(join(tmpdir(), "representations-lint-mbql-"));
+    try {
+      const file = "collections/transforms/mbql_transform.yaml";
+      mkdirSync(join(mbqlOnly, "collections/transforms"), { recursive: true });
+      cpSync(join(EXAMPLES, file), join(mbqlOnly, file));
+      cpSync(join(EXAMPLES, CONFIG_FILE), join(mbqlOnly, CONFIG_FILE));
+      expect(parserStarted(mbqlOnly)).toBe("false");
+      expect(parserStarted(EXAMPLES)).toBe("true");
+    } finally {
+      rmSync(mbqlOnly, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it("has a mutation that reports each error rule", async () => {
     const mutated = new Set(MUTATIONS.flatMap((m) => m.rules));
     expect(
       LINT_RULES.filter(
@@ -38,10 +71,10 @@ describe("lint", () => {
     ).toEqual([]);
   });
 
-  it("loads the JSON schemas once per run", () => {
+  it("loads the JSON schemas once per run", async () => {
     const load = spyOn(schemas, "loadSchemas");
     try {
-      lint({ folder: EXAMPLES });
+      await lint({ folder: EXAMPLES });
       expect(load).toHaveBeenCalledTimes(1);
     } finally {
       load.mockRestore();
@@ -59,31 +92,34 @@ describe("lint", () => {
       rmSync(workdir, { recursive: true, force: true });
     });
 
-    const findings = (folder: string): LintFinding[] =>
-      lint({ folder }).findings;
+    const findings = async (folder: string): Promise<LintFinding[]> =>
+      (await lint({ folder })).findings;
 
     it.each(MUTATIONS.map((m) => [m.name, m.rules]))(
       "reports %s as %p",
-      (name, expected) => {
+      async (name, expected) => {
         mutateExamples(name, workdir);
-        expect(rules(findings(workdir))).toEqual([...expected].sort());
+        expect(rules(await findings(workdir))).toEqual([...expected].sort());
       },
     );
 
-    it("reports each rule at the severity LINT_RULE_SEVERITY gives it", () => {
-      const mismatched = MUTATIONS.flatMap((m) => {
+    it("reports each rule at the severity LINT_RULE_SEVERITY gives it", async () => {
+      const mismatched: string[] = [];
+      for (const m of MUTATIONS) {
         const folder = join(workdir, m.name);
         mutateExamples(m.name, folder);
-        return findings(folder)
-          .filter((f) => f.severity !== LINT_RULE_SEVERITY[f.rule])
-          .map((f) => `${f.rule} as ${f.severity}`);
-      });
+        mismatched.push(
+          ...(await findings(folder))
+            .filter((f) => f.severity !== LINT_RULE_SEVERITY[f.rule])
+            .map((f) => `${f.rule} as ${f.severity}`),
+        );
+      }
       expect(mismatched).toEqual([]);
     });
 
-    it("names the test and the missing transform for a dangling transform_id", () => {
+    it("names the test and the missing transform for a dangling transform_id", async () => {
       mutateExamples("dangling-transform-id", workdir);
-      expect(findings(workdir)).toEqual([
+      expect(await findings(workdir)).toEqual([
         {
           rule: "dangling-transform-id",
           severity: "error",
@@ -99,50 +135,43 @@ describe("lint", () => {
       ]);
     });
 
-    it("lists every transform in a cycle", () => {
+    it("lists every transform in a cycle", async () => {
       mutateExamples("transform-cycle", workdir);
-      const [cycle] = findings(workdir);
+      const [cycle] = await findings(workdir);
       expect([cycle.file, ...cycle.related].sort()).toEqual([
         "collections/transforms/native_transform.yaml",
         "collections/transforms/top_categories.yaml",
       ]);
     });
 
-    it("names the table an implicit join reads", () => {
+    it("names the table an implicit join reads", async () => {
       mutateExamples("implicit-join", workdir);
-      expect(findings(workdir).map((f) => f.message)).toEqual([
+      expect((await findings(workdir)).map((f) => f.message)).toEqual([
         "no input for PRODUCTS, which transform Monthly Order Summary reads",
       ]);
     });
 
-    it("reports a table read both directly and through a segment once", () => {
+    it("reports a table read both directly and through a segment once", async () => {
       mutateExamples("implicit-join", workdir);
       MUTATIONS.find((m) => m.name === "segment-filter")?.apply(workdir);
-      expect(findings(workdir).map((f) => f.message)).toEqual([
+      expect((await findings(workdir)).map((f) => f.message)).toEqual([
         "no input for PRODUCTS, which transform Monthly Order Summary reads",
       ]);
     });
 
-    it("matches a qualified input to an unqualified read in the default schema", () => {
+    it("matches a qualified input to an unqualified read in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       expect(
-        lint({
-          folder: workdir,
-          defaultSchemas: { "Sample Database": "PUBLIC" },
-        }).findings,
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas: { "Sample Database": "OTHER" },
+          })
+        ).findings,
       ).toEqual([]);
     });
 
-    it("refuses a qualified input outside the default schema", () => {
-      mutateExamples("qualified-input", workdir);
-      const { findings } = lint({
-        folder: workdir,
-        defaultSchemas: { "Sample Database": "OTHER" },
-      });
-      expect(rules(findings)).toEqual(["missing-input", "unused-input"]);
-    });
-
-    it("reads a Python transform's source tables in both forms", () => {
+    it("reads a Python transform's source tables in both forms", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(
         workdir,
@@ -174,7 +203,7 @@ describe("lint", () => {
           },
         }),
       );
-      const python = transformReads({ folder: workdir }).find(
+      const python = (await transformReads({ folder: workdir })).find(
         (t) => t.name === "Python Hello World",
       );
       expect(python?.tables).toEqual([
@@ -183,7 +212,7 @@ describe("lint", () => {
       ]);
     });
 
-    it("reports an unqualified and a qualified input as duplicates only in the default schema", () => {
+    it("reports an unqualified and a qualified input as duplicates only in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       const file = join(
         workdir,
@@ -199,31 +228,30 @@ describe("lint", () => {
         sql: "SELECT 1 AS ID",
       });
       writeFileSync(file, yaml.dump(doc));
-      const inputFindings = (schema?: string) =>
-        lint({
-          folder: workdir,
-          defaultSchemas:
-            schema === undefined ? {} : { "Sample Database": schema },
-        })
-          .findings.filter((f) => f.message.startsWith("inputs"))
+      const inputFindings = async (schema?: string) =>
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas:
+              schema === undefined ? {} : { "Sample Database": schema },
+          })
+        ).findings
+          .filter((f) => f.message.startsWith("inputs"))
           .map((f) => `${f.rule}: ${f.message}`);
-      expect(inputFindings()).toEqual([
-        "input-match-undecided: inputs PUBLIC.ORDERS and orders stand in for the same table only if PUBLIC is the default schema of Sample Database; set it with --default-schema",
+      expect(await inputFindings("OTHER")).toEqual([
+        "duplicate-input: inputs stand in for the same table: OTHER.ORDERS, orders",
       ]);
-      expect(inputFindings("PUBLIC")).toEqual([
-        "duplicate-input: inputs stand in for the same table: PUBLIC.ORDERS, orders",
-      ]);
-      expect(inputFindings("OTHER")).toEqual([]);
+      expect(await inputFindings("PUBLIC")).toEqual([]);
     });
 
-    it("reports a file that is not a YAML map as a schema error", () => {
+    it("reports a file that is not a YAML map as a schema error", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const broken = "collections/transforms/broken.yaml";
       const list = "collections/transforms/list.yaml";
       writeFileSync(join(workdir, broken), "name: [unclosed\n");
       writeFileSync(join(workdir, list), "- a\n- b\n");
       expect(
-        findings(workdir).map(({ rule, severity, file, entity }) => ({
+        (await findings(workdir)).map(({ rule, severity, file, entity }) => ({
           rule,
           severity,
           file,
@@ -239,12 +267,30 @@ describe("lint", () => {
       );
     });
 
-    it("reports a duplicate key as a file that does not parse", () => {
+    it("reports a Database file that fails its schema", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "databases/sample_database/sample_database.yaml";
+      writeFileSync(
+        join(workdir, file),
+        yaml.dump({
+          name: "Sample Database",
+          engine: 5,
+          "serdes/meta": [{ model: "Database" }],
+        }),
+      );
+      expect(
+        (await findings(workdir)).map(
+          (f) => `${f.rule}: ${f.file}: ${f.message}`,
+        ),
+      ).toEqual([`schema: ${file}: Database does not match its schema`]);
+    });
+
+    it("reports a duplicate key as a file that does not parse", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = "collections/transforms/duplicate_key.yaml";
       writeFileSync(join(workdir, file), "name: a\nname: b\n");
       expect(
-        findings(workdir).map(({ rule, file, message }) => ({
+        (await findings(workdir)).map(({ rule, file, message }) => ({
           rule,
           file,
           message,
@@ -264,7 +310,7 @@ describe("lint", () => {
       ["'1': x\n    1: y", "1"],
     ])(
       "refuses a row whose key %p Metabase reads as no string",
-      (key, written) => {
+      async (key, written) => {
         cpSync(EXAMPLES, workdir, { recursive: true });
         const file =
           "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
@@ -277,14 +323,16 @@ describe("lint", () => {
           ),
         );
         expect(
-          findings(workdir).map((f) => `${f.file}: ${f.rule}: ${f.message}`),
+          (await findings(workdir)).map(
+            (f) => `${f.file}: ${f.rule}: ${f.message}`,
+          ),
         ).toEqual([
           `${file}: row-columns-mismatch: input ORDERS, row 3: every row must carry exactly the declared columns; ${key.startsWith("'") ? 'not declared: "1"; ' : ""}keys that are not strings: ${written}`,
         ]);
       },
     );
 
-    it("reads a plain value as Metabase does, by YAML 1.1", () => {
+    it("reads a plain value as Metabase does, by YAML 1.1", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = "collections/transforms/top_categories.yaml";
       const path = join(workdir, file);
@@ -293,7 +341,7 @@ describe("lint", () => {
         readFileSync(path, "utf8").replace(/^name: .*$/m, "name: NO"),
       );
       expect(
-        findings(workdir).map(({ rule, file, message }) => ({
+        (await findings(workdir)).map(({ rule, file, message }) => ({
           rule,
           file,
           message,
@@ -307,7 +355,7 @@ describe("lint", () => {
       ]);
     });
 
-    it("takes a duplicated entity_id to name the first file in path order, for every check", () => {
+    it("takes a duplicated entity_id to name the first file in path order, for every check", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const transforms = join(workdir, "collections/transforms");
       writeFileSync(
@@ -319,7 +367,7 @@ describe("lint", () => {
       const test =
         "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
       expect(
-        findings(workdir)
+        (await findings(workdir))
           .filter((f) => f.file === test)
           .map((f) => `${f.rule}: ${f.message}`),
       ).toEqual([
@@ -327,7 +375,7 @@ describe("lint", () => {
       ]);
     });
 
-    it("takes a transform_id whose first holder is a Card to name the Card", () => {
+    it("takes a transform_id whose first holder is a Card to name the Card", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const card = join(workdir, "collections/main/queries/nested_query.yaml");
       writeFileSync(
@@ -340,7 +388,7 @@ describe("lint", () => {
       const test =
         "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
       expect(
-        findings(workdir)
+        (await findings(workdir))
           .filter((f) => f.file === test)
           .map((f) => `${f.rule}: ${f.message}`),
       ).toEqual([
@@ -348,7 +396,7 @@ describe("lint", () => {
       ]);
     });
 
-    it("cannot read a Python source table with no name", () => {
+    it("cannot read a Python source table with no name", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(
         workdir,
@@ -371,12 +419,12 @@ describe("lint", () => {
           },
         }),
       );
-      const python = transformReads({ folder: workdir }).find(
+      const python = (await transformReads({ folder: workdir })).find(
         (t) => t.name === "Python Hello World",
       );
       expect(python?.tables).toBeNull();
       expect(
-        lint({ folder: workdir }).findings.map(
+        (await lint({ folder: workdir })).findings.map(
           (f) => `${f.rule}: ${f.message}`,
         ),
       ).toEqual([
@@ -384,7 +432,7 @@ describe("lint", () => {
       ]);
     });
 
-    it("pastes a snippet by its template tag's snippet-id, not by its name", () => {
+    it("pastes a snippet by its template tag's snippet-id, not by its name", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const snippet = (
         file: string,
@@ -447,22 +495,33 @@ describe("lint", () => {
         },
       ];
       writeFileSync(file, yaml.dump(doc));
-      const report = transformReads({ folder: workdir }).find(
+      const report = (await transformReads({ folder: workdir })).find(
         (t) => t.name === "Product Revenue Report",
       );
+      // Sorted, as Metabase's referenced_tables returns them.
       expect(report?.tables?.map((t) => t.name)).toEqual([
         "ORDERS",
-        "PRODUCTS",
         "PEOPLE",
+        "PRODUCTS",
       ]);
     });
 
     it.each([
-      ["no name", { content: "WHERE 1 = 1" }, "undefined"],
-      ["no content", { name: "Broken" }, "Broken"],
+      [
+        "no name",
+        { content: "WHERE 1 = 1" },
+        "undefined",
+        "snippet undefined is not in the folder",
+      ],
+      [
+        "no content",
+        { name: "Broken" },
+        "Broken",
+        "snippet Broken is in collections/snippets/broken.yaml, which fails its schema",
+      ],
     ])(
       "reports a snippet file with %s, and does not use it",
-      (_, fields, usedName) => {
+      async (_, fields, usedName, reason) => {
         cpSync(EXAMPLES, workdir, { recursive: true });
         const snippetFile = "collections/snippets/broken.yaml";
         writeFileSync(
@@ -484,19 +543,233 @@ describe("lint", () => {
           ),
         );
         expect(
-          findings(workdir).map((f) => `${f.file}: ${f.rule}: ${f.message}`),
+          (await findings(workdir)).map(
+            (f) => `${f.file}: ${f.rule}: ${f.message}`,
+          ),
         ).toEqual([
           `${snippetFile}: schema: NativeQuerySnippet does not match its schema`,
-          `${transformFile}: reads-not-checked: could not find the tables this transform reads: a snippet it uses is not in the folder`,
+          `${transformFile}: reads-not-checked: could not find the tables this transform reads: ${reason}`,
         ]);
       },
     );
 
-    it("names the missing table", () => {
+    it("says why a snippet named by its entity id cannot be pasted", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = join(
+        workdir,
+        "collections/transforms/native_transform.yaml",
+      );
+      const unread = async (snippetId: string) => {
+        const doc: unknown = yaml.load(readFileSync(file, "utf8"));
+        if (
+          !isRecord(doc) ||
+          !isRecord(doc.source) ||
+          !isRecord(doc.source.query) ||
+          !Array.isArray(doc.source.query.stages) ||
+          !isRecord(doc.source.query.stages[0])
+        ) {
+          throw new Error(`${file} has no native stage`);
+        }
+        const stage = doc.source.query.stages[0];
+        stage.native = "SELECT * FROM ORDERS {{snippet: Filter}}";
+        stage["template-tags"] = [
+          {
+            type: "snippet",
+            name: "snippet: Filter",
+            id: "1d4e9fdf-49ae-4fbe-ae27-05e7c6a5cfe8",
+            "snippet-name": "Filter",
+            "snippet-id": snippetId,
+          },
+        ];
+        writeFileSync(file, yaml.dump(doc));
+        return (await findings(workdir))
+          .filter((f) => f.rule === "reads-not-checked")
+          .map((f) => f.message);
+      };
+      const prefix = "could not find the tables this transform reads: ";
+      expect(await unread("NoSuchSnippet00000001")).toEqual([
+        `${prefix}snippet Filter (NoSuchSnippet00000001) is not in the folder`,
+      ]);
+      // The entity id of a transform tag.
+      expect(await unread("dUW7nvQHQBdA0Rx0gJckI")).toEqual([
+        `${prefix}snippet Filter (dUW7nvQHQBdA0Rx0gJckI) names a TransformTag, not a snippet`,
+      ]);
+    });
+
+    it("says when snippets still remain after pasting, as with a snippet that uses itself", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      writeFileSync(
+        join(workdir, "collections/snippets/loop.yaml"),
+        yaml.dump({
+          name: "Loop",
+          entity_id: "LoopSnippet0000000001",
+          creator_id: "admin@example.com",
+          content: "{{snippet: Loop}}",
+          "serdes/meta": [{ model: "NativeQuerySnippet" }],
+        }),
+      );
+      const path = join(
+        workdir,
+        "collections/transforms/native_transform.yaml",
+      );
+      writeFileSync(
+        path,
+        readFileSync(path, "utf8").replace(
+          "GROUP BY",
+          "{{snippet: Loop}} GROUP BY",
+        ),
+      );
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.rule === "reads-not-checked")
+          .map((f) => f.message),
+      ).toEqual([
+        "could not find the tables this transform reads: snippets remain after 9 rounds of pasting, as when a snippet uses itself",
+      ]);
+    });
+
+    it("names the missing table", async () => {
       mutateExamples("missing-input", workdir);
-      expect(findings(workdir).map((f) => f.message)).toEqual([
+      expect((await findings(workdir)).map((f) => f.message)).toEqual([
         "no input for PRODUCTS, which transform Product Revenue Report reads",
       ]);
+    });
+
+    // The test of this transform has inputs; were the reads taken as empty,
+    // each input would be reported unused.
+    it.each([
+      ["SQL SQLGlot cannot parse", "SELECT * FROM a b c", "ParseError"],
+      [
+        "SQL nested deeper than Python's recursion limit",
+        `SELECT ${"(".repeat(60)}1${")".repeat(60)} FROM ORDERS`,
+        "RecursionError",
+      ],
+    ])(
+      "reports %s as unread, and no input as missing or unused",
+      async (_, sql, error) => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const file = join(
+          workdir,
+          "collections/transforms/native_transform.yaml",
+        );
+        const text = readFileSync(file, "utf8");
+        const native = /native: \|-\n(?: {10}.*\n)+/;
+        expect(text).toMatch(native);
+        writeFileSync(
+          file,
+          text.replace(native, `native: ${JSON.stringify(sql)}\n`),
+        );
+        expect(
+          (await findings(workdir)).map((f) => `${f.rule}: ${f.message}`),
+        ).toEqual([
+          expect.stringMatching(
+            new RegExp(
+              `^reads-not-checked: could not find the tables this transform reads: SQLGlot could not parse it: ${error}: `,
+            ),
+          ),
+        ]);
+      },
+    );
+  });
+
+  describe("default schemas", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-defaults-"));
+      mutateExamples("qualified-input", workdir);
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const writeConfig = (text: string) =>
+      writeFileSync(join(workdir, CONFIG_FILE), text);
+
+    const writeDatabase = (engine: string) => {
+      const dir = join(workdir, "databases/sample_database");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "sample_database.yaml"),
+        yaml.dump({
+          name: "Sample Database",
+          engine,
+          "serdes/meta": [{ model: "Database" }],
+        }),
+      );
+    };
+
+    const lintRules = async (defaultSchemas?: Record<string, string | null>) =>
+      rules((await lint({ folder: workdir, defaultSchemas })).findings);
+
+    it("refuses to lint, before any check, when a database needs a default schema nobody gives", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      // A finding the checks would report, were they run.
+      MUTATIONS.find((m) => m.name === "missing-input")?.apply(workdir);
+      let error: unknown;
+      try {
+        await lint({ folder: workdir });
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(MissingDefaultSchemasError);
+      expect(
+        error instanceof MissingDefaultSchemasError &&
+          error.databases.map((d) => d.database),
+      ).toEqual(["Sample Database"]);
+      expect(String(error)).toContain(CONFIG_FILE);
+      expect(String(error)).toContain("--default-schema");
+    });
+
+    it("reads the default schemas in the folder's settings file", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Database": "OTHER"}}');
+      expect(await lintRules()).toEqual([]);
+      writeConfig('{"defaultSchemas": {"Sample Database": "PUBLIC"}}');
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+    });
+
+    it("takes a default schema passed to lint over the settings file's", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Database": "PUBLIC"}}');
+      expect(await lintRules({ "Sample Database": "OTHER" })).toEqual([]);
+    });
+
+    it("reads null in the settings file as a database with no schemas", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Database": null}}');
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+    });
+
+    it("takes a MySQL database to have no schemas, and asks for a Postgres database's default", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("mysql");
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+      writeDatabase("postgres");
+      await expect(lint({ folder: workdir })).rejects.toThrow(
+        MissingDefaultSchemasError,
+      );
+    });
+
+    it("takes an engine from the settings file, unless a Database file names one", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeConfig('{"engines": {"Sample Database": "mysql"}}');
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+      writeDatabase("postgres");
+      await expect(lint({ folder: workdir })).rejects.toThrow(
+        MissingDefaultSchemasError,
+      );
+    });
+
+    it("refuses a settings file it cannot read", async () => {
+      for (const text of [
+        "{not json",
+        "[]",
+        '{"defaultSchema": {}}',
+        '{"defaultSchemas": {"Sample Database": 5}}',
+        '{"engines": {"Sample Database": null}}',
+      ]) {
+        writeConfig(text);
+        await expect(lint({ folder: workdir })).rejects.toThrow(LintSetupError);
+      }
     });
   });
 
@@ -525,11 +798,11 @@ describe("lint", () => {
       );
     };
 
-    it("warns about a table that no table file or target defines, once on each file naming it", () => {
+    it("warns about a table that no table file or target defines, once on each file naming it", async () => {
       mutateExamples("unused-input", workdir);
       writeOrdersTable(workdir);
-      const unknown = lint({ folder: workdir })
-        .findings.filter((f) => f.rule === "unknown-table")
+      const unknown = (await lint({ folder: workdir })).findings
+        .filter((f) => f.rule === "unknown-table")
         .map((f) => `${f.file}: ${f.message}`);
       const products =
         "table PRODUCTS is defined by no table file or transform target";
@@ -589,49 +862,50 @@ describe("lint", () => {
         ];
       });
 
-    const expectationRules = (schema?: string): string[] =>
-      lint({
-        folder: workdir,
-        defaultSchemas:
-          schema === undefined ? {} : { "Sample Database": schema },
-      })
-        .findings.filter((f) => f.message.startsWith("expectation"))
+    const expectationRules = async (schema?: string): Promise<string[]> =>
+      (
+        await lint({
+          folder: workdir,
+          defaultSchemas:
+            schema === undefined ? {} : { "Sample Database": schema },
+        })
+      ).findings
+        .filter((f) => f.message.startsWith("expectation"))
         .map((f) => f.rule);
 
-    it("accepts a qualified read of an unqualified input, whatever the default schema", () => {
+    it("accepts a qualified read of an unqualified input, whatever the default schema", async () => {
       readOrders("PUBLIC.orders");
-      expect(expectationRules()).toEqual([]);
-      expect(expectationRules("PUBLIC")).toEqual([]);
-      expect(expectationRules("OTHER")).toEqual([]);
+      expect(await expectationRules()).toEqual([]);
+      expect(await expectationRules("PUBLIC")).toEqual([]);
+      expect(await expectationRules("OTHER")).toEqual([]);
     });
 
-    it("accepts a read in another schema of an input in the default schema only", () => {
+    it("accepts a read in another schema of an input in the default schema only", async () => {
       readOrders("OTHER.orders", "PUBLIC");
-      expect(expectationRules()).toEqual(["input-match-undecided"]);
-      expect(expectationRules("public")).toEqual([]);
-      expect(expectationRules("OTHER2")).toEqual([
+      expect(await expectationRules("public")).toEqual([]);
+      expect(await expectationRules("OTHER2")).toEqual([
         "expectation-reads-other-table",
       ]);
     });
 
-    it("refuses an unqualified read of an input outside the default schema", () => {
+    it("refuses an unqualified read of an input outside the default schema", async () => {
       readOrders("orders", "PUBLIC");
-      expect(expectationRules()).toEqual(["input-match-undecided"]);
-      expect(expectationRules("PUBLIC")).toEqual([]);
-      expect(expectationRules("OTHER")).toEqual([
+      expect(await expectationRules("PUBLIC")).toEqual([]);
+      expect(await expectationRules("OTHER")).toEqual([
         "expectation-reads-other-table",
       ]);
     });
 
-    it("refuses a read of a table that is neither input nor target", () => {
+    it("refuses a read of a table that is neither input nor target", async () => {
       readOrders("PEOPLE");
-      expect(expectationRules()).toEqual(["expectation-reads-other-table"]);
+      expect(await expectationRules()).toEqual([
+        "expectation-reads-other-table",
+      ]);
     });
   });
 
-  // Two names for a table, one unqualified: without a default schema the
-  // lint takes them as one table; with one, only when the qualified name is in
-  // the default schema.
+  // Two names for a table, one unqualified: the lint takes them as one table
+  // only when the qualified name is in the default schema.
   describe("with a table named once unqualified and once qualified", () => {
     let workdir: string;
 
@@ -650,28 +924,29 @@ describe("lint", () => {
       writeFileSync(path, text.replace(from, to));
     };
 
-    const rulesWithDefault = (schema?: string): string[] =>
+    const rulesWithDefault = async (schema?: string): Promise<string[]> =>
       rules(
-        lint({
-          folder: workdir,
-          defaultSchemas:
-            schema === undefined ? {} : { "Sample Database": schema },
-        }).findings,
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas:
+              schema === undefined ? {} : { "Sample Database": schema },
+          })
+        ).findings,
       );
 
-    it("finds a cycle through an unqualified read only in the default schema", () => {
+    it("finds a cycle through an unqualified read only in the default schema", async () => {
       mutateExamples("transform-cycle", workdir);
       replaceIn(
         "collections/transforms/native_transform.yaml",
         "JOIN TRANSFORMS.top_categories",
         "JOIN top_categories",
       );
-      expect(rulesWithDefault()).toContain("transform-cycle");
-      expect(rulesWithDefault("transforms")).toContain("transform-cycle");
-      expect(rulesWithDefault("PUBLIC")).not.toContain("transform-cycle");
+      expect(await rulesWithDefault("transforms")).toContain("transform-cycle");
+      expect(await rulesWithDefault("PUBLIC")).not.toContain("transform-cycle");
     });
 
-    it("finds a duplicate target written unqualified only in the default schema", () => {
+    it("finds a duplicate target written unqualified only in the default schema", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const copy = "collections/transforms/top_categories_copy.yaml";
       cpSync(
@@ -684,12 +959,13 @@ describe("lint", () => {
         "entity_id: TopCategoriesCopy000a",
       );
       replaceIn(copy, "  schema: TRANSFORMS\n", "");
-      expect(rulesWithDefault()).toEqual(["duplicate-target"]);
-      expect(rulesWithDefault("TRANSFORMS")).toEqual(["duplicate-target"]);
-      expect(rulesWithDefault("PUBLIC")).toEqual([]);
+      expect(await rulesWithDefault("TRANSFORMS")).toEqual([
+        "duplicate-target",
+      ]);
+      expect(await rulesWithDefault("PUBLIC")).toEqual([]);
     });
 
-    it("counts a table file as the table read unqualified only in the default schema", () => {
+    it("counts a table file as the table read unqualified only in the default schema", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const dir = join(workdir, "databases/sample_database/tables/orders");
       mkdirSync(dir, { recursive: true });
@@ -702,19 +978,21 @@ describe("lint", () => {
           "serdes/meta": [{ model: "Table" }],
         }),
       );
-      const unknownTables = (schema?: string) =>
-        lint({
-          folder: workdir,
-          defaultSchemas:
-            schema === undefined ? {} : { "Sample Database": schema },
-        })
-          .findings.filter((f) => f.rule === "unknown-table")
+      const unknownTables = async (schema?: string) =>
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas:
+              schema === undefined ? {} : { "Sample Database": schema },
+          })
+        ).findings
+          .filter((f) => f.rule === "unknown-table")
           .map((f) => f.message);
       const ordersUnknown =
         "table ORDERS is defined by no table file or transform target";
-      expect(unknownTables()).not.toContain(ordersUnknown);
-      expect(unknownTables("public")).not.toContain(ordersUnknown);
-      expect(unknownTables("OTHER")).toContain(ordersUnknown);
+      expect(await unknownTables()).not.toContain(ordersUnknown);
+      expect(await unknownTables("public")).not.toContain(ordersUnknown);
+      expect(await unknownTables("OTHER")).toContain(ordersUnknown);
     });
   });
 });

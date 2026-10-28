@@ -160,7 +160,7 @@ const transformIdByEntityId = new Map<string, number>(
 );
 
 // Transforms: the tables each one reads.
-const transforms = transformReads({ folder });
+const transforms = await transformReads({ folder });
 let transformsCompared = 0;
 for (const transform of transforms) {
   const label = `transform ${transform.name ?? transform.file} (${transform.file})`;
@@ -244,7 +244,7 @@ const testFiles = new Map(
     d.file,
   ]),
 );
-const findings = lint({ folder, defaultSchemas }).findings;
+const { findings } = await lint({ folder, defaultSchemas });
 const tests = await api("GET", "/api/ee/transform-test");
 if (tests.status !== 200 || !Array.isArray(tests.json)) {
   console.error(`GET /api/ee/transform-test answered ${describe(tests)}`);

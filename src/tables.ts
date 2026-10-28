@@ -12,13 +12,10 @@ export type TableKey = TableName & {
 };
 
 /**
- * The schema an unqualified table name resolves to in a database: a string, or
- * null when the database has none. `undefined` means unknown.
+ * The schema an unqualified table name resolves to in each database, by its
+ * name: a string, or null when the database has none.
  */
-export type DefaultSchema = string | null | undefined;
-
-/** The default schema of each database, by its name. */
-export type DefaultSchemaOf = (database: string | null) => DefaultSchema;
+export type DefaultSchemaOf = (database: string | null) => string | null;
 
 /** An identifier as Metabase compares it: in lower case. Null stays null. */
 export function fold(identifier: string): string;
@@ -36,7 +33,7 @@ export function fold(identifier: string | null): string | null {
  * - schemas must be equal when both are known. When one name is unqualified,
  *   it resolves to the default schema of the names' database
  *   (`defaultSchemaOf`), and matches only if the other schema is that
- *   default; when that default is unknown, it matches any schema.
+ *   default.
  */
 export function sameTable(
   a: TableKey,
@@ -58,10 +55,7 @@ export function sameTable(
     if (qualified === null) {
       return true;
     }
-    const defaultSchema = defaultSchemaOf(a.database ?? b.database);
-    return (
-      defaultSchema === undefined || fold(qualified) === fold(defaultSchema)
-    );
+    return fold(qualified) === fold(defaultSchemaOf(a.database ?? b.database));
   }
   return fold(a.schema) === fold(b.schema);
 }

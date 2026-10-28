@@ -19,7 +19,6 @@ export const LINT_RULES = [
   "duplicate-expectation-name",
   "unknown-table",
   "no-expectations",
-  "input-match-undecided",
   "reads-not-checked",
 ] as const;
 
@@ -50,7 +49,6 @@ export const LINT_RULE_SEVERITY: Readonly<Record<LintRule, LintSeverity>> = {
   "duplicate-expectation-name": "error",
   "unknown-table": "warning",
   "no-expectations": "warning",
-  "input-match-undecided": "warning",
   "reads-not-checked": "warning",
 };
 

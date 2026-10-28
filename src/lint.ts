@@ -1,6 +1,12 @@
+import { createEngineOf, type EngineOf } from "./databases.js";
+import {
+  type DefaultSchemas,
+  resolveDefaultSchemas,
+} from "./default-schemas.js";
 import {
   displayName,
   type Doc,
+  holderOf,
   indexByEntityId,
   isQuerySource,
   loadDocs,
@@ -18,6 +24,9 @@ import {
 import { cyclePath, cycles } from "./graph.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas, type Schemas } from "./schemas.js";
+import { readSettingsFile } from "./settings.js";
+import { loadSqlParser } from "./sql-parser.js";
+import { createSqlTableReader, type SqlTableReader } from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
   fold,
@@ -31,21 +40,25 @@ import {
   reportExpectationNames,
   reportRowsColumns,
 } from "./test-body-checks.js";
-import { reportTestFindings, type TableCheck } from "./test-checks.js";
 import {
+  reportTestFindings,
+  type TableCheck,
+  testInputs,
+} from "./test-checks.js";
+import {
+  incrementalFilterTables,
   reportCollectionNamespaces,
   reportIncrementalTags,
 } from "./transform-checks.js";
-import { stringOrNull } from "./values.js";
+import { isRecord, stringOrNull } from "./values.js";
 
 export type LintOptions = {
   folder: string;
   /**
-   * The schema an unqualified table name resolves to, by database name, as
-   * Metabase's driver reports it; null for a database with no schemas. A
-   * database not listed has an unknown default schema.
+   * Default schemas by database name, over those `CONFIG_FILE` in the folder
+   * gives.
    */
-  defaultSchemas?: Readonly<Record<string, string | null>>;
+  defaultSchemas?: DefaultSchemas;
 };
 
 export type LintResult = {
@@ -57,6 +70,7 @@ const LINTED_MODELS = new Set([
   "Transform",
   "TransformTest",
   "Table",
+  "Database",
   "NativeQuerySnippet",
 ]);
 
@@ -254,7 +268,7 @@ function reportUnreadableFiles(
   }
 }
 
-/** Reports each transform, transform test, table or snippet file that fails its schema. */
+/** Reports each transform, transform test, table, Database or snippet file that fails its schema. */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
     if (
@@ -278,10 +292,14 @@ export type TransformReads = {
 };
 
 /** The tables each schema-valid transform in the folder reads, as `lint` finds them. */
-export function transformReads({ folder }: LintOptions): TransformReads[] {
+export async function transformReads({
+  folder,
+}: LintOptions): Promise<TransformReads[]> {
   const schemas = loadSchemas();
   const { docs } = loadDocs(folder, schemas);
-  return transformsOf(docs, indexByEntityId(docs), schemas).map(
+  const engineOf = createEngineOf(docs, readSettingsFile(folder).engines);
+  const readSql = await sqlTableReaderFor(docs, engineOf);
+  return transformsOf(docs, indexByEntityId(docs), schemas, readSql).map(
     ({ doc, reads }) => ({
       file: doc.file,
       entity_id: doc.body.entity_id,
@@ -300,9 +318,56 @@ function transformsOf(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   schemas: Schemas,
+  readSql: SqlTableReader,
 ): Transform[] {
-  const readsOf = createReader(docs, byEntityId, schemas);
+  const readsOf = createReader(docs, byEntityId, schemas, readSql);
   return validDocsOf(docs, "Transform").map((doc) => transformOf(doc, readsOf));
+}
+
+/** Whether `value` holds a map with a `native` string: a native query stage. */
+function holdsNativeStage(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some(holdsNativeStage);
+  }
+  return (
+    isRecord(value) &&
+    (typeof value.native === "string" ||
+      Object.values(value).some(holdsNativeStage))
+  );
+}
+
+/**
+ * Whether any document holds SQL the lint may read: a native query stage, or
+ * a transform test's SQL expectation.
+ */
+function holdsSql(docs: readonly Doc[]): boolean {
+  return docs.some(
+    ({ model, body }) =>
+      holdsNativeStage(body) ||
+      (model === "TransformTest" &&
+        Array.isArray(body.expectations) &&
+        body.expectations.some(
+          (e) => isRecord(e) && typeof e.sql === "string",
+        )),
+  );
+}
+
+/** The reader for a folder that holds no SQL, which nothing calls. */
+const NO_SQL: SqlTableReader = () => {
+  throw new Error("The lint read SQL in a folder where it found none");
+};
+
+/**
+ * The SQL table reader for `docs`. It loads the SQL parser, once per process,
+ * only when the documents hold SQL (`holdsSql`).
+ */
+async function sqlTableReaderFor(
+  docs: readonly Doc[],
+  engineOf: EngineOf,
+): Promise<SqlTableReader> {
+  return holdsSql(docs)
+    ? createSqlTableReader(await loadSqlParser(), engineOf)
+    : NO_SQL;
 }
 
 /** A `Report` that appends each finding to `findings`. */
@@ -318,36 +383,91 @@ function createReport(findings: LintFinding[]): Report {
     });
 }
 
-/** Looks a database up in `defaultSchemas`; a database not listed, or null, has an unknown default schema. */
-function createDefaultSchemaOf(
-  defaultSchemas: Readonly<Record<string, string | null>>,
-): DefaultSchemaOf {
-  return (database) =>
-    database !== null && Object.hasOwn(defaultSchemas, database)
-      ? defaultSchemas[database]
-      : undefined;
+/**
+ * Every table the checks compare, in its database: table files, transform
+ * targets and reads, the tables an incremental transform's range filter names,
+ * and, for each test of a query transform, its inputs and the tables its SQL
+ * expectations read.
+ */
+function comparedTables(
+  docs: readonly Doc[],
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  transformOfDoc: ReadonlyMap<Doc, Transform>,
+  readSql: SqlTableReader,
+): TableKey[] {
+  const testTables = validDocsOf(docs, "TransformTest").flatMap((test) => {
+    const holder = holderOf(byEntityId, test.body.transform_id);
+    const transform = holder === null ? undefined : transformOfDoc.get(holder);
+    if (transform === undefined || !isQuerySource(transform.doc.body.source)) {
+      return [];
+    }
+    const database = transform.doc.body.source_database_id;
+    const expectationReads = test.body.expectations.flatMap((expectation) => {
+      const result =
+        "sql" in expectation ? readSql(expectation.sql, database) : null;
+      return result?.status === "read"
+        ? result.tables.map((t) => ({ database, ...t }))
+        : [];
+    });
+    return [...testInputs(test, transform), ...expectationReads];
+  });
+  const filterTables = validDocsOf(docs, "Transform").flatMap((transform) => {
+    const filter = incrementalFilterTables(transform);
+    return filter === null
+      ? []
+      : [...filter.tagTables, filter.checkpointTable].filter(
+          (t): t is TableKey => t !== null,
+        );
+  });
+  return [
+    ...validDocsOf(docs, "Table").map(tableOfFile),
+    ...[...transformOfDoc.values()].flatMap((t) => [
+      t.target,
+      ...(t.reads.status === "read" ? t.reads.tables : []),
+    ]),
+    ...filterTables,
+    ...testTables,
+  ];
 }
 
 /**
  * Checks the references between transforms, tables and transform tests in a
  * folder of representation files. Reads only the files; needs no Metabase.
  * Findings are grouped by rule, in the order of `LINT_RULES`, then by file.
+ * Native SQL is parsed by Metabase's own code (`loadSqlParser`), loaded on
+ * the first call whose folder holds SQL.
+ *
+ * Rejects with a `LintSetupError` before any check when the settings file is
+ * invalid, and a `MissingDefaultSchemasError` when a database needs a default
+ * schema that neither `defaultSchemas`, the settings file nor the database's
+ * engine gives (`resolveDefaultSchemas`).
  */
-export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
+export async function lint({
+  folder,
+  defaultSchemas = {},
+}: LintOptions): Promise<LintResult> {
+  const settings = readSettingsFile(folder);
   const schemas = loadSchemas();
   const { docs, unreadable } = loadDocs(folder, schemas);
+  const engineOf = createEngineOf(docs, settings.engines);
+  const readSql = await sqlTableReaderFor(docs, engineOf);
+  const byEntityId = indexByEntityId(docs);
+  const transforms = transformsOf(docs, byEntityId, schemas, readSql);
+  const transformOfDoc = new Map<Doc, Transform>(
+    transforms.map((t) => [t.doc, t]),
+  );
+  const defaultSchemaOf = resolveDefaultSchemas({
+    names: comparedTables(docs, byEntityId, transformOfDoc, readSql),
+    given: { ...settings.defaultSchemas, ...defaultSchemas },
+    engineOf,
+  });
+
   const findings: LintFinding[] = [];
   const report = createReport(findings);
 
-  const defaultSchemaOf = createDefaultSchemaOf(defaultSchemas);
-
   reportUnreadableFiles(unreadable, report);
   reportSchemaMismatches(docs, report);
-
-  const byEntityId = indexByEntityId(docs);
   reportDuplicateEntityIds(byEntityId, report);
-
-  const transforms = transformsOf(docs, byEntityId, schemas);
 
   reportUnreadSources(transforms, report);
   reportDuplicateTargets(transforms, defaultSchemaOf, report);
@@ -367,9 +487,10 @@ export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
   reportTestFindings(
     docs,
     byEntityId,
-    transforms,
+    transformOfDoc,
     checkKnown,
     defaultSchemaOf,
+    readSql,
     report,
   );
   reportRowsColumns(docs, report);

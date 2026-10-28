@@ -9,7 +9,7 @@ import { isRecord } from "../src/values.js";
 const ROOT = resolve(import.meta.dirname, "..");
 const EXAMPLES = resolve(ROOT, "examples", "v1");
 
-const TRANSFORMS = transformReads({ folder: EXAMPLES }).map((t, i) => ({
+const TRANSFORMS = (await transformReads({ folder: EXAMPLES })).map((t, i) => ({
   ...t,
   id: i + 1,
 }));

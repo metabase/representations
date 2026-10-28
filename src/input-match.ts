@@ -1,10 +1,4 @@
-import { type DefaultSchema, fold, type TableName } from "./tables.js";
-
-/**
- * `"undecided"` when the answer depends on a default schema the caller does
- * not know.
- */
-export type Match = "match" | "no-match" | "undecided";
+import { fold, type TableName } from "./tables.js";
 
 /**
  * Whether a test input stands in for a table the transform reads, by Metabase's
@@ -15,21 +9,15 @@ export type Match = "match" | "no-match" | "undecided";
 export function inputCovers(
   read: TableName,
   input: TableName,
-  defaultSchema: DefaultSchema,
-): Match {
+  defaultSchema: string | null,
+): boolean {
   if (fold(read.name) !== fold(input.name)) {
-    return "no-match";
+    return false;
   }
   if (fold(read.schema) === fold(input.schema)) {
-    return "match";
+    return true;
   }
-  if (read.schema !== null) {
-    return "no-match";
-  }
-  if (defaultSchema === undefined) {
-    return "undecided";
-  }
-  return fold(input.schema) === fold(defaultSchema) ? "match" : "no-match";
+  return read.schema === null && fold(input.schema) === fold(defaultSchema);
 }
 
 /**
@@ -43,18 +31,16 @@ export function inputCovers(
 export function rewriteCovers(
   read: TableName,
   table: TableName,
-  defaultSchema: DefaultSchema,
-): Match {
+  defaultSchema: string | null,
+): boolean {
   if (fold(read.name) !== fold(table.name)) {
-    return "no-match";
+    return false;
   }
-  if (fold(read.schema) === fold(table.schema) || table.schema === null) {
-    return "match";
-  }
-  if (defaultSchema === undefined) {
-    return "undecided";
-  }
-  return fold(table.schema) === fold(defaultSchema) ? "match" : "no-match";
+  return (
+    fold(read.schema) === fold(table.schema) ||
+    table.schema === null ||
+    fold(table.schema) === fold(defaultSchema)
+  );
 }
 
 /**
@@ -65,20 +51,16 @@ export function rewriteCovers(
 export function inputsCollide(
   a: TableName,
   b: TableName,
-  defaultSchema: DefaultSchema,
-): Match {
+  defaultSchema: string | null,
+): boolean {
   if (fold(a.name) !== fold(b.name)) {
-    return "no-match";
+    return false;
   }
   if (fold(a.schema) === fold(b.schema)) {
-    return "match";
+    return true;
   }
-  const qualified = a.schema ?? b.schema;
   if (a.schema !== null && b.schema !== null) {
-    return "no-match";
+    return false;
   }
-  if (defaultSchema === undefined) {
-    return "undecided";
-  }
-  return fold(qualified) === fold(defaultSchema) ? "match" : "no-match";
+  return fold(a.schema ?? b.schema) === fold(defaultSchema);
 }

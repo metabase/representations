@@ -73,7 +73,6 @@ const TREES: [string, (folder: string) => void][] = [
     (f) => mutateExamples("duplicate-expectation-name", f),
   ],
   ["no expectations", (f) => mutateExamples("no-expectations", f)],
-  ["input match undecided", (f) => mutateExamples("qualified-input", f)],
   ["reads not checked", (f) => mutateExamples("missing-snippet", f)],
   [
     "several rules",
@@ -86,8 +85,8 @@ const TREES: [string, (folder: string) => void][] = [
 ];
 
 describe("lint output", () => {
-  it("is empty for the bundled examples", () => {
-    expect(lint({ folder: EXAMPLES })).toMatchSnapshot();
+  it("is empty for the bundled examples", async () => {
+    expect(await lint({ folder: EXAMPLES })).toMatchSnapshot();
   });
 
   describe("on a broken copy of the examples", () => {
@@ -101,9 +100,9 @@ describe("lint output", () => {
       rmSync(workdir, { recursive: true, force: true });
     });
 
-    it.each(TREES)("matches the recording: %s", (_, build) => {
+    it.each(TREES)("matches the recording: %s", async (_, build) => {
       build(workdir);
-      expect(lint({ folder: workdir })).toMatchSnapshot();
+      expect(await lint({ folder: workdir })).toMatchSnapshot();
     });
   });
 });

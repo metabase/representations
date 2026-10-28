@@ -109,6 +109,87 @@ const entityId = generateEntityId(); // "LZfXLFzPPR4NNrgjlWDxn"
 const uuid = generateUuid(); // "1d4e9fdf-49ae-4fbe-ae27-05e7c6a5cfe8"
 ```
 
+## Lint
+
+Check the references between transforms, tables and transform tests in a folder, without a Metabase:
+
+```sh
+npx @metabase/representations lint --folder ./my-export
+```
+
+It prints one JSON finding per line on stdout, grouped by rule, then by file, and a count on stderr. It exits 1 when a finding is an error, and 2 when it cannot run: an invalid settings file, or a default schema it needs and does not have.
+
+### Settings file
+
+`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional:
+
+```json
+{
+  "defaultSchemas": {
+    "Warehouse": "public",
+    "Legacy": null
+  },
+  "engines": {
+    "Warehouse": "postgres",
+    "Legacy": "mysql"
+  }
+}
+```
+
+An engine is Metabase's driver name, as a Database file's `engine` gives it. A Database file (`databases/<slug>/<slug>.yaml`) that names an engine takes precedence over the settings file. Remote sync does not export Database files, so a repository it writes needs `engines` for the lint to know them.
+
+### Default schemas
+
+An unqualified table name, such as `orders`, resolves to its database's default schema. The files do not say which schema that is, so the lint must be told. It needs the default schema of a database when a name in it has no schema, or when one table name appears in two schemas. Without it, the lint stops before any check and names each such database.
+
+Give default schemas in the settings file's `defaultSchemas`; `null` means the database has no schemas. `--default-schema "<database>=<schema>"` gives one on the command line, over the file (`"<database>="` for no schemas). When a database's engine is `mysql` or `bigquery-cloud-sdk`, the lint takes `null` without being told, as Metabase does.
+
+### How it reads SQL
+
+The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at the version Metabase pins, and Metabase's `sql_tools.py`, run in WebAssembly by [Pyodide](https://pyodide.org). Nothing is fetched at run time. A CI job fails when either differs from Metabase's `master`.
+
+- The SQL dialect follows the database's engine, as Metabase maps drivers to dialects.
+- Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag.
+- Loading the parser costs about 1.5 seconds and 200–340 MB, once per process, and only when the folder holds native SQL.
+
+### Known limits
+
+Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input.
+
+When neither a Database file nor the settings file gives a database's engine, the lint parses its SQL in SQLGlot's default dialect, where Metabase uses the engine's. Engine-specific syntax then fails to parse, for example backticked names in MySQL and BigQuery or bracketed names in SQL Server, and the query is reported as `reads-not-checked`.
+
+Reported as `reads-not-checked`:
+
+- SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
+- An expression nested deeper than Python's recursion limit: about 46 levels of parentheses.
+- A snippet left in the query after pasting, such as one whose file is not in the folder.
+
+Read differently from what the database runs, with no warning:
+
+- A table function reads no table: `generate_series(…)`, `UNNEST`, `LATERAL FLATTEN`, and in ClickHouse `numbers(…)`, `s3(…)` and a parameterized view `db.v(p = 1)`. So do ClickHouse's `remote('host', db.t)` and `cluster('c', db.t)`, which read `db.t`.
+- In ClickHouse, `WHERE id IN db.u` misses `db.u`, and `WITH 1 AS orders SELECT * FROM orders` reads no table.
+- The table an `INSERT`, `UPDATE`, `DELETE` or `MERGE` writes counts as read.
+- A three-part name keeps its schema and table and drops the first part, even in MySQL, which has no three-part names.
+
+### Programmatic
+
+`lint` is asynchronous, and rejects with a `LintSetupError` when it cannot run:
+
+```js
+import { lint, MissingDefaultSchemasError } from "@metabase/representations";
+
+try {
+  const { files, findings } = await lint({
+    folder: "./my-export",
+    defaultSchemas: { Warehouse: "public" },
+  });
+} catch (e) {
+  if (e instanceof MissingDefaultSchemasError) {
+    console.log(e.databases); // [{ database, reason }, …]
+  }
+}
+```
+
 ## Publishing to NPM
 
 Releases are published automatically by the **Release to NPM** GitHub Actions workflow on every push to `main`. The workflow compares the `version` in `package.json` against the version published on npm and publishes (with the `latest` dist-tag) if they differ.

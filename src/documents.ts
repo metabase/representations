@@ -26,12 +26,15 @@ export type Doc = {
 /** The table files of a folder. They are not imported, so `validateSchema` does not check them. */
 export const TABLE_PATHS = ["databases/**/tables/**/*.yaml"];
 
+/** The Database files of a folder. They are not imported, so `validateSchema` does not check them. */
+export const DATABASE_PATHS = ["databases/*/*.yaml"];
+
 /**
  * Returns a check of a file that `validateSchema` does not see against its
  * model's schema: `table.yaml` for a Table, which has no `serdes/meta` model
  * constant to find it by. True when the model has no schema.
  */
-function createTableFileCheck(
+function createUnimportedFileCheck(
   schemas: Schemas,
 ): (model: string | null, body: unknown) => boolean {
   return (model, body) => {
@@ -128,6 +131,12 @@ type TableBody = {
   schema?: string | null;
 };
 
+/** The fields the lint reads from a schema-valid Database, as `database.yaml` types them. */
+type DatabaseBody = {
+  name: string;
+  engine?: string;
+};
+
 /** The fields the lint reads from a schema-valid snippet, as `snippet.yaml` types them. */
 type SnippetBody = {
   name: string;
@@ -139,6 +148,7 @@ type ValidBodies = {
   Transform: TransformBody;
   TransformTest: TransformTestBody;
   Table: TableBody;
+  Database: DatabaseBody;
 };
 
 /** A document of model `M` that matches its schema, with the body that schema guarantees. */
@@ -188,8 +198,9 @@ export function displayName(doc: Doc): string {
 export type UnreadableFile = { file: string; reason: string };
 
 /**
- * Every representation file and table file in `folder`, in path order: those
- * that parse to a YAML map as documents, and the others as unreadable files.
+ * Every representation file, table file and Database file in `folder`, in path
+ * order: those that parse to a YAML map as documents, and the others as
+ * unreadable files.
  */
 export function loadDocs(
   folder: string,
@@ -204,12 +215,12 @@ export function loadDocs(
       .map((r) => r.file),
   );
   const imported = new Set(globSync(IMPORT_PATHS, { cwd: folder }));
-  const matchesSchema = createTableFileCheck(schemas);
+  const matchesSchema = createUnimportedFileCheck(schemas);
   const docs: Doc[] = [];
   const unreadable: UnreadableFile[] = [];
   const files = new Set([
     ...imported,
-    ...globSync(TABLE_PATHS, { cwd: folder }),
+    ...globSync([...TABLE_PATHS, ...DATABASE_PATHS], { cwd: folder }),
   ]);
   for (const file of [...files].sort()) {
     let read: YamlDocument;

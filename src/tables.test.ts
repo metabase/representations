@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { type DefaultSchema, sameTable, type TableKey } from "./tables.js";
+import { type DefaultSchemaOf, sameTable, type TableKey } from "./tables.js";
 
 const table = (
   database: string | null,
@@ -8,13 +8,13 @@ const table = (
   name: string,
 ): TableKey => ({ database, schema, name });
 
-const unknownDefault = (): DefaultSchema => undefined;
+const noSchemas: DefaultSchemaOf = () => null;
 const defaultOf =
-  (schemas: Record<string, string | null>) =>
-  (database: string | null): DefaultSchema =>
+  (schemas: Record<string, string | null>): DefaultSchemaOf =>
+  (database) =>
     database !== null && Object.hasOwn(schemas, database)
       ? schemas[database]
-      : undefined;
+      : null;
 
 describe("sameTable", () => {
   it("compares names ignoring case, folded to lower case as Metabase folds", () => {
@@ -22,14 +22,14 @@ describe("sameTable", () => {
       sameTable(
         table("db", "s", "Orders"),
         table("db", "s", "ORDERS"),
-        unknownDefault,
+        noSchemas,
       ),
     ).toBe(true);
     expect(
       sameTable(
         table("db", "s", "orders"),
         table("db", "s", "people"),
-        unknownDefault,
+        noSchemas,
       ),
     ).toBe(false);
     // Upper case folds both to "STRASSE"; lower case keeps "straße" and "strasse" apart.
@@ -37,7 +37,7 @@ describe("sameTable", () => {
       sameTable(
         table("db", "s", "straße"),
         table("db", "s", "STRASSE"),
-        unknownDefault,
+        noSchemas,
       ),
     ).toBe(false);
   });
@@ -47,14 +47,14 @@ describe("sameTable", () => {
       sameTable(
         table("db", "Public", "t"),
         table("db", "PUBLIC", "t"),
-        unknownDefault,
+        noSchemas,
       ),
     ).toBe(true);
     expect(
       sameTable(
         table("db", "public", "t"),
         table("db", "other", "t"),
-        unknownDefault,
+        noSchemas,
       ),
     ).toBe(false);
   });
@@ -65,23 +65,6 @@ describe("sameTable", () => {
         table("db", null, "t"),
         table("db", null, "t"),
         defaultOf({ db: "public" }),
-      ),
-    ).toBe(true);
-  });
-
-  it("matches an unqualified name to any schema when the default schema is unknown", () => {
-    expect(
-      sameTable(
-        table("db", null, "t"),
-        table("db", "anything", "t"),
-        unknownDefault,
-      ),
-    ).toBe(true);
-    expect(
-      sameTable(
-        table("db", "anything", "t"),
-        table("db", null, "t"),
-        unknownDefault,
       ),
     ).toBe(true);
   });
@@ -130,17 +113,17 @@ describe("sameTable", () => {
 
   it("compares two known databases ignoring case, and lets a missing one match any", () => {
     expect(
-      sameTable(table("db1", "s", "t"), table("db2", "s", "t"), unknownDefault),
+      sameTable(table("db1", "s", "t"), table("db2", "s", "t"), noSchemas),
     ).toBe(false);
     expect(
       sameTable(
         table("Sample", "s", "t"),
         table("SAMPLE", "s", "t"),
-        unknownDefault,
+        noSchemas,
       ),
     ).toBe(true);
     expect(
-      sameTable(table(null, "s", "t"), table("db2", "s", "t"), unknownDefault),
+      sameTable(table(null, "s", "t"), table("db2", "s", "t"), noSchemas),
     ).toBe(true);
   });
 

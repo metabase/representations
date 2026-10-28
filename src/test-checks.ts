@@ -9,13 +9,8 @@ import {
 import type { Report } from "./findings.js";
 import { inputCovers, inputsCollide, rewriteCovers } from "./input-match.js";
 import type { Transform } from "./reads.js";
-import { tablesReadBySql } from "./sql-tables.js";
-import {
-  type DefaultSchema,
-  type DefaultSchemaOf,
-  tableLabel,
-  type TableKey,
-} from "./tables.js";
+import type { SqlTableReader } from "./sql-tables.js";
+import { type DefaultSchemaOf, tableLabel, type TableKey } from "./tables.js";
 
 type TestDoc = ValidDoc<"TransformTest">;
 
@@ -23,7 +18,7 @@ type TestDoc = ValidDoc<"TransformTest">;
 export type TableCheck = (doc: Doc, table: TableKey) => void;
 
 /** The tables a test supplies inputs for, in the database of the transform it tests. */
-function testInputs(test: TestDoc, transform: Transform): TableKey[] {
+export function testInputs(test: TestDoc, transform: Transform): TableKey[] {
   return test.body.inputs.map(({ table }) => ({
     database: transform.doc.body.source_database_id,
     schema: table.schema ?? null,
@@ -86,24 +81,30 @@ function testedTransform(
 export function reportTestFindings(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  transforms: readonly Transform[],
+  transformOfDoc: ReadonlyMap<Doc, Transform>,
   checkKnown: TableCheck,
   defaultSchemaOf: DefaultSchemaOf,
+  readSql: SqlTableReader,
   report: Report,
 ): void {
-  const transformOfDoc = new Map<Doc, Transform>(
-    transforms.map((t) => [t.doc, t]),
-  );
   for (const test of validDocsOf(docs, "TransformTest")) {
     const transform = testedTransform(test, byEntityId, transformOfDoc, report);
     if (transform === null) {
       continue;
     }
-    const database = transform.doc.body.source_database_id;
-    const defaultSchema = defaultSchemaOf(database);
+    const defaultSchema = defaultSchemaOf(
+      transform.doc.body.source_database_id,
+    );
     const inputs = testInputs(test, transform);
-    reportDuplicateInputs(test, inputs, database, defaultSchema, report);
-    reportExpectationReads(test, transform, inputs, defaultSchema, report);
+    reportDuplicateInputs(test, inputs, defaultSchema, report);
+    reportExpectationReads(
+      test,
+      transform,
+      inputs,
+      defaultSchema,
+      readSql,
+      report,
+    );
     if (transform.reads.status !== "read") {
       continue;
     }
@@ -119,27 +120,18 @@ export function reportTestFindings(
   }
 }
 
-/**
- * Reports a test whose inputs a query cannot tell apart (`inputsCollide`),
- * then each pair of inputs that collide only if an unknown default schema is
- * the qualified one's schema.
- */
+/** Reports a test whose inputs a query cannot tell apart (`inputsCollide`). */
 function reportDuplicateInputs(
   test: TestDoc,
   inputs: readonly TableKey[],
-  database: string,
-  defaultSchema: DefaultSchema,
+  defaultSchema: string | null,
   report: Report,
 ): void {
   const colliding = new Set<TableKey>();
-  const undecided: [TableKey, TableKey][] = [];
   inputs.forEach((a, i) => {
     for (const b of inputs.slice(i + 1)) {
-      const match = inputsCollide(a, b, defaultSchema);
-      if (match === "match") {
+      if (inputsCollide(a, b, defaultSchema)) {
         colliding.add(a).add(b);
-      } else if (match === "undecided") {
-        undecided.push([a, b]);
       }
     }
   });
@@ -153,37 +145,32 @@ function reportDuplicateInputs(
         .join(", ")}`,
     );
   }
-  for (const [a, b] of undecided) {
-    report(
-      "input-match-undecided",
-      test,
-      `inputs ${tableLabel(a)} and ${tableLabel(b)} stand in for the same table only if ${a.schema ?? b.schema} is the default schema of ${database}; set it with --default-schema`,
-    );
-  }
 }
 
 /**
  * Reports each table an expectation's SQL reads that Metabase would not
  * rewrite to the stand-in for the transform's target or for one of the test's
- * inputs (`rewriteCovers`); an expectation may read only those. A read whose
- * rewrite depends on an unknown default schema gets a warning. SQL the scan
- * cannot read gives a reads-not-checked warning.
+ * inputs (`rewriteCovers`); an expectation may read only those. SQL
+ * `readSql` cannot read gives a reads-not-checked warning.
  */
 function reportExpectationReads(
   test: TestDoc,
   transform: Transform,
   inputs: readonly TableKey[],
-  defaultSchema: DefaultSchema,
+  defaultSchema: string | null,
+  readSql: SqlTableReader,
   report: Report,
 ): void {
   const allowed = [...inputs, transform.target];
-  const database = transform.target.database ?? "its database";
   for (const expectation of test.body.expectations) {
     if (!("sql" in expectation)) {
       continue;
     }
     const name = expectation.name;
-    const result = tablesReadBySql(expectation.sql);
+    const result = readSql(
+      expectation.sql,
+      transform.doc.body.source_database_id,
+    );
     if (result.status === "unread") {
       report(
         "reads-not-checked",
@@ -193,21 +180,7 @@ function reportExpectationReads(
       continue;
     }
     for (const table of result.tables) {
-      const matches = allowed.map((a) =>
-        rewriteCovers(table, a, defaultSchema),
-      );
-      if (matches.includes("match")) {
-        continue;
-      }
-      const undecided = allowed.find((_, i) => matches[i] === "undecided");
-      if (undecided !== undefined) {
-        report(
-          "input-match-undecided",
-          test,
-          `expectation ${name} reads ${tableLabel(table)}, which is ${tableLabel(undecided)} only if ${undecided.schema} is the default schema of ${database}; set it with --default-schema`,
-          [transform.doc.file],
-        );
-      } else {
+      if (!allowed.some((a) => rewriteCovers(table, a, defaultSchema))) {
         report(
           "expectation-reads-other-table",
           test,
@@ -221,8 +194,7 @@ function reportExpectationReads(
 
 /**
  * Matches the test's inputs to the tables the transform reads by Metabase's
- * rule (`inputCovers`). Reports each read with no input, each pair whose match
- * depends on an unknown default schema (counted as a match), then, input by
+ * rule (`inputCovers`). Reports each read with no input, then, input by
  * input, an unknown table and an input that covers no read.
  */
 function reportInputMismatches(
@@ -231,29 +203,14 @@ function reportInputMismatches(
   inputs: readonly TableKey[],
   reads: readonly TableKey[],
   checkKnown: TableCheck,
-  defaultSchema: DefaultSchema,
+  defaultSchema: string | null,
   report: Report,
 ): void {
   const transformName = displayName(transform.doc);
   const covers = (read: TableKey, input: TableKey) =>
-    inputCovers(read, input, defaultSchema) !== "no-match";
+    inputCovers(read, input, defaultSchema);
   for (const read of reads) {
-    const matches = inputs.map((input) =>
-      inputCovers(read, input, defaultSchema),
-    );
-    if (matches.includes("match")) {
-      continue;
-    }
-    const undecided = inputs.filter((_, i) => matches[i] === "undecided");
-    for (const input of undecided) {
-      report(
-        "input-match-undecided",
-        test,
-        `input ${tableLabel(input)} stands in for ${tableLabel(read)}, which transform ${transformName} reads, only if ${input.schema} is the default schema of ${read.database ?? "its database"}; set it with --default-schema`,
-        [transform.doc.file],
-      );
-    }
-    if (undecided.length === 0) {
+    if (!inputs.some((input) => covers(read, input))) {
       report(
         "missing-input",
         test,

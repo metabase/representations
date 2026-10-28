@@ -4,12 +4,14 @@ import {
   isQuerySource,
   type QuerySource,
   validDocsOf,
+  type ValidDoc,
 } from "./documents.js";
 import type { Report } from "./findings.js";
 import {
   type DefaultSchemaOf,
   sameTable,
   tableLabel,
+  type TableKey,
   tableOfRef,
 } from "./tables.js";
 import { stringOrNull, templateTagsOf } from "./values.js";
@@ -75,6 +77,34 @@ function nativeOnlyStage(
 }
 
 /**
+ * What an incremental transform with a native-only query names for its range
+ * filter: for each table template tag, the table it names, or null when its
+ * `table-id` is not a table reference; and the checkpoint field's table, or
+ * null. Null for any other transform.
+ */
+export function incrementalFilterTables(transform: ValidDoc<"Transform">): {
+  tagTables: (TableKey | null)[];
+  checkpointTable: TableKey | null;
+} | null {
+  const { source, target } = transform.body;
+  if (target.type !== "table-incremental" || !isQuerySource(source)) {
+    return null;
+  }
+  const stage = nativeOnlyStage(source);
+  if (stage === null) {
+    return null;
+  }
+  return {
+    tagTables: templateTagsOf(stage["template-tags"])
+      .filter((tag) => tag.type === "table")
+      .map((tag) => tableOfRef(tag["table-id"])),
+    checkpointTable: tableOfRef(
+      source["source-incremental-strategy"]?.["checkpoint-filter-field-id"],
+    ),
+  };
+}
+
+/**
  * Reports each transform that writes an incremental table from a native-only
  * query with no table template tag for Metabase to put the incremental range
  * filter in: a tag naming the checkpoint field's table, or any table tag when
@@ -88,21 +118,12 @@ export function reportIncrementalTags(
   report: Report,
 ): void {
   for (const transform of validDocsOf(docs, "Transform")) {
-    const { source, target } = transform.body;
-    if (target.type !== "table-incremental" || !isQuerySource(source)) {
+    const filter = incrementalFilterTables(transform);
+    if (filter === null) {
       continue;
     }
-    const stage = nativeOnlyStage(source);
-    if (stage === null) {
-      continue;
-    }
-    const tableTags = templateTagsOf(stage["template-tags"]).filter(
-      (tag) => tag.type === "table",
-    );
-    const checkpointTable = tableOfRef(
-      source["source-incremental-strategy"]?.["checkpoint-filter-field-id"],
-    );
-    if (tableTags.length === 0) {
+    const { tagTables, checkpointTable } = filter;
+    if (tagTables.length === 0) {
       report(
         "missing-incremental-table-tag",
         transform,
@@ -110,12 +131,10 @@ export function reportIncrementalTags(
       );
     } else if (
       checkpointTable !== null &&
-      !tableTags.some((tag) => {
-        const table = tableOfRef(tag["table-id"]);
-        return (
-          table !== null && sameTable(table, checkpointTable, defaultSchemaOf)
-        );
-      })
+      !tagTables.some(
+        (table) =>
+          table !== null && sameTable(table, checkpointTable, defaultSchemaOf),
+      )
     ) {
       report(
         "missing-incremental-table-tag",

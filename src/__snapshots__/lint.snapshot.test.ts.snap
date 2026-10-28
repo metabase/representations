@@ -304,7 +304,7 @@ exports[`lint output on a broken copy of the examples matches the recording: rea
         "name": "Product Revenue Report",
       },
       "file": "collections/transforms/native_transform.yaml",
-      "message": "could not find the tables this transform reads: a snippet it uses is not in the folder",
+      "message": "could not find the tables this transform reads: snippet No Such Snippet is not in the folder",
       "related": [],
       "rule": "reads-not-checked",
       "severity": "warning",
@@ -394,31 +394,9 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
         "name": "Product Revenue Report",
       },
       "file": "collections/transforms/native_transform.yaml",
-      "message": "could not find the tables this transform reads: a snippet it uses is not in the folder",
+      "message": "could not find the tables this transform reads: snippet No Such Snippet is not in the folder",
       "related": [],
       "rule": "reads-not-checked",
-      "severity": "warning",
-    },
-  ],
-}
-`;
-
-exports[`lint output on a broken copy of the examples matches the recording: input match undecided 1`] = `
-{
-  "files": 112,
-  "findings": [
-    {
-      "entity": {
-        "entity_id": "LfXNcELKeCrAfD4htCFDH",
-        "model": "TransformTest",
-        "name": "Daily Order Summary: orders per day",
-      },
-      "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
-      "message": "input PUBLIC.ORDERS stands in for ORDERS, which transform Daily Order Summary reads, only if PUBLIC is the default schema of Sample Database; set it with --default-schema",
-      "related": [
-        "collections/transforms/daily_order_summary.yaml",
-      ],
-      "rule": "input-match-undecided",
       "severity": "warning",
     },
   ],

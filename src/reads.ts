@@ -9,8 +9,8 @@ import {
 } from "./documents.js";
 import { createSourceFinder, type NativeSql } from "./query-sources.js";
 import type { Schemas } from "./schemas.js";
-import { expandSnippets } from "./snippets.js";
-import { tablesReadBySql } from "./sql-tables.js";
+import { expandSnippets, type SnippetLookup } from "./snippets.js";
+import type { SqlTableReader } from "./sql-tables.js";
 import { type TableKey, uniqueTables } from "./tables.js";
 
 /**
@@ -34,29 +34,30 @@ export type Transform = {
 const SNIPPET_MODEL = "NativeQuerySnippet";
 
 /**
+ * The snippet a query uses by `name`: by `id`, its template tag's
+ * `snippet-id`, when the tag gives one, and else by its name.
+ */
+type FindSnippet = (name: string, id: string | undefined) => SnippetLookup;
+
+/**
  * The tables of native queries, in order, after pasting their snippets in;
- * unread at the first query with a missing snippet or SQL the scan cannot read.
- * A snippet a query's template tag names is found by its entity id, and any
- * other by its name.
+ * unread at the first query with a snippet that cannot be pasted or SQL
+ * `readSql` cannot read.
  */
 function nativeReads(
   natives: readonly NativeSql[],
-  snippetById: (id: string) => string | undefined,
-  snippetByName: ReadonlyMap<string, string>,
+  findSnippet: FindSnippet,
+  readSql: SqlTableReader,
 ): Reads {
   const tables: TableKey[] = [];
   for (const native of natives) {
-    const sql = expandSnippets(native.sql, (name) => {
-      const id = native.snippetIds.get(name);
-      return id === undefined ? snippetByName.get(name) : snippetById(id);
-    });
-    if (sql === null) {
-      return {
-        status: "unread",
-        reason: "a snippet it uses is not in the folder",
-      };
+    const expanded = expandSnippets(native.sql, (name) =>
+      findSnippet(name, native.snippetIds.get(name)),
+    );
+    if (expanded.status === "unread") {
+      return expanded;
     }
-    const result = tablesReadBySql(sql, native.valuedTags);
+    const result = readSql(expanded.sql, native.database, native.valuedTags);
     if (result.status === "unread") {
       return result;
     }
@@ -95,21 +96,52 @@ function pythonReads(source: PythonSource): Reads {
 
 /**
  * Returns a function giving the tables an entity reads: those its schema
- * types as tables, those its native SQL names, and the tables of each card,
- * metric, measure or segment it uses, followed to their own files.
+ * types as tables, those its native SQL names (`readSql`), and the tables of
+ * each card, metric, measure or segment it uses, followed to their own files.
  */
 export function createReader(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   schemas: Schemas,
+  readSql: SqlTableReader,
 ): ReadsOf {
   const findSources = createSourceFinder(schemas);
   const snippetByName = new Map(
     validDocsOf(docs, SNIPPET_MODEL).map((d) => [d.body.name, d.body.content]),
   );
-  const snippetById = (id: string) => {
-    const doc = holderOf(byEntityId, id);
-    return doc === null ? undefined : asValid(doc, SNIPPET_MODEL)?.body.content;
+  const invalidSnippets = docs.filter(
+    (d) => d.model === SNIPPET_MODEL && asValid(d, SNIPPET_MODEL) === null,
+  );
+  const failsSchema = (name: string, doc: Doc) =>
+    `snippet ${name} is in ${doc.file}, which fails its schema`;
+  const findSnippet: FindSnippet = (name, id) => {
+    if (id !== undefined) {
+      const doc = holderOf(byEntityId, id);
+      if (doc === null) {
+        return { unusable: `snippet ${name} (${id}) is not in the folder` };
+      }
+      const valid = asValid(doc, SNIPPET_MODEL);
+      if (valid !== null) {
+        return { content: valid.body.content };
+      }
+      return {
+        unusable:
+          doc.model === SNIPPET_MODEL
+            ? failsSchema(name, doc)
+            : `snippet ${name} (${id}) names a ${doc.model ?? "file with no model"}, not a snippet`,
+      };
+    }
+    const content = snippetByName.get(name);
+    if (content !== undefined) {
+      return { content };
+    }
+    const invalid = invalidSnippets.find((d) => d.body.name === name);
+    return {
+      unusable:
+        invalid === undefined
+          ? `snippet ${name} is not in the folder`
+          : failsSchema(name, invalid),
+    };
   };
   const memo = new Map<Doc, Reads>();
 
@@ -130,7 +162,7 @@ export function createReader(
     }
     const sources = findSources(doc.body, doc.model ?? "");
     const tables: TableKey[] = [...sources.tables];
-    const native = nativeReads(sources.natives, snippetById, snippetByName);
+    const native = nativeReads(sources.natives, findSnippet, readSql);
     if (native.status === "unread") {
       return native;
     }
