@@ -16,7 +16,8 @@
   "files": [
     "dist",
     "core-spec/v1/schemas",
-    "core-spec/v1/spec.md"
+    "core-spec/v1/spec.md",
+    "docs/lint.md"
   ],
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",

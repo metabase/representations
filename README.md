@@ -9,7 +9,7 @@ This repository holds the specification and examples of the Metabase Representat
 - **[core-spec/v1/spec.md](core-spec/v1/spec.md)** — Full specification (v1.0.0) covering entity keys, folder structure, MBQL and native queries, parameters, and all entity types.
 - **[core-spec/v1/schemas/](core-spec/v1/schemas/)** — YAML schemas (JSON Schema format) for each entity type.
 - **[examples/v1/](examples/v1/)** — Complete examples using the Sample Database.
-- **[docs/lint.md](docs/lint.md)** — How the lint resolves tables, reads SQL and YAML, and where it can be wrong.
+- **[docs/lint.md](https://github.com/metabase/representations/blob/main/docs/lint.md)** — How the lint resolves tables, reads SQL and YAML, and where it can be wrong.
 
 ## Entity Types
 
@@ -38,7 +38,7 @@ npx @metabase/representations validate-schema --folder ./my-export
 
 Omit `--folder` to validate the current directory. It exits 1 when a file fails, or when the folder has no YAML files.
 
-The validator reads YAML as Metabase does, with a few [known differences](docs/lint.md#how-yaml-is-read).
+The validator reads YAML as Metabase does, with a few [known differences](https://github.com/metabase/representations/blob/main/docs/lint.md#how-yaml-is-read).
 
 ## Lint
 
@@ -58,7 +58,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | 1 | A finding is an error, the folder has no YAML files, or an option is invalid. |
 | 2 | The lint cannot run: the settings file is invalid, a database needs a default schema the lint does not have, or the SQL parser cannot start. |
 
-[The lint in detail](docs/lint.md) explains how it resolves default schemas, reads SQL and YAML, and where it can be wrong.
+[The lint in detail](https://github.com/metabase/representations/blob/main/docs/lint.md) explains how it resolves default schemas, reads SQL and YAML, and where it can be wrong.
 
 ### Settings file
 

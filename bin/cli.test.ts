@@ -390,8 +390,9 @@ describe("cli", () => {
         readdirSync(join(REPO_ROOT, "dist/core-spec/v1/schemas")).sort(),
       ).toEqual(readdirSync(join(REPO_ROOT, "core-spec/v1/schemas")).sort());
 
-      // The published package carries the SQL parser's files; Pyodide comes
-      // as an optional dependency, pinned exactly.
+      // The published package carries the SQL parser's files and the lint's
+      // documentation; Pyodide comes as an optional dependency, pinned
+      // exactly.
       const pack = Bun.spawnSync({
         cmd: ["npm", "pack", "--dry-run", "--json"],
         cwd: REPO_ROOT,
@@ -410,6 +411,7 @@ describe("cli", () => {
           "dist/vendor/sources.json",
           "dist/vendor/sql_tools.py",
           "dist/vendor/sqlglot-30.20.0-py3-none-any.whl",
+          "docs/lint.md",
         ]),
       );
       expect(pinnedPyodide()).toMatch(/^\d+\.\d+\.\d+$/);
