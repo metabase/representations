@@ -80,4 +80,13 @@ describe("alpha-version.sh", () => {
     expect(outputs.version).toMatch(SEMVER);
     expect(outputs).toEqual({ version, tag });
   });
+
+  it("refuses a base version that is not X.Y.Z, and prints no output", () => {
+    const proc = Bun.spawnSync({
+      cmd: ["bash", SCRIPT, "1.6.2\ntag=latest", "main", "abc1234"],
+    });
+    expect(proc.exitCode).not.toBe(0);
+    expect(proc.stdout.toString()).toBe("");
+    expect(proc.stderr.toString()).toContain("not of the form X.Y.Z");
+  });
 });

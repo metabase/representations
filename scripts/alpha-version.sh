@@ -6,11 +6,19 @@
 #   tag=alpha-<branch slug>
 # The slug is the branch in lower case, each run of other characters than
 # letters and digits made one hyphen; "unnamed" when nothing is left.
+# Exits 1, printing nothing, when BASE_VERSION is not X.Y.Z.
 set -euo pipefail
 
 BASE=$1
 BRANCH=$2
 SHORT_SHA=$3
+
+# BASE comes from the PR's package.json. A line break in it would add lines to
+# $GITHUB_OUTPUT, such as tag=latest.
+if ! [[ $BASE =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  printf 'alpha-version.sh: base version %q is not of the form X.Y.Z\n' "$BASE" >&2
+  exit 1
+fi
 
 SLUG=$(printf '%s' "$BRANCH" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g; s/--*/-/g; s/^-//; s/-$//')
 SLUG=${SLUG:-unnamed}
