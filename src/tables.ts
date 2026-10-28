@@ -1,3 +1,5 @@
+import { stringOrNull } from "./values.js";
+
 /** A table as a query names it: its schema, if the name is qualified, and its name. */
 export type TableName = {
   schema: string | null;
@@ -78,6 +80,20 @@ export function uniqueTables(tables: readonly TableKey[]): TableKey[] {
     seen.add(key);
     return true;
   });
+}
+
+/**
+ * The table a `[database, schema, table, ...]` reference names (a table id or
+ * a field id), or null when `ref` is not one.
+ */
+export function tableOfRef(ref: unknown): TableKey | null {
+  return Array.isArray(ref) && typeof ref[2] === "string"
+    ? {
+        database: stringOrNull(ref[0]),
+        schema: stringOrNull(ref[1]),
+        name: ref[2],
+      }
+    : null;
 }
 
 /** The table as messages name it: `schema.name`, or `name` without a schema. */

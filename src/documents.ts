@@ -57,11 +57,20 @@ export type PythonSource = {
   "source-tables": readonly PythonSourceTable[];
 };
 
+/** A schema-valid query source, from `transform.yaml#/$defs/query_source`. */
+export type QuerySource = {
+  type: "query";
+  /** From `common/query.yaml`, which requires each stage's `lib/type` but not its type. */
+  query: { stages: readonly Readonly<Record<string, unknown>>[] };
+  /** The schema types it only as an object. */
+  "source-incremental-strategy"?: Readonly<Record<string, unknown>>;
+};
+
 /**
  * A schema-valid transform's source. `transform.yaml` requires a `type` and
  * checks the rest only when the type is "query" or "python".
  */
-type TransformSource = PythonSource | { type: unknown };
+type TransformSource = PythonSource | QuerySource | { type: unknown };
 
 /** The fields the lint reads from a schema-valid Transform, as `transform.yaml` types them. */
 type TransformBody = {
@@ -69,16 +78,43 @@ type TransformBody = {
   entity_id: string;
   source_database_id: string;
   source: TransformSource;
-  target: { name: string; schema?: string | null; database?: string };
+  target: {
+    type: "table" | "table-incremental";
+    name: string;
+    schema?: string | null;
+    database?: string;
+  };
+  /** A collection's entity id; null or absent for the root collection. */
+  collection_id?: string | null;
 };
+
+/** Test data written out as rows, from `transform_test.yaml`. */
+export type RowsData = {
+  format: "rows";
+  columns: readonly { name: string; cast_type: string }[];
+  /** Each row by column name. */
+  rows: readonly Readonly<Record<string, string | number | boolean | null>>[];
+};
+
+/** Test data returned by a SQL query, from `transform_test.yaml`. */
+type SqlData = { format: "sql"; sql: string };
+
+type TestInput = {
+  table: { schema?: string | null; name: string };
+} & (RowsData | SqlData);
+
+type TestExpectation = { name: string } & (
+  | { type: "empty"; sql: string }
+  | ({ type: "equals" } & (RowsData | SqlData))
+);
 
 /** The fields the lint reads from a schema-valid TransformTest, as `transform_test.yaml` types them. */
 type TransformTestBody = {
   name: string;
   entity_id: string;
   transform_id: string;
-  inputs: readonly { table: { schema?: string | null; name: string } }[];
-  expectations: readonly { name: string; sql?: string }[];
+  inputs: readonly TestInput[];
+  expectations: readonly TestExpectation[];
 };
 
 /** The fields the lint reads from a schema-valid Table, as `table.yaml` types them. */
@@ -127,7 +163,8 @@ export function isPythonSource(
 }
 
 /** Whether a schema-valid transform's source is a query, the only kind Metabase can test. */
-export function isQuerySource(source: TransformSource): boolean {
+export function isQuerySource(source: TransformSource): source is QuerySource {
+  // A source of type "query" passed `query_source`, which QuerySource follows.
   return source.type === "query";
 }
 

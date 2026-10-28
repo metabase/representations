@@ -46,6 +46,11 @@ const TREES: [string, (folder: string) => void][] = [
     (f) => mutateExamples("wrong-type-transform-id", f),
   ],
   ["transform cycle", (f) => mutateExamples("transform-cycle", f)],
+  ["transform collection", (f) => mutateExamples("transform-collection", f)],
+  [
+    "missing incremental table tag",
+    (f) => mutateExamples("missing-incremental-table-tag", f),
+  ],
   ["missing input", (f) => mutateExamples("missing-input", f)],
   ["unused input", (f) => mutateExamples("unused-input", f)],
   [
@@ -62,6 +67,12 @@ const TREES: [string, (folder: string) => void][] = [
     "expectation reads another table",
     (f) => mutateExamples("expectation-reads-other-table", f),
   ],
+  ["row columns mismatch", (f) => mutateExamples("row-columns-mismatch", f)],
+  [
+    "duplicate expectation name",
+    (f) => mutateExamples("duplicate-expectation-name", f),
+  ],
+  ["no expectations", (f) => mutateExamples("no-expectations", f)],
   ["input match undecided", (f) => mutateExamples("qualified-input", f)],
   ["reads not checked", (f) => mutateExamples("missing-snippet", f)],
   [

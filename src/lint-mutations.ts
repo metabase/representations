@@ -19,6 +19,7 @@ const PYTHON_TEST =
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
 const WIDGET_PRODUCTS_SEGMENT_ENTITY_ID = "aB3kLmN9pQrStUvWxYz1a";
+const QUERIES_COLLECTION_ENTITY_ID = "cOlQuErIeS0ExAmPlE2x1";
 const DB = "Sample Database";
 const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
 
@@ -223,6 +224,30 @@ export const MUTATIONS: Mutation[] = [
     },
   },
   {
+    name: "transform-collection",
+    description:
+      "A transform is put in a collection of the default namespace, where Metabase refuses it.",
+    rules: ["transform-collection"],
+    apply: (folder) =>
+      edit(folder, PRODUCT_REVENUE_REPORT, (doc) => {
+        doc.collection_id = QUERIES_COLLECTION_ENTITY_ID;
+      }),
+  },
+  {
+    name: "missing-incremental-table-tag",
+    description:
+      "A native transform writes an incremental table, but its query has no table variable for the range filter.",
+    rules: ["missing-incremental-table-tag"],
+    apply: (folder) =>
+      edit(folder, PRODUCT_REVENUE_REPORT, (doc) => {
+        doc.target.type = "table-incremental";
+        doc.source["source-incremental-strategy"] = {
+          type: "checkpoint",
+          "checkpoint-filter-field-id": [DB, null, "ORDERS", "CREATED_AT"],
+        };
+      }),
+  },
+  {
     name: "missing-input",
     description: "A test drops the input for a table its transform reads.",
     rules: ["missing-input"],
@@ -254,6 +279,36 @@ export const MUTATIONS: Mutation[] = [
       editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
         sql.replace("FROM ORDERS o", "FROM ORDRES o"),
       ),
+  },
+  {
+    name: "row-columns-mismatch",
+    description:
+      "A test input's row misspells a declared column, so it lacks that column and carries an undeclared one.",
+    rules: ["row-columns-mismatch"],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        const row = doc.inputs[0].rows[1];
+        row.TOTL = row.TOTAL;
+        delete row.TOTAL;
+      }),
+  },
+  {
+    name: "duplicate-expectation-name",
+    description: "A test's two expectations share a name.",
+    rules: ["duplicate-expectation-name"],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        doc.expectations[1].name = doc.expectations[0].name;
+      }),
+  },
+  {
+    name: "no-expectations",
+    description: "A test has no expectations, so it checks nothing.",
+    rules: ["no-expectations"],
+    apply: (folder) =>
+      edit(folder, TOP_CATEGORIES_TEST, (doc) => {
+        doc.expectations = [];
+      }),
   },
   {
     name: "invalid-test",

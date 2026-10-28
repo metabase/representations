@@ -508,3 +508,105 @@ exports[`lint output on a broken copy of the examples matches the recording: bro
   ],
 }
 `;
+
+exports[`lint output on a broken copy of the examples matches the recording: row columns mismatch 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "aRvM7DLesF1fOV4kRHidq",
+        "model": "TransformTest",
+        "name": "Product Revenue Report: category totals",
+      },
+      "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+      "message": "input ORDERS, row 2: every row must carry exactly the declared columns; missing "TOTAL"; not declared: "TOTL"",
+      "related": [],
+      "rule": "row-columns-mismatch",
+      "severity": "error",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: duplicate expectation name 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "aRvM7DLesF1fOV4kRHidq",
+        "model": "TransformTest",
+        "name": "Product Revenue Report: category totals",
+      },
+      "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+      "message": "expectation name "order count, revenue and average order value per category" is held by 2 expectations; names must be unique within a test",
+      "related": [],
+      "rule": "duplicate-expectation-name",
+      "severity": "error",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: no expectations 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "r6q1WcFoBcq1eCQC9Yztl",
+        "model": "TransformTest",
+        "name": "Top Categories: three highest",
+      },
+      "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
+      "message": "the test has no expectations; it passes whenever the transform runs on its inputs",
+      "related": [],
+      "rule": "no-expectations",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: transform collection 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+        "model": "Transform",
+        "name": "Product Revenue Report",
+      },
+      "file": "collections/transforms/native_transform.yaml",
+      "message": "collection Queries is in the default namespace; Metabase puts a transform only in a collection of the transforms namespace",
+      "related": [
+        "collections/main/queries.yaml",
+      ],
+      "rule": "transform-collection",
+      "severity": "error",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: missing incremental table tag 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+        "model": "Transform",
+        "name": "Product Revenue Report",
+      },
+      "file": "collections/transforms/native_transform.yaml",
+      "message": "the incremental native query has no table template tag for Metabase to put its range filter in",
+      "related": [],
+      "rule": "missing-incremental-table-tag",
+      "severity": "error",
+    },
+  ],
+}
+`;

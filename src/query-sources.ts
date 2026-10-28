@@ -4,7 +4,7 @@ import { posix } from "path";
 import type { Schemas } from "./schemas.js";
 import { snippetIdsOf } from "./snippets.js";
 import { valuedTagNames } from "./sql-tables.js";
-import { type TableKey, uniqueTables } from "./tables.js";
+import { type TableKey, tableOfRef, uniqueTables } from "./tables.js";
 import { isRecord, stringOrNull } from "./values.js";
 
 export type NativeSql = {
@@ -46,13 +46,6 @@ const unescapePointer = (part: string) =>
   part.replace(/~1/g, "/").replace(/~0/g, "~");
 
 const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
-
-/** The table a `table_id` or `field_id` names: its first three parts. */
-const tableOfId = (id: readonly unknown[], name: string): TableKey => ({
-  database: stringOrNull(id[0]),
-  schema: stringOrNull(id[1]),
-  name,
-});
 
 /**
  * Returns a function that finds the data sources in a representation
@@ -107,23 +100,17 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
     }
 
     const collect = (key: string, value: unknown, context: Context) => {
-      if (
-        key === TABLE_ID &&
-        Array.isArray(value) &&
-        typeof value[2] === "string"
-      ) {
-        sources.tables.push(tableOfId(value, value[2]));
+      const table =
+        key === TABLE_ID || (context.inQuery && key === FIELD_ID)
+          ? tableOfRef(value)
+          : null;
+      if (table !== null) {
+        sources.tables.push(table);
       }
       if (!context.inQuery) {
         return;
       }
-      if (
-        key === FIELD_ID &&
-        Array.isArray(value) &&
-        typeof value[2] === "string"
-      ) {
-        sources.tables.push(tableOfId(value, value[2]));
-      } else if (key === ENTITY_ID && typeof value === "string") {
+      if (key === ENTITY_ID && typeof value === "string") {
         sources.entities.push(value);
       } else if (
         ENTITY_REFS.has(key) &&

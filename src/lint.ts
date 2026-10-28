@@ -25,7 +25,16 @@ import {
   type TableKey,
   type TableName,
 } from "./tables.js";
+import {
+  reportEmptyExpectations,
+  reportExpectationNames,
+  reportRowsColumns,
+} from "./test-body-checks.js";
 import { reportTestFindings, type TableCheck } from "./test-checks.js";
+import {
+  reportCollectionNamespaces,
+  reportIncrementalTags,
+} from "./transform-checks.js";
 import { stringOrNull } from "./values.js";
 
 export type LintOptions = {
@@ -335,6 +344,8 @@ export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
   reportDuplicateTargets(transforms, defaultSchemaOf, report);
 
   reportCycles(transforms, defaultSchemaOf, report);
+  reportCollectionNamespaces(docs, byEntityId, report);
+  reportIncrementalTags(docs, defaultSchemaOf, report);
 
   const checkKnown = createUnknownTableCheck(
     docs,
@@ -352,6 +363,9 @@ export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
     defaultSchemaOf,
     report,
   );
+  reportRowsColumns(docs, report);
+  reportExpectationNames(docs, report);
+  reportEmptyExpectations(docs, report);
 
   return {
     files: docs.length + unreadable.length,

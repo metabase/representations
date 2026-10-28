@@ -12,7 +12,7 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 
 import type { LintFinding } from "./findings.js";
-import { LINT_RULE_SEVERITY } from "./index.js";
+import { LINT_RULE_SEVERITY, LINT_RULES } from "./index.js";
 import { lint, transformReads } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
 import { isRecord } from "./values.js";
@@ -26,6 +26,15 @@ function rules(findings: LintFinding[]): string[] {
 describe("lint", () => {
   it("finds nothing in the bundled examples", () => {
     expect(lint({ folder: EXAMPLES }).findings).toEqual([]);
+  });
+
+  it("has a mutation that reports each error rule", () => {
+    const mutated = new Set(MUTATIONS.flatMap((m) => m.rules));
+    expect(
+      LINT_RULES.filter(
+        (rule) => LINT_RULE_SEVERITY[rule] === "error" && !mutated.has(rule),
+      ),
+    ).toEqual([]);
   });
 
   describe("with a mutated copy of the examples", () => {

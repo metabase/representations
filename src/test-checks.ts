@@ -177,7 +177,7 @@ function reportExpectationReads(
   const allowed = [...inputs, transform.target];
   const database = transform.target.database ?? "its database";
   for (const expectation of test.body.expectations) {
-    if (expectation.sql === undefined) {
+    if (!("sql" in expectation)) {
       continue;
     }
     const name = expectation.name;
