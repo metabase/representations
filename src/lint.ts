@@ -86,7 +86,8 @@ const LINTED_MODELS = new Set([
   "NativeQuerySnippet",
 ]);
 
-function entityOf({ model, body }: FindingSubject): LintEntity {
+/** The entity a finding on `subject` names. */
+export function entityOf({ model, body }: FindingSubject): LintEntity {
   return {
     model,
     entity_id: stringOrNull(body.entity_id),

@@ -122,6 +122,55 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `live-sql-input` | warning | A test's SQL input that reads a real table, so the test depends on live data. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
+### Planting a defect
+
+`inject` edits a folder's files in place so that the lint reports one rule it did not report before, and no other new finding. Use it on a copy of a repository, to show the lint at work. It is experimental, as the lint is: the command runs only with `--experimental`, and its programmatic API comes from `@metabase/representations/experimental`.
+
+```sh
+npx @metabase/representations inject --experimental --folder ./my-export --defect missing-input
+npx @metabase/representations lint --experimental --folder ./my-export
+```
+
+It tries each place the defect could go, in path order of the files, on a scratch copy of the folder, and writes the first one the lint confirms. The same folder and defect always give the same edit. `--entity <entity_id>` plants it in that document only. It prints the edit and the findings it adds. It exits 1, changing nothing, when no place in the folder takes the defect alone, and says what the defect needs and what each place tried gave; and 2 when the folder cannot be linted. `--default-schema` works as for `lint`. `inject --experimental --list` lists the defects.
+
+Each defect is named by the rule it makes fire:
+
+| Defect | Severity | Edit |
+|---|---|---|
+| `schema` | error | A test's first expectation gets type `contains`. |
+| `duplicate-entity-id` | error | A test file is copied to `<name>_copy.yaml`. |
+| `dangling-transform-id` | error | A test's `transform_id` names no file. |
+| `wrong-type-transform-id` | error | A test's `transform_id` names the first other file with an entity_id that is not a transform. |
+| `transform-cycle` | error | A native transform's SQL also reads its own target. |
+| `transform-collection` | error | A transform's `collection_id` names no file. |
+| `missing-incremental-table-tag` | error | A native transform writes an incremental table, with no table variable. |
+| `missing-target-schema` | error | A transform's target drops its schema. Needs an engine with schemas. |
+| `unsupported-transform-engine` | warning | A Database file's engine becomes `h2`. |
+| `untestable-engine` | warning | A Database file's engine becomes `snowflake`. |
+| `missing-input` | error | A test drops one input. |
+| `unused-input` | error | A test gains a copy of an input, for `<table>_unused`. |
+| `untestable-transform` | error | A test's `transform_id` names a Python transform. |
+| `duplicate-input` | error | A test gains a copy of an input. |
+| `expectation-reads-other-table` | error | A test's SQL expectation also reads `planted_other`. |
+| `row-columns-mismatch` | error | The first row of a test's data misspells its first column: `TOTAL` becomes `TOTL`. |
+| `duplicate-expectation-name` | error | A test's second expectation takes the first one's name. |
+| `no-expectations` | warning | A test loses its expectations. |
+| `reads-not-checked` | warning | A native transform uses a snippet no file holds. |
+| `input-missing-read-column` | warning | A test's input of rows drops a column. |
+| `live-sql-input` | warning | A test's input of rows becomes SQL that reads the real table. |
+| `duplicate-target` | warning | A transform file is copied with a new entity_id. |
+
+`skipped-by-metabase`, `missing-target-database`, `unknown-table`, `null-schema-reference`, `upstream-column-mismatch` and `table-qualified-column` have no defect. `upstream-column-mismatch` and `table-qualified-column` need an edit that depends on what the SQL means, such as renaming an output column; `unknown-table` fires only beside table files, which most repositories do not hold.
+
+```js
+import { inject, InjectError } from "@metabase/representations/experimental";
+
+const { file, change, findings } = await inject({
+  folder: "./my-export",
+  defect: "missing-input",
+});
+```
+
 ## Other commands
 
 Copy the bundled `spec.md` to a file (default `./spec.md`):

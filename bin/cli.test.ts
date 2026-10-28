@@ -437,6 +437,105 @@ describe("cli", () => {
     });
   });
 
+  describe("inject", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-cli-inject-"));
+      cpSync(EXAMPLES, workdir, { recursive: true });
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    it("exits 1 without --experimental, changing no file", () => {
+      const test = join(
+        workdir,
+        "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+      );
+      const before = readFileSync(test, "utf8");
+      const { stdout, stderr, exitCode } = runCli([
+        "inject",
+        "--folder",
+        workdir,
+        "--defect",
+        "missing-input",
+      ]);
+      expect(stdout).toBe("");
+      expect(stderr.trimEnd().split("\n")).toEqual([
+        "inject is experimental: its defects, output and options can change in any release. Rerun with --experimental to run it.",
+      ]);
+      expect(exitCode).toBe(1);
+      expect(readFileSync(test, "utf8")).toBe(before);
+    });
+
+    it("lists each defect with its severity", () => {
+      const { stdout, exitCode } = runCli([
+        "inject",
+        "--experimental",
+        "--list",
+      ]);
+      expect(exitCode).toBe(0);
+      expect(stdout).toMatch(/^missing-input +error +A test drops/m);
+      expect(stdout).toMatch(/^no-expectations +warning /m);
+    });
+
+    it(
+      "prints the edit and the new finding, after which the lint fails",
+      () => {
+        const test =
+          "collections/transforms/native_transform/product_revenue_report__category_totals.yaml";
+        const planted = runCli([
+          "inject",
+          "--experimental",
+          "--folder",
+          workdir,
+          "--defect",
+          "missing-input",
+          "--entity",
+          "aRvM7DLesF1fOV4kRHidq",
+        ]);
+        expect(planted.exitCode).toBe(0);
+        expect(planted.stdout).toBe(
+          [
+            `Planted missing-input in ${test} (TransformTest Product Revenue Report: category totals, aRvM7DLesF1fOV4kRHidq):`,
+            "  removed the input for orders",
+            `Wrote ${test}`,
+            "The lint now also reports:",
+            `  error missing-input ${test}: no input for orders, which transform Product Revenue Report reads`,
+            "",
+          ].join("\n"),
+        );
+        const linted = runCli(["lint", "--experimental", "--folder", workdir]);
+        expect(linted.exitCode).toBe(1);
+        expect(JSON.parse(linted.stdout).rule).toBe("missing-input");
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "exits 1, saying what the defect needs, where no place takes it",
+      () => {
+        // Without its Database file, nothing gives the examples' engine.
+        rmSync(join(workdir, "databases/sample_postgres/sample_postgres.yaml"));
+        const { stderr, exitCode } = runCli([
+          "inject",
+          "--experimental",
+          "--folder",
+          workdir,
+          "--defect",
+          "untestable-engine",
+        ]);
+        expect(exitCode).toBe(1);
+        expect(stderr).toContain(
+          "takes untestable-engine alone. It needs a Database file",
+        );
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+  });
+
   describe("build", () => {
     it("bundles the current schemas when rebuilt over an existing dist", () => {
       for (let i = 0; i < 2; i++) {
@@ -535,8 +634,8 @@ describe("cli", () => {
           false,
         );
 
-        // The main entry has no lint; the experimental entry has it, and its
-        // lint runs under Node once the consumer installs Pyodide.
+        // The main entry has no lint and no inject; the experimental entry has
+        // both, and its lint runs under Node once the consumer installs Pyodide.
         const withPyodide = npmInstall(`pyodide@${pinnedPyodide()}`);
         expect(withPyodide.exitCode).toBe(0);
         mutateExamples("dangling-transform-id", broken);
@@ -545,14 +644,16 @@ describe("cli", () => {
             "node",
             "--input-type=module",
             "-e",
-            `const main = await import("@metabase/representations"); const { lint } = await import("@metabase/representations/experimental"); const { findings } = await lint({ folder: ${JSON.stringify(broken)} }); console.log(JSON.stringify({ mainHasLint: "lint" in main, mainHasValidateSchema: "validateSchema" in main, rules: findings.map((f) => f.rule) }));`,
+            `const main = await import("@metabase/representations"); const experimental = await import("@metabase/representations/experimental"); const { findings } = await experimental.lint({ folder: ${JSON.stringify(broken)} }); console.log(JSON.stringify({ mainHasLint: "lint" in main, mainHasInject: "inject" in main, mainHasValidateSchema: "validateSchema" in main, experimentalHasInject: "inject" in experimental, rules: findings.map((f) => f.rule) }));`,
           ],
           cwd: consumer,
         });
         expect(linted.stderr.toString()).toBe("");
         expect(JSON.parse(linted.stdout.toString())).toEqual({
           mainHasLint: false,
+          mainHasInject: false,
           mainHasValidateSchema: true,
+          experimentalHasInject: true,
           rules: ["dangling-transform-id"],
         });
       } finally {

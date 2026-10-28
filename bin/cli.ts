@@ -7,6 +7,8 @@ import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
 import { generateUuid } from "../src/generate-uuid.js";
+import { DEFECTS, inject, InjectError } from "../src/inject.js";
+import { LINT_RULE_SEVERITY } from "../src/findings.js";
 import { lint, type LintResult } from "../src/lint.js";
 import { CONFIG_FILE, LintSetupError } from "../src/settings.js";
 import { validateSchema } from "../src/validate-schema.js";
@@ -17,6 +19,9 @@ type ParsedValues = {
   count?: string;
   "default-schema"?: string[];
   experimental?: boolean;
+  defect?: string;
+  entity?: string;
+  list?: boolean;
   help?: boolean;
 };
 
@@ -40,6 +45,20 @@ Commands:
                        a database (repeatable; <database>= for none),
                        over ${CONFIG_FILE} in the folder
 
+  inject             Experimental: its defects, output and options can change
+                     in any release, and it runs only with --experimental.
+                     Plants one lint defect in a folder, editing its files
+                     in place, where the lint then reports that rule alone.
+                     Prints the edit and the new findings. Exits 1 when
+                     no place in the folder takes the defect
+    --experimental     Run the experimental inject (required)
+    --folder <path>    Folder to edit (default: cwd)
+    --defect <name>    The defect, named by the rule it makes fire
+    --entity <id>      Plant it in the document with this entity_id
+    --default-schema <database>=<schema>
+                       As for lint
+    --list             List the defects
+
   extract-spec       Copy the bundled spec.md into a target file
     --file <path>      Destination file (default: ./spec.md)
 
@@ -62,6 +81,9 @@ function parseArguments() {
       folder: { type: "string" },
       "default-schema": { type: "string", multiple: true },
       experimental: { type: "boolean", default: false },
+      defect: { type: "string" },
+      entity: { type: "string" },
+      list: { type: "boolean", default: false },
       file: { type: "string" },
       count: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
@@ -144,18 +166,10 @@ function parseDefaultSchemas(
   return schemas;
 }
 
-async function handleLint(values: ParsedValues): Promise<void> {
-  if (!values.experimental) {
-    console.error(
-      "lint is experimental: its rules, output and options can change in any release. Rerun with --experimental to run it.",
-    );
-    process.exit(1);
-  }
-  const folder = values.folder ?? process.cwd();
-  const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
-  let result: LintResult;
+/** `run`'s result; exits with status 2, printing why, when the lint cannot run. */
+async function exitIfLintCannotRun<T>(run: () => Promise<T>): Promise<T> {
   try {
-    result = await lint({ folder, defaultSchemas });
+    return await run();
   } catch (e) {
     if (e instanceof LintSetupError) {
       console.error(e.message);
@@ -163,6 +177,32 @@ async function handleLint(values: ParsedValues): Promise<void> {
     }
     throw e;
   }
+}
+
+/**
+ * Exits with status 1, saying why, unless `--experimental` was given;
+ * `unstable` names what of `command` can change in any release.
+ */
+function exitUnlessExperimental(
+  values: ParsedValues,
+  command: string,
+  unstable: string,
+): void {
+  if (!values.experimental) {
+    console.error(
+      `${command} is experimental: ${unstable} can change in any release. Rerun with --experimental to run it.`,
+    );
+    process.exit(1);
+  }
+}
+
+async function handleLint(values: ParsedValues): Promise<void> {
+  exitUnlessExperimental(values, "lint", "its rules, output and options");
+  const folder = values.folder ?? process.cwd();
+  const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+  const result: LintResult = await exitIfLintCannotRun(() =>
+    lint({ folder, defaultSchemas }),
+  );
   const { files, findings } = result;
 
   exitIfNoFiles(files, folder);
@@ -175,6 +215,57 @@ async function handleLint(values: ParsedValues): Promise<void> {
   const warnings = findings.length - errors;
   console.error(`${files} files, ${errors} errors, ${warnings} warnings`);
   process.exit(errors > 0 ? 1 : 0);
+}
+
+function listDefects(): void {
+  for (const { name, description } of DEFECTS) {
+    console.log(
+      `${name.padEnd(30)} ${LINT_RULE_SEVERITY[name].padEnd(7)} ${description}`,
+    );
+  }
+}
+
+async function handleInject(values: ParsedValues): Promise<void> {
+  exitUnlessExperimental(values, "inject", "its defects, output and options");
+  if (values.list) {
+    listDefects();
+    process.exit(0);
+  }
+  if (values.defect === undefined) {
+    console.error("inject needs --defect <name>, or --list");
+    process.exit(1);
+  }
+  const folder = values.folder ?? process.cwd();
+  const options = {
+    folder,
+    defect: values.defect,
+    entity: values.entity,
+    defaultSchemas: parseDefaultSchemas(values["default-schema"] ?? []),
+  };
+  const injection = await exitIfLintCannotRun(async () => {
+    try {
+      return await inject(options);
+    } catch (e) {
+      if (e instanceof InjectError) {
+        console.error(e.message);
+        process.exit(1);
+      }
+      throw e;
+    }
+  });
+  const { entity } = injection;
+  console.log(
+    `Planted ${injection.defect} in ${injection.file} (${entity.model} ${entity.name ?? ""}, ${entity.entity_id ?? "no entity_id"}):`,
+  );
+  console.log(`  ${injection.change}`);
+  console.log(`Wrote ${injection.files.join(", ")}`);
+  console.log("The lint now also reports:");
+  for (const finding of injection.findings) {
+    console.log(
+      `  ${finding.severity} ${finding.rule} ${finding.file}: ${finding.message}`,
+    );
+  }
+  process.exit(0);
 }
 
 function handleExtractSpec(values: ParsedValues): void {
@@ -220,6 +311,8 @@ async function main(): Promise<void> {
       return handleValidateSchema(values);
     case "lint":
       return handleLint(values);
+    case "inject":
+      return handleInject(values);
     case "extract-spec":
       return handleExtractSpec(values);
     case "extract-schema":
