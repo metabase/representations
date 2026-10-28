@@ -142,15 +142,42 @@ describe("lint-parity", () => {
     expect(exitCode).toBe(1);
   });
 
+  it("prints Metabase's message with each refusal it skips", async () => {
+    const unsupported = () =>
+      refusal(422, "transform-test.unsupported-driver", {
+        message:
+          "The sqlite database of this transform does not support transform testing.",
+      });
+    const { output } = await runParity({
+      readsProbe: (t) =>
+        t.name === "Top Categories" ? unsupported() : missingInputs(t),
+      testProbe: (t) =>
+        t.name === "Top Categories"
+          ? refusal(422, "transform-test.unsupported-driver", {
+              message: undefined,
+            })
+          : { status: 200, body: { id: 999 } },
+    });
+    expect(output).toContain(
+      'SKIP  transform Top Categories (collections/transforms/top_categories.yaml): Metabase refused the probe with transform-test.unsupported-driver ("The sqlite database of this transform does not support transform testing.")\n',
+    );
+    // A refusal with no message names the code alone.
+    expect(output).toContain(
+      "SKIP  test collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refused the probe with transform-test.unsupported-driver\n",
+    );
+  });
+
   it("fails on a refusal the lint does not explain", async () => {
     const { exitCode, output } = await runParity({
       readsProbe: (t) =>
         t.name === "Product Revenue Report"
-          ? refusal(400, "transform-test.unparseable-source")
+          ? refusal(400, "transform-test.unparseable-source", {
+              message: "Could not parse the SQL.",
+            })
           : missingInputs(t),
     });
     expect(output).toContain(
-      "Product Revenue Report (collections/transforms/native_transform.yaml): Metabase refused the probe with transform-test.unparseable-source",
+      'Product Revenue Report (collections/transforms/native_transform.yaml): Metabase refused the probe with transform-test.unparseable-source ("Could not parse the SQL."), which the lint does not explain',
     );
     expect(exitCode).toBe(1);
   });

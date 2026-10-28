@@ -8,7 +8,14 @@
     "url": "https://github.com/metabase/representations.git"
   },
   "homepage": "https://github.com/metabase/representations",
-  "keywords": ["metabase", "representation", "serialization", "yaml", "schema", "validator"],
+  "keywords": [
+    "metabase",
+    "representation",
+    "serialization",
+    "yaml",
+    "schema",
+    "validator"
+  ],
   "publishConfig": {
     "access": "public"
   },

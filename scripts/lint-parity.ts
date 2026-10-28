@@ -95,10 +95,14 @@ const isStringArray = (value: unknown): value is string[] =>
 /** Metabase's answer to creating a transform test. */
 type Probe =
   | { kind: "accepted" }
-  /** Refused with a transform-test error code; `tables` when the refusal lists them. */
+  /**
+   * Refused with a transform-test error code. `refusal` names the code and
+   * Metabase's message; `tables` when the refusal lists them.
+   */
   | {
       kind: "refused";
       code: string;
+      refusal: string;
       tables: string[] | null;
       body: Record<string, unknown>;
     }
@@ -124,6 +128,10 @@ async function probe(test: {
     return {
       kind: "refused",
       code,
+      refusal:
+        typeof json.message === "string"
+          ? `${code} (${JSON.stringify(json.message)})`
+          : code,
       tables: isStringArray(json.tables) ? json.tables : null,
       body: json,
     };
@@ -174,7 +182,9 @@ for (const transform of transforms) {
     continue;
   }
   if (answer.kind === "refused" && ENVIRONMENT_REFUSALS.has(answer.code)) {
-    console.log(`SKIP  ${label}: Metabase refused the probe, ${answer.code}`);
+    console.log(
+      `SKIP  ${label}: Metabase refused the probe with ${answer.refusal}`,
+    );
     continue;
   }
   if (
@@ -203,7 +213,7 @@ for (const transform of transforms) {
     metabaseTables = answer.tables;
   } else {
     fail(
-      `${label}: Metabase refused the probe with ${answer.code}, which the lint does not explain`,
+      `${label}: Metabase refused the probe with ${answer.refusal}, which the lint does not explain`,
     );
     continue;
   }
@@ -271,7 +281,9 @@ for (const [entityId, file] of testFiles) {
     continue;
   }
   if (answer.kind === "refused" && ENVIRONMENT_REFUSALS.has(answer.code)) {
-    console.log(`SKIP  ${label}: Metabase refused the probe, ${answer.code}`);
+    console.log(
+      `SKIP  ${label}: Metabase refused the probe with ${answer.refusal}`,
+    );
     continue;
   }
   testsCompared++;
