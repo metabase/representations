@@ -1,6 +1,7 @@
 import {
   displayName,
   type Doc,
+  holderOf,
   isQuerySource,
   type QuerySource,
   targetDatabaseOf,
@@ -39,8 +40,8 @@ export function reportCollectionNamespaces(
     if (id === undefined || id === null) {
       continue;
     }
-    const collection = byEntityId.get(id)?.[0];
-    if (collection === undefined) {
+    const collection = holderOf(byEntityId, id);
+    if (collection === null) {
       report(
         "transform-collection",
         transform,

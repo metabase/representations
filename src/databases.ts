@@ -1,5 +1,6 @@
 import { type Doc, validDocsOf, type ValidDoc } from "./documents.js";
 import { engineFacts } from "./engines.js";
+import { uniqueBy } from "./values.js";
 
 /**
  * A database's engine as its Database file names it, such as `postgres` or
@@ -54,10 +55,5 @@ export function databaseDefaultSchemas(
  * name one database, the first in path order.
  */
 function databaseFiles(docs: readonly Doc[]): ValidDoc<"Database">[] {
-  const seen = new Set<string>();
-  return validDocsOf(docs, "Database").filter(({ body }) => {
-    const first = !seen.has(body.name);
-    seen.add(body.name);
-    return first;
-  });
+  return uniqueBy(validDocsOf(docs, "Database"), ({ body }) => body.name);
 }

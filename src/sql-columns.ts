@@ -1,10 +1,11 @@
 import type { EngineOf } from "./databases.js";
-import type {
-  FieldReferences,
-  FieldSpec,
-  SqlParser,
-  TableReplacement,
-  Unread,
+import {
+  cacheBySql,
+  type FieldReferences,
+  type FieldSpec,
+  type SqlParser,
+  type TableReplacement,
+  type Unread,
 } from "./sql-parser.js";
 import { isTagPlaceholder, prepareSql } from "./sql-tables.js";
 import type { ColumnKey, TableName } from "./tables.js";
@@ -79,16 +80,9 @@ export function createSqlColumnReader(
   parser: SqlParser,
   engineOf: EngineOf,
 ): SqlColumnReader {
-  const memo = new Map<string, ReturnType<SqlParser["fieldReferences"]>>();
-  const fieldReferences = (sql: string, dialect: string | null) => {
-    const key = JSON.stringify([dialect, sql]);
-    let result = memo.get(key);
-    if (result === undefined) {
-      result = parser.fieldReferences(sql, dialect);
-      memo.set(key, result);
-    }
-    return result;
-  };
+  const fieldReferences = cacheBySql((sql, dialect) =>
+    parser.fieldReferences(sql, dialect),
+  );
 
   const referencesOf = <T>(
     sql: string,

@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { resolve } from "path";
 
-import { isRecord } from "./values.js";
+import { errorMessage, isRecord } from "./values.js";
 
 /** The file, at the root of the linted folder, that gives the lint's settings. */
 export const CONFIG_FILE = ".metabase-lint.json";
@@ -48,7 +48,7 @@ export function readSettingsFile(folder: string): LintSettings {
     // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     throw new LintSetupError(
-      `${CONFIG_FILE} does not parse as JSON: ${e instanceof Error ? e.message : String(e)}`,
+      `${CONFIG_FILE} does not parse as JSON: ${errorMessage(e)}`,
     );
   }
   if (!isRecord(settings)) {

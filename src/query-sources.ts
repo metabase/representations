@@ -1,4 +1,3 @@
-import type { ValidateFunction } from "ajv/dist/2020.js";
 import { posix } from "path";
 
 import type { Schemas } from "./schemas.js";
@@ -66,16 +65,12 @@ const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
  * branches the value validates against.
  */
 export function createSourceFinder({ ajv, files, models }: Schemas) {
-  const validators = new Map<string, ValidateFunction>();
+  // Ajv compiles each key's validator once and keeps it.
   const validates = (node: Node, value: unknown): boolean => {
     const key = node.pointer === "" ? node.file : keyOf(node);
-    let validate = validators.get(key);
+    const validate = ajv.getSchema(key);
     if (validate === undefined) {
-      validate = ajv.getSchema(key);
-      if (validate === undefined) {
-        throw new Error(`No schema at ${key}`);
-      }
-      validators.set(key, validate);
+      throw new Error(`No schema at ${key}`);
     }
     return validate(value) === true;
   };

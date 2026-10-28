@@ -84,6 +84,22 @@ export type SqlParser = {
   ): { status: "read"; sql: string } | Unread;
 };
 
+/** `parse`, which answers each distinct SQL, in each dialect, once. */
+export function cacheBySql<T extends object>(
+  parse: (sql: string, dialect: string | null) => T,
+): (sql: string, dialect: string | null) => T {
+  const answers = new Map<string, T>();
+  return (sql, dialect) => {
+    const key = JSON.stringify([dialect, sql]);
+    let answer = answers.get(key);
+    if (answer === undefined) {
+      answer = parse(sql, dialect);
+      answers.set(key, answer);
+    }
+    return answer;
+  };
+}
+
 /**
  * Metabase's driver->dialect, `src/metabase/sql_tools/sqlglot/core.clj:27-48`
  * at Metabase commit `32ae44fec4af`: the SQLGlot dialect of each driver that

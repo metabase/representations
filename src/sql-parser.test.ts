@@ -5,6 +5,7 @@ import { resolve } from "path";
 
 import {
   answerOf,
+  cacheBySql,
   dialectOf,
   loadSqlParser,
   type SqlParser,
@@ -28,6 +29,25 @@ describe("dialectOf", () => {
       expect(dialectOf(engine)).toBe(dialect);
     },
   );
+});
+
+describe("cacheBySql", () => {
+  it("parses each SQL, in each dialect, once", () => {
+    const parsed: [string, string | null][] = [];
+    const parse = cacheBySql((sql: string, dialect: string | null) => {
+      parsed.push([sql, dialect]);
+      return { sql, dialect };
+    });
+    const first = parse("SELECT 1", "postgres");
+    expect(parse("SELECT 1", "postgres")).toBe(first);
+    parse("SELECT 1", null);
+    parse("SELECT 2", "postgres");
+    expect(parsed).toEqual([
+      ["SELECT 1", "postgres"],
+      ["SELECT 1", null],
+      ["SELECT 2", "postgres"],
+    ]);
+  });
 });
 
 describe("answerOf", () => {

@@ -1,13 +1,14 @@
 import type { EngineOf } from "./databases.js";
 import { nativeQueriesAreSql } from "./engines.js";
 import {
+  cacheBySql,
   dialectOf,
   type ParsedTables,
   type SqlParser,
   type Unread,
 } from "./sql-parser.js";
-import { fold, type TableName } from "./tables.js";
-import { templateTagsOf } from "./values.js";
+import { fold } from "./tables.js";
+import { templateTagsOf, uniqueBy } from "./values.js";
 
 const TAG_PLACEHOLDER = "__metabase_template_tag__";
 
@@ -95,19 +96,6 @@ export function prepareSql(
   };
 }
 
-/** `tables` without repeats, keeping the first of each: two repeat when their schema and name are equal ignoring case. */
-function uniqueNames(tables: readonly TableName[]): TableName[] {
-  const seen = new Set<string>();
-  return tables.filter(({ schema, name }) => {
-    const key = JSON.stringify([fold(schema), fold(name)]);
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
-}
-
 /**
  * The tables native SQL reads, in the database `database`. `valuedTags` names
  * the template tags with a value, as `valuedTagNames` gives them, for a query
@@ -131,16 +119,9 @@ export function createSqlTableReader(
   parser: SqlParser,
   engineOf: EngineOf,
 ): SqlTableReader {
-  const parsed = new Map<string, ParsedTables>();
-  const parse = (sql: string, dialect: string | null): ParsedTables => {
-    const key = JSON.stringify([dialect, sql]);
-    let result = parsed.get(key);
-    if (result === undefined) {
-      result = parser.referencedTables(sql, dialect);
-      parsed.set(key, result);
-    }
-    return result;
-  };
+  const parse = cacheBySql((sql, dialect) =>
+    parser.referencedTables(sql, dialect),
+  );
   return (sql, database, valuedTags) => {
     const prepared = prepareSql(sql, engineOf(database), valuedTags);
     if (prepared.status === "unread") {
@@ -155,10 +136,11 @@ export function createSqlTableReader(
     }
     return {
       status: "read",
-      tables: uniqueNames(
+      tables: uniqueBy(
         result.tables.filter(
           (t) => t.schema !== null || !isTagPlaceholder(t.name),
         ),
+        ({ schema, name }) => JSON.stringify([fold(schema), fold(name)]),
       ),
     };
   };

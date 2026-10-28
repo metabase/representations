@@ -1,4 +1,4 @@
-import { stringOrNull } from "./values.js";
+import { stringOrNull, uniqueBy } from "./values.js";
 
 /** A table as a query names it: its schema, if the name is qualified, and its name. */
 export type TableName = {
@@ -71,18 +71,12 @@ export function sameTable(
  * their schema is null, so is what it means (`nullSchema`).
  */
 export function uniqueTables(tables: readonly TableKey[]): TableKey[] {
-  const seen = new Set<string>();
-  return tables.filter((t) => {
-    const key = JSON.stringify([
+  return uniqueBy(tables, (t) =>
+    JSON.stringify([
       ...[t.database, t.schema, t.name].map(fold),
       t.schema === null ? t.nullSchema : null,
-    ]);
-    if (seen.has(key)) {
-      return false;
-    }
-    seen.add(key);
-    return true;
-  });
+    ]),
+  );
 }
 
 /**
