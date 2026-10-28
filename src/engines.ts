@@ -36,50 +36,32 @@ const ALL_TRANSFORMS = {
   "transforms/testing": true,
 } as const;
 
-// Copied from each driver on Metabase `master`; paths below are relative to
-// Metabase's repository, and `modules/drivers/X` is shortened to `X`. A driver
-// that is not listed is unknown to the lint. `nullDefaultSchema` is false
-// unless a comment cites the driver's `default-schema`. `nativeSql` is true
-// for each driver whose `driver/register!` names a parent under `:sql`
-// (`:sql-jdbc`, `:postgres`, `:hive-like`, or `:sql` itself), and false for
-// mongo, which registers with no parent.
+/** A SQL driver with schemas, whose default schema the database gives. */
+const SQL = {
+  nativeSql: true,
+  nullDefaultSchema: false,
+  schemas: true,
+} as const;
+
+// Copied from each driver at Metabase commit `32ae44fec4af`, where the line
+// numbers below are exact; paths are relative to Metabase's repository, and
+// `modules/drivers/X` is shortened to `X`. A driver that is not listed is
+// unknown to the lint. `nullDefaultSchema` is false unless a comment cites the
+// driver's `default-schema`. `nativeSql` is true for each driver whose
+// `driver/register!` names a parent under `:sql` (`:sql-jdbc`, `:postgres`,
+// `:hive-like`, or `:sql` itself), and false for mongo, which registers with
+// no parent.
 const ENGINE_FACTS: Readonly<Record<string, EngineFacts>> = {
   // src/metabase/driver/postgres.clj:98-103
-  postgres: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...ALL_TRANSFORMS,
-  },
+  postgres: { ...SQL, ...ALL_TRANSFORMS },
   // redshift/src/metabase/driver/redshift.clj:81-83; schemas from its parent, postgres
-  redshift: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...ALL_TRANSFORMS,
-  },
+  redshift: { ...SQL, ...ALL_TRANSFORMS },
   // src/metabase/driver/mysql.clj:91, 108-110, 1370-1372
-  mysql: {
-    nativeSql: true,
-    nullDefaultSchema: true,
-    schemas: false,
-    ...ALL_TRANSFORMS,
-  },
+  mysql: { ...SQL, nullDefaultSchema: true, schemas: false, ...ALL_TRANSFORMS },
   // src/metabase/driver/h2.clj:106; schemas by default
-  h2: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-    "transforms/testing": true,
-  },
+  h2: { ...SQL, ...NO_TRANSFORMS, "transforms/testing": true },
   // src/metabase/driver/sqlite.clj:60, 624-626; no transform feature
-  sqlite: {
-    nativeSql: true,
-    nullDefaultSchema: true,
-    schemas: false,
-    ...NO_TRANSFORMS,
-  },
+  sqlite: { ...SQL, nullDefaultSchema: true, schemas: false, ...NO_TRANSFORMS },
   // mongo/src/metabase/driver/mongo.clj:53 (no parent), 535, 540; default
   // schema from the :default method, src/metabase/driver/sql/normalize.clj:57-59
   mongo: {
@@ -91,87 +73,34 @@ const ENGINE_FACTS: Readonly<Record<string, EngineFacts>> = {
   },
   // bigquery-cloud-sdk/src/metabase/driver/bigquery_cloud_sdk.clj:1148-1150, 1512-1514
   "bigquery-cloud-sdk": {
-    nativeSql: true,
+    ...SQL,
     nullDefaultSchema: true,
-    schemas: true,
     ...ALL_TRANSFORMS,
     "transforms/testing": false,
   },
   // snowflake/src/metabase/driver/snowflake.clj:130-132
-  snowflake: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...ALL_TRANSFORMS,
-    "transforms/testing": false,
-  },
+  snowflake: { ...SQL, ...ALL_TRANSFORMS, "transforms/testing": false },
   // clickhouse/src/metabase/driver/clickhouse.clj:78, 85-87
-  clickhouse: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...ALL_TRANSFORMS,
-  },
+  clickhouse: { ...SQL, ...ALL_TRANSFORMS },
   // sqlserver/src/metabase/driver/sqlserver.clj:79-82
-  sqlserver: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...ALL_TRANSFORMS,
-  },
+  sqlserver: { ...SQL, ...ALL_TRANSFORMS },
   // athena/src/metabase/driver/athena.clj:63-65: schemas unless the connection names a database
-  athena: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: null,
-    ...NO_TRANSFORMS,
-  },
+  athena: { ...SQL, schemas: null, ...NO_TRANSFORMS },
   // No transform feature, schemas by default: databricks/src/metabase/driver/databricks.clj,
   // druid-jdbc/src/metabase/driver/druid_jdbc.clj, oracle/src/metabase/driver/oracle.clj,
   // presto-jdbc/src/metabase/driver/presto_jdbc.clj, sparksql/src/metabase/driver/sparksql.clj,
   // starburst/src/metabase/driver/starburst.clj, vertica/src/metabase/driver/vertica.clj
-  databricks: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-  },
-  "druid-jdbc": {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-  },
-  oracle: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-  },
-  "presto-jdbc": {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-  },
-  sparksql: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-  },
-  starburst: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-  },
-  vertica: {
-    nativeSql: true,
-    nullDefaultSchema: false,
-    schemas: true,
-    ...NO_TRANSFORMS,
-  },
+  ...Object.fromEntries(
+    [
+      "databricks",
+      "druid-jdbc",
+      "oracle",
+      "presto-jdbc",
+      "sparksql",
+      "starburst",
+      "vertica",
+    ].map((engine) => [engine, { ...SQL, ...NO_TRANSFORMS }]),
+  ),
 };
 
 /** What the driver named `engine` declares; null for an engine the lint does not know, or none. */

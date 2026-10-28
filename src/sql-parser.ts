@@ -85,9 +85,9 @@ export type SqlParser = {
 };
 
 /**
- * Metabase's driver->dialect, `src/metabase/sql_tools/sqlglot/core.clj`: the
- * SQLGlot dialect of each driver that is not its own name. Null is SQLGlot's
- * default dialect.
+ * Metabase's driver->dialect, `src/metabase/sql_tools/sqlglot/core.clj:27-48`
+ * at Metabase commit `32ae44fec4af`: the SQLGlot dialect of each driver that
+ * is not its own name. Null is SQLGlot's default dialect.
  */
 const DIALECTS: Readonly<Record<string, string | null>> = {
   "bigquery-cloud-sdk": "bigquery",
