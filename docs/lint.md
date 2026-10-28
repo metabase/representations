@@ -23,7 +23,7 @@ In a Database file, `default_schema` is the schema unqualified names resolve to,
 
 On an engine with schemas, such as Postgres, `null` is ambiguous: the connection named no current schema, or Metabase has not synced the database since it began storing the value. The Metabase that runs the tests syncs on its own, so its value can differ. The lint therefore ignores `null` on an engine with schemas, and takes the default schema from the engine or asks for it.
 
-On an engine without schemas, or one the lint does not know, `null` means no schema.
+On an engine without schemas, an engine whose schemas depend on the connection (such as Athena), or an engine the lint does not know, `null` means no schema.
 
 ### `null` schemas in MBQL references
 
@@ -45,7 +45,7 @@ Such a transform has no target. No rule compares it with other tables, and the e
 
 ### Engine rules
 
-Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase's `master`:
+Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase at the commit `vendor/sources.json` records:
 
 - `missing-target-schema`, an error: a transform's target names no schema, on an engine with schemas. Metabase's API refuses such a transform; an import accepts it.
 - `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
