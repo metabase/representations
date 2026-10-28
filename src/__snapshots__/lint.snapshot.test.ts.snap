@@ -588,3 +588,191 @@ exports[`lint output on a broken copy of the examples matches the recording: mis
   ],
 }
 `;
+
+exports[`lint output on a broken copy of the examples matches the recording: missing target schema 1`] = `
+{
+  "files": 113,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+        "model": "Transform",
+        "name": "Python Hello World",
+      },
+      "file": "collections/transforms/python_hello_world.yaml",
+      "message": "the target names no schema; Metabase requires one for database Sample Database, whose engine postgres has schemas",
+      "related": [],
+      "rule": "missing-target-schema",
+      "severity": "error",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: unsupported transform engine 1`] = `
+{
+  "files": 113,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "7XqqzlsonSq4KFyOvtrAm",
+        "model": "Transform",
+        "name": "Daily Order Summary",
+      },
+      "file": "collections/transforms/daily_order_summary.yaml",
+      "message": "Metabase cannot run a query transform on database Sample Database: its engine h2 lacks the driver feature transforms/table",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "aWiR53tfmHEibiFGuIQeP",
+        "model": "Transform",
+        "name": "Hourly Product Stats",
+      },
+      "file": "collections/transforms/hourly_product_stats.yaml",
+      "message": "Metabase cannot run a query transform on database Sample Database: its engine h2 lacks the driver feature transforms/table",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "1fNzUt_CgppinjPk7pGKH",
+        "model": "Transform",
+        "name": "Monthly Order Summary",
+      },
+      "file": "collections/transforms/mbql_transform.yaml",
+      "message": "Metabase cannot run a query transform on database Sample Database: its engine h2 lacks the driver feature transforms/table",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "w7EfUbsxLA7kXBHVXgeaZ",
+        "model": "Transform",
+        "name": "Monthly Sales Summary",
+      },
+      "file": "collections/transforms/monthly_sales_summary.yaml",
+      "message": "Metabase cannot run a query transform on database Sample Database: its engine h2 lacks the driver feature transforms/table",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+        "model": "Transform",
+        "name": "Product Revenue Report",
+      },
+      "file": "collections/transforms/native_transform.yaml",
+      "message": "Metabase cannot run a query transform on database Sample Database: its engine h2 lacks the driver feature transforms/table",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "rT5vWxYz1aBcDeFgHiJkL",
+        "model": "Transform",
+        "name": "Product Summary",
+      },
+      "file": "collections/transforms/product_summary.yaml",
+      "message": "Metabase cannot run a query transform on database Sample Database: its engine h2 lacks the driver feature transforms/table",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+        "model": "Transform",
+        "name": "Python Hello World",
+      },
+      "file": "collections/transforms/python_hello_world.yaml",
+      "message": "Metabase cannot run a Python transform on database Sample Database: its engine h2 lacks the driver feature transforms/python",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "jf55MTi7z8cWQjPG2PEgz",
+        "model": "Transform",
+        "name": "Top Categories",
+      },
+      "file": "collections/transforms/top_categories.yaml",
+      "message": "Metabase cannot run a query transform on database Sample Database: its engine h2 lacks the driver feature transforms/table",
+      "related": [],
+      "rule": "unsupported-transform-engine",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: untestable engine 1`] = `
+{
+  "files": 113,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "LfXNcELKeCrAfD4htCFDH",
+        "model": "TransformTest",
+        "name": "Daily Order Summary: orders per day",
+      },
+      "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+      "message": "Metabase cannot run this test: transform Daily Order Summary reads database Sample Database, whose engine snowflake lacks the driver feature transforms/testing",
+      "related": [
+        "collections/transforms/daily_order_summary.yaml",
+      ],
+      "rule": "untestable-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "57lhlfQkXUllMLTaY9IRu",
+        "model": "TransformTest",
+        "name": "Monthly Order Summary: orders per month",
+      },
+      "file": "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+      "message": "Metabase cannot run this test: transform Monthly Order Summary reads database Sample Database, whose engine snowflake lacks the driver feature transforms/testing",
+      "related": [
+        "collections/transforms/mbql_transform.yaml",
+      ],
+      "rule": "untestable-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "aRvM7DLesF1fOV4kRHidq",
+        "model": "TransformTest",
+        "name": "Product Revenue Report: category totals",
+      },
+      "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+      "message": "Metabase cannot run this test: transform Product Revenue Report reads database Sample Database, whose engine snowflake lacks the driver feature transforms/testing",
+      "related": [
+        "collections/transforms/native_transform.yaml",
+      ],
+      "rule": "untestable-engine",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "r6q1WcFoBcq1eCQC9Yztl",
+        "model": "TransformTest",
+        "name": "Top Categories: three highest",
+      },
+      "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
+      "message": "Metabase cannot run this test: transform Top Categories reads database Sample Database, whose engine snowflake lacks the driver feature transforms/testing",
+      "related": [
+        "collections/transforms/top_categories.yaml",
+      ],
+      "rule": "untestable-engine",
+      "severity": "warning",
+    },
+  ],
+}
+`;

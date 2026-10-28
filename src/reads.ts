@@ -4,6 +4,7 @@ import {
   holderOf,
   isPythonSource,
   type PythonSource,
+  targetDatabaseOf,
   validDocsOf,
   type ValidDoc,
 } from "./documents.js";
@@ -204,11 +205,11 @@ export function transformOf(
   doc: ValidDoc<"Transform">,
   readsOf: ReadsOf,
 ): Transform {
-  const { target, source_database_id } = doc.body;
+  const { target } = doc.body;
   return {
     doc,
     target: {
-      database: target.database ?? source_database_id,
+      database: targetDatabaseOf(doc),
       schema: target.schema ?? null,
       name: target.name,
     },

@@ -16,12 +16,14 @@ const DAILY_ORDER_SUMMARY_TEST =
   "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
 const PYTHON_TEST =
   "collections/transforms/daily_order_summary/python_hello_world__greetings.yaml";
+const PYTHON_HELLO_WORLD = "collections/transforms/python_hello_world.yaml";
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
 const WIDGET_PRODUCTS_SEGMENT_ENTITY_ID = "aB3kLmN9pQrStUvWxYz1a";
 const QUERIES_COLLECTION_ENTITY_ID = "cOlQuErIeS0ExAmPlE2x1";
 const DB = "Sample Database";
 const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
+const DATABASE_FILE = "databases/sample_database/sample_database.yaml";
 
 export type Mutation = {
   name: string;
@@ -51,6 +53,15 @@ function write(
   const path = join(folder, file);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, yaml.dump(doc, { lineWidth: -1 }));
+}
+
+/** Writes a Database file that gives the Sample Database `engine`. */
+function writeEngine(folder: string, engine: string): void {
+  write(folder, DATABASE_FILE, {
+    name: DB,
+    engine,
+    "serdes/meta": [{ model: "Database", id: DB }],
+  });
 }
 
 function editNativeSql(
@@ -246,6 +257,32 @@ export const MUTATIONS: Mutation[] = [
           "checkpoint-filter-field-id": [DB, null, "ORDERS", "CREATED_AT"],
         };
       }),
+  },
+  {
+    name: "missing-target-schema",
+    description:
+      "A transform's target names no schema, on a Postgres database, which has schemas.",
+    rules: ["missing-target-schema"],
+    apply: (folder) => {
+      writeEngine(folder, "postgres");
+      edit(folder, PYTHON_HELLO_WORLD, (doc) => {
+        delete doc.target.schema;
+      });
+    },
+  },
+  {
+    name: "unsupported-transform-engine",
+    description:
+      "The transforms' database is H2, whose driver runs no query or Python transform.",
+    rules: ["unsupported-transform-engine"],
+    apply: (folder) => writeEngine(folder, "h2"),
+  },
+  {
+    name: "untestable-engine",
+    description:
+      "The tested transforms' database is Snowflake, whose driver runs no transform test.",
+    rules: ["untestable-engine"],
+    apply: (folder) => writeEngine(folder, "snowflake"),
   },
   {
     name: "missing-input",

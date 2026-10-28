@@ -68,7 +68,10 @@ export type PythonSource = {
 export type QuerySource = {
   type: "query";
   /** From `common/query.yaml`, which requires each stage's `lib/type` but not its type. */
-  query: { stages: readonly Readonly<Record<string, unknown>>[] };
+  query: {
+    database: string;
+    stages: readonly Readonly<Record<string, unknown>>[];
+  };
   /** The schema types it only as an object. */
   "source-incremental-strategy"?: Readonly<Record<string, unknown>>;
 };
@@ -135,6 +138,7 @@ type TableBody = {
 type DatabaseBody = {
   name: string;
   engine?: string;
+  default_schema?: string | null;
 };
 
 /** The fields the lint reads from a schema-valid snippet, as `snippet.yaml` types them. */
@@ -187,6 +191,19 @@ export function isPythonSource(
 export function isQuerySource(source: TransformSource): source is QuerySource {
   // A source of type "query" passed `query_source`, which QuerySource follows.
   return source.type === "query";
+}
+
+/**
+ * The database a transform writes its target to, as Metabase's
+ * `target-db-id` finds it for a query transform: its query's database.
+ * For another transform, the database its target names, or else its source
+ * database.
+ */
+export function targetDatabaseOf(transform: ValidDoc<"Transform">): string {
+  const { source, target, source_database_id } = transform.body;
+  return isQuerySource(source)
+    ? source.query.database
+    : (target.database ?? source_database_id);
 }
 
 /** The document's name, or its file when it has none. */

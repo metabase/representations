@@ -1,4 +1,5 @@
 import type { EngineOf } from "./databases.js";
+import { engineFacts } from "./engines.js";
 import { CONFIG_FILE, LintSetupError } from "./settings.js";
 import {
   type DefaultSchemaOf,
@@ -12,9 +13,6 @@ import {
  * Metabase's driver reports it; null for a database with no schemas.
  */
 export type DefaultSchemas = Readonly<Record<string, string | null>>;
-
-/** The engines whose default schema Metabase fixes as null. */
-const SCHEMALESS_ENGINES = new Set(["mysql", "bigquery-cloud-sdk"]);
 
 /** A database whose default schema the lint needs, and why. */
 export type DefaultSchemaWanted = { database: string; reason: string };
@@ -78,8 +76,9 @@ export function resolveDefaultSchemas({
     if (Object.hasOwn(given, database)) {
       return given[database];
     }
-    const engine = engineOf(database);
-    return engine !== null && SCHEMALESS_ENGINES.has(engine) ? null : undefined;
+    return engineFacts(engineOf(database))?.nullDefaultSchema === true
+      ? null
+      : undefined;
   };
   const byDatabase = new Map<string, TableName[]>();
   for (const { database, ...name } of names) {

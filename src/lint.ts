@@ -1,4 +1,8 @@
-import { createEngineOf, type EngineOf } from "./databases.js";
+import {
+  createEngineOf,
+  databaseDefaultSchemas,
+  type EngineOf,
+} from "./databases.js";
 import {
   type DefaultSchemas,
   resolveDefaultSchemas,
@@ -14,6 +18,11 @@ import {
   validDocsOf,
   type ValidDoc,
 } from "./documents.js";
+import {
+  reportMissingTargetSchemas,
+  reportUnsupportedTransformEngines,
+  reportUntestableEngines,
+} from "./engine-checks.js";
 import {
   LINT_RULE_SEVERITY,
   LINT_RULES,
@@ -439,8 +448,8 @@ function comparedTables(
  *
  * Rejects with a `LintSetupError` before any check when the settings file is
  * invalid, and a `MissingDefaultSchemasError` when a database needs a default
- * schema that neither `defaultSchemas`, the settings file nor the database's
- * engine gives (`resolveDefaultSchemas`).
+ * schema that neither `defaultSchemas`, the settings file, its Database file
+ * nor its engine gives (`resolveDefaultSchemas`), each over the next.
  */
 export async function lint({
   folder,
@@ -458,7 +467,11 @@ export async function lint({
   );
   const defaultSchemaOf = resolveDefaultSchemas({
     names: comparedTables(docs, byEntityId, transformOfDoc, readSql),
-    given: { ...settings.defaultSchemas, ...defaultSchemas },
+    given: {
+      ...databaseDefaultSchemas(docs, engineOf),
+      ...settings.defaultSchemas,
+      ...defaultSchemas,
+    },
     engineOf,
   });
 
@@ -475,6 +488,8 @@ export async function lint({
   reportCycles(transforms, defaultSchemaOf, report);
   reportCollectionNamespaces(docs, byEntityId, report);
   reportIncrementalTags(docs, defaultSchemaOf, report);
+  reportMissingTargetSchemas(docs, engineOf, report);
+  reportUnsupportedTransformEngines(docs, engineOf, report);
 
   const checkKnown = createUnknownTableCheck(
     docs,
@@ -496,6 +511,7 @@ export async function lint({
   reportRowsColumns(docs, report);
   reportExpectationNames(docs, report);
   reportEmptyExpectations(docs, report);
+  reportUntestableEngines(docs, byEntityId, engineOf, report);
 
   return {
     files: docs.length + unreadable.length,

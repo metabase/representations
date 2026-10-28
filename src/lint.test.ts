@@ -687,7 +687,10 @@ describe("lint", () => {
     const writeConfig = (text: string) =>
       writeFileSync(join(workdir, CONFIG_FILE), text);
 
-    const writeDatabase = (engine: string) => {
+    const writeDatabase = (
+      engine: string,
+      fields: Record<string, unknown> = {},
+    ) => {
       const dir = join(workdir, "databases/sample_database");
       mkdirSync(dir, { recursive: true });
       writeFileSync(
@@ -695,6 +698,7 @@ describe("lint", () => {
         yaml.dump({
           name: "Sample Database",
           engine,
+          ...fields,
           "serdes/meta": [{ model: "Database" }],
         }),
       );
@@ -702,6 +706,13 @@ describe("lint", () => {
 
     const lintRules = async (defaultSchemas?: Record<string, string | null>) =>
       rules((await lint({ folder: workdir, defaultSchemas })).findings);
+
+    // The rules that depend on the default schema, without the engine rules
+    // a Database file's engine adds.
+    const inputRules = async () =>
+      (await lintRules()).filter(
+        (rule) => rule === "missing-input" || rule === "unused-input",
+      );
 
     it("refuses to lint, before any check, when a database needs a default schema nobody gives", async () => {
       rmSync(join(workdir, CONFIG_FILE));
@@ -739,6 +750,16 @@ describe("lint", () => {
       expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
     });
 
+    it("takes the default schema of a SQLite or MongoDB database as null, as Metabase hard-codes it", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("sqlite");
+      expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
+      // SQLGlot has no MongoDB dialect, so the native transforms are unread:
+      // only the MBQL transforms' unqualified names need the default schema.
+      writeDatabase("mongo");
+      expect(await inputRules()).toEqual([]);
+    });
+
     it("takes a MySQL database to have no schemas, and asks for a Postgres database's default", async () => {
       rmSync(join(workdir, CONFIG_FILE));
       writeDatabase("mysql");
@@ -757,6 +778,42 @@ describe("lint", () => {
       await expect(lint({ folder: workdir })).rejects.toThrow(
         MissingDefaultSchemasError,
       );
+    });
+
+    it("reads a Database file's default_schema, over the engine's", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("postgres", { default_schema: "OTHER" });
+      expect(await lintRules()).toEqual([]);
+      writeDatabase("mysql", { default_schema: "OTHER" });
+      expect(await lintRules()).toEqual([]);
+    });
+
+    it("reads a Database file's null default_schema as no schemas on an engine without schemas, or an unknown one", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      for (const engine of ["sqlite", "duckdb"]) {
+        writeDatabase(engine, { default_schema: null });
+        expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
+      }
+    });
+
+    it("asks for the default schema when a Database file gives null on an engine with schemas", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("postgres", { default_schema: null });
+      await expect(lint({ folder: workdir })).rejects.toThrow(
+        MissingDefaultSchemasError,
+      );
+    });
+
+    it("falls through to the engine when a Database file's null default_schema is not taken", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("bigquery-cloud-sdk", { default_schema: null });
+      expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
+    });
+
+    it("takes the settings file's default schema over a Database file's", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Database": "PUBLIC"}}');
+      writeDatabase("postgres", { default_schema: "OTHER" });
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
     });
 
     it("refuses a settings file it cannot read", async () => {

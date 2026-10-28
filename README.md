@@ -140,9 +140,26 @@ An engine is Metabase's driver name, as a Database file's `engine` gives it. A D
 
 ### Default schemas
 
-An unqualified table name, such as `orders`, resolves to its database's default schema. The files do not say which schema that is, so the lint must be told. It needs the default schema of a database when a name in it has no schema, or when one table name appears in two schemas. Without it, the lint stops before any check and names each such database.
+An unqualified table name, such as `orders`, resolves to its database's default schema. The lint needs the default schema of a database when a name in it has no schema, or when one table name appears in two schemas. Without it, the lint stops before any check and names each such database.
 
-Give default schemas in the settings file's `defaultSchemas`; `null` means the database has no schemas. `--default-schema "<database>=<schema>"` gives one on the command line, over the file (`"<database>="` for no schemas). When a database's engine is `mysql` or `bigquery-cloud-sdk`, the lint takes `null` without being told, as Metabase does.
+It takes a database's default schema from the first of these that gives one:
+
+1. `--default-schema "<database>=<schema>"` on the command line; `"<database>="` for no schemas.
+2. The settings file's `defaultSchemas`; `null` for no schemas.
+3. The Database file's `default_schema`, which a full serdes export writes. A file without the field, as Metabase wrote before it stored the value, gives none.
+4. The engine: `mysql`, `bigquery-cloud-sdk`, `sqlite` and `mongo` have `null`, which Metabase hard-codes.
+
+In a Database file, `default_schema` is the schema unqualified names resolve to, as Metabase's metadata sync last read it from the database. `null` there means Metabase resolves an unqualified name to no schema. On an engine with schemas, such as Postgres, `null` is ambiguous: the connection named no current schema, or Metabase has not synced the database since it began storing the value. The Metabase that runs the tests syncs on its own, so its value can differ. The lint therefore ignores `null` on an engine with schemas, and takes the default schema from the engine or asks for it. On an engine without schemas, or one the lint does not know, `null` means no schema.
+
+### Engine rules
+
+Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase's `master`:
+
+- `missing-target-schema`, an error: a transform's target names no schema, on an engine with schemas. Metabase's API refuses such a transform; an import accepts it.
+- `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
+- `untestable-engine`, a warning: a test of a transform whose source database's engine cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
+
+A query transform's target is in its query's database, as Metabase finds it. An engine missing from the table gives no finding, nor does a database whose engine the lint does not know. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
 
 ### How it reads SQL
 
