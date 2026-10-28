@@ -27,8 +27,29 @@ describe("loadSchemas", () => {
     });
     expect(constants.length).toBeGreaterThan(0);
     expect(constants.every((c) => typeof c === "string")).toBe(true);
-    expect([...loadSchemas().models.keys()].sort()).toEqual(
-      constants.map(String).sort(),
+    expect([...loadSchemas().models.keys()]).toEqual(
+      expect.arrayContaining(constants.map(String)),
+    );
+  });
+
+  test("names the model of a schema whose serdes/meta is a path, by the path's last model", () => {
+    const { models } = loadSchemas();
+    expect(
+      ["Table", "Field", "FieldValues", "FieldUserSettings"].map((model) =>
+        models.get(model),
+      ),
+    ).toEqual([
+      "table.yaml",
+      "field.yaml",
+      "field_values.yaml",
+      "field_user_settings.yaml",
+    ]);
+  });
+
+  test("names a model for every entity schema", () => {
+    const entitySchemas = globSync("*.yaml", { cwd: SCHEMAS_DIR }).sort();
+    expect([...new Set(loadSchemas().models.values())].sort()).toEqual(
+      entitySchemas,
     );
   });
 });

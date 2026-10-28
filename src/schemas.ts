@@ -20,7 +20,11 @@ export type Schemas = {
   models: Map<string, string>;
 };
 
-/** The model a schema's `serdes/meta` items fix by `const`, or null. */
+/**
+ * The model of a schema's entity: the model its `serdes/meta` items fix by
+ * `const`, or, for a path such as a Table's `[Database, Schema, Table]`, the
+ * last model of their `enum`. Null when the items name neither.
+ */
 function extractModel(schema: unknown): string | null {
   const propertyOf = (value: unknown, key: string): unknown =>
     isRecord(value) ? value[key] : undefined;
@@ -28,10 +32,14 @@ function extractModel(schema: unknown): string | null {
     propertyOf(propertyOf(schema, "properties"), "serdes/meta"),
     "items",
   );
-  const props =
+  const model = propertyOf(
     propertyOf(items, "properties") ??
-    propertyOf(propertyOf(items, "items"), "properties");
-  return stringOrNull(propertyOf(propertyOf(props, "model"), "const"));
+      propertyOf(propertyOf(items, "items"), "properties"),
+    "model",
+  );
+  const path = propertyOf(model, "enum");
+  const pathEnd: unknown = Array.isArray(path) ? path.at(-1) : undefined;
+  return stringOrNull(propertyOf(model, "const") ?? pathEnd);
 }
 
 /**
