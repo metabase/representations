@@ -1158,4 +1158,106 @@ describe("lint", () => {
       expect(await ordersUnknown("OTHER")).toEqual([sqlRead, mbqlRead]);
     });
   });
+
+  // Metabase keeps a transform's source_database_id when its query changes, so
+  // the two can name different databases. A test runs on the query's database.
+  describe("with a source_database_id other than the query's database", () => {
+    let workdir: string;
+
+    const TRANSFORM = "collections/transforms/mbql_transform.yaml";
+    const TEST =
+      "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml";
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-querydb-"));
+      for (const file of [TRANSFORM, TEST]) {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        cpSync(join(EXAMPLES, file), join(workdir, file));
+      }
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const edit = (
+      file: string,
+      change: (doc: Record<string, unknown>) => void,
+    ) => {
+      const path = join(workdir, file);
+      const doc: unknown = yaml.load(readFileSync(path, "utf8"));
+      if (!isRecord(doc)) {
+        throw new Error(`${file} is not a YAML map`);
+      }
+      change(doc);
+      writeFileSync(path, yaml.dump(doc));
+    };
+
+    // The query reads Sample Database; source_database_id names another.
+    const setUp = (
+      sourceDatabaseId: string,
+      settings: {
+        engines: Record<string, string>;
+        defaultSchemas: Record<string, string>;
+      },
+      expectationSql: readonly string[],
+    ) => {
+      writeFileSync(join(workdir, CONFIG_FILE), JSON.stringify(settings));
+      edit(TRANSFORM, (doc) => {
+        doc.source_database_id = sourceDatabaseId;
+      });
+      edit(TEST, (doc) => {
+        doc.expectations = expectationSql.map((sql, i) => ({
+          type: "empty",
+          name: `expectation ${i + 1}`,
+          sql,
+        }));
+      });
+    };
+
+    const messages = async () =>
+      (await lint({ folder: workdir })).findings.map(
+        (f) => `${f.rule}: ${f.message}`,
+      );
+
+    it("reads a test's SQL when source_database_id names a MongoDB database and the query a Postgres one", async () => {
+      setUp(
+        "Docs",
+        {
+          engines: { "Sample Database": "postgres", Docs: "mongo" },
+          defaultSchemas: { "Sample Database": "PUBLIC" },
+        },
+        ["SELECT * FROM PEOPLE"],
+      );
+      expect(await messages()).toEqual([
+        "expectation-reads-other-table: expectation expectation 1 reads PEOPLE, which is neither the transform's target nor an input of this test",
+      ]);
+    });
+
+    it("reads a test's SQL in the dialect, and its inputs with the default schema, of the query's database", async () => {
+      // MySQL reads backquoted names, which Postgres cannot parse. MySQL has no
+      // schemas, so the input PUBLIC.ORDERS is another table than ORDERS.
+      setUp(
+        "Warehouse",
+        {
+          engines: { "Sample Database": "mysql", Warehouse: "postgres" },
+          defaultSchemas: { Warehouse: "PUBLIC" },
+        },
+        ["SELECT * FROM `TRANSFORMS`.`monthly_order_summary` WHERE sum < 0"],
+      );
+      edit(TEST, (doc) => {
+        const [orders]: unknown[] = Array.isArray(doc.inputs) ? doc.inputs : [];
+        if (!isRecord(orders) || !isRecord(orders.table)) {
+          throw new Error(`${TEST} has no input table`);
+        }
+        doc.inputs = [
+          orders,
+          { ...orders, table: { ...orders.table, schema: "PUBLIC" } },
+        ];
+      });
+      expect(await messages()).toEqual([
+        "unused-input: input PUBLIC.ORDERS is not read by transform Monthly Order Summary",
+      ]);
+    });
+  });
 });

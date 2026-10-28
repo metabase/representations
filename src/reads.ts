@@ -3,7 +3,9 @@ import {
   type Doc,
   holderOf,
   isPythonSource,
+  isQueryTransformDoc,
   type PythonSource,
+  type QueryTransformDoc,
   targetDatabaseOf,
   validDocsOf,
   type ValidDoc,
@@ -35,6 +37,16 @@ export type Transform = {
   target: TableKey;
   reads: Reads;
 };
+
+/** A transform whose source is a query. */
+export type QueryTransform = Transform & { doc: QueryTransformDoc };
+
+/** Whether `transform`'s source is a query. */
+export function isQueryTransform(
+  transform: Transform,
+): transform is QueryTransform {
+  return isQueryTransformDoc(transform.doc);
+}
 
 const SNIPPET_MODEL = "NativeQuerySnippet";
 
@@ -234,10 +246,7 @@ export function createReader(
   return (doc: Doc) => readsOf(doc, new Set());
 }
 
-/**
- * The transform in `doc`. Its target is in the transform's source database
- * unless the target names one.
- */
+/** The transform in `doc`. Its target is in the database `targetDatabaseOf` finds. */
 export function transformOf(
   doc: ValidDoc<"Transform">,
   readsOf: ReadsOf,

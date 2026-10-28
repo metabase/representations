@@ -2,13 +2,17 @@ import {
   displayName,
   type Doc,
   holderOf,
-  isQuerySource,
+  queryDatabaseOf,
   validDocsOf,
   type ValidDoc,
 } from "./documents.js";
 import type { Report } from "./findings.js";
 import { inputCovers, inputsCollide, rewriteCovers } from "./input-match.js";
-import type { Transform } from "./reads.js";
+import {
+  isQueryTransform,
+  type QueryTransform,
+  type Transform,
+} from "./reads.js";
 import type { SqlTableReader } from "./sql-tables.js";
 import { type DefaultSchemaOf, tableLabel, type TableKey } from "./tables.js";
 
@@ -17,10 +21,13 @@ type TestDoc = ValidDoc<"TransformTest">;
 /** Reports on `doc` when `table`, which it names, is unknown. */
 export type TableCheck = (doc: Doc, table: TableKey) => void;
 
-/** The tables a test supplies inputs for, in the database of the transform it tests. */
-export function testInputs(test: TestDoc, transform: Transform): TableKey[] {
+/** The tables a test supplies inputs for, in the database its transform runs on. */
+export function testInputs(
+  test: TestDoc,
+  transform: QueryTransform,
+): TableKey[] {
   return test.body.inputs.map(({ table }) => ({
-    database: transform.doc.body.source_database_id,
+    database: queryDatabaseOf(transform.doc),
     schema: table.schema ?? null,
     name: table.name,
     nullSchema: "default",
@@ -36,10 +43,10 @@ export function queryTransformOf(
   test: TestDoc,
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   transformOfDoc: ReadonlyMap<Doc, Transform>,
-): Transform | null {
+): QueryTransform | null {
   const holder = holderOf(byEntityId, test.body.transform_id);
   const transform = holder === null ? undefined : transformOfDoc.get(holder);
-  return transform !== undefined && isQuerySource(transform.doc.body.source)
+  return transform !== undefined && isQueryTransform(transform)
     ? transform
     : null;
 }
@@ -55,7 +62,7 @@ function testedTransform(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   transformOfDoc: ReadonlyMap<Doc, Transform>,
   report: Report,
-): Transform | null {
+): QueryTransform | null {
   const transformId = test.body.transform_id;
   const holder = holderOf(byEntityId, transformId);
   if (holder === null) {
@@ -79,7 +86,7 @@ function testedTransform(
   if (transform === undefined) {
     return null;
   }
-  if (!isQuerySource(transform.doc.body.source)) {
+  if (!isQueryTransform(transform)) {
     report(
       "untestable-transform",
       test,
@@ -110,9 +117,7 @@ export function reportTestFindings(
     if (transform === null) {
       continue;
     }
-    const defaultSchema = defaultSchemaOf(
-      transform.doc.body.source_database_id,
-    );
+    const defaultSchema = defaultSchemaOf(queryDatabaseOf(transform.doc));
     const inputs = testInputs(test, transform);
     reportDuplicateInputs(test, inputs, defaultSchema, report);
     reportExpectationReads(
@@ -173,7 +178,7 @@ function reportDuplicateInputs(
  */
 function reportExpectationReads(
   test: TestDoc,
-  transform: Transform,
+  transform: QueryTransform,
   inputs: readonly TableKey[],
   defaultSchema: string | null,
   readSql: SqlTableReader,
@@ -185,10 +190,7 @@ function reportExpectationReads(
       continue;
     }
     const name = expectation.name;
-    const result = readSql(
-      expectation.sql,
-      transform.doc.body.source_database_id,
-    );
+    const result = readSql(expectation.sql, queryDatabaseOf(transform.doc));
     if (result.status === "unread") {
       report(
         "reads-not-checked",

@@ -2,13 +2,19 @@ import {
   displayName,
   type Doc,
   isQuerySource,
+  queryDatabaseOf,
   validDocsOf,
   type ValidDoc,
 } from "./documents.js";
 import type { Report } from "./findings.js";
 import { inputCovers } from "./input-match.js";
 import { createSourceFinder } from "./query-sources.js";
-import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
+import {
+  createSnippetFinder,
+  expandNative,
+  type QueryTransform,
+  type Transform,
+} from "./reads.js";
 import type { Schemas } from "./schemas.js";
 import type { SqlColumnReader } from "./sql-columns.js";
 import type { ReplacedTableKey, TableReplacement } from "./sql-parser.js";
@@ -98,7 +104,7 @@ function uniqueFolded(names: readonly string[]): string[] {
 /** Each schema-valid transform test whose transform is a query transform, with that transform. */
 function testedTransforms(
   checks: TestSqlChecks,
-): { test: TestDoc; transform: Transform }[] {
+): { test: TestDoc; transform: QueryTransform }[] {
   const transformOfDoc = new Map<Doc, Transform>(
     checks.transforms.map((t) => [t.doc, t]),
   );
@@ -122,10 +128,7 @@ export function reportLiveSqlInputs(
       if (input.format !== "sql") {
         continue;
       }
-      const result = checks.readSql(
-        input.sql,
-        transform.doc.body.source_database_id,
-      );
+      const result = checks.readSql(input.sql, queryDatabaseOf(transform.doc));
       const inputTable = tableLabel(inputTableOf(input.table));
       if (result.status === "unread") {
         report(
@@ -175,10 +178,8 @@ export function reportMissingReadColumns(
 ): void {
   const queryOf = createQueryReader(checks);
   for (const { test, transform } of testedTransforms(checks)) {
-    const database = fold(transform.doc.body.source_database_id);
-    const defaultSchema = checks.defaultSchemaOf(
-      transform.doc.body.source_database_id,
-    );
+    const database = queryDatabaseOf(transform.doc);
+    const defaultSchema = checks.defaultSchemaOf(database);
     const read = readColumnsOf(queryOf(transform), checks.columns);
     for (const input of test.body.inputs) {
       if (input.format !== "rows") {
@@ -188,7 +189,8 @@ export function reportMissingReadColumns(
       const inputTable = inputTableOf(input.table);
       const missing = read.filter(
         ({ table, column }) =>
-          (table.database === null || fold(table.database) === database) &&
+          (table.database === null ||
+            fold(table.database) === fold(database)) &&
           inputCovers(table, inputTable, defaultSchema) &&
           !declared.has(fold(column)),
       );
@@ -241,7 +243,7 @@ export function reportUpstreamColumns(
         continue;
       }
       const table: TableKey = {
-        database: transform.doc.body.source_database_id,
+        database: queryDatabaseOf(transform.doc),
         ...inputTableOf(input.table),
         nullSchema: "default",
       };
@@ -323,7 +325,7 @@ export function reportQualifiedColumns(
 ): void {
   const queryOf = createQueryReader(checks);
   for (const { test, transform } of testedTransforms(checks)) {
-    const database = transform.doc.body.source_database_id;
+    const database = queryDatabaseOf(transform.doc);
     const replaced = [
       ...test.body.inputs.map(({ table }) => inputTableOf(table)),
       transform.target,

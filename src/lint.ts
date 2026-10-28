@@ -8,12 +8,15 @@ import {
   resolveDefaultSchemas,
 } from "./default-schemas.js";
 import {
+  asValid,
   displayName,
   type Doc,
   holderOf,
   indexByEntityId,
   isQuerySource,
+  isQueryTransformDoc,
   loadDocs,
+  queryDatabaseOf,
   type UnreadableFile,
   validDocsOf,
   type ValidDoc,
@@ -377,8 +380,8 @@ const holdsSqlEntry = (value: unknown): boolean =>
 
 /**
  * Whether any document holds SQL the lint may read: a native query stage on
- * an engine that reads SQL, or a SQL input or expectation of a transform
- * test whose transform's source database reads SQL.
+ * an engine that reads SQL, or a SQL input or expectation of a test of a
+ * query transform whose database (`queryDatabaseOf`) reads SQL.
  */
 function holdsSql(
   docs: readonly Doc[],
@@ -386,15 +389,15 @@ function holdsSql(
   engineOf: EngineOf,
 ): boolean {
   const testedDatabaseReadsSql = (transformId: unknown) => {
-    const transform =
+    const holder =
       typeof transformId === "string"
         ? holderOf(byEntityId, transformId)
         : null;
+    const transform = holder === null ? null : asValid(holder, "Transform");
     return (
       transform !== null &&
-      nativeQueriesAreSql(
-        engineOf(stringOrNull(transform.body.source_database_id)),
-      )
+      isQueryTransformDoc(transform) &&
+      nativeQueriesAreSql(engineOf(queryDatabaseOf(transform)))
     );
   };
   return docs.some(
@@ -459,7 +462,7 @@ function comparedTables(
     if (transform === null) {
       return [];
     }
-    const database = transform.doc.body.source_database_id;
+    const database = queryDatabaseOf(transform.doc);
     const expectationReads = test.body.expectations.flatMap((expectation) => {
       const result =
         "sql" in expectation ? readSql(expectation.sql, database) : null;

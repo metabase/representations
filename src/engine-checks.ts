@@ -6,6 +6,8 @@ import {
   holderOf,
   isPythonSource,
   isQuerySource,
+  isQueryTransformDoc,
+  queryDatabaseOf,
   targetDatabaseOf,
   validDocsOf,
   type ValidDoc,
@@ -100,14 +102,10 @@ export function reportUntestableEngines(
   for (const test of validDocsOf(docs, "TransformTest")) {
     const holder = holderOf(byEntityId, test.body.transform_id);
     const transform = holder === null ? null : asValid(holder, "Transform");
-    if (transform === null) {
+    if (transform === null || !isQueryTransformDoc(transform)) {
       continue;
     }
-    const { source } = transform.body;
-    if (!isQuerySource(source)) {
-      continue;
-    }
-    const { database } = source.query;
+    const database = queryDatabaseOf(transform);
     const engine = engineOf(database);
     if (engineFacts(engine)?.["transforms/testing"] === false) {
       report(

@@ -193,17 +193,38 @@ export function isQuerySource(source: TransformSource): source is QuerySource {
   return source.type === "query";
 }
 
+/** A schema-valid transform whose source is a query. */
+export type QueryTransformDoc = ValidDoc<"Transform"> & {
+  body: { source: QuerySource };
+};
+
+/** Whether a schema-valid transform's source is a query. */
+export function isQueryTransformDoc(
+  transform: ValidDoc<"Transform">,
+): transform is QueryTransformDoc {
+  return isQuerySource(transform.body.source);
+}
+
+/**
+ * The database a query transform runs on, and with it each of its tests:
+ * its query's database, as Metabase's `transform-source-database` finds it.
+ * Its `source_database_id` may name another database: Metabase keeps it when
+ * the query changes.
+ */
+export function queryDatabaseOf(transform: QueryTransformDoc): string {
+  return transform.body.source.query.database;
+}
+
 /**
  * The database a transform writes its target to, as Metabase's
- * `target-db-id` finds it for a query transform: its query's database.
- * For another transform, the database its target names, or else its source
- * database.
+ * `target-db-id` finds it for a query transform: the database it runs on
+ * (`queryDatabaseOf`). For another transform, the database its target names,
+ * or else its `source_database_id`.
  */
 export function targetDatabaseOf(transform: ValidDoc<"Transform">): string {
-  const { source, target, source_database_id } = transform.body;
-  return isQuerySource(source)
-    ? source.query.database
-    : (target.database ?? source_database_id);
+  return isQueryTransformDoc(transform)
+    ? queryDatabaseOf(transform)
+    : (transform.body.target.database ?? transform.body.source_database_id);
 }
 
 /** The document's name, or its file when it has none. */
