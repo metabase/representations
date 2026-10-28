@@ -27,8 +27,9 @@ Commands:
 
   lint               Check references between transforms, tables and transform
                      tests; prints one JSON finding per line, grouped
-                     by rule, then by file. Exits 1 on an error finding,
-                     and 2 when it cannot run
+                     by rule, then by file. Exits 1 on an error finding
+                     or when the folder has no YAML files, and 2 when
+                     it cannot run
     --folder <path>    Folder to lint (default: cwd)
     --default-schema <database>=<schema>
                        The schema unqualified table names resolve to in

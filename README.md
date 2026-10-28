@@ -36,7 +36,7 @@ Validate a folder of YAML files against the schemas:
 npx @metabase/representations validate-schema --folder ./my-export
 ```
 
-Omit `--folder` to validate the current directory.
+Omit `--folder` to validate the current directory. It exits 1 when a file fails, or when the folder has no YAML files.
 
 The validator reads YAML as Metabase does, with a few [known differences](docs/lint.md#how-yaml-is-read).
 
@@ -55,8 +55,8 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | Code | Meaning |
 |------|---------|
 | 0 | No finding is an error. |
-| 1 | A finding is an error. |
-| 2 | The lint cannot run: the settings file is invalid, or a database needs a default schema the lint does not have. |
+| 1 | A finding is an error, the folder has no YAML files, or an option is invalid. |
+| 2 | The lint cannot run: the settings file is invalid, a database needs a default schema the lint does not have, or the SQL parser cannot start. |
 
 [The lint in detail](docs/lint.md) explains how it resolves default schemas, reads SQL and YAML, and where it can be wrong.
 
