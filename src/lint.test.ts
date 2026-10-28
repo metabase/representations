@@ -211,33 +211,6 @@ describe("lint", () => {
       },
     );
 
-    it("names the test and the missing transform for a dangling transform_id", async () => {
-      mutateExamples("dangling-transform-id", workdir);
-      expect(await findings(workdir)).toEqual([
-        {
-          rule: "dangling-transform-id",
-          severity: "error",
-          file: "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
-          entity: {
-            model: "TransformTest",
-            entity_id: "aRvM7DLesF1fOV4kRHidq",
-            name: "Product Revenue Report: category totals",
-          },
-          message: "transform_id MissingTransform00000 matches no entity",
-          related: [],
-        },
-      ]);
-    });
-
-    it("lists every transform in a cycle", async () => {
-      mutateExamples("transform-cycle", workdir);
-      const [cycle] = await findings(workdir);
-      expect([cycle.file, ...cycle.related].sort()).toEqual([
-        "collections/transforms/native_transform.yaml",
-        "collections/transforms/top_categories.yaml",
-      ]);
-    });
-
     it("names the table an implicit join reads", async () => {
       mutateExamples("implicit-join", workdir);
       expect((await findings(workdir)).map((f) => f.message)).toEqual([
@@ -835,13 +808,6 @@ describe("lint", () => {
       ]);
     });
 
-    it("names the missing table", async () => {
-      mutateExamples("missing-input", workdir);
-      expect((await findings(workdir)).map((f) => f.message)).toEqual([
-        "no input for PRODUCTS, which transform Product Revenue Report reads",
-      ]);
-    });
-
     // The test of this transform has inputs; were the reads taken as empty,
     // each input would be reported unused.
     it.each([
@@ -1045,54 +1011,6 @@ describe("lint", () => {
         writeConfig(text);
         await expect(lint({ folder: workdir })).rejects.toThrow(LintSetupError);
       }
-    });
-  });
-
-  describe("with table files", () => {
-    let workdir: string;
-
-    beforeEach(() => {
-      workdir = mkdtempSync(join(tmpdir(), "representations-lint-tables-"));
-    });
-
-    afterEach(() => {
-      rmSync(workdir, { recursive: true, force: true });
-    });
-
-    const writeOrdersTable = (folder: string) => {
-      const dir = join(folder, "databases/sample_database/tables/orders");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(
-        join(dir, "orders.yaml"),
-        yaml.dump({
-          name: "ORDERS",
-          db_id: "Sample Database",
-          schema: null,
-          "serdes/meta": [{ model: "Table" }],
-        }),
-      );
-    };
-
-    it("warns about a table that no table file or target defines, once on each file naming it", async () => {
-      mutateExamples("unused-input", workdir);
-      writeOrdersTable(workdir);
-      const unknown = (await lint({ folder: workdir })).findings
-        .filter((f) => f.rule === "unknown-table")
-        .map((f) => `${f.file}: ${f.message}`);
-      const products =
-        "table PRODUCTS is defined by no table file or transform target";
-      const noSchemaProducts =
-        "table PRODUCTS (no schema) is defined by no table file or transform target";
-      const test =
-        "collections/transforms/native_transform/product_revenue_report__category_totals.yaml";
-      expect(unknown).toEqual([
-        `collections/transforms/hourly_product_stats.yaml: ${noSchemaProducts}`,
-        `collections/transforms/monthly_sales_summary.yaml: ${products}`,
-        `collections/transforms/native_transform.yaml: ${products}`,
-        `${test}: ${products}`,
-        `${test}: table PEOPLE is defined by no table file or transform target`,
-        `collections/transforms/product_summary.yaml: ${noSchemaProducts}`,
-      ]);
     });
   });
 

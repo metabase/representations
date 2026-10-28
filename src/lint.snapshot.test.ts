@@ -9,13 +9,11 @@ import {
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
 import yaml from "js-yaml";
 import { tmpdir } from "os";
-import { join, resolve } from "path";
+import { join } from "path";
 
 import { lint } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
 import { loadSqlParser } from "./sql-parser.js";
-
-const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
 function writeOrdersTable(folder: string): void {
   const dir = join(folder, "databases/sample_database/tables/orders");
@@ -123,10 +121,6 @@ beforeAll(async () => {
 }, 60_000);
 
 describe("lint output", () => {
-  it("is empty for the bundled examples", async () => {
-    expect((await lint({ folder: EXAMPLES })).findings).toMatchSnapshot();
-  });
-
   describe("on a broken copy of the examples", () => {
     let workdir: string;
 

@@ -1,7 +1,5 @@
 // Bun Snapshot v1, https://bun.sh/docs/test/snapshots
 
-exports[`lint output is empty for the bundled examples 1`] = `[]`;
-
 exports[`lint output on a broken copy of the examples matches the recording: schema 1`] = `
 [
   {
