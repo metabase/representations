@@ -1,8 +1,6 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-import { isRecord } from "./values.js";
-
 /** The folder of files copied from elsewhere: SQLGlot's wheel and Metabase's `sql_tools.py`. */
 export const VENDOR_DIR = resolve(import.meta.dirname, "..", "vendor");
 
@@ -14,23 +12,9 @@ export type VendorSources = {
   sqlglot: { version: string; wheel: string; sha256: string; pin: string };
 };
 
-const hasStrings = <K extends string>(
-  value: unknown,
-  keys: readonly K[],
-): value is Record<K, string> =>
-  isRecord(value) && keys.every((key) => typeof value[key] === "string");
-
-/** `vendor/sources.json`. Throws when it does not have the form `VendorSources` gives. */
+/** `vendor/sources.json`. */
 export function readVendorSources(): VendorSources {
-  const sources: unknown = JSON.parse(
+  return JSON.parse(
     readFileSync(resolve(VENDOR_DIR, "sources.json"), "utf8"),
-  );
-  if (
-    isRecord(sources) &&
-    hasStrings(sources.sqlTools, ["repository", "path", "commit"]) &&
-    hasStrings(sources.sqlglot, ["version", "wheel", "sha256", "pin"])
-  ) {
-    return { sqlTools: sources.sqlTools, sqlglot: sources.sqlglot };
-  }
-  throw new Error(`${VENDOR_DIR}/sources.json does not name its sources`);
+  ) as VendorSources;
 }

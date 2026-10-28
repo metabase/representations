@@ -14,8 +14,7 @@ export type ParsedTables = { status: "read"; tables: TableName[] } | Unread;
 /**
  * A field spec of Metabase's `field_references`, with the parts the lint
  * reads. A real table's columns are `all_columns` of that table; a table
- * function's, and any spec SQLGlot gives that is not one of these, are
- * `unknown_columns`.
+ * function's are `unknown_columns`.
  */
 export type FieldSpec =
   | {
@@ -197,93 +196,60 @@ export function answerOf(
   };
 }
 
-/** Thrown when a function of `sql_tools` answers in a shape it never gives. */
-function unexpected(function_: string, answer: unknown): Error {
-  return new Error(
-    `Unexpected answer from sql_tools.${function_}: ${JSON.stringify(answer)}`,
-  );
-}
+/** A field spec as `sql_tools.field_references` writes it. */
+type FieldSpecJson =
+  | {
+      type: "single_column";
+      column: string;
+      alias: string | null;
+      source_columns: FieldSpecJson[][];
+    }
+  | { type: "all_columns"; table: { schema?: string; table: string } }
+  | { type: "custom_field" | "composite_field"; alias: string | null }
+  | { type: "unknown_columns" };
 
-const isTableTuple = (
-  value: unknown,
-): value is [string | null, string | null, string] =>
-  Array.isArray(value) &&
-  value.length === 3 &&
-  (value[0] === null || typeof value[0] === "string") &&
-  (value[1] === null || typeof value[1] === "string") &&
-  typeof value[2] === "string";
-
-/** `referenced_tables`' answer, a JSON list of `[catalog, schema, table]`, without the catalog. */
-function tablesOf(answer: unknown): TableName[] {
-  const tables: unknown =
-    typeof answer === "string" ? JSON.parse(answer) : undefined;
-  if (!Array.isArray(tables) || !tables.every(isTableTuple)) {
-    throw unexpected("referenced_tables", answer);
-  }
-  return tables.map(([, schema, name]) => ({ schema, name }));
-}
-
-const stringOrNullAt = (record: Record<string, unknown>, key: string) =>
-  typeof record[key] === "string" ? record[key] : null;
+/** An error as `sql_tools.field_references` writes it. */
+type FieldError = { type: string; table?: string };
 
 /** A field spec of `field_references`' JSON as a `FieldSpec`. */
-function fieldSpecOf(value: unknown): FieldSpec {
-  if (!isRecord(value)) {
-    return { type: "unknown_columns" };
-  }
-  switch (value.type) {
+function fieldSpecOf(spec: FieldSpecJson): FieldSpec {
+  switch (spec.type) {
     case "single_column":
-      return typeof value.column === "string" &&
-        Array.isArray(value.source_columns)
-        ? {
-            type: "single_column",
-            column: value.column,
-            alias: stringOrNullAt(value, "alias"),
-            sourceColumns: value.source_columns.map((scope: unknown) =>
-              Array.isArray(scope) ? scope.map(fieldSpecOf) : [],
-            ),
-          }
-        : { type: "unknown_columns" };
+      return {
+        type: spec.type,
+        column: spec.column,
+        alias: spec.alias,
+        sourceColumns: spec.source_columns.map((scope) =>
+          scope.map(fieldSpecOf),
+        ),
+      };
     case "all_columns":
-      return isRecord(value.table) && typeof value.table.table === "string"
-        ? {
-            type: "all_columns",
-            table: {
-              schema: stringOrNullAt(value.table, "schema"),
-              name: value.table.table,
-            },
-          }
-        : { type: "unknown_columns" };
+      return {
+        type: spec.type,
+        table: { schema: spec.table.schema ?? null, name: spec.table.table },
+      };
     case "custom_field":
     case "composite_field":
-      return { type: value.type, alias: stringOrNullAt(value, "alias") };
-    default:
-      return { type: "unknown_columns" };
+      return { type: spec.type, alias: spec.alias };
+    case "unknown_columns":
+      return { type: spec.type };
   }
 }
 
 /** `field_references`' answer, or unread when it reports a syntax error. */
 function fieldReferencesOf(
-  answer: unknown,
+  answer: string,
 ): { status: "read"; references: FieldReferences } | Unread {
-  const json: unknown =
-    typeof answer === "string" ? JSON.parse(answer) : undefined;
-  if (
-    !isRecord(json) ||
-    !Array.isArray(json.used_fields) ||
-    !Array.isArray(json.returned_fields) ||
-    !Array.isArray(json.errors)
-  ) {
-    throw unexpected("field_references", answer);
-  }
-  // sql_tools writes the syntax error of a query that is neither a SELECT nor
-  // a UNION, such as an INTERSECT, as a list of [key, value] pairs.
-  const errors: unknown[] = json.errors.map((e: unknown) =>
-    Array.isArray(e) ? Object.fromEntries(e) : e,
+  const json = JSON.parse(answer) as {
+    used_fields: FieldSpecJson[];
+    returned_fields: FieldSpecJson[];
+    errors: (FieldError | [string, string][])[];
+  };
+  // The syntax error of a query that is neither a SELECT nor a UNION, such
+  // as an INTERSECT, comes as a list of [key, value] pairs.
+  const errors = json.errors.map((e) =>
+    Array.isArray(e) ? (Object.fromEntries(e) as FieldError) : e,
   );
-  if (!errors.every(isRecord)) {
-    throw unexpected("field_references", answer);
-  }
   if (errors.some((e) => e.type === "syntax_error")) {
     return { status: "unread", reason: "field_references could not parse it" };
   }
@@ -293,7 +259,7 @@ function fieldReferencesOf(
       usedFields: json.used_fields.map(fieldSpecOf),
       returnedFields: json.returned_fields.map(fieldSpecOf),
       missingTableAliases: errors.flatMap((e) =>
-        e.type === "missing_table_alias" && typeof e.table === "string"
+        e.type === "missing_table_alias" && e.table !== undefined
           ? [e.table]
           : [],
       ),
@@ -334,13 +300,24 @@ async function startSqlParser(): Promise<SqlParser> {
     if (typeof json !== "string") {
       throw new Error("lint_call_sql_tools did not answer a string");
     }
-    return answerOf(json);
+    // Each function of sql_tools the lint calls answers a string.
+    return answerOf(json) as { status: "read"; answer: string } | Unread;
   };
   return {
     referencedTables: (sql, dialect) => {
       const result = call("referenced_tables", sql, dialect);
       return result.status === "read"
-        ? { status: "read", tables: tablesOf(result.answer) }
+        ? {
+            status: "read",
+            // A list of [catalog, schema, table].
+            tables: (
+              JSON.parse(result.answer) as [
+                string | null,
+                string | null,
+                string,
+              ][]
+            ).map(([, schema, name]) => ({ schema, name })),
+          }
         : result;
     },
     fieldReferences: (sql, dialect) => {
@@ -357,13 +334,9 @@ async function startSqlParser(): Promise<SqlParser> {
         JSON.stringify({ tables: replacements, columns: null }),
         dialect,
       );
-      if (result.status === "unread") {
-        return result;
-      }
-      if (typeof result.answer !== "string") {
-        throw unexpected("replace_names", result.answer);
-      }
-      return { status: "read", sql: result.answer };
+      return result.status === "read"
+        ? { status: "read", sql: result.answer }
+        : result;
     },
   };
 }
