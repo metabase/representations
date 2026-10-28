@@ -8,6 +8,9 @@ const ROOT = resolve(import.meta.dirname, "..");
 const SQL_TOOLS = readFileSync(resolve(VENDOR_DIR, "sql_tools.py"));
 const { sqlTools, sqlglot } = readVendorSources();
 
+const README_STEP =
+  'Then update the "Metabase version" section of README.md, which names the Metabase versions the parser matches.';
+
 const pyproject = (pin: string) =>
   `[project]\ndependencies = [\n    "sqlglot==${pin}",\n]\n`;
 
@@ -71,6 +74,7 @@ describe("check-metabase-sources", () => {
     expect(output).toContain(
       "FAIL  vendor/sql_tools.py differs from Metabase's",
     );
+    expect(output).toContain(README_STEP);
     expect(exitCode).toBe(1);
   });
 
@@ -82,6 +86,7 @@ describe("check-metabase-sources", () => {
     expect(output).toContain(
       `FAIL  Metabase pins sqlglot 99.0.0; vendor/ holds ${sqlglot.version}`,
     );
+    expect(output).toContain(README_STEP);
     expect(exitCode).toBe(1);
   });
 
@@ -91,6 +96,7 @@ describe("check-metabase-sources", () => {
     });
     expect(output).toContain(`FAIL  ${sqlTools.path}: 404`);
     expect(output).toContain(`FAIL  ${sqlglot.pin} pins no sqlglot`);
+    expect(output).not.toContain(README_STEP);
     expect(exitCode).toBe(1);
   });
 });
