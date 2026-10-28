@@ -101,9 +101,17 @@ jobs:
           TAG: ${{ steps.version.outputs.tag }}
           EXISTED: ${{ steps.published.outputs.exists }}
         run: |
-          if [ "$EXISTED" = "true" ]; then VERB="Already published"; else VERB="Published"; fi
+          # The dist-tag may have moved on to a newer commit of the branch since
+          # the version was published, so install that version by its number.
+          if [ "$EXISTED" = "true" ]; then
+            VERB="Already published"
+            SPEC="$VERSION"
+          else
+            VERB="Published"
+            SPEC="$TAG"
+          fi
           # shellcheck disable=SC2016 # the backticks are Markdown, not command substitution
-          BODY=$(printf '%s `@metabase/representations@%s` with dist-tag `%s`.\n\nInstall: `npm install @metabase/representations@%s`' "$VERB" "$VERSION" "$TAG" "$TAG")
+          BODY=$(printf '%s `@metabase/representations@%s` with dist-tag `%s`.\n\nInstall: `npm install @metabase/representations@%s`' "$VERB" "$VERSION" "$TAG" "$SPEC")
           gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body "$BODY"
 
       - name: Generate workflow summary
