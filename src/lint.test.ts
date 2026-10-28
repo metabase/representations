@@ -698,7 +698,7 @@ describe("lint", () => {
       ]);
     });
 
-    it("says when snippets still remain after pasting, as with a snippet that uses itself", async () => {
+    it("says when a snippet uses itself", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       writeFileSync(
         join(workdir, "collections/snippets/loop.yaml"),
@@ -726,7 +726,7 @@ describe("lint", () => {
           .filter((f) => f.rule === "reads-not-checked")
           .map((f) => f.message),
       ).toEqual([
-        "could not find the tables this transform reads: snippets remain after 9 rounds of pasting, as when a snippet uses itself",
+        "could not find the tables this transform reads: snippets use each other in a cycle: Loop -> Loop",
       ]);
     });
 

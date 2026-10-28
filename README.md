@@ -193,6 +193,7 @@ Reported as `reads-not-checked`:
 - SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
 - An expression nested deeper than Python's recursion limit: about 46 levels of parentheses.
 - A snippet left in the query after pasting, such as one whose file is not in the folder.
+- Snippets Metabase refuses to paste: a snippet that uses itself through any chain of snippets, more than 10,000 pastes in one query, or SQL longer than 10,000,000 characters after pasting.
 - A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
 
 Read differently from what the database runs, with no warning:
