@@ -124,7 +124,7 @@ beforeAll(async () => {
 
 describe("lint output", () => {
   it("is empty for the bundled examples", async () => {
-    expect(await lint({ folder: EXAMPLES })).toMatchSnapshot();
+    expect((await lint({ folder: EXAMPLES })).findings).toMatchSnapshot();
   });
 
   describe("on a broken copy of the examples", () => {
@@ -140,7 +140,7 @@ describe("lint output", () => {
 
     it.each(TREES)("matches the recording: %s", async (_, build) => {
       build(workdir);
-      expect(await lint({ folder: workdir })).toMatchSnapshot();
+      expect((await lint({ folder: workdir })).findings).toMatchSnapshot();
     });
   });
 });

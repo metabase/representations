@@ -21,13 +21,13 @@ const DAILY_ORDER_SUMMARY_TEST =
 const PYTHON_TEST =
   "collections/transforms/daily_order_summary/python_hello_world__greetings.yaml";
 const PYTHON_HELLO_WORLD = "collections/transforms/python_hello_world.yaml";
+const DAILY_ORDER_SUMMARY = "collections/transforms/daily_order_summary.yaml";
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
 const WIDGET_PRODUCTS_SEGMENT_ENTITY_ID = "aB3kLmN9pQrStUvWxYz1a";
 const QUERIES_COLLECTION_ENTITY_ID = "cOlQuErIeS0ExAmPlE2x1";
 const DB = "Sample Database";
 const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
-const DATABASE_FILE = "databases/sample_database/sample_database.yaml";
 
 export type Mutation = {
   name: string;
@@ -59,12 +59,35 @@ function write(
   writeFileSync(path, yaml.dump(doc, { lineWidth: -1 }));
 }
 
+/** Writes a Database file for `name` with `engine` and any other `fields`. */
+function writeDatabase(
+  folder: string,
+  name: string,
+  engine: string,
+  fields: Readonly<Record<string, unknown>> = {},
+): void {
+  const slug = name.toLowerCase().replaceAll(" ", "_");
+  write(folder, `databases/${slug}/${slug}.yaml`, {
+    name,
+    engine,
+    ...fields,
+    "serdes/meta": [{ model: "Database", id: name }],
+  });
+}
+
 /** Writes a Database file that gives the Sample Database `engine`. */
 function writeEngine(folder: string, engine: string): void {
-  write(folder, DATABASE_FILE, {
-    name: DB,
-    engine,
-    "serdes/meta": [{ model: "Database", id: DB }],
+  writeDatabase(folder, DB, engine);
+}
+
+/** Moves the transform in `file`, its query and its target to `database`. */
+function moveTransform(folder: string, file: string, database: string): void {
+  edit(folder, file, (doc) => {
+    doc.source_database_id = database;
+    if (doc.source.query !== undefined) {
+      doc.source.query.database = database;
+    }
+    doc.target.database = database;
   });
 }
 
@@ -292,16 +315,24 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "unsupported-transform-engine",
     description:
-      "The transforms' database is H2, whose driver runs no query or Python transform.",
+      "Python Hello World moves to an H2 database, whose driver runs no Python transform.",
     rules: ["unsupported-transform-engine"],
-    apply: (folder) => writeEngine(folder, "h2"),
+    apply: (folder) => {
+      writeDatabase(folder, "Legacy", "h2");
+      moveTransform(folder, PYTHON_HELLO_WORLD, "Legacy");
+    },
   },
   {
     name: "untestable-engine",
     description:
-      "The tested transforms' database is Snowflake, whose driver runs no transform test.",
+      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test.",
     rules: ["untestable-engine"],
-    apply: (folder) => writeEngine(folder, "snowflake"),
+    apply: (folder) => {
+      writeDatabase(folder, "Warehouse", "snowflake", {
+        default_schema: "PUBLIC",
+      });
+      moveTransform(folder, DAILY_ORDER_SUMMARY, "Warehouse");
+    },
   },
   {
     name: "missing-input",
