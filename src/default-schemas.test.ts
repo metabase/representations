@@ -6,7 +6,7 @@ import {
   MissingDefaultSchemasError,
   resolveDefaultSchemas,
 } from "./default-schemas.js";
-import { inputCovers, inputsCollide, rewriteCovers } from "./input-match.js";
+import { inputCovers, rewriteCovers } from "./input-match.js";
 import { type NullSchema, sameTable, type TableKey } from "./tables.js";
 
 /** A table named in SQL: a null schema is an unqualified name. */
@@ -82,9 +82,7 @@ describe("the default-schema gate", () => {
     // be an MBQL reference.
     const answers = (a: GeneratedName, b: GeneratedName, d: string | null) => [
       ...(isSql(b) ? [inputCovers(a, b, d)] : []),
-      ...(isSql(a) && isSql(b)
-        ? [rewriteCovers(a, b, d), inputsCollide(a, b, d)]
-        : []),
+      ...(isSql(a) && isSql(b) ? [rewriteCovers(a, b, d)] : []),
       sameTable(key(a), key(b), () => d),
     ];
     fc.assert(

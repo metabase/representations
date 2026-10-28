@@ -7,14 +7,19 @@ import {
   type ValidDoc,
 } from "./documents.js";
 import type { Report } from "./findings.js";
-import { inputCovers, inputsCollide, rewriteCovers } from "./input-match.js";
+import { inputCovers, rewriteCovers } from "./input-match.js";
 import {
   isQueryTransform,
   type QueryTransform,
   type Transform,
 } from "./reads.js";
 import type { SqlTableReader } from "./sql-tables.js";
-import { type DefaultSchemaOf, tableLabel, type TableKey } from "./tables.js";
+import {
+  type DefaultSchemaOf,
+  sameTable,
+  tableLabel,
+  type TableKey,
+} from "./tables.js";
 
 type TestDoc = ValidDoc<"TransformTest">;
 
@@ -121,7 +126,7 @@ export function reportTestFindings(
     }
     const defaultSchema = defaultSchemaOf(queryDatabaseOf(transform.doc));
     const inputs = testInputs(test, transform);
-    reportDuplicateInputs(test, inputs, defaultSchema, report);
+    reportDuplicateInputs(test, inputs, defaultSchemaOf, report);
     reportExpectationReads(
       test,
       transform,
@@ -145,17 +150,17 @@ export function reportTestFindings(
   }
 }
 
-/** Reports a test whose inputs a query cannot tell apart (`inputsCollide`). */
+/** Reports a test whose inputs a query cannot tell apart (`sameTable`). */
 function reportDuplicateInputs(
   test: TestDoc,
   inputs: readonly TableKey[],
-  defaultSchema: string | null,
+  defaultSchemaOf: DefaultSchemaOf,
   report: Report,
 ): void {
   const colliding = new Set<TableKey>();
   inputs.forEach((a, i) => {
     for (const b of inputs.slice(i + 1)) {
-      if (inputsCollide(a, b, defaultSchema)) {
+      if (sameTable(a, b, defaultSchemaOf)) {
         colliding.add(a).add(b);
       }
     }

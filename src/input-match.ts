@@ -48,25 +48,3 @@ export function rewriteCovers(
     fold(table.schema) === fold(defaultSchema)
   );
 }
-
-/**
- * Whether a query could not tell two test inputs apart, by Metabase's rule:
- * names equal, ignoring case, and either schemas equal, ignoring case, or one
- * unqualified and the other in the default schema.
- */
-export function inputsCollide(
-  a: TableName,
-  b: TableName,
-  defaultSchema: string | null,
-): boolean {
-  if (fold(a.name) !== fold(b.name)) {
-    return false;
-  }
-  if (fold(a.schema) === fold(b.schema)) {
-    return true;
-  }
-  if (a.schema !== null && b.schema !== null) {
-    return false;
-  }
-  return fold(a.schema ?? b.schema) === fold(defaultSchema);
-}
