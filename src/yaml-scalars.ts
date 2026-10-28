@@ -13,10 +13,6 @@ const NULL = /^(?:~|null|Null|NULL|)$/;
 const TIMESTAMP =
   /^(?:[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]|[0-9][0-9][0-9][0-9]-[0-9][0-9]?-[0-9][0-9]?(?:[Tt]|[ \t]+)[0-9][0-9]?:[0-9][0-9]:[0-9][0-9](?:\.[0-9]*)?(?:[ \t]*(?:Z|[-+][0-9][0-9]?(?::[0-9][0-9])?))?)$/;
 
-// SnakeYAML's `ConstructYamlTimestamp` parses with this pattern.
-const TIMESTAMP_PARTS =
-  /^([0-9][0-9][0-9][0-9])-([0-9][0-9]?)-([0-9][0-9]?)(?:(?:[Tt]|[ \t]+)([0-9][0-9]?):([0-9][0-9]):([0-9][0-9])(?:\.([0-9]*))?(?:[ \t]*(?:Z|([-+][0-9][0-9]?)(?::([0-9][0-9]))?))?)?$/;
-
 /** `text` without its sign, and the sign as 1 or -1. */
 function splitSign(text: string): [number, string] {
   return text.startsWith("-")
@@ -75,88 +71,7 @@ function readFloat(
   return sign * value;
 }
 
-const DAY_MS = 86_400_000;
-/** The fixed date (day 1 is 0001-01-01, Gregorian) of 1970-01-01. */
-const EPOCH_FIXED_DATE = 719_163;
-/** The fixed date of 1582-10-15, the first Gregorian day of Java's `GregorianCalendar`. */
-const GREGORIAN_CUTOVER_FIXED_DATE = 577_736;
-const GREGORIAN_CUTOVER_YEAR = 1582;
-
-/** The fixed date of the first day of `month` (1-12) of `year`, proleptic Gregorian. */
-function gregorianFixedDate(year: number, month: number): number {
-  const date = new Date(0);
-  // `setUTCFullYear`, unlike `Date.UTC`, does not read years 0-99 as 1900-1999.
-  date.setUTCFullYear(year, month - 1, 1);
-  return Math.floor(date.getTime() / DAY_MS) + EPOCH_FIXED_DATE;
-}
-
-/** The fixed date of the first day of `month` (1-12) of `year`, Julian, as Java's `JulianCalendar` counts it. */
-function julianFixedDate(year: number, month: number): number {
-  const leap = ((year % 4) + 4) % 4 === 0;
-  return (
-    365 * (year - 1) -
-    1 +
-    Math.floor((year - 1) / 4) +
-    Math.floor((367 * month - 362) / 12) -
-    (month > 2 ? (leap ? 1 : 2) : 0)
-  );
-}
-
-/**
- * SnakeYAML's `ConstructYamlTimestamp`, on a text that matches `TIMESTAMP`.
- * A date alone is midnight UTC, a time with no zone is UTC, and a fraction
- * of a second rounds to milliseconds. Fields out of range carry over, and a
- * day before 1582-10-15 is a Julian date, as in Java's lenient
- * `GregorianCalendar`.
- */
-function readTimestamp(
-  text: string,
-  onError: (message: string) => void,
-): Date | null {
-  const parts = TIMESTAMP_PARTS.exec(text);
-  if (parts === null) {
-    onError(`${text} is not a timestamp`);
-    return null;
-  }
-  const [
-    ,
-    year,
-    month,
-    day,
-    hour,
-    minute,
-    second,
-    fraction,
-    zoneHour,
-    zoneMinute,
-  ] = parts.map((part) => part ?? "0");
-  const zoneSign = zoneHour.startsWith("-") ? -1 : 1;
-  const zoneMs =
-    (Number(zoneHour) * 60 + zoneSign * Number(zoneMinute)) * 60_000;
-  // SnakeYAML rounds the seconds' fraction to milliseconds, in doubles.
-  const seconds = Number(`${second}.${fraction}`);
-  const wholeSeconds = Math.floor(seconds);
-  const localMs =
-    ((Number(hour) * 60 + Number(minute)) * 60 + wholeSeconds) * 1000 +
-    Math.round((seconds - wholeSeconds) * 1000);
-  // GregorianCalendar carries a month past December into the year, and the
-  // time of day past midnight into the date, before it picks the calendar.
-  const monthIndex = Number(month) - 1;
-  const fullYear = Number(year) + Math.floor(monthIndex / 12);
-  const fullMonth = (((monthIndex % 12) + 12) % 12) + 1;
-  const dayOffset = Number(day) - 1 + Math.floor(localMs / DAY_MS);
-  const gregorian = gregorianFixedDate(fullYear, fullMonth) + dayOffset;
-  const fixedDate =
-    Number(year) >= GREGORIAN_CUTOVER_YEAR &&
-    gregorian >= GREGORIAN_CUTOVER_FIXED_DATE
-      ? gregorian
-      : julianFixedDate(fullYear, fullMonth) + dayOffset;
-  return new Date(
-    (fixedDate - EPOCH_FIXED_DATE) * DAY_MS + (localMs % DAY_MS) - zoneMs,
-  );
-}
-
-/** SnakeYAML's implicit scalar types, each with its constructor. */
+/** SnakeYAML's implicit scalar types, each with its value. */
 const SNAKE_SCALAR_TAGS = [
   {
     tag: "tag:yaml.org,2002:null",
@@ -181,7 +96,8 @@ const SNAKE_SCALAR_TAGS = [
     tag: "tag:yaml.org,2002:timestamp",
     default: true,
     test: TIMESTAMP,
-    resolve: readTimestamp,
+    // SnakeYAML reads a Date. Only its type matters, so its time is not set.
+    resolve: () => new Date(Number.NaN),
   },
 ] as const satisfies readonly ScalarTag[];
 

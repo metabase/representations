@@ -262,9 +262,10 @@ function inspect(
  * The YAML document in `text`, read as Metabase reads it (clj-yaml over
  * SnakeYAML: YAML 1.1 types, `<<` merge keys, SnakeYAML's limits). A map key
  * that SnakeYAML reads as something other than a string is in the value
- * under its text, and listed in `nonStringKeys`. Throws `YamlReadError` for
- * any text SnakeYAML refuses, and for a duplicate key, which SnakeYAML
- * accepts with the last value.
+ * under its text, and listed in `nonStringKeys`. A timestamp is a `Date`
+ * with no time (`NaN`). Throws `YamlReadError` for any text SnakeYAML
+ * refuses, and for a duplicate key, which SnakeYAML accepts with the last
+ * value.
  */
 export function readYaml(text: string): YamlDocument {
   const lineCounter = new LineCounter();
