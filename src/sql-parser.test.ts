@@ -234,6 +234,18 @@ describe("loadSqlParser", () => {
     ).toEqual([{ type: "composite_field", alias: "a" }]);
   });
 
+  it("reads SQL whose query field_references walks as neither a SELECT nor a UNION as unread", () => {
+    for (const sql of [
+      "SELECT a FROM t INTERSECT SELECT a FROM u",
+      "SELECT a FROM t EXCEPT SELECT a FROM u",
+    ]) {
+      expect(parser.fieldReferences(sql, "postgres")).toEqual({
+        status: "unread",
+        reason: "field_references could not parse it",
+      });
+    }
+  });
+
   it("replaces table names as Metabase's replace_names does", () => {
     expect(
       parser.replaceNames(

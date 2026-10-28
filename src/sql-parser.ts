@@ -272,12 +272,19 @@ function fieldReferencesOf(
     !isRecord(json) ||
     !Array.isArray(json.used_fields) ||
     !Array.isArray(json.returned_fields) ||
-    !Array.isArray(json.errors) ||
-    !json.errors.every(isRecord)
+    !Array.isArray(json.errors)
   ) {
     throw unexpected("field_references", answer);
   }
-  if (json.errors.some((e) => e.type === "syntax_error")) {
+  // sql_tools writes the syntax error of a query that is neither a SELECT nor
+  // a UNION, such as an INTERSECT, as a list of [key, value] pairs.
+  const errors: unknown[] = json.errors.map((e: unknown) =>
+    Array.isArray(e) ? Object.fromEntries(e) : e,
+  );
+  if (!errors.every(isRecord)) {
+    throw unexpected("field_references", answer);
+  }
+  if (errors.some((e) => e.type === "syntax_error")) {
     return { status: "unread", reason: "field_references could not parse it" };
   }
   return {
@@ -285,7 +292,7 @@ function fieldReferencesOf(
     references: {
       usedFields: json.used_fields.map(fieldSpecOf),
       returnedFields: json.returned_fields.map(fieldSpecOf),
-      missingTableAliases: json.errors.flatMap((e) =>
+      missingTableAliases: errors.flatMap((e) =>
         e.type === "missing_table_alias" && typeof e.table === "string"
           ? [e.table]
           : [],
