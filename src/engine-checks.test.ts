@@ -1,13 +1,15 @@
 import { describe, expect, it } from "bun:test";
 
 import type { EngineOf } from "./databases.js";
-import { type Doc, indexByEntityId } from "./documents.js";
+import { type Doc, indexByEntityId, validDocsOf } from "./documents.js";
 import {
   reportMissingTargetSchemas,
   reportUnsupportedTransformEngines,
   reportUntestableEngines,
 } from "./engine-checks.js";
 import type { LintRule } from "./findings.js";
+import { type Transform, transformOf } from "./reads.js";
+import { testedTransformsOf } from "./test-checks.js";
 
 type Recorded = {
   rule: LintRule;
@@ -127,9 +129,15 @@ function testEngineFindings(
   engines: Readonly<Record<string, string>>,
 ): Recorded[] {
   const recorded: Recorded[] = [];
+  // The check never reads a transform's tables.
+  const transformOfDoc = new Map<Doc, Transform>(
+    validDocsOf(docs, "Transform").map((doc) => [
+      doc,
+      transformOf(doc, () => ({ status: "read", tables: [] })),
+    ]),
+  );
   reportUntestableEngines(
-    docs,
-    indexByEntityId(docs),
+    testedTransformsOf(docs, indexByEntityId(docs), transformOfDoc),
     enginesOf(engines),
     recorder(recorded),
   );

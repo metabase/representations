@@ -1,12 +1,9 @@
 import type { EngineOf } from "./databases.js";
 import {
-  asValid,
   displayName,
   type Doc,
-  holderOf,
   isPythonSource,
   isQuerySource,
-  isQueryTransformDoc,
   queryDatabaseOf,
   targetDatabaseOf,
   validDocsOf,
@@ -14,6 +11,7 @@ import {
 } from "./documents.js";
 import { engineFacts } from "./engines.js";
 import type { Report } from "./findings.js";
+import type { TestedTransform } from "./test-checks.js";
 
 /** Whether `schema` is what Clojure's `str/blank?` calls blank: absent, empty or whitespace. */
 const isBlank = (schema: string | null | undefined): boolean =>
@@ -97,30 +95,22 @@ export function reportUnsupportedTransformEngines(
 
 /**
  * Reports each test of a query transform whose query's database's engine
- * cannot run transform tests; Metabase refuses every run of it. A test of no
- * transform, or of another kind of transform, is left to the rules on
- * `transform_id`.
+ * cannot run transform tests; Metabase refuses every run of it.
  */
 export function reportUntestableEngines(
-  docs: readonly Doc[],
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  tested: readonly TestedTransform[],
   engineOf: EngineOf,
   report: Report,
 ): void {
-  for (const test of validDocsOf(docs, "TransformTest")) {
-    const holder = holderOf(byEntityId, test.body.transform_id);
-    const transform = holder === null ? null : asValid(holder, "Transform");
-    if (transform === null || !isQueryTransformDoc(transform)) {
-      continue;
-    }
-    const database = queryDatabaseOf(transform);
+  for (const { test, transform } of tested) {
+    const database = queryDatabaseOf(transform.doc);
     const engine = engineOf(database);
     if (engineFacts(engine)?.["transforms/testing"] === false) {
       report(
         "untestable-engine",
         test,
-        `Metabase cannot run this test: transform ${displayName(transform)} reads database ${database}, whose engine ${engine} lacks the driver feature transforms/testing`,
-        [transform.file],
+        `Metabase cannot run this test: transform ${displayName(transform.doc)} reads database ${database}, whose engine ${engine} lacks the driver feature transforms/testing`,
+        [transform.doc.file],
       );
     }
   }

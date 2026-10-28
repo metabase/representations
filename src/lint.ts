@@ -47,9 +47,11 @@ import {
   reportRowsColumns,
 } from "./test-body-checks.js";
 import {
-  queryTransformOf,
   reportTestFindings,
+  reportTransformIds,
   type TableCheck,
+  type TestedTransform,
+  testedTransformsOf,
   testInputs,
 } from "./test-checks.js";
 import { reportTestSql } from "./test-sql-checks.js";
@@ -412,15 +414,11 @@ function createReport(findings: LintFinding[]): Report {
  */
 function comparedTables(
   docs: readonly Doc[],
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  transformOfDoc: ReadonlyMap<Doc, Transform>,
+  transforms: readonly Transform[],
+  tested: readonly TestedTransform[],
   readSql: SqlTableReader,
 ): TableKey[] {
-  const testTables = validDocsOf(docs, "TransformTest").flatMap((test) => {
-    const transform = queryTransformOf(test, byEntityId, transformOfDoc);
-    if (transform === null) {
-      return [];
-    }
+  const testTables = tested.flatMap(({ test, transform }) => {
     const database = queryDatabaseOf(transform.doc);
     const expectationReads = test.body.expectations.flatMap((expectation) => {
       const result =
@@ -443,8 +441,8 @@ function comparedTables(
   });
   return [
     ...validDocsOf(docs, "Table").map(tableOfFile),
-    ...targetsOf([...transformOfDoc.values()]),
-    ...[...transformOfDoc.values()].flatMap((t) =>
+    ...targetsOf(transforms),
+    ...transforms.flatMap((t) =>
       t.reads.status === "read" ? t.reads.tables : [],
     ),
     ...filterTables,
@@ -481,8 +479,9 @@ export async function lint({
     const transformOfDoc = new Map<Doc, Transform>(
       transforms.map((t) => [t.doc, t]),
     );
+    const tested = testedTransformsOf(docs, byEntityId, transformOfDoc);
     const defaultSchemaOf = resolveDefaultSchemas({
-      names: comparedTables(docs, byEntityId, transformOfDoc, readSql),
+      names: comparedTables(docs, transforms, tested, readSql),
       given: {
         ...databaseDefaultSchemas(docs, engineOf),
         ...settings.defaultSchemas,
@@ -517,24 +516,18 @@ export async function lint({
     checkReadTablesKnown(transforms, checkKnown);
     reportNullSchemaReferences(transforms, defaultSchemaOf, report);
 
-    reportTestFindings(
-      docs,
-      byEntityId,
-      transformOfDoc,
-      checkKnown,
-      defaultSchemaOf,
-      readSql,
-      report,
-    );
+    reportTransformIds(docs, byEntityId, transformOfDoc, report);
+    reportTestFindings(tested, checkKnown, defaultSchemaOf, readSql, report);
     reportRowsColumns(docs, report);
     reportExpectationNames(docs, report);
     reportEmptyExpectations(docs, report);
-    reportUntestableEngines(docs, byEntityId, engineOf, report);
+    reportUntestableEngines(tested, engineOf, report);
     reportTestSql(
       {
         docs,
         byEntityId,
         transforms,
+        tested,
         defaultSchemaOf,
         schemas,
         readSql,

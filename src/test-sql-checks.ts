@@ -3,18 +3,11 @@ import {
   type Doc,
   isQuerySource,
   queryDatabaseOf,
-  validDocsOf,
-  type ValidDoc,
 } from "./documents.js";
 import type { Report } from "./findings.js";
 import { inputCovers } from "./input-match.js";
 import { createSourceFinder } from "./query-sources.js";
-import {
-  createSnippetFinder,
-  expandNative,
-  type QueryTransform,
-  type Transform,
-} from "./reads.js";
+import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
 import type { Schemas } from "./schemas.js";
 import type { SqlColumnReader } from "./sql-columns.js";
 import type { ReplacedTableKey, TableReplacement } from "./sql-parser.js";
@@ -28,7 +21,7 @@ import {
   tableLabel,
   type TableName,
 } from "./tables.js";
-import { queryTransformOf } from "./test-checks.js";
+import type { TestedTransform } from "./test-checks.js";
 import { nativeOnlyStage } from "./transform-checks.js";
 
 /** What the checks of a transform test's SQL read. */
@@ -36,13 +29,13 @@ export type TestSqlChecks = {
   docs: readonly Doc[];
   byEntityId: ReadonlyMap<string, readonly Doc[]>;
   transforms: readonly Transform[];
+  /** Each test of a query transform, with that transform. */
+  tested: readonly TestedTransform[];
   defaultSchemaOf: DefaultSchemaOf;
   schemas: Schemas;
   readSql: SqlTableReader;
   columns: SqlColumnReader;
 };
-
-type TestDoc = ValidDoc<"TransformTest">;
 
 /** A native query of a transform, its snippets pasted in. */
 type NativeQuery = {
@@ -101,19 +94,6 @@ function uniqueFolded(names: readonly string[]): string[] {
   return [...byFold.keys()].sort().map((key) => byFold.get(key) ?? key);
 }
 
-/** Each schema-valid transform test whose transform is a query transform, with that transform. */
-function testedTransforms(
-  checks: TestSqlChecks,
-): { test: TestDoc; transform: QueryTransform }[] {
-  const transformOfDoc = new Map<Doc, Transform>(
-    checks.transforms.map((t) => [t.doc, t]),
-  );
-  return validDocsOf(checks.docs, "TransformTest").flatMap((test) => {
-    const transform = queryTransformOf(test, checks.byEntityId, transformOfDoc);
-    return transform === null ? [] : [{ test, transform }];
-  });
-}
-
 /**
  * Warns on each `sql` input of a test whose SQL reads a table. Metabase runs
  * an input's SQL on the source database as written, so the test reads live
@@ -123,7 +103,7 @@ export function reportLiveSqlInputs(
   checks: TestSqlChecks,
   report: Report,
 ): void {
-  for (const { test, transform } of testedTransforms(checks)) {
+  for (const { test, transform } of checks.tested) {
     for (const input of test.body.inputs) {
       if (input.format !== "sql") {
         continue;
@@ -177,7 +157,7 @@ export function reportMissingReadColumns(
   report: Report,
 ): void {
   const queryOf = createQueryReader(checks);
-  for (const { test, transform } of testedTransforms(checks)) {
+  for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const defaultSchema = checks.defaultSchemaOf(database);
     const read = readColumnsOf(queryOf(transform), checks.columns);
@@ -237,7 +217,7 @@ export function reportUpstreamColumns(
   report: Report,
 ): void {
   const queryOf = createQueryReader(checks);
-  for (const { test, transform } of testedTransforms(checks)) {
+  for (const { test, transform } of checks.tested) {
     for (const input of test.body.inputs) {
       if (input.format !== "rows") {
         continue;
@@ -325,7 +305,7 @@ export function reportQualifiedColumns(
   report: Report,
 ): void {
   const queryOf = createQueryReader(checks);
-  for (const { test, transform } of testedTransforms(checks)) {
+  for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const replaced = [
       ...test.body.inputs.map(({ table }) => inputTableOf(table)),

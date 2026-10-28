@@ -3,11 +3,12 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import type { EngineOf } from "./databases.js";
 import { type Doc, indexByEntityId, validDocsOf } from "./documents.js";
 import type { LintRule } from "./findings.js";
-import { transformOf } from "./reads.js";
+import { type Transform, transformOf } from "./reads.js";
 import { loadSchemas } from "./schemas.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { loadSqlParser } from "./sql-parser.js";
 import { createSqlTableReader } from "./sql-tables.js";
+import { testedTransformsOf } from "./test-checks.js";
 import {
   reportLiveSqlInputs,
   reportMissingReadColumns,
@@ -33,18 +34,26 @@ beforeAll(async () => {
   const parser = await loadSqlParser();
   const readSql = createSqlTableReader(parser, engineOf);
   const columns = createSqlColumnReader(parser, engineOf);
-  checksOf = (docs) => ({
-    docs,
-    byEntityId: indexByEntityId(docs),
+  checksOf = (docs) => {
+    const byEntityId = indexByEntityId(docs);
     // The checks never read a transform's tables.
-    transforms: validDocsOf(docs, "Transform").map((doc) =>
+    const transforms = validDocsOf(docs, "Transform").map((doc) =>
       transformOf(doc, () => ({ status: "read", tables: [] })),
-    ),
-    defaultSchemaOf: () => "public",
-    schemas,
-    readSql,
-    columns,
-  });
+    );
+    const transformOfDoc = new Map<Doc, Transform>(
+      transforms.map((t) => [t.doc, t]),
+    );
+    return {
+      docs,
+      byEntityId,
+      transforms,
+      tested: testedTransformsOf(docs, byEntityId, transformOfDoc),
+      defaultSchemaOf: () => "public",
+      schemas,
+      readSql,
+      columns,
+    };
+  };
 }, 60_000);
 
 /** Runs `check` on `docs` and returns what it reported. */

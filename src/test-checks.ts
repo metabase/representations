@@ -39,91 +39,82 @@ export function testInputs(
   }));
 }
 
-/**
- * The query transform `test` tests: the schema-valid Transform its
- * transform_id names (`holderOf`), when its source is a query. Null
- * otherwise; `reportTestFindings` reports why.
- */
-export function queryTransformOf(
-  test: TestDoc,
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  transformOfDoc: ReadonlyMap<Doc, Transform>,
-): QueryTransform | null {
-  const holder = holderOf(byEntityId, test.body.transform_id);
-  const transform = holder === null ? undefined : transformOfDoc.get(holder);
-  return transform !== undefined && isQueryTransform(transform)
-    ? transform
-    : null;
-}
+/** A schema-valid transform test, with the query transform it tests. */
+export type TestedTransform = { test: TestDoc; transform: QueryTransform };
 
 /**
- * The query transform `test` tests: the file its transform_id names
- * (`holderOf`). Null after an error when that names nothing, names a file
- * that is not a Transform, or names a transform that is not a query
- * transform; null without one when the Transform fails its schema.
+ * Each schema-valid test whose transform_id names (`holderOf`) a schema-valid
+ * query transform, with that transform, in file order.
  */
-function testedTransform(
-  test: TestDoc,
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  transformOfDoc: ReadonlyMap<Doc, Transform>,
-  report: Report,
-): QueryTransform | null {
-  const transformId = test.body.transform_id;
-  const holder = holderOf(byEntityId, transformId);
-  if (holder === null) {
-    report(
-      "dangling-transform-id",
-      test,
-      `transform_id ${transformId} matches no entity`,
-    );
-    return null;
-  }
-  if (holder.model !== "Transform") {
-    report(
-      "wrong-type-transform-id",
-      test,
-      `transform_id ${transformId} names a ${holder.model ?? "file with no model"}, not a Transform`,
-      (byEntityId.get(transformId) ?? []).map((h) => h.file),
-    );
-    return null;
-  }
-  const transform = transformOfDoc.get(holder);
-  if (transform === undefined) {
-    return null;
-  }
-  if (!isQueryTransform(transform)) {
-    report(
-      "untestable-transform",
-      test,
-      `transform ${displayName(transform.doc)} is not a query transform; Metabase tests only query transforms`,
-      [transform.doc.file],
-    );
-    return null;
-  }
-  return transform;
-}
-
-/**
- * For each valid test of a query transform: its duplicate inputs, the tables
- * its expectations read, and, when the transform's sources were read, the
- * inputs that match no read and the reads with no input. A test whose
- * transform_id names nothing, no Transform, or no query transform gets the
- * matching error instead.
- */
-export function reportTestFindings(
+export function testedTransformsOf(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   transformOfDoc: ReadonlyMap<Doc, Transform>,
+): TestedTransform[] {
+  return validDocsOf(docs, "TransformTest").flatMap((test) => {
+    const holder = holderOf(byEntityId, test.body.transform_id);
+    const transform = holder === null ? undefined : transformOfDoc.get(holder);
+    return transform !== undefined && isQueryTransform(transform)
+      ? [{ test, transform }]
+      : [];
+  });
+}
+
+/**
+ * Reports each schema-valid test whose transform_id (`holderOf`) names
+ * nothing, names a file that is not a Transform, or names a transform that is
+ * not a query transform. A test of a Transform that fails its schema gets no
+ * finding here.
+ */
+export function reportTransformIds(
+  docs: readonly Doc[],
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  transformOfDoc: ReadonlyMap<Doc, Transform>,
+  report: Report,
+): void {
+  for (const test of validDocsOf(docs, "TransformTest")) {
+    const transformId = test.body.transform_id;
+    const holder = holderOf(byEntityId, transformId);
+    if (holder === null) {
+      report(
+        "dangling-transform-id",
+        test,
+        `transform_id ${transformId} matches no entity`,
+      );
+    } else if (holder.model !== "Transform") {
+      report(
+        "wrong-type-transform-id",
+        test,
+        `transform_id ${transformId} names a ${holder.model ?? "file with no model"}, not a Transform`,
+        (byEntityId.get(transformId) ?? []).map((h) => h.file),
+      );
+    } else {
+      const transform = transformOfDoc.get(holder);
+      if (transform !== undefined && !isQueryTransform(transform)) {
+        report(
+          "untestable-transform",
+          test,
+          `transform ${displayName(transform.doc)} is not a query transform; Metabase tests only query transforms`,
+          [transform.doc.file],
+        );
+      }
+    }
+  }
+}
+
+/**
+ * For each test of a query transform: its duplicate inputs, the tables its
+ * expectations read, and, when the transform's sources were read, the inputs
+ * that match no read and the reads with no input.
+ */
+export function reportTestFindings(
+  tested: readonly TestedTransform[],
   checkKnown: TableCheck,
   defaultSchemaOf: DefaultSchemaOf,
   readSql: SqlTableReader,
   report: Report,
 ): void {
-  for (const test of validDocsOf(docs, "TransformTest")) {
-    const transform = testedTransform(test, byEntityId, transformOfDoc, report);
-    if (transform === null) {
-      continue;
-    }
+  for (const { test, transform } of tested) {
     const defaultSchema = defaultSchemaOf(queryDatabaseOf(transform.doc));
     const inputs = testInputs(test, transform);
     reportDuplicateInputs(test, inputs, defaultSchemaOf, report);
