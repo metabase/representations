@@ -77,6 +77,7 @@ const TREES: [string, (folder: string) => void][] = [
       writeOrdersTable(f);
     },
   ],
+  ["null schema reference", (f) => mutateExamples("null-schema-reference", f)],
   ["broken table file", (f) => mutateExamples("broken-table-file", f)],
   ["untestable transform", (f) => mutateExamples("python-transform-test", f)],
   ["untestable engine", (f) => mutateExamples("untestable-engine", f)],

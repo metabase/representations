@@ -147,7 +147,10 @@ describe("lint", () => {
           defaultSchemas: { "Sample Database": "PUBLIC" },
         }),
       );
-      expect((await lint({ folder: workdir })).findings).toEqual([]);
+      // The query's own MBQL references name ORDERS with a null schema.
+      expect(rules((await lint({ folder: workdir })).findings)).toEqual([
+        "null-schema-reference",
+      ]);
       expect(
         (await transformReads({ folder: workdir })).map((t) => t.tables),
       ).toEqual([
@@ -253,13 +256,15 @@ describe("lint", () => {
     it("matches a qualified input to an unqualified read in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       expect(
-        (
-          await lint({
-            folder: workdir,
-            defaultSchemas: { "Sample Database": "OTHER" },
-          })
-        ).findings,
-      ).toEqual([]);
+        rules(
+          (
+            await lint({
+              folder: workdir,
+              defaultSchemas: { "Sample Database": "OTHER" },
+            })
+          ).findings,
+        ),
+      ).toEqual(["null-schema-reference"]);
     });
 
     it("takes an MBQL reference with no schema as the table with no schema, and an unqualified SQL name as the default schema's", async () => {
@@ -285,7 +290,9 @@ describe("lint", () => {
           folder: workdir,
           defaultSchemas: { "Sample Database": "PUBLIC" },
         })
-      ).findings.map((f) => `${f.rule}: ${f.message}`);
+      ).findings
+        .filter((f) => f.rule === "missing-input" || f.rule === "unused-input")
+        .map((f) => `${f.rule}: ${f.message}`);
       expect(messages).toEqual([
         "missing-input: no input for ORDERS, which transform Monthly Order Summary reads",
         "unused-input: input PUBLIC.ORDERS is not read by transform Monthly Order Summary",
@@ -935,14 +942,20 @@ describe("lint", () => {
 
     it("reads the default schemas in the folder's settings file", async () => {
       writeConfig('{"defaultSchemas": {"Sample Database": "OTHER"}}');
-      expect(await lintRules()).toEqual([]);
+      expect(await lintRules()).toEqual(["null-schema-reference"]);
       writeConfig('{"defaultSchemas": {"Sample Database": "PUBLIC"}}');
-      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+      expect(await lintRules()).toEqual([
+        "missing-input",
+        "null-schema-reference",
+        "unused-input",
+      ]);
     });
 
     it("takes a default schema passed to lint over the settings file's", async () => {
       writeConfig('{"defaultSchemas": {"Sample Database": "PUBLIC"}}');
-      expect(await lintRules({ "Sample Database": "OTHER" })).toEqual([]);
+      expect(await lintRules({ "Sample Database": "OTHER" })).toEqual([
+        "null-schema-reference",
+      ]);
     });
 
     it("reads null in the settings file as a database with no schemas", async () => {
@@ -984,9 +997,9 @@ describe("lint", () => {
     it("reads a Database file's default_schema, over the engine's", async () => {
       rmSync(join(workdir, CONFIG_FILE));
       writeDatabase("postgres", { default_schema: "OTHER" });
-      expect(await lintRules()).toEqual([]);
+      expect(await lintRules()).toEqual(["null-schema-reference"]);
       writeDatabase("mysql", { default_schema: "OTHER" });
-      expect(await lintRules()).toEqual([]);
+      expect(await lintRules()).toEqual(["null-schema-reference"]);
     });
 
     it("reads a Database file's null default_schema as no schemas on an engine without schemas, or an unknown one", async () => {
@@ -1014,7 +1027,11 @@ describe("lint", () => {
     it("takes the settings file's default schema over a Database file's", async () => {
       writeConfig('{"defaultSchemas": {"Sample Database": "PUBLIC"}}');
       writeDatabase("postgres", { default_schema: "OTHER" });
-      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+      expect(await lintRules()).toEqual([
+        "missing-input",
+        "null-schema-reference",
+        "unused-input",
+      ]);
     });
 
     it("refuses a settings file it cannot read", async () => {
@@ -1219,8 +1236,11 @@ describe("lint", () => {
       replaceIn(copy, "  schema: TRANSFORMS\n", "");
       expect(await rulesWithDefault("TRANSFORMS")).toEqual([
         "duplicate-target",
+        "null-schema-reference",
       ]);
-      expect(await rulesWithDefault("PUBLIC")).toEqual([]);
+      expect(await rulesWithDefault("PUBLIC")).toEqual([
+        "null-schema-reference",
+      ]);
     });
 
     it("counts a table file as the table read unqualified only in the default schema, and never as an MBQL reference with no schema", async () => {
@@ -1255,6 +1275,71 @@ describe("lint", () => {
           .map((f) => f.file);
       expect(await ordersUnknown("public")).toEqual([mbqlRead]);
       expect(await ordersUnknown("OTHER")).toEqual([sqlRead, mbqlRead]);
+    });
+  });
+
+  // Metabase imports `[database, null, table]` as the table with no schema; on
+  // a database whose default schema is not null, that table rarely exists.
+  describe("with an MBQL reference with a null schema", () => {
+    let workdir: string;
+
+    const MBQL = "collections/transforms/mbql_transform.yaml";
+    const SQL = "collections/transforms/native_transform.yaml";
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-nullref-"));
+      mkdirSync(join(workdir, "collections/transforms"), { recursive: true });
+      for (const file of [MBQL, SQL]) {
+        cpSync(join(EXAMPLES, file), join(workdir, file));
+      }
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const writeDatabase = (fields: Record<string, unknown>) => {
+      const dir = join(workdir, "databases/sample_database");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "sample_database.yaml"),
+        yaml.dump({
+          name: "Sample Database",
+          ...fields,
+          "serdes/meta": [{ model: "Database" }],
+        }),
+      );
+    };
+
+    const nullSchemaFindings = async (
+      defaultSchemas?: Record<string, string | null>,
+    ) =>
+      (await lint({ folder: workdir, defaultSchemas })).findings
+        .filter((f) => f.rule === "null-schema-reference")
+        .map((f) => `${f.file}: ${f.severity}: ${f.message}`);
+
+    const ordersWarning = `${MBQL}: warning: reads ORDERS in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks`;
+
+    it("warns when the default schema is PUBLIC, and not on an unqualified SQL name", async () => {
+      expect(await nullSchemaFindings({ "Sample Database": "PUBLIC" })).toEqual(
+        [ordersWarning],
+      );
+    });
+
+    it("takes the default schema from a Database file", async () => {
+      writeDatabase({ engine: "postgres", default_schema: "PUBLIC" });
+      expect(await nullSchemaFindings()).toEqual([ordersWarning]);
+    });
+
+    it("does not warn when the default schema is null, given or by the engine", async () => {
+      expect(await nullSchemaFindings({ "Sample Database": null })).toEqual([]);
+      writeDatabase({ engine: "sqlite" });
+      expect(await nullSchemaFindings()).toEqual([]);
+    });
+
+    it("does not warn when the default schema is unknown", async () => {
+      rmSync(join(workdir, SQL));
+      expect(await nullSchemaFindings()).toEqual([]);
     });
   });
 
@@ -1330,6 +1415,7 @@ describe("lint", () => {
       );
       expect(await messages()).toEqual([
         "expectation-reads-other-table: expectation expectation 1 reads PEOPLE, which is neither the transform's target nor an input of this test",
+        "null-schema-reference: reads ORDERS in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks",
       ]);
     });
 

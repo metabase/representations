@@ -305,7 +305,12 @@ describe("cli", () => {
           "Sample Database=PUBLIC",
         ]);
         expect(given.exitCode).toBe(1);
-        expect(JSON.parse(given.stdout).rule).toBe("missing-input");
+        expect(
+          given.stdout
+            .trim()
+            .split("\n")
+            .map((line): unknown => JSON.parse(line)),
+        ).toContainEqual(expect.objectContaining({ rule: "missing-input" }));
       },
       LINT_PROCESS_TIMEOUT_MS,
     );

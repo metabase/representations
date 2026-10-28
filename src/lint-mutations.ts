@@ -3,6 +3,7 @@ import yaml from "js-yaml";
 import { dirname, join, resolve } from "path";
 
 import type { LintRule } from "./findings.js";
+import { CONFIG_FILE } from "./settings.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
@@ -416,6 +417,17 @@ export const MUTATIONS: Mutation[] = [
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.inputs[1].sql = "SELECT ID, CATEGORY FROM PRODUCTS";
       }),
+  },
+  {
+    name: "null-schema-reference",
+    description:
+      "The Sample Database's default schema is PUBLIC, as on H2, so the MBQL references with a null schema name tables that likely do not exist.",
+    rules: ["null-schema-reference"],
+    apply: (folder) =>
+      writeFileSync(
+        join(folder, CONFIG_FILE),
+        JSON.stringify({ defaultSchemas: { [DB]: "PUBLIC" } }),
+      ),
   },
   {
     name: "invalid-test",

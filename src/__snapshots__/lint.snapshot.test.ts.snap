@@ -293,6 +293,50 @@ exports[`lint output on a broken copy of the examples matches the recording: unk
 }
 `;
 
+exports[`lint output on a broken copy of the examples matches the recording: null schema reference 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "aWiR53tfmHEibiFGuIQeP",
+        "model": "Transform",
+        "name": "Hourly Product Stats",
+      },
+      "file": "collections/transforms/hourly_product_stats.yaml",
+      "message": "reads PRODUCTS in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks",
+      "related": [],
+      "rule": "null-schema-reference",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "1fNzUt_CgppinjPk7pGKH",
+        "model": "Transform",
+        "name": "Monthly Order Summary",
+      },
+      "file": "collections/transforms/mbql_transform.yaml",
+      "message": "reads ORDERS in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks",
+      "related": [],
+      "rule": "null-schema-reference",
+      "severity": "warning",
+    },
+    {
+      "entity": {
+        "entity_id": "rT5vWxYz1aBcDeFgHiJkL",
+        "model": "Transform",
+        "name": "Product Summary",
+      },
+      "file": "collections/transforms/product_summary.yaml",
+      "message": "reads PRODUCTS in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks",
+      "related": [],
+      "rule": "null-schema-reference",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
 exports[`lint output on a broken copy of the examples matches the recording: reads not checked 1`] = `
 {
   "files": 112,

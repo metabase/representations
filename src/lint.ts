@@ -180,6 +180,39 @@ function checkReadTablesKnown(
   }
 }
 
+/**
+ * Warns on each table a transform reads by a reference with a null schema
+ * (`nullSchema` `"none"`) in a database whose default schema is not null.
+ * Metabase imports such a reference as the table with no schema, and creates
+ * an inactive table when none exists, so every query on it fails. A database
+ * whose default schema is unknown gives no finding.
+ */
+function reportNullSchemaReferences(
+  transforms: readonly Transform[],
+  defaultSchemaOf: DefaultSchemaOf,
+  report: Report,
+): void {
+  for (const { doc, reads } of transforms) {
+    if (reads.status !== "read") {
+      continue;
+    }
+    for (const table of reads.tables) {
+      const defaultSchema = defaultSchemaOf(table.database);
+      if (
+        table.schema === null &&
+        table.nullSchema === "none" &&
+        defaultSchema !== null
+      ) {
+        report(
+          "null-schema-reference",
+          doc,
+          `reads ${tableLabel(table)} in database ${table.database}, whose default schema is ${defaultSchema}: a null schema in a reference names a table with no schema, which such a database likely lacks`,
+        );
+      }
+    }
+  }
+}
+
 /** The table a table file defines. */
 function tableOfFile(doc: ValidDoc<"Table">): TableKey {
   return {
@@ -481,6 +514,7 @@ export async function lint({
       report,
     );
     checkReadTablesKnown(transforms, checkKnown);
+    reportNullSchemaReferences(transforms, defaultSchemaOf, report);
 
     reportTestFindings(
       docs,
