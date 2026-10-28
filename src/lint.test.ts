@@ -475,6 +475,32 @@ describe("lint", () => {
       ).toEqual([`schema ${file}: the file names no model in serdes/meta`]);
     });
 
+    it("reads a file of a model Metabase imports and no schema describes, with no finding", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      mkdirSync(join(workdir, "custom_viz_plugins"));
+      writeFileSync(
+        join(workdir, "custom_viz_plugins", "plugin.yaml"),
+        yaml.dump({ name: 5, "serdes/meta": [{ model: "CustomVizPlugin" }] }),
+      );
+      expect(await findings(workdir)).toEqual([]);
+    });
+
+    it("reports a file of a model Metabase does not import as a schema error", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "collections/transforms/widget.yaml";
+      writeFileSync(
+        join(workdir, file),
+        yaml.dump({ name: "Widget", "serdes/meta": [{ model: "Widget" }] }),
+      );
+      expect(
+        (await findings(workdir)).map(
+          (f) => `${f.rule} ${f.file} ${f.entity.model}: ${f.message}`,
+        ),
+      ).toEqual([
+        `schema ${file} null: the file names the model "Widget", which Metabase does not import`,
+      ]);
+    });
+
     it("reports a Database file that fails its schema", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = "databases/sample_database/sample_database.yaml";

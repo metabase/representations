@@ -223,6 +223,27 @@ describe("cli", () => {
       }
     });
 
+    it("counts a file of a model no schema describes as not checked", () => {
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-plugin-"));
+      try {
+        mkdirSync(join(folder, "custom_viz_plugins"));
+        writeFileSync(
+          join(folder, "custom_viz_plugins", "plugin.yaml"),
+          "serdes/meta:\n- model: CustomVizPlugin\n",
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stderr).toBe("");
+        expect(stdout.trim()).toBe("0 passed, 0 failed, 1 not checked");
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    });
+
     it("errors when the folder has no YAML files", () => {
       const empty = mkdtempSync(join(tmpdir(), "representations-cli-empty-"));
       try {

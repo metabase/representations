@@ -83,7 +83,9 @@ function exitIfNoFiles(files: number, folder: string): void {
 
 function handleValidateSchema(values: ParsedValues): void {
   const folder = values.folder ?? process.cwd();
-  const { results, passed, failed, skipped } = validateSchema({ folder });
+  const { results, passed, failed, skipped, unchecked } = validateSchema({
+    folder,
+  });
 
   exitIfNoFiles(results.length, folder);
 
@@ -91,6 +93,7 @@ function handleValidateSchema(values: ParsedValues): void {
     const path = relative(process.cwd(), `${folder}/${result.file}`);
     switch (result.status) {
       case "ok":
+      case "unchecked":
         break;
       case "skipped":
         console.error(`WARN  ${path}`);
@@ -111,6 +114,7 @@ function handleValidateSchema(values: ParsedValues): void {
     `${passed} passed`,
     `${failed} failed`,
     ...(skipped > 0 ? [`${skipped} skipped`] : []),
+    ...(unchecked > 0 ? [`${unchecked} not checked`] : []),
   ];
   console.log(`\n${counts.join(", ")}`);
   process.exit(failed > 0 ? 1 : 0);

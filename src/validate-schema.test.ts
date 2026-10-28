@@ -10,9 +10,19 @@ import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
-import { validateSchema } from "./validate-schema.js";
+import { loadSchemas } from "./schemas.js";
+import { IMPORTED_MODELS, validateSchema } from "./validate-schema.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
+
+describe("IMPORTED_MODELS", () => {
+  it("holds every model a schema describes", () => {
+    const imported = new Set<string>(IMPORTED_MODELS);
+    expect(
+      [...loadSchemas().models.keys()].filter((model) => !imported.has(model)),
+    ).toEqual([]);
+  });
+});
 
 describe("validateSchema", () => {
   it("validates all bundled example files", () => {
@@ -63,6 +73,7 @@ describe("validateSchema", () => {
         passed: 0,
         failed: 0,
         skipped: 1,
+        unchecked: 0,
       });
     });
 
@@ -407,6 +418,55 @@ describe("validateSchema", () => {
         );
 
         expect(validateSchema({ folder: workdir }).failed).toBe(failed);
+      },
+    );
+
+    it("passes a file of a model Metabase imports and no schema describes, as not checked", () => {
+      const files = [
+        ["custom_viz_plugins/plugin/plugin.yaml", "CustomVizPlugin"],
+        ["databases/db/tables/t/dimensions/d.yaml", "Dimension"],
+        ["databases/db/tables/t/t__settings.yaml", "TableUserSettings"],
+        ["embedding_themes/theme.yaml", "EmbeddingTheme"],
+        ["osi_ai_context/context.yaml", "OsiAiContext"],
+      ];
+      for (const [file, model] of files) {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        writeFileSync(
+          join(workdir, file),
+          yaml.dump({ name: 5, "serdes/meta": [{ model }] }),
+        );
+      }
+
+      expect(validateSchema({ folder: workdir })).toEqual({
+        results: files.map(([file, model]) => ({
+          file,
+          model,
+          status: "unchecked",
+        })),
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        unchecked: files.length,
+      });
+    });
+
+    it.each(["Setting", "DashboardCard"])(
+      "fails a file of model %s, which Metabase loads from no file of its own, as an unknown model",
+      (model) => {
+        mkdirSync(join(workdir, "collections"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "entity.yaml"),
+          yaml.dump({ name: "Entity", "serdes/meta": [{ model, id: "x" }] }),
+        );
+
+        expect(validateSchema({ folder: workdir }).results).toEqual([
+          {
+            file: join("collections", "entity.yaml"),
+            model,
+            status: "fail",
+            errors: [{ path: "/", message: `unknown model "${model}"` }],
+          },
+        ]);
       },
     );
 

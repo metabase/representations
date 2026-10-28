@@ -20,7 +20,7 @@ export type Doc = {
   file: string;
   model: string;
   body: Record<string, unknown>;
-  /** The first way the file fails its model's schema; null when it passes. */
+  /** The first way the file fails its model's schema; null when it passes or no schema describes its model. */
   schemaError: ValidationError | null;
   /** The keys of `body`'s maps that Metabase reads as something other than a string. */
   nonStringKeys: readonly NonStringKey[];
@@ -220,7 +220,8 @@ export type UnreadableFile = { file: string; reason: string };
 /**
  * Each of `entityFiles(folder)`, in path order: as documents, as files
  * Metabase skips for having no `serdes/meta`, or as unreadable files, which
- * do not parse to a YAML map or whose `serdes/meta` names no model.
+ * do not parse to a YAML map, or whose `serdes/meta` names no model or a model
+ * Metabase does not import.
  */
 export function loadDocs(
   folder: string,
@@ -251,12 +252,18 @@ export function loadDocs(
       unreadable.push({ file, reason: "is not a YAML map" });
     } else if (check.status === "no-model") {
       unreadable.push({ file, reason: "names no model in serdes/meta" });
+    } else if (check.status === "unknown-model") {
+      unreadable.push({
+        file,
+        reason: `names the model "${check.model}", which Metabase does not import`,
+      });
     } else {
       docs.push({
         file,
         model: check.model,
         body,
-        schemaError: check.errors[0] ?? null,
+        schemaError:
+          check.status === "checked" ? (check.errors[0] ?? null) : null,
         nonStringKeys,
       });
     }

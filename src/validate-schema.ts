@@ -25,6 +25,45 @@ const ENTITY_FOLDERS = [
 ];
 
 /**
+ * The models whose entity files Metabase imports: `exported-models` in
+ * `metabase-enterprise.serialization.v2.models`, at the Metabase commit
+ * `vendor/sources.json` records, except `Setting`, which Metabase reads from
+ * `settings.yaml` alone.
+ */
+export const IMPORTED_MODELS = [
+  "Action",
+  "Card",
+  "Channel",
+  "Collection",
+  "CustomVizPlugin",
+  "Dashboard",
+  "DataApp",
+  "Database",
+  "Dimension",
+  "Document",
+  "EmbeddingTheme",
+  "Field",
+  "FieldUserSettings",
+  "FieldValues",
+  "Glossary",
+  "Measure",
+  "Metabot",
+  "NativeQuerySnippet",
+  "OsiAiContext",
+  "PythonLibrary",
+  "Segment",
+  "Table",
+  "TableUserSettings",
+  "Timeline",
+  "Transform",
+  "TransformJob",
+  "TransformTag",
+  "TransformTest",
+] as const;
+
+const IMPORTED = new Set<string>(IMPORTED_MODELS);
+
+/**
  * The files of `folder` that Metabase imports, in path order: each `.yaml`
  * file at any depth under an `ENTITY_FOLDERS` folder, and each
  * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
@@ -52,6 +91,8 @@ export type ValidationError = {
 
 export type ValidationResult =
   | { file: string; model: string; status: "ok" }
+  // A model Metabase imports and no schema describes.
+  | { file: string; model: string; status: "unchecked" }
   // A file Metabase skips without an error, and why.
   | { file: string; status: "skipped"; warning: string }
   | {
@@ -66,6 +107,7 @@ export type ValidateSchemaResult = {
   passed: number;
   failed: number;
   skipped: number;
+  unchecked: number;
 };
 
 /** How a parsed file stands as Metabase imports it, and against the schema of its model. */
@@ -74,6 +116,10 @@ export type SchemaCheck =
   | { status: "skipped" }
   // Metabase reads the file and cannot load it: its `serdes/meta` names no model.
   | { status: "no-model" }
+  // Metabase reads the file and cannot load it: it imports no such model.
+  | { status: "unknown-model"; model: string }
+  // Metabase imports the model, and no schema describes it.
+  | { status: "unchecked"; model: string }
   | { status: "checked"; model: string; errors: ValidationError[] };
 
 /**
@@ -107,8 +153,9 @@ const rootError = (message: string): ValidationError[] => [
 /**
  * Checks each of `entityFiles(folder)`, in path order, against the schema of
  * its model. A file Metabase skips, with no `serdes/meta`, is skipped with a
- * warning. A file that does not parse as YAML, has no model, or names a model
- * with no schema fails with one error at "/".
+ * warning. A file of a model Metabase imports and no schema describes is not
+ * checked. A file that does not parse as YAML, has no model, or names a model
+ * Metabase does not import fails with one error at "/".
  */
 export function validateSchema({
   folder,
@@ -124,6 +171,7 @@ export function validateSchema({
     passed: count("ok"),
     failed: count("fail"),
     skipped: count("skipped"),
+    unchecked: count("unchecked"),
   };
 }
 
@@ -157,6 +205,15 @@ function validateFile(
         status: "fail",
         errors: rootError("missing serdes/meta or model"),
       };
+    case "unknown-model":
+      return {
+        file,
+        model: check.model,
+        status: "fail",
+        errors: rootError(`unknown model "${check.model}"`),
+      };
+    case "unchecked":
+      return { file, model: check.model, status: "unchecked" };
     case "checked": {
       const { model, errors } = check;
       return errors.length === 0
@@ -181,8 +238,7 @@ function validationErrors(
 
 /**
  * How `doc`, a parsed representation file, stands as Metabase imports it, and
- * the ways it fails the schema of its `serdes/meta` model, in Ajv's order. A
- * model with no schema fails with one error at "/".
+ * the ways it fails the schema of its `serdes/meta` model, in Ajv's order.
  */
 export function checkSchema(
   doc: unknown,
@@ -197,12 +253,14 @@ export function checkSchema(
   }
   const file = models.get(model);
   const validate = file === undefined ? undefined : ajv.getSchema(file);
-  return {
-    status: "checked",
-    model,
-    errors:
-      validate === undefined
-        ? rootError(`unknown model "${model}"`)
-        : validationErrors(validate, doc),
-  };
+  if (validate !== undefined) {
+    return {
+      status: "checked",
+      model,
+      errors: validationErrors(validate, doc),
+    };
+  }
+  return IMPORTED.has(model)
+    ? { status: "unchecked", model }
+    : { status: "unknown-model", model };
 }
