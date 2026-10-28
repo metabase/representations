@@ -1,7 +1,8 @@
-// Checks that the vendored SQL parser is still Metabase's: vendor/sql_tools.py
-// byte-identical to Metabase's on master, and the vendored SQLGlot wheel the
-// version Metabase pins, with the SHA-256 PyPI records for it. Reads Metabase's
-// files from GitHub and the wheel's record from PyPI.
+// Checks that what this package copies from Metabase is still Metabase's:
+// vendor/sql_tools.py byte-identical to Metabase's on master, the vendored
+// SQLGlot wheel the version Metabase pins, with the SHA-256 PyPI records for
+// it, and IMPORTED_MODELS equal to Metabase's exported-models without Setting.
+// Reads Metabase's files from GitHub and the wheel's record from PyPI.
 //
 //   bun run scripts/check-metabase-sources.ts [--base-url URL] [--pypi-url URL]
 //
@@ -11,6 +12,7 @@ import { readFileSync } from "fs";
 import { parseArgs } from "node:util";
 import { resolve } from "path";
 
+import { IMPORTED_MODELS } from "../src/validate-schema.js";
 import { isRecord } from "../src/values.js";
 import { readVendorSources, VENDOR_DIR } from "../src/vendor-sources.js";
 
@@ -22,7 +24,7 @@ const { values } = parseArgs({
 });
 const baseUrl = values["base-url"] ?? "https://raw.githubusercontent.com";
 const pypiUrl = values["pypi-url"] ?? "https://pypi.org";
-const { sqlTools, sqlglot } = readVendorSources();
+const { sqlTools, sqlglot, importedModels } = readVendorSources();
 
 const DOCS_STEP =
   'Then update the "Metabase versions" section of docs/lint.md, which names the Metabase versions the parser matches.';
@@ -75,9 +77,60 @@ function pypiSha256(record: unknown, filename: string): string | null {
     : null;
 }
 
-const [metabaseSqlTools, pyproject, pypi] = await Promise.all([
+/**
+ * The string vector a `def` of `source`, a Clojure file, evaluates to, when it
+ * is a vector of strings or a `concat` of such vectors and of other such
+ * `def`s; null otherwise.
+ */
+function stringVectorDef(source: string, name: string): string[] | null {
+  // A top-level form starts at the start of a line; its docstring comes first.
+  const form = source
+    .split(/^(?=\()/m)
+    .find(
+      (f) => f.startsWith(`(def ${name}\n`) || f.startsWith(`(def ${name} `),
+    );
+  if (form === undefined) {
+    return null;
+  }
+  const body = form
+    .slice(`(def ${name}`.length)
+    .trimStart()
+    .replace(/^"(?:[^"\\]|\\.)*"/, "");
+  const values: string[] = [];
+  for (const [, string, symbol] of body.matchAll(
+    /"([^"\\]*)"|([^\s"()[\]]+)/g,
+  )) {
+    if (string !== undefined) {
+      values.push(string);
+    } else if (symbol !== "concat") {
+      const named = stringVectorDef(source, symbol);
+      if (named === null) {
+        return null;
+      }
+      values.push(...named);
+    }
+  }
+  return values;
+}
+
+/**
+ * How the copied list differs from `exported`, Metabase's exported-models:
+ * the models it lacks and the models it holds besides, ignoring `Setting`,
+ * which Metabase reads from settings.yaml alone.
+ */
+function modelDifferences(exported: readonly string[]): string[] {
+  const copied = new Set<string>(IMPORTED_MODELS);
+  const metabase = new Set(exported.filter((m) => m !== "Setting"));
+  return [
+    ...[...metabase].filter((m) => !copied.has(m)).map((m) => `missing ${m}`),
+    ...[...copied].filter((m) => !metabase.has(m)).map((m) => `extra ${m}`),
+  ];
+}
+
+const [metabaseSqlTools, pyproject, modelsClj, pypi] = await Promise.all([
   metabaseFile(sqlTools.path),
   metabaseFile(sqlglot.pin),
+  metabaseFile(importedModels.path),
   pypiRecord(),
 ]);
 
@@ -110,6 +163,29 @@ if (pyproject !== null) {
         "Vendor that wheel from PyPI, and update vendor/sources.json. " +
         DOCS_STEP,
     );
+  }
+}
+
+if (modelsClj !== null) {
+  const exported = stringVectorDef(
+    new TextDecoder().decode(modelsClj),
+    "exported-models",
+  );
+  if (exported === null || exported.length === 0) {
+    fail(
+      `${importedModels.path} defines no exported-models the check can read`,
+    );
+  } else {
+    const differences = modelDifferences(exported);
+    if (differences.length === 0) {
+      console.log("OK    IMPORTED_MODELS is Metabase's exported-models");
+    } else {
+      fail(
+        `IMPORTED_MODELS differs from Metabase's exported-models on master: ${differences.join(", ")}. ` +
+          "Copy Metabase's exported-models, without Setting, into IMPORTED_MODELS in src/validate-schema.ts, " +
+          "and record the Metabase commit in vendor/sources.json.",
+      );
+    }
   }
 }
 

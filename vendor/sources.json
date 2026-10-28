@@ -4,6 +4,11 @@
     "path": "resources/python-sources/sql_tools.py",
     "commit": "32ae44fec4af0a4a87411daecb6a56aeb353b9b8"
   },
+  "importedModels": {
+    "repository": "metabase/metabase",
+    "path": "enterprise/backend/src/metabase_enterprise/serialization/v2/models.clj",
+    "commit": "147dffcf2bb2ec14e9ebbd9a750ada2d97233426"
+  },
   "sqlglot": {
     "version": "30.20.0",
     "wheel": "sqlglot-30.20.0-py3-none-any.whl",

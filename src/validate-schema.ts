@@ -26,9 +26,8 @@ const ENTITY_FOLDERS = [
 
 /**
  * The models whose entity files Metabase imports: `exported-models` in
- * `metabase-enterprise.serialization.v2.models`, at the Metabase commit
- * `vendor/sources.json` records, except `Setting`, which Metabase reads from
- * `settings.yaml` alone.
+ * Metabase's file and commit that `importedModels` in `vendor/sources.json`
+ * records, except `Setting`, which Metabase reads from `settings.yaml` alone.
  */
 export const IMPORTED_MODELS = [
   "Action",
