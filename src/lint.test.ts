@@ -746,6 +746,88 @@ describe("lint", () => {
       },
     );
 
+    // Metabase compiles the text tag to a bind parameter, which names no
+    // table, and the table tag to a qualified name, which follows `PUBLIC.`.
+    it.each([
+      [
+        "a text tag with a default",
+        { type: "text", default: "ORDERS" },
+        [
+          "missing-input: no input for PUBLIC.{{t}}, which transform Product Revenue Report reads",
+          "unused-input: input PUBLIC.ORDERS is not read by transform Product Revenue Report",
+        ],
+      ],
+      [
+        "a table tag",
+        { type: "table", "table-id": ["Sample Database", "PUBLIC", "ORDERS"] },
+        [
+          "missing-input: no input for PUBLIC.{{t}}, which transform Product Revenue Report reads",
+        ],
+      ],
+    ])(
+      "reports %s after a schema as a missing input, named as written",
+      async (_, tag, expected) => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const file = join(
+          workdir,
+          "collections/transforms/native_transform.yaml",
+        );
+        const doc: unknown = yaml.load(readFileSync(file, "utf8"));
+        if (
+          !isRecord(doc) ||
+          !isRecord(doc.source) ||
+          !isRecord(doc.source.query) ||
+          !Array.isArray(doc.source.query.stages) ||
+          !isRecord(doc.source.query.stages[0])
+        ) {
+          throw new Error(`${file} has no native stage`);
+        }
+        const stage = doc.source.query.stages[0];
+        if (typeof stage.native !== "string") {
+          throw new Error(`${file} has no native SQL`);
+        }
+        expect(stage.native).toContain("FROM ORDERS o");
+        stage.native = stage.native.replace(
+          "FROM ORDERS o",
+          "FROM PUBLIC.{{t}} o",
+        );
+        stage["template-tags"] = [
+          {
+            ...tag,
+            name: "t",
+            id: "aa000003-0000-0000-0000-000000000003",
+            "display-name": "T",
+          },
+        ];
+        writeFileSync(file, yaml.dump(doc));
+        const testFile = join(
+          workdir,
+          "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+        );
+        const test = readFileSync(testFile, "utf8");
+        expect(test).toContain("- table:\n    name: ORDERS\n");
+        writeFileSync(
+          testFile,
+          test.replace(
+            "- table:\n    name: ORDERS\n",
+            "- table:\n    schema: PUBLIC\n    name: ORDERS\n",
+          ),
+        );
+        expect(
+          (
+            await lint({
+              folder: workdir,
+              defaultSchemas: { "Sample Database": "PUBLIC" },
+            })
+          ).findings
+            .filter(
+              (f) => f.rule === "missing-input" || f.rule === "unused-input",
+            )
+            .map((f) => `${f.rule}: ${f.message}`),
+        ).toEqual(expected);
+      },
+    );
+
     it("says why a snippet named by its entity id cannot be pasted", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(

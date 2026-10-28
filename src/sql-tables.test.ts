@@ -68,6 +68,11 @@ describe("a SQL table reader", () => {
       [{ schema: null, name: "PEOPLE" }],
     ],
     [
+      "a template tag after a schema as a table, named as written",
+      "SELECT * FROM PUBLIC.{{ t }} JOIN {{u}} ON 1 = 1",
+      [{ schema: "PUBLIC", name: "{{t}}" }],
+    ],
+    [
       "the text of an optional clause, without a list of valued tags",
       "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.STATE = {{state}}]]",
       [

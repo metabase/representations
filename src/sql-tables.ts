@@ -10,7 +10,12 @@ import {
 import { fold } from "./tables.js";
 import { templateTagsOf, uniqueBy } from "./values.js";
 
-const TAG_PLACEHOLDER = "__metabase_template_tag__";
+const TAG_PLACEHOLDER = /^__metabase_template_tag_([0-9a-f]*)__$/i;
+
+/** The word that stands for the template tag `{{name}}`: the name in hex, so that any name makes one identifier. */
+function tagPlaceholder(name: string): string {
+  return `__metabase_template_tag_${Buffer.from(name, "utf8").toString("hex")}__`;
+}
 
 const ALWAYS_VALUED_TAG_TYPES = new Set(["card", "snippet", "table"]);
 
@@ -58,12 +63,20 @@ function replaceTemplateTags(
         ? ` ${clause} `
         : " ",
     )
-    .replace(TAG, ` ${TAG_PLACEHOLDER} `);
+    .replace(TAG, (_, name: string) => ` ${tagPlaceholder(name)} `);
 }
 
 /** Whether `name`, a table or column SQLGlot read, is the word a template tag became. */
 export function isTagPlaceholder(name: string): boolean {
-  return name === TAG_PLACEHOLDER;
+  return TAG_PLACEHOLDER.test(name);
+}
+
+/** The template tag a placeholder stands for, written `{{name}}`; null for any other name. */
+function tagOfPlaceholder(name: string): string | null {
+  const hex = TAG_PLACEHOLDER.exec(name)?.[1];
+  return hex === undefined
+    ? null
+    : `{{${Buffer.from(hex, "hex").toString("utf8")}}}`;
 }
 
 /**
@@ -110,8 +123,10 @@ export type SqlTableReader = (
 /**
  * Returns a reader of the tables native SQL reads, as Metabase reads them
  * with `parser`: each table once, sorted. It parses the SQL as `prepareSql`
- * gives it for the database's engine; a placeholder read as a table reads
- * nothing, since the tag's own definition names its card or table. Refuses
+ * gives it for the database's engine. An unqualified placeholder read as a
+ * table reads nothing, since the tag's own definition names its card or
+ * table. A placeholder after a schema is a table named as the tag is
+ * written, `schema.{{name}}`, which matches no input or table file. Refuses
  * (`unread`) what `prepareSql` refuses, and SQL SQLGlot cannot parse. Each
  * distinct SQL, in each dialect, is parsed once.
  */
@@ -137,9 +152,13 @@ export function createSqlTableReader(
     return {
       status: "read",
       tables: uniqueBy(
-        result.tables.filter(
-          (t) => t.schema !== null || !isTagPlaceholder(t.name),
-        ),
+        result.tables.flatMap((t) => {
+          const tag = tagOfPlaceholder(t.name);
+          if (tag === null) {
+            return [t];
+          }
+          return t.schema === null ? [] : [{ schema: t.schema, name: tag }];
+        }),
         ({ schema, name }) => JSON.stringify([fold(schema), fold(name)]),
       ),
     };
