@@ -2,7 +2,7 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 import type { TableName } from "./tables.js";
-import { isRecord } from "./values.js";
+import { errorMessage, isRecord } from "./values.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
 /** Why SQLGlot could not read a SQL text. */
@@ -52,7 +52,11 @@ export type TableReplacement = readonly [
 /** A way a query names a table, as a `replace_names` key. */
 export type ReplacedTableKey = { schema?: string; table: string };
 
-/** Metabase's SQL parser: SQLGlot, and Metabase's `sql_tools.py`, under Pyodide. */
+/**
+ * Metabase's SQL parser: SQLGlot, and Metabase's `sql_tools.py`, under
+ * Pyodide. Each function is also unread when Pyodide garbles the answer, as
+ * it can once the parser holds more than 2 GiB.
+ */
 export type SqlParser = {
   /**
    * The tables `sql` names, by `sql_tools.referenced_tables` in `dialect`
@@ -128,9 +132,23 @@ def lint_call_sql_tools(function, *args):
     return json.dumps({"answer": answer})
 `;
 
-/** The answer of `lint_call_sql_tools`: the function's own answer, or why it raised. */
-function answerOf(json: string): { status: "read"; answer: unknown } | Unread {
-  const parsed: unknown = JSON.parse(json);
+/**
+ * The answer of `lint_call_sql_tools`: the function's own answer, or why it
+ * raised. Unread when the text is not JSON, or not an answer: Pyodide
+ * returns a string held above 2 GiB of its memory as other bytes.
+ */
+export function answerOf(
+  json: string,
+): { status: "read"; answer: unknown } | Unread {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch (e) {
+    return {
+      status: "unread",
+      reason: `the SQL parser answered with text that is not JSON: ${errorMessage(e)}`,
+    };
+  }
   if (isRecord(parsed) && "answer" in parsed) {
     return { status: "read", answer: parsed.answer };
   }
@@ -141,7 +159,10 @@ function answerOf(json: string): { status: "read"; answer: unknown } | Unread {
   ) {
     return { status: "unread", reason: `${parsed.error}: ${parsed.message}` };
   }
-  throw new Error(`Unexpected answer from sql_tools: ${json}`);
+  return {
+    status: "unread",
+    reason: "the SQL parser answered with JSON that is not an answer",
+  };
 }
 
 /** Thrown when a function of `sql_tools` answers in a shape it never gives. */

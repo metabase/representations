@@ -194,6 +194,7 @@ Reported as `reads-not-checked`:
 - An expression nested deeper than Python's recursion limit: about 46 levels of parentheses.
 - A snippet left in the query after pasting, such as one whose file is not in the folder.
 - Snippets Metabase refuses to paste: a snippet that uses itself through any chain of snippets, more than 10,000 pastes in one query, or SQL longer than 10,000,000 characters after pasting.
+- A query whose parse takes the parser past 2 GiB of memory, about 10,000,000 characters of SQL. Pyodide then garbles the parser's answers, so the queries read after it in the same run can be reported too.
 - A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
 
 Read differently from what the database runs, with no warning:

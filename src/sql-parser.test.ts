@@ -3,7 +3,12 @@ import { createHash } from "crypto";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-import { dialectOf, loadSqlParser, type SqlParser } from "./sql-parser.js";
+import {
+  answerOf,
+  dialectOf,
+  loadSqlParser,
+  type SqlParser,
+} from "./sql-parser.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
 describe("dialectOf", () => {
@@ -22,6 +27,33 @@ describe("dialectOf", () => {
       expect(dialectOf(engine)).toBe(dialect);
     },
   );
+});
+
+describe("answerOf", () => {
+  it("gives the answer, or the error sql_tools raised", () => {
+    expect(answerOf('{"answer": [1]}')).toEqual({
+      status: "read",
+      answer: [1],
+    });
+    expect(
+      answerOf('{"error": "ParseError", "message": "Invalid expression"}'),
+    ).toEqual({ status: "unread", reason: "ParseError: Invalid expression" });
+  });
+
+  // Pyodide 314.0.7 returns a string held above 2 GiB of its memory as the
+  // bytes at another address.
+  it("is unread when the answer is not JSON, or not an answer", () => {
+    expect(answerOf("\u0000\u0000@t\u001eB")).toEqual({
+      status: "unread",
+      reason: expect.stringMatching(
+        /^the SQL parser answered with text that is not JSON: /,
+      ),
+    });
+    expect(answerOf('{"other": 1}')).toEqual({
+      status: "unread",
+      reason: "the SQL parser answered with JSON that is not an answer",
+    });
+  });
 });
 
 describe("the vendored sources", () => {
