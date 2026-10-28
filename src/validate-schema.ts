@@ -7,19 +7,39 @@ import { loadSchemas, type Schemas } from "./schemas.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
 import { readYaml } from "./yaml.js";
 
-/** The files of a folder that Metabase imports, as globs relative to the folder. */
-export const IMPORT_PATHS = [
-  "actions/**/*.yaml",
-  "channels/**/*.yaml",
-  "collections/**/*.yaml",
-  "data_apps/*/data_app.yaml",
-  "databases/**/segments/**/*.yaml",
-  "databases/**/measures/**/*.yaml",
-  "metabots/**/*.yaml",
-  "python_libraries/**/*.yaml",
-  "python-libraries/**/*.yaml",
-  "transforms/**/*.yaml",
+/** The top-level folders whose `.yaml` files Metabase imports, other than `data_apps`. */
+const ENTITY_FOLDERS = [
+  "actions",
+  "channels",
+  "collections",
+  "custom_viz_plugins",
+  "databases",
+  "embedding_themes",
+  "glossary",
+  "metabots",
+  "osi_ai_context",
+  "python_libraries",
+  "python-libraries",
+  "snippets",
+  "transforms",
 ];
+
+/**
+ * The files of `folder` that Metabase imports, in path order: each `.yaml`
+ * file at any depth under an `ENTITY_FOLDERS` folder, and each
+ * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
+ * A file whose name starts with a dot is skipped; a folder whose name does is
+ * not.
+ */
+export function entityFiles(folder: string): string[] {
+  return globSync(
+    [
+      ...ENTITY_FOLDERS.map((top) => `${top}/**/[!.]*.yaml`),
+      "data_apps/**/data_app.yaml",
+    ],
+    { cwd: folder, dot: true, nodir: true },
+  ).sort();
+}
 
 export type ValidateSchemaOptions = {
   folder: string;
@@ -64,17 +84,17 @@ const rootError = (message: string): ValidationError[] => [
 ];
 
 /**
- * Checks each file of `folder` under `IMPORT_PATHS`, in path order, against
- * the schema of its model. A file that does not parse as YAML, has no model,
- * or names a model with no schema fails with one error at "/".
+ * Checks each of `entityFiles(folder)`, in path order, against the schema of
+ * its model. A file that does not parse as YAML, has no model, or names a
+ * model with no schema fails with one error at "/".
  */
 export function validateSchema({
   folder,
 }: ValidateSchemaOptions): ValidateSchemaResult {
   const schemas = loadSchemas();
-  const results = globSync(IMPORT_PATHS, { cwd: folder })
-    .sort()
-    .map((file) => validateFile(folder, file, schemas));
+  const results = entityFiles(folder).map((file) =>
+    validateFile(folder, file, schemas),
+  );
   return {
     results,
     passed: results.filter((r) => r.status === "ok").length,
@@ -109,7 +129,7 @@ function validateFile(
 }
 
 /** The ways `doc` fails `validate`, in Ajv's order; empty when it passes. */
-export function validationErrors(
+function validationErrors(
   validate: ValidateFunction,
   doc: unknown,
 ): ValidationError[] {

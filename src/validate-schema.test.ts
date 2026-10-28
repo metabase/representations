@@ -73,6 +73,72 @@ describe("validateSchema", () => {
       expect(results[0].file).toBe(join(...dirs, file));
     });
 
+    describe("which files it reads", () => {
+      const write = (file: string, content: string): void => {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        writeFileSync(join(workdir, file), content);
+      };
+      const table = yaml.dump({
+        name: "ORDERS",
+        db_id: "Sample Database",
+        "serdes/meta": [
+          { model: "Database", id: "Sample Database" },
+          { model: "Table", id: "ORDERS" },
+        ],
+      });
+      const transform = readFileSync(
+        join(EXAMPLES, "collections", "transforms", "native_transform.yaml"),
+        "utf8",
+      );
+      const collection = yaml.dump({
+        name: "Archive",
+        entity_id: "cOlArChIvE000ExAmPlx2",
+        "serdes/meta": [{ model: "Collection" }],
+      });
+      const statuses = (): string[] =>
+        validateSchema({ folder: workdir }).results.map((r) =>
+          [r.file, r.model, r.status].join(" "),
+        );
+
+      it("checks a file against the schema of its model, wherever it sits under an imported folder", () => {
+        write("collections/odd/place/orders.yaml", table);
+        write("snippets/elsewhere/report.yaml", transform);
+        write(
+          "databases/db/fields/ID.yaml",
+          "name: 5\nserdes/meta:\n- model: Field\n",
+        );
+
+        expect(statuses()).toEqual([
+          "collections/odd/place/orders.yaml Table ok",
+          "databases/db/fields/ID.yaml Field fail",
+          "snippets/elsewhere/report.yaml Transform ok",
+        ]);
+      });
+
+      it("reads a file under a dot folder, and a data app manifest at any depth", () => {
+        write("collections/.archive/archive.yaml", collection);
+        write("data_apps/data_app.yaml", "name: Broken\n");
+        write("data_apps/group/shop/data_app.yaml", "name: Broken\n");
+
+        expect(statuses()).toEqual([
+          "collections/.archive/archive.yaml Collection ok",
+          "data_apps/data_app.yaml  fail",
+          "data_apps/group/shop/data_app.yaml  fail",
+        ]);
+      });
+
+      it("skips the files Metabase does not import", () => {
+        write("collection.yaml", collection);
+        write("notes/collection.yaml", collection);
+        write("collections/collection.yml", collection);
+        write("collections/.collection.yaml", collection);
+        write("data_apps/shop/settings.yaml", collection);
+        mkdirSync(join(workdir, "collections", "folder.yaml"));
+
+        expect(statuses()).toEqual([]);
+      });
+    });
+
     describe("actions", () => {
       const example = (file: string): Record<string, unknown> =>
         yaml.load(

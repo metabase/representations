@@ -1,14 +1,12 @@
 import { readFileSync } from "fs";
-import { globSync } from "glob";
 import { resolve } from "path";
 
 import type { Schemas } from "./schemas.js";
 import {
+  entityFiles,
   getModel,
-  IMPORT_PATHS,
   schemaErrors,
   type ValidationError,
-  validationErrors,
 } from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
 import {
@@ -18,42 +16,16 @@ import {
   YamlReadError,
 } from "./yaml.js";
 
-/** A representation file or table file that parses to a YAML map. */
+/** A file of `entityFiles` that parses to a YAML map. */
 export type Doc = {
   file: string;
   model: string | null;
   body: Record<string, unknown>;
-  /** The first way the file fails its model's schema; null when it passes, or when its model has no schema. */
+  /** The first way the file fails its model's schema; null when it passes. */
   schemaError: ValidationError | null;
   /** The keys of `body`'s maps that Metabase reads as something other than a string. */
   nonStringKeys: readonly NonStringKey[];
 };
-
-/** The table files of a folder. They are not imported, so `validateSchema` does not check them. */
-export const TABLE_PATHS = ["databases/**/tables/**/*.yaml"];
-
-/** The Database files of a folder. They are not imported, so `validateSchema` does not check them. */
-export const DATABASE_PATHS = ["databases/*/*.yaml"];
-
-/**
- * The ways `body`, of a file that `validateSchema` does not see, fails its
- * model's schema: `table.yaml` for a Table, which has no `serdes/meta` model
- * constant to find it by. Empty when it passes or its model has no schema.
- */
-function unimportedSchemaErrors(
-  model: string | null,
-  body: unknown,
-  { ajv, models }: Schemas,
-): ValidationError[] {
-  const file =
-    model === "Table"
-      ? "table.yaml"
-      : model === null
-        ? undefined
-        : models.get(model);
-  const validate = file === undefined ? undefined : ajv.getSchema(file);
-  return validate === undefined ? [] : validationErrors(validate, body);
-}
 
 /** A Python source table, from `transform.yaml#/$defs/python_source`. */
 type PythonSourceTable = {
@@ -247,9 +219,8 @@ export function displayName(doc: Doc): string {
 export type UnreadableFile = { file: string; reason: string };
 
 /**
- * Every representation file, table file and Database file in `folder`, in path
- * order: those that parse to a YAML map as documents, and the others as
- * unreadable files.
+ * Each of `entityFiles(folder)`, in path order: those that parse to a YAML map
+ * as documents, and the others as unreadable files.
  */
 export function loadDocs(
   folder: string,
@@ -258,14 +229,9 @@ export function loadDocs(
   docs: Doc[];
   unreadable: UnreadableFile[];
 } {
-  const imported = new Set(globSync(IMPORT_PATHS, { cwd: folder }));
   const docs: Doc[] = [];
   const unreadable: UnreadableFile[] = [];
-  const files = new Set([
-    ...imported,
-    ...globSync([...TABLE_PATHS, ...DATABASE_PATHS], { cwd: folder }),
-  ]);
-  for (const file of [...files].sort()) {
+  for (const file of entityFiles(folder)) {
     let read: YamlDocument;
     try {
       read = readYaml(readFileSync(resolve(folder, file), "utf8"));
@@ -280,15 +246,11 @@ export function loadDocs(
       unreadable.push({ file, reason: "is not a YAML map" });
       continue;
     }
-    const model = getModel(body);
     docs.push({
       file,
-      model,
+      model: getModel(body),
       body,
-      schemaError:
-        (imported.has(file)
-          ? schemaErrors(body, schemas)
-          : unimportedSchemaErrors(model, body, schemas))[0] ?? null,
+      schemaError: schemaErrors(body, schemas)[0] ?? null,
       nonStringKeys,
     });
   }

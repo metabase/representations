@@ -1365,6 +1365,43 @@ describe("lint", () => {
       expect(await ordersUnknown("public")).toEqual([mbqlUnknown]);
       expect(await ordersUnknown("OTHER")).toEqual([sqlUnknown, mbqlUnknown]);
     });
+
+    it("reads a table file and a transform by their model, wherever they sit under an imported folder", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const transform = "snippets/elsewhere/daily_order_summary.yaml";
+      mkdirSync(join(workdir, "snippets/elsewhere"), { recursive: true });
+      fs.renameSync(
+        join(workdir, "collections/transforms/daily_order_summary.yaml"),
+        join(workdir, transform),
+      );
+      mkdirSync(join(workdir, "collections/odd"), { recursive: true });
+      writeFileSync(
+        join(workdir, "collections/odd/orders.yaml"),
+        yaml.dump({
+          name: "ORDERS",
+          db_id: "Sample Database",
+          schema: "PUBLIC",
+          "serdes/meta": [{ model: "Table" }],
+        }),
+      );
+      const ordersFindings = async (schema: string) =>
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas: { "Sample Database": schema },
+          })
+        ).findings
+          .filter(
+            (f) =>
+              f.file === "collections/odd/orders.yaml" ||
+              (f.file === transform && f.message.includes("table ORDERS ")),
+          )
+          .map((f) => `${f.file}: ${f.rule}: ${f.message}`);
+      expect(await ordersFindings("PUBLIC")).toEqual([]);
+      expect(await ordersFindings("OTHER")).toEqual([
+        `${transform}: unknown-table: table ORDERS is defined by no table file or transform target`,
+      ]);
+    });
   });
 
   // Metabase imports `[database, null, table]` as the table with no schema; on
