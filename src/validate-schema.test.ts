@@ -4,6 +4,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "fs";
 import yaml from "js-yaml";
@@ -149,6 +150,29 @@ describe("validateSchema", () => {
           "data_apps/data_app.yaml Collection ok",
           "data_apps/group/shop/data_app.yaml Collection ok",
         ]);
+      });
+
+      it("follows no symbolic link to a folder, and follows one to a file", () => {
+        const outside = mkdtempSync(join(tmpdir(), "representations-linked-"));
+        try {
+          mkdirSync(join(outside, "group"));
+          writeFileSync(join(outside, "linked.yaml"), collection);
+          writeFileSync(join(outside, "group", "nested.yaml"), collection);
+          write("collections/real/real.yaml", collection);
+          symlinkSync(outside, join(workdir, "collections", "linked"));
+          symlinkSync(outside, join(workdir, "transforms"));
+          symlinkSync(
+            join(outside, "linked.yaml"),
+            join(workdir, "collections", "file.yaml"),
+          );
+
+          expect(statuses()).toEqual([
+            "collections/file.yaml Collection ok",
+            "collections/real/real.yaml Collection ok",
+          ]);
+        } finally {
+          rmSync(outside, { recursive: true, force: true });
+        }
       });
 
       it("skips the files Metabase does not import", () => {

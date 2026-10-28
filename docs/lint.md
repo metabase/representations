@@ -63,6 +63,12 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 - Loading the parser takes a moment and some memory, once per process, and only when the lint reads SQL in the folder.
 - Pyodide is an optional dependency, which npm installs by default. An install with `--omit=optional` leaves it out; a lint that then reads SQL exits with code 2 and names the command that installs it.
 
+## Which files are read
+
+`lint` and `validate-schema` read the files Metabase's import reads: each `.yaml` file, at any depth, under `actions/`, `channels/`, `collections/`, `custom_viz_plugins/`, `databases/`, `embedding_themes/`, `glossary/`, `metabots/`, `osi_ai_context/`, `python_libraries/`, `python-libraries/`, `snippets/` and `transforms/`, and each `data_app.yaml` under `data_apps/`. A file whose name starts with a dot is not read. A file's model comes from its `serdes/meta`, not from its folder.
+
+Known difference from Metabase: Metabase's import follows a symbolic link to a folder, and the lint and `validate-schema` do not. They read no file inside such a folder. A symbolic link to a file is read, as Metabase reads it.
+
 ## How YAML is read
 
 `lint` and `validate-schema` read each file as Metabase does: YAML 1.1 with SnakeYAML's rules, so `NO` is `false` and `017` is 15. They refuse what SnakeYAML refuses, such as an unknown tag, more than 50 aliases to a map or list, and a document longer than 3,145,728 code points. A duplicate key is an error, although Metabase keeps the last value. A key that SnakeYAML reads as no string, such as a plain `1:` or `yes:`, stays under its text as written.

@@ -1,7 +1,7 @@
 import type { ValidateFunction } from "ajv/dist/2020.js";
-import { readFileSync } from "fs";
+import { lstatSync, readFileSync } from "fs";
 import { globSync } from "glob";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 
 import { loadSchemas, type Schemas } from "./schemas.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
@@ -68,16 +68,39 @@ const IMPORTED = new Set<string>(IMPORTED_MODELS);
  * file at any depth under an `ENTITY_FOLDERS` folder, and each
  * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
  * A file whose name starts with a dot is skipped; a folder whose name does is
- * not.
+ * not. A file inside a folder that is a symbolic link is skipped, though
+ * Metabase follows such a folder; a symbolic link to a file is followed.
  */
 export function entityFiles(folder: string): string[] {
+  const linked = createLinkedFolderCheck(folder);
   return globSync(
     [
       ...ENTITY_FOLDERS.map((top) => `${top}/**/[!.]*.yaml`),
       "data_apps/**/data_app.yaml",
     ],
     { cwd: folder, dot: true, nodir: true },
-  ).sort();
+  )
+    .filter((file) => !linked(dirname(file)))
+    .sort();
+}
+
+/**
+ * Returns whether a folder, by its path relative to `folder`, is a symbolic
+ * link or lies inside one.
+ */
+function createLinkedFolderCheck(folder: string): (dir: string) => boolean {
+  const known = new Map<string, boolean>([[".", false]]);
+  const linked = (dir: string): boolean => {
+    let answer = known.get(dir);
+    if (answer === undefined) {
+      answer =
+        lstatSync(resolve(folder, dir)).isSymbolicLink() ||
+        linked(dirname(dir));
+      known.set(dir, answer);
+    }
+    return answer;
+  };
+  return linked;
 }
 
 export type ValidateSchemaOptions = {
