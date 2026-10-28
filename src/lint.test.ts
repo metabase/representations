@@ -241,7 +241,7 @@ describe("lint", () => {
     it("names the table an implicit join reads", async () => {
       mutateExamples("implicit-join", workdir);
       expect((await findings(workdir)).map((f) => f.message)).toEqual([
-        "no input for PRODUCTS, which transform Monthly Order Summary reads",
+        "no input for PRODUCTS (no schema), which transform Monthly Order Summary reads",
       ]);
     });
 
@@ -249,7 +249,7 @@ describe("lint", () => {
       mutateExamples("implicit-join", workdir);
       MUTATIONS.find((m) => m.name === "segment-filter")?.apply(workdir);
       expect((await findings(workdir)).map((f) => f.message)).toEqual([
-        "no input for PRODUCTS, which transform Monthly Order Summary reads",
+        "no input for PRODUCTS (no schema), which transform Monthly Order Summary reads",
       ]);
     });
 
@@ -294,7 +294,7 @@ describe("lint", () => {
         .filter((f) => f.rule === "missing-input" || f.rule === "unused-input")
         .map((f) => `${f.rule}: ${f.message}`);
       expect(messages).toEqual([
-        "missing-input: no input for ORDERS, which transform Monthly Order Summary reads",
+        "missing-input: no input for ORDERS (no schema), which transform Monthly Order Summary reads",
         "unused-input: input PUBLIC.ORDERS is not read by transform Monthly Order Summary",
       ]);
     });
@@ -1081,15 +1081,17 @@ describe("lint", () => {
         .map((f) => `${f.file}: ${f.message}`);
       const products =
         "table PRODUCTS is defined by no table file or transform target";
+      const noSchemaProducts =
+        "table PRODUCTS (no schema) is defined by no table file or transform target";
       const test =
         "collections/transforms/native_transform/product_revenue_report__category_totals.yaml";
       expect(unknown).toEqual([
-        `collections/transforms/hourly_product_stats.yaml: ${products}`,
+        `collections/transforms/hourly_product_stats.yaml: ${noSchemaProducts}`,
         `collections/transforms/monthly_sales_summary.yaml: ${products}`,
         `collections/transforms/native_transform.yaml: ${products}`,
         `${test}: ${products}`,
         `${test}: table PEOPLE is defined by no table file or transform target`,
-        `collections/transforms/product_summary.yaml: ${products}`,
+        `collections/transforms/product_summary.yaml: ${noSchemaProducts}`,
       ]);
     });
   });
@@ -1268,13 +1270,14 @@ describe("lint", () => {
           .filter(
             (f) =>
               f.rule === "unknown-table" &&
-              f.message ===
-                "table ORDERS is defined by no table file or transform target" &&
+              f.message.startsWith("table ORDERS ") &&
               (f.file === sqlRead || f.file === mbqlRead),
           )
-          .map((f) => f.file);
-      expect(await ordersUnknown("public")).toEqual([mbqlRead]);
-      expect(await ordersUnknown("OTHER")).toEqual([sqlRead, mbqlRead]);
+          .map((f) => `${f.file}: ${f.message}`);
+      const sqlUnknown = `${sqlRead}: table ORDERS is defined by no table file or transform target`;
+      const mbqlUnknown = `${mbqlRead}: table ORDERS (no schema) is defined by no table file or transform target`;
+      expect(await ordersUnknown("public")).toEqual([mbqlUnknown]);
+      expect(await ordersUnknown("OTHER")).toEqual([sqlUnknown, mbqlUnknown]);
     });
   });
 
@@ -1318,7 +1321,7 @@ describe("lint", () => {
         .filter((f) => f.rule === "null-schema-reference")
         .map((f) => `${f.file}: ${f.severity}: ${f.message}`);
 
-    const ordersWarning = `${MBQL}: warning: reads ORDERS in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks`;
+    const ordersWarning = `${MBQL}: warning: reads ORDERS (no schema) in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks`;
 
     it("warns when the default schema is PUBLIC, and not on an unqualified SQL name", async () => {
       expect(await nullSchemaFindings({ "Sample Database": "PUBLIC" })).toEqual(
@@ -1415,7 +1418,7 @@ describe("lint", () => {
       );
       expect(await messages()).toEqual([
         "expectation-reads-other-table: expectation expectation 1 reads PEOPLE, which is neither the transform's target nor an input of this test",
-        "null-schema-reference: reads ORDERS in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks",
+        "null-schema-reference: reads ORDERS (no schema) in database Sample Database, whose default schema is PUBLIC: a null schema in a reference names a table with no schema, which such a database likely lacks",
       ]);
     });
 

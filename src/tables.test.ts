@@ -4,6 +4,7 @@ import {
   type DefaultSchemaOf,
   sameTable,
   type TableKey,
+  tableLabel,
   uniqueTables,
 } from "./tables.js";
 
@@ -193,5 +194,18 @@ describe("uniqueTables", () => {
       table("db", null, "T"),
       table("db", "S", "t"),
     ]);
+  });
+});
+
+describe("tableLabel", () => {
+  it("marks a table with no schema apart from an unqualified name", () => {
+    expect(tableLabel(ref("db", null, "ORDERS"))).toBe("ORDERS (no schema)");
+    expect(tableLabel(table("db", null, "ORDERS"))).toBe("ORDERS");
+    expect(tableLabel({ schema: null, name: "ORDERS" })).toBe("ORDERS");
+  });
+
+  it("names a qualified table by its schema, whatever a null schema means", () => {
+    expect(tableLabel(ref("db", "PUBLIC", "ORDERS"))).toBe("PUBLIC.ORDERS");
+    expect(tableLabel(table("db", "PUBLIC", "ORDERS"))).toBe("PUBLIC.ORDERS");
   });
 });

@@ -115,7 +115,16 @@ export function columnOfRef(ref: unknown): ColumnKey | null {
     : null;
 }
 
-/** The table as messages name it: `schema.name`, or `name` without a schema. */
-export function tableLabel(table: TableName): string {
-  return table.schema === null ? table.name : `${table.schema}.${table.name}`;
+/**
+ * The table as messages name it: `schema.name`; `name` for an unqualified
+ * name; `name (no schema)` for the table with no schema (`nullSchema`
+ * `"none"`). A name without `nullSchema` is as written, so unqualified.
+ */
+export function tableLabel(
+  table: TableName & Partial<Pick<TableKey, "nullSchema">>,
+): string {
+  if (table.schema !== null) {
+    return `${table.schema}.${table.name}`;
+  }
+  return table.nullSchema === "none" ? `${table.name} (no schema)` : table.name;
 }

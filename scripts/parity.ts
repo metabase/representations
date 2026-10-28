@@ -1,6 +1,6 @@
 // The comparisons lint-parity.ts makes, apart from its calls to Metabase.
 import type { LintFinding, LintRule } from "../src/findings.js";
-import type { TableName } from "../src/tables.js";
+import { tableLabel, type TableName } from "../src/tables.js";
 
 /**
  * Whether `label`, a table as Metabase's refusals name it (`schema.name`, or
@@ -37,11 +37,9 @@ export function readsDiffer(
   if (lintOnly.length === 0 && metabaseOnly.length === 0) {
     return null;
   }
-  const labels = (tables: readonly TableName[]) =>
-    tables.map((t) => (t.schema === null ? t.name : `${t.schema}.${t.name}`));
   return [
     lintOnly.length > 0
-      ? `only the lint reads ${labels(lintOnly).join(", ")}`
+      ? `only the lint reads ${lintOnly.map(tableLabel).join(", ")}`
       : "",
     metabaseOnly.length > 0
       ? `only Metabase reads ${metabaseOnly.join(", ")}`
