@@ -119,6 +119,46 @@ describe("loadSqlParser", () => {
     expect(await loadSqlParser()).toBe(parser);
   });
 
+  // In a fresh process: this test process loaded the parser long ago.
+  it("starts again after a failed start, and keeps the parser that starts", () => {
+    const run = Bun.spawnSync({
+      cmd: [
+        "bun",
+        "-e",
+        `import { mock } from "bun:test";
+         const pyodide = await import("pyodide");
+         // The namespace becomes the mock: keep the real function.
+         const { loadPyodide } = pyodide;
+         let starts = 0;
+         mock.module("pyodide", () => ({
+           ...pyodide,
+           loadPyodide: (...args) =>
+             ++starts === 1
+               ? Promise.reject(new RangeError("out of memory"))
+               : loadPyodide(...args),
+         }));
+         const { loadSqlParser, sqlParserStarted } = await import("./src/sql-parser.ts");
+         const outcome = (load) =>
+           load.then(() => "loaded", (e) => \`\${e.name}: \${e.message}\`);
+         const first = await outcome(loadSqlParser());
+         const startedAfterFailure = sqlParserStarted();
+         const second = await outcome(loadSqlParser());
+         const sameParser =
+           second === "loaded" && (await loadSqlParser()) === (await loadSqlParser());
+         console.log(JSON.stringify({ first, startedAfterFailure, second, sameParser, starts }));`,
+      ],
+      cwd: resolve(import.meta.dirname, ".."),
+    });
+    expect(JSON.parse(run.stdout.toString())).toEqual({
+      first: "LintSetupError: The SQL parser could not start: out of memory",
+      startedAfterFailure: false,
+      second: "loaded",
+      sameParser: true,
+      starts: 2,
+    });
+    expect(run.stderr.toString()).toBe("");
+  }, 60_000);
+
   it("reads the tables Metabase's referenced_tables reads, without the catalog", () => {
     expect(
       parser.referencedTables(

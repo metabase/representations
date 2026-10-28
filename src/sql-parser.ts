@@ -364,10 +364,12 @@ let started: Promise<SqlParser> | undefined;
  * the process. Loading takes about 1.5 seconds and 200 MB; each parse after
  * it is synchronous. Rejects with a `LintSetupError` when the parser cannot
  * start, as when the optional `pyodide` package or a vendored file is
- * missing.
+ * missing. A failed start is not kept: the next call starts the parser
+ * again.
  */
 export function loadSqlParser(): Promise<SqlParser> {
   started ??= startSqlParser().catch((e: unknown) => {
+    started = undefined;
     throw new LintSetupError(
       `The SQL parser could not start: ${errorMessage(e)}`,
       { cause: e },
@@ -376,7 +378,7 @@ export function loadSqlParser(): Promise<SqlParser> {
   return started;
 }
 
-/** Whether the process has started loading the SQL parser. */
+/** Whether the SQL parser is loading or loaded in this process. */
 export function sqlParserStarted(): boolean {
   return started !== undefined;
 }
