@@ -58,19 +58,10 @@ export function getModel(doc: unknown): string | null {
   return isRecord(last) ? stringOrNull(last.model) : null;
 }
 
-/** A failure of the whole file, before any schema check: one error at the root. */
-function fileFailure(
-  file: string,
-  message: string,
-  model?: string,
-): ValidationResult {
-  return {
-    file,
-    ...(model === undefined ? {} : { model }),
-    status: "fail",
-    errors: [{ path: "/", message }],
-  };
-}
+/** One error at the root of the file. */
+const rootError = (message: string): ValidationError[] => [
+  { path: "/", message },
+];
 
 /**
  * Checks each file of `folder` under `IMPORT_PATHS`, in path order, against
@@ -80,7 +71,41 @@ function fileFailure(
 export function validateSchema({
   folder,
 }: ValidateSchemaOptions): ValidateSchemaResult {
-  return validateFolder(folder, loadSchemas());
+  const schemas = loadSchemas();
+  const results = globSync(IMPORT_PATHS, { cwd: folder })
+    .sort()
+    .map((file) => validateFile(folder, file, schemas));
+  return {
+    results,
+    passed: results.filter((r) => r.status === "ok").length,
+    failed: results.filter((r) => r.status === "fail").length,
+  };
+}
+
+function validateFile(
+  folder: string,
+  file: string,
+  schemas: Schemas,
+): ValidationResult {
+  let doc: unknown;
+  try {
+    doc = readYaml(readFileSync(resolve(folder, file), "utf8")).value;
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
+  } catch (e) {
+    return {
+      file,
+      status: "fail",
+      errors: rootError(`invalid YAML: ${errorMessage(e)}`),
+    };
+  }
+  const model = getModel(doc);
+  const errors = schemaErrors(doc, schemas);
+  if (model === null) {
+    return { file, status: "fail", errors };
+  }
+  return errors.length === 0
+    ? { file, model, status: "ok" }
+    : { file, model, status: "fail", errors };
 }
 
 /** The ways `doc` fails `validate`, in Ajv's order; empty when it passes. */
@@ -96,62 +121,22 @@ export function validationErrors(
       }));
 }
 
-/** `validateSchema` against schemas the caller has loaded. */
-export function validateFolder(
-  folder: string,
+/**
+ * The ways `doc`, a parsed representation file, fails the schema of its
+ * `serdes/meta` model, in Ajv's order: empty when it passes, one error at "/"
+ * when it has no model or its model has no schema.
+ */
+export function schemaErrors(
+  doc: unknown,
   { ajv, models }: Schemas,
-): ValidateSchemaResult {
-  const validators: Record<string, ValidateFunction> = {};
-  for (const [model, file] of models) {
-    const validate = ajv.getSchema(file);
-    if (validate) {
-      validators[model] = validate;
-    }
+): ValidationError[] {
+  const model = getModel(doc);
+  if (model === null) {
+    return rootError("missing serdes/meta or model");
   }
-
-  const files = globSync(IMPORT_PATHS, { cwd: folder });
-
-  if (files.length === 0) {
-    return { results: [], passed: 0, failed: 0 };
-  }
-
-  const results: ValidationResult[] = [];
-
-  for (const file of files.sort()) {
-    const fullPath = resolve(folder, file);
-
-    let doc: unknown;
-    try {
-      doc = readYaml(readFileSync(fullPath, "utf8")).value;
-      // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
-    } catch (e) {
-      results.push(fileFailure(file, `invalid YAML: ${errorMessage(e)}`));
-      continue;
-    }
-
-    const model = getModel(doc);
-    if (!model) {
-      results.push(fileFailure(file, "missing serdes/meta or model"));
-      continue;
-    }
-
-    const validate = validators[model];
-    if (!validate) {
-      results.push(fileFailure(file, `unknown model "${model}"`, model));
-      continue;
-    }
-
-    const errors = validationErrors(validate, doc);
-    results.push(
-      errors.length === 0
-        ? { file, model, status: "ok" }
-        : { file, model, status: "fail", errors },
-    );
-  }
-
-  return {
-    results,
-    passed: results.filter((r) => r.status === "ok").length,
-    failed: results.filter((r) => r.status === "fail").length,
-  };
+  const file = models.get(model);
+  const validate = file === undefined ? undefined : ajv.getSchema(file);
+  return validate === undefined
+    ? rootError(`unknown model "${model}"`)
+    : validationErrors(validate, doc);
 }

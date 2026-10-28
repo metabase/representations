@@ -6,7 +6,7 @@ import type { Schemas } from "./schemas.js";
 import {
   getModel,
   IMPORT_PATHS,
-  validateFolder,
+  schemaErrors,
   type ValidationError,
   validationErrors,
 } from "./validate-schema.js";
@@ -36,25 +36,23 @@ export const TABLE_PATHS = ["databases/**/tables/**/*.yaml"];
 export const DATABASE_PATHS = ["databases/*/*.yaml"];
 
 /**
- * Returns a check of a file that `validateSchema` does not see against its
+ * The ways `body`, of a file that `validateSchema` does not see, fails its
  * model's schema: `table.yaml` for a Table, which has no `serdes/meta` model
- * constant to find it by. It gives the first error, or null when the file
- * passes or its model has no schema.
+ * constant to find it by. Empty when it passes or its model has no schema.
  */
-function createUnimportedFileCheck(
-  schemas: Schemas,
-): (model: string | null, body: unknown) => ValidationError | null {
-  return (model, body) => {
-    if (model === null) {
-      return null;
-    }
-    const file = model === "Table" ? "table.yaml" : schemas.models.get(model);
-    const validate =
-      file === undefined ? undefined : schemas.ajv.getSchema(file);
-    return validate === undefined
-      ? null
-      : (validationErrors(validate, body)[0] ?? null);
-  };
+function unimportedSchemaErrors(
+  model: string | null,
+  body: unknown,
+  { ajv, models }: Schemas,
+): ValidationError[] {
+  const file =
+    model === "Table"
+      ? "table.yaml"
+      : model === null
+        ? undefined
+        : models.get(model);
+  const validate = file === undefined ? undefined : ajv.getSchema(file);
+  return validate === undefined ? [] : validationErrors(validate, body);
 }
 
 /** A Python source table, from `transform.yaml#/$defs/python_source`. */
@@ -260,13 +258,7 @@ export function loadDocs(
   docs: Doc[];
   unreadable: UnreadableFile[];
 } {
-  const importErrors = new Map(
-    validateFolder(folder, schemas).results.flatMap((r) =>
-      r.status === "fail" ? [[r.file, r.errors[0] ?? null] as const] : [],
-    ),
-  );
   const imported = new Set(globSync(IMPORT_PATHS, { cwd: folder }));
-  const schemaErrorOf = createUnimportedFileCheck(schemas);
   const docs: Doc[] = [];
   const unreadable: UnreadableFile[] = [];
   const files = new Set([
@@ -293,9 +285,10 @@ export function loadDocs(
       file,
       model,
       body,
-      schemaError: imported.has(file)
-        ? (importErrors.get(file) ?? null)
-        : schemaErrorOf(model, body),
+      schemaError:
+        (imported.has(file)
+          ? schemaErrors(body, schemas)
+          : unimportedSchemaErrors(model, body, schemas))[0] ?? null,
       nonStringKeys,
     });
   }

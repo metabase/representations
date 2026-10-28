@@ -15,6 +15,7 @@ import {
   rmSync,
   writeFileSync,
 } from "fs";
+import * as fs from "fs";
 import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
@@ -180,6 +181,20 @@ describe("lint", () => {
       expect(load).toHaveBeenCalledTimes(1);
     } finally {
       load.mockRestore();
+    }
+  });
+
+  it("reads each file of the folder once per run", async () => {
+    const read = spyOn(fs, "readFileSync");
+    try {
+      await lint({ folder: EXAMPLES });
+      const files = read.mock.calls.flatMap(([path]) =>
+        typeof path === "string" && path.startsWith(EXAMPLES) ? [path] : [],
+      );
+      expect(files.length).toBeGreaterThan(0);
+      expect(files.filter((f, i) => files.indexOf(f) !== i)).toEqual([]);
+    } finally {
+      read.mockRestore();
     }
   });
 

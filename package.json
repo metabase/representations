@@ -41,7 +41,6 @@
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "glob": "^11.0.1",
-    "js-yaml": "^4.1.0",
     "nanoid": "^5.1.9",
     "pyodide": "314.0.7",
     "yaml": "^2.9.1"
@@ -53,6 +52,7 @@
     "@types/node": "^25.6.0",
     "eslint": "^10.2.1",
     "fast-check": "^4.10.2",
+    "js-yaml": "^4.1.0",
     "oxfmt": "^0.45.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.2"

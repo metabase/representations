@@ -2,9 +2,9 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import type { FormatsPlugin } from "ajv-formats";
 import { readFileSync } from "fs";
 import { globSync } from "glob";
-import yaml from "js-yaml";
 import { createRequire } from "node:module";
 import { resolve } from "path";
+import { parse } from "yaml";
 
 import { isRecord, stringOrNull } from "./values.js";
 
@@ -54,7 +54,9 @@ export function loadSchemas(): Schemas {
   for (const file of globSync(["common/*.yaml", "*.yaml"], {
     cwd: SCHEMAS_DIR,
   }).sort()) {
-    const raw = yaml.load(readFileSync(resolve(SCHEMAS_DIR, file), "utf8"));
+    const raw: unknown = parse(
+      readFileSync(resolve(SCHEMAS_DIR, file), "utf8"),
+    );
     // Every bundled schema file is a YAML map.
     const { $schema: _$schema, ...body } = raw as Record<string, unknown>;
     files.set(file, body);
