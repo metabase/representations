@@ -182,6 +182,12 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 - The columns a query reads and returns come from Metabase's `field_references`. A test's tables are replaced with Metabase's `replace_names`, with the replacements a transform test makes.
 - Loading the parser costs about 1.5 seconds and 200–340 MB, once per process, and only when the folder holds SQL.
 
+### Metabase version
+
+The lint reads SQL as Metabase 0.65 does, from 0.65.0 through 0.65.2.1, and as `master` does at the commit `vendor/sources.json` records. Those versions pin the same SQLGlot, 30.20.0, and their `sql_tools.py` has the same `referenced_tables`, `field_references` and `replace_names`. The files can differ elsewhere, in functions the lint does not call.
+
+Metabase 0.64 and earlier pin SQLGlot 28.6.0 and an older `referenced_tables` and `replace_names`. On those versions, the lint can find tables or columns that Metabase does not, or parse SQL that Metabase cannot, and the reverse. A later Metabase version can differ too; compare its `resources/python-sources/sql_tools.py` and `pyproject.toml` with the copy in `vendor/`.
+
 ### Known limits
 
 Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input.
