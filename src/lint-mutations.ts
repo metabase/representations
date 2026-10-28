@@ -25,6 +25,9 @@ const DAILY_ORDER_SUMMARY = "collections/transforms/daily_order_summary.yaml";
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
 const WIDGET_PRODUCTS_SEGMENT_ENTITY_ID = "aB3kLmN9pQrStUvWxYz1a";
+const PRODUCT_COUNT_MEASURE_ENTITY_ID = "8kxQ2Wr7PmN5dLf3hYz9v";
+const ORDERS_MODEL = "collections/main/queries/orders_model.yaml";
+const ORDERS_MODEL_ENTITY_ID = "4eroqa4ZYl4WkNjP8XTvu";
 const QUERIES_COLLECTION_ENTITY_ID = "cOlQuErIeS0ExAmPlE2x1";
 const DB = "Sample Database";
 const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
@@ -149,6 +152,50 @@ export const MUTATIONS: Mutation[] = [
           ["segment", {}, WIDGET_PRODUCTS_SEGMENT_ENTITY_ID],
         ];
       }),
+  },
+  {
+    name: "measure-aggregation",
+    description:
+      "An MBQL transform aggregates a measure on PRODUCTS; its test has no PRODUCTS input.",
+    rules: ["missing-input"],
+    apply: (folder) =>
+      edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
+        doc.source.query.stages[0].aggregation.push([
+          "measure",
+          {},
+          PRODUCT_COUNT_MEASURE_ENTITY_ID,
+        ]);
+      }),
+  },
+  {
+    name: "absent-source",
+    description:
+      "An MBQL transform filters by a segment that is not in the folder, so its reads are unknown.",
+    rules: ["reads-not-checked"],
+    apply: (folder) =>
+      edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
+        doc.source.query.stages[0].filters = [
+          ["segment", {}, "MissingSegment0000001"],
+        ];
+      }),
+  },
+  {
+    name: "self-source-card",
+    description:
+      "An MBQL transform reads a card that uses itself as its source, so its reads are unknown.",
+    rules: ["reads-not-checked"],
+    apply: (folder) => {
+      edit(folder, ORDERS_MODEL, (doc) => {
+        const [stage] = doc.dataset_query.stages;
+        delete stage["source-table"];
+        stage["source-card"] = ORDERS_MODEL_ENTITY_ID;
+      });
+      edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
+        const [stage] = doc.source.query.stages;
+        delete stage["source-table"];
+        stage["source-card"] = ORDERS_MODEL_ENTITY_ID;
+      });
+    },
   },
   {
     name: "unqualified-input",

@@ -220,6 +220,49 @@ describe("lint", () => {
       ]);
     });
 
+    it("follows a card a query transform uses to the tables the card reads", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const transform = join(
+        workdir,
+        "collections/transforms/mbql_transform.yaml",
+      );
+      const doc: unknown = yaml.load(readFileSync(transform, "utf8"));
+      if (!isRecord(doc) || !isRecord(doc.source)) {
+        throw new Error(`${transform} has no source`);
+      }
+      // The Orders model card reads ORDERS.
+      doc.source.query = {
+        "lib/type": "mbql/query",
+        database: "Sample Database",
+        stages: [
+          {
+            "lib/type": "mbql.stage/mbql",
+            "source-card": "4eroqa4ZYl4WkNjP8XTvu",
+            aggregation: [["count", {}]],
+          },
+        ],
+      };
+      writeFileSync(transform, yaml.dump(doc));
+      expect(await findings(workdir)).toEqual([]);
+      const test = join(
+        workdir,
+        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+      );
+      const text = readFileSync(test, "utf8");
+      expect(text).toContain("    name: ORDERS\n");
+      writeFileSync(
+        test,
+        text.replace("    name: ORDERS\n", "    name: PRODUCTS\n"),
+      );
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.rule === "missing-input")
+          .map((f) => f.message),
+      ).toEqual([
+        "no input for ORDERS (no schema), which transform Monthly Order Summary reads",
+      ]);
+    });
+
     it("matches a qualified input to an unqualified read in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       expect(
