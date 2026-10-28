@@ -6,7 +6,7 @@ import { errorMessage, isRecord } from "./values.js";
 /** The file, at the root of the linted folder, that gives the lint's settings. */
 export const CONFIG_FILE = ".metabase-lint.json";
 
-/** The lint cannot run: its settings are missing or invalid. */
+/** The lint cannot run: its settings are missing or invalid, or the SQL parser cannot start. */
 export class LintSetupError extends Error {
   override name = "LintSetupError";
 }

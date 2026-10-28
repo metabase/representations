@@ -463,6 +463,7 @@ function comparedTables(
  * invalid, and a `MissingDefaultSchemasError` when a database needs a default
  * schema that neither `defaultSchemas`, the settings file, its Database file
  * nor its engine gives (`resolveDefaultSchemas`), each over the next.
+ * Rejects with a `LintSetupError` when the SQL parser cannot start.
  */
 export async function lint({
   folder,

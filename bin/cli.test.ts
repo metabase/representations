@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
   cpSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "fs";
 import { tmpdir } from "os";
@@ -25,10 +27,10 @@ type RunResult = {
   exitCode: number;
 };
 
-function runCli(args: string[]): RunResult {
+function runCli(args: string[], cwd = REPO_ROOT): RunResult {
   const proc = Bun.spawnSync({
     cmd: ["bun", "run", CLI, ...args],
-    cwd: REPO_ROOT,
+    cwd,
   });
   return {
     stdout: proc.stdout.toString(),
@@ -311,6 +313,36 @@ describe("cli", () => {
             .split("\n")
             .map((line): unknown => JSON.parse(line)),
         ).toContainEqual(expect.objectContaining({ rule: "missing-input" }));
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "exits 2, saying why, when the SQL parser cannot start",
+      () => {
+        // A copy of the package whose dependencies lack pyodide.
+        for (const dir of ["bin", "src", "core-spec", "vendor"]) {
+          cpSync(join(REPO_ROOT, dir), join(workdir, dir), { recursive: true });
+        }
+        cpSync(join(REPO_ROOT, "package.json"), join(workdir, "package.json"));
+        mkdirSync(join(workdir, "node_modules"));
+        for (const name of readdirSync(join(REPO_ROOT, "node_modules"))) {
+          if (name !== "pyodide") {
+            symlinkSync(
+              join(REPO_ROOT, "node_modules", name),
+              join(workdir, "node_modules", name),
+            );
+          }
+        }
+        const { stdout, stderr, exitCode } = runCli(
+          ["lint", "--folder", EXAMPLES],
+          workdir,
+        );
+        expect(stdout).toBe("");
+        expect(stderr.trimEnd().split("\n")).toEqual([
+          expect.stringMatching(/^The SQL parser could not start: .*'pyodide'/),
+        ]);
+        expect(exitCode).toBe(2);
       },
       LINT_PROCESS_TIMEOUT_MS,
     );

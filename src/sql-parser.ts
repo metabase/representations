@@ -1,6 +1,7 @@
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
+import { LintSetupError } from "./settings.js";
 import type { TableName } from "./tables.js";
 import { errorMessage, isRecord } from "./values.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
@@ -346,10 +347,16 @@ let started: Promise<SqlParser> | undefined;
 /**
  * The SQL parser, loaded on the first call and shared by every later call in
  * the process. Loading takes about 1.5 seconds and 200 MB; each parse after
- * it is synchronous.
+ * it is synchronous. Rejects with a `LintSetupError` when the parser cannot
+ * start, as when the `pyodide` package or a vendored file is missing.
  */
 export function loadSqlParser(): Promise<SqlParser> {
-  started ??= startSqlParser();
+  started ??= startSqlParser().catch((e: unknown) => {
+    throw new LintSetupError(
+      `The SQL parser could not start: ${errorMessage(e)}`,
+      { cause: e },
+    );
+  });
   return started;
 }
 
