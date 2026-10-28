@@ -60,7 +60,7 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 - The SQL dialect follows the database's engine, as Metabase maps drivers to dialects.
 - Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag.
 - The columns a query reads and returns come from Metabase's `field_references`. A test's tables are replaced with Metabase's `replace_names`, with the replacements a transform test makes.
-- Loading the parser costs about 1.5 seconds and 200–340 MB, once per process, and only when the lint reads SQL in the folder.
+- Loading the parser takes a moment and some memory, once per process, and only when the lint reads SQL in the folder.
 - Pyodide is an optional dependency, which npm installs by default. An install with `--omit=optional` leaves it out; a lint that then reads SQL exits with code 2 and names the command that installs it.
 
 ## How YAML is read
@@ -73,7 +73,7 @@ Known differences from Metabase's reading:
 - Two date keys for the same time, such as `2024-01-05:` twice, are not reported as a duplicate key. Metabase reads one key and keeps the last value.
 - An explicit tag on a value outside its type's plain form, such as `!!float 1` or `!!bool y`, is refused; Metabase reads `1.0` and `null`.
 - `!!binary`, `!!set`, `!!omap` and `!!pairs` read as JavaScript's `Uint8Array`, `Set`, `Map` and a list of one-key maps.
-- Nesting deeper than about 6,000 levels is refused for lack of stack. Metabase's limit is 10,000 levels, or less when its thread's stack runs out first.
+- Deeply nested YAML is refused when the reader runs out of stack, which happens before Metabase's limit of 10,000 levels. Metabase can also stop below that limit when its thread's stack runs out first.
 
 ## Metabase versions
 
@@ -87,12 +87,12 @@ Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the
 
 When neither a Database file nor the settings file gives a database's engine, the lint parses its SQL in SQLGlot's default dialect, where Metabase uses the engine's. Engine-specific syntax then fails to parse, for example backticked names in MySQL and BigQuery or bracketed names in SQL Server, and the query is reported as `reads-not-checked`.
 
-A query near Metabase's limit of 10,000,000 characters takes the parser about 80 seconds and 3.5 GB of memory to read. The parser's memory never shrinks, so the rest of the run keeps that memory.
+A query near Metabase's limit of 10,000,000 characters takes the parser a long time and much memory to read. The parser's memory never shrinks, so the rest of the run keeps that memory.
 
 ### Reported as `reads-not-checked`
 
 - SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
-- An expression nested deeper than Python's recursion limit: about 46 levels of parentheses.
+- An expression nested deeper than Python's recursion limit allows, such as a deeply nested expression in parentheses.
 - A snippet left in the query after pasting, such as one whose file is not in the folder.
 - Snippets Metabase refuses to paste: a snippet that uses itself through any chain of snippets, more than 10,000 pastes in one query, or SQL longer than 10,000,000 characters after pasting.
 - A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
