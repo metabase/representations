@@ -211,7 +211,7 @@ jobs:
       # compares the tables each transform reads, and Metabase's verdict on
       # each transform test with the lint's errors on it. Any difference is a
       # lint bug, and a run that compares nothing fails.
-      - name: Compare the lint's transform reads with Metabase's
+      - name: Compare the lint with Metabase
         run: |
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
             | jq -e '.["token-features"]["transforms-testing"]' > /dev/null; then

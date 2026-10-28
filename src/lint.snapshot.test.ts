@@ -39,7 +39,7 @@ function applyMutation(name: string, folder: string): void {
   mutation.apply(folder);
 }
 
-// One tree per rule, the clean examples, and one tree with several rules,
+// One tree per rule, and one tree with several rules,
 // which pins the order of findings. A deliberate change to the output is
 // recorded with `bun test --update-snapshots` and reviewed in the diff.
 const TREES: [string, (folder: string) => void][] = [

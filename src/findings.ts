@@ -36,7 +36,7 @@ export type LintRule = (typeof LINT_RULES)[number];
 export type LintSeverity = "error" | "warning";
 
 /**
- * The severity of each rule's findings. An error is a reference Metabase
+ * The severity of each rule's findings. An error is something Metabase
  * refuses or cannot resolve. A warning is a check the lint could not decide,
  * or a tree Metabase accepts but that is likely a mistake.
  */

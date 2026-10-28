@@ -132,7 +132,7 @@ describe("check-metabase-sources", () => {
     expect(exitCode).toBe(1);
   });
 
-  it("fails when it cannot read Metabase's files", async () => {
+  it("fails when sql_tools.py is not found or the pin is missing", async () => {
     const { exitCode, output } = await runCheck({
       [sqlglot.pin]: "[project]\n",
     });
