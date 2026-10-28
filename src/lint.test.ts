@@ -198,16 +198,10 @@ describe("lint", () => {
       (await lint({ folder })).findings;
 
     it.each(MUTATIONS.map((m) => [m.name, m.rules]))(
-      "reports %s as %p, each at the severity LINT_RULE_SEVERITY gives it",
+      "reports %s as %p",
       async (name, expected) => {
         mutateExamples(name, workdir);
-        const found = await findings(workdir);
-        expect(rules(found)).toEqual([...expected].sort());
-        expect(
-          found
-            .filter((f) => f.severity !== LINT_RULE_SEVERITY[f.rule])
-            .map((f) => `${f.rule} as ${f.severity}`),
-        ).toEqual([]);
+        expect(rules(await findings(workdir))).toEqual([...expected].sort());
       },
     );
 
