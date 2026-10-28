@@ -69,8 +69,10 @@ jobs:
       - name: Build
         run: bun run build
 
-      # The only step that sees the npm token. --ignore-scripts keeps package lifecycle scripts from
-      # the PR branch from running with it; the tarball is packed from the dist/ built above. The
+      # Only this step has the npm token in its environment, but the steps above ran the PR's code,
+      # which can change what this step runs ($GITHUB_ENV, $GITHUB_PATH, an .npmrc). Anyone who can
+      # push a branch to this repository controls this job, the token included. --ignore-scripts
+      # stops only package lifecycle scripts; the tarball is packed from the dist/ built above. The
       # package has no prepublishOnly script to run beforehand.
       - name: Publish to NPM
         if: steps.published.outputs.exists == 'false'
