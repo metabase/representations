@@ -39,6 +39,16 @@ function runCli(args: string[], cwd = REPO_ROOT): RunResult {
   };
 }
 
+/** The version of Pyodide, an optional dependency, in `package.json`. */
+function pinnedPyodide(): unknown {
+  const manifest: unknown = JSON.parse(
+    readFileSync(join(REPO_ROOT, "package.json"), "utf8"),
+  );
+  return isRecord(manifest) && isRecord(manifest.optionalDependencies)
+    ? manifest.optionalDependencies.pyodide
+    : undefined;
+}
+
 // A lint of a folder with SQL loads the SQL parser in the new process, which
 // takes seconds; a test that runs one or two such lints gets this timeout.
 const LINT_PROCESS_TIMEOUT_MS = 30_000;
@@ -340,7 +350,7 @@ describe("cli", () => {
         );
         expect(stdout).toBe("");
         expect(stderr.trimEnd().split("\n")).toEqual([
-          expect.stringMatching(/^The SQL parser could not start: .*'pyodide'/),
+          `The SQL parser could not start: the optional package pyodide is not installed. Install it with: npm install pyodide@${pinnedPyodide()}`,
         ]);
         expect(exitCode).toBe(2);
       },
@@ -381,7 +391,7 @@ describe("cli", () => {
       ).toEqual(readdirSync(join(REPO_ROOT, "core-spec/v1/schemas")).sort());
 
       // The published package carries the SQL parser's files; Pyodide comes
-      // as a dependency, pinned exactly.
+      // as an optional dependency, pinned exactly.
       const pack = Bun.spawnSync({
         cmd: ["npm", "pack", "--dry-run", "--json"],
         cwd: REPO_ROOT,
@@ -402,14 +412,7 @@ describe("cli", () => {
           "dist/vendor/sqlglot-30.20.0-py3-none-any.whl",
         ]),
       );
-      const manifest: unknown = JSON.parse(
-        readFileSync(join(REPO_ROOT, "package.json"), "utf8"),
-      );
-      expect(
-        isRecord(manifest) && isRecord(manifest.dependencies)
-          ? manifest.dependencies.pyodide
-          : undefined,
-      ).toMatch(/^\d+\.\d+\.\d+$/);
+      expect(pinnedPyodide()).toMatch(/^\d+\.\d+\.\d+$/);
 
       // The test mutations and the examples they copy stay out of the package.
       expect(

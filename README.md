@@ -184,6 +184,7 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 - Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag.
 - The columns a query reads and returns come from Metabase's `field_references`. A test's tables are replaced with Metabase's `replace_names`, with the replacements a transform test makes.
 - Loading the parser costs about 1.5 seconds and 200–340 MB, once per process, and only when the lint reads SQL in the folder.
+- Pyodide is an optional dependency, which npm installs by default. An install with `--omit=optional` leaves it out; a lint that then reads SQL exits with code 2 and names the command that installs it.
 
 ### Metabase version
 

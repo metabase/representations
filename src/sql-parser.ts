@@ -268,9 +268,24 @@ function fieldReferencesOf(
   };
 }
 
+/** The version of `pyodide`, an optional dependency, that `package.json` pins. */
+const PYODIDE_VERSION = "314.0.7";
+
+/** Whether `error`, from importing `pyodide`, says the package is not installed. */
+const isPyodideMissing = (error: unknown): boolean =>
+  isRecord(error) &&
+  error.code === "ERR_MODULE_NOT_FOUND" &&
+  errorMessage(error).includes("'pyodide'");
+
 async function startSqlParser(): Promise<SqlParser> {
   // Imported here, so that a process that never parses SQL never loads it.
-  const { loadPyodide } = await import("pyodide");
+  const { loadPyodide } = await import("pyodide").catch((e: unknown) => {
+    throw isPyodideMissing(e)
+      ? new Error(
+          `the optional package pyodide is not installed. Install it with: npm install pyodide@${PYODIDE_VERSION}`,
+        )
+      : e;
+  });
   // Python's output goes to stderr: the CLI's stdout carries findings only.
   const toStderr = (line: string) => process.stderr.write(`${line}\n`);
   const pyodide = await loadPyodide({ stdout: toStderr, stderr: toStderr });
@@ -348,7 +363,8 @@ let started: Promise<SqlParser> | undefined;
  * The SQL parser, loaded on the first call and shared by every later call in
  * the process. Loading takes about 1.5 seconds and 200 MB; each parse after
  * it is synchronous. Rejects with a `LintSetupError` when the parser cannot
- * start, as when the `pyodide` package or a vendored file is missing.
+ * start, as when the optional `pyodide` package or a vendored file is
+ * missing.
  */
 export function loadSqlParser(): Promise<SqlParser> {
   started ??= startSqlParser().catch((e: unknown) => {

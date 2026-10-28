@@ -42,8 +42,10 @@
     "ajv-formats": "^3.0.1",
     "glob": "^11.0.1",
     "nanoid": "^5.1.9",
-    "pyodide": "314.0.7",
     "yaml": "^2.9.1"
+  },
+  "optionalDependencies": {
+    "pyodide": "314.0.7"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
