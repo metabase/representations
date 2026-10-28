@@ -167,7 +167,8 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 
 - The SQL dialect follows the database's engine, as Metabase maps drivers to dialects.
 - Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag.
-- Loading the parser costs about 1.5 seconds and 200–340 MB, once per process, and only when the folder holds native SQL.
+- The columns a query reads and returns come from Metabase's `field_references`. A test's tables are replaced with Metabase's `replace_names`, with the replacements a transform test makes.
+- Loading the parser costs about 1.5 seconds and 200–340 MB, once per process, and only when the folder holds SQL.
 
 ### Known limits
 
@@ -180,6 +181,7 @@ Reported as `reads-not-checked`:
 - SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
 - An expression nested deeper than Python's recursion limit: about 46 levels of parentheses.
 - A snippet left in the query after pasting, such as one whose file is not in the folder.
+- A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
 
 Read differently from what the database runs, with no warning:
 
@@ -187,6 +189,22 @@ Read differently from what the database runs, with no warning:
 - In ClickHouse, `WHERE id IN db.u` misses `db.u`, and `WITH 1 AS orders SELECT * FROM orders` reads no table.
 - The table an `INSERT`, `UPDATE`, `DELETE` or `MERGE` writes counts as read.
 - A three-part name keeps its schema and table and drops the first part, even in MySQL, which has no three-part names.
+
+The column checks (`input-missing-read-column`, `upstream-column-mismatch`, `table-qualified-column`) are warnings, and give no finding where they cannot decide:
+
+- A column counts as read from a table only when it is qualified by the table or its alias, or its scope reads that one table. `SELECT *` reads no named column.
+- Columns compare ignoring case. A quoted name that differs from an input's column only in case is not reported, though Postgres or Snowflake would not match the two.
+- A transform's output columns are known only when its query is one native stage with a name for each column: no `*`, and an alias for each expression.
+- SQL the parser cannot read gives no column finding.
+
+`table-qualified-column` reports what a Metabase transform test refuses once it replaces the test's tables with temporary ones: a column qualifier that then names no table or alias. Metabase's rewrite also renames a qualifier that is the bare name of a replaced table, so most table-name qualifiers pass.
+
+- No finding: `SELECT people.id FROM people JOIN orders o ON o.user_id = people.id`, and `SELECT orders.id FROM public.orders` when `public` is the default schema.
+- A finding:
+  - `SELECT orders.id FROM analytics.orders`, where `analytics` is not the default schema: the qualifier lacks the schema the table carries.
+  - `SELECT "PEOPLE".id FROM people`: a quoted qualifier matches only as written.
+  - `SELECT people.id FROM people WHERE EXISTS (SELECT 1 FROM orders people WHERE people.x = 1)`: a qualifier that is also an alias in the query.
+  - `SELECT ghost.id FROM people`: a qualifier that names no table.
 
 ### Programmatic
 

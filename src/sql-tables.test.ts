@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 
 import type { EngineOf } from "./databases.js";
-import { loadSqlParser } from "./sql-parser.js";
+import { loadSqlParser, type SqlParser } from "./sql-parser.js";
 import {
   createSqlTableReader,
   type SqlTableReader,
@@ -11,6 +11,7 @@ import {
 const ENGINES: Readonly<Record<string, string>> = {
   Warehouse: "postgres",
   Lake: "bigquery-cloud-sdk",
+  Docs: "mongo",
 };
 const engineOf: EngineOf = (database) =>
   database !== null && Object.hasOwn(ENGINES, database)
@@ -85,6 +86,27 @@ describe("a SQL table reader", () => {
       tables: [{ schema: "ds", name: "orders" }],
     });
     expect(readSql(backticked, "Warehouse").status).toBe("unread");
+  });
+
+  it("refuses, without parsing, the native query of an engine whose queries are not SQL", () => {
+    const parser: SqlParser = {
+      referencedTables: () => {
+        throw new Error("parsed");
+      },
+      fieldReferences: () => {
+        throw new Error("parsed");
+      },
+      replaceNames: () => {
+        throw new Error("parsed");
+      },
+    };
+    expect(
+      createSqlTableReader(parser, engineOf)('[{"$match": {}}]', "Docs"),
+    ).toEqual({
+      status: "unread",
+      reason:
+        "native queries on mongo are not SQL; the lint does not read them",
+    });
   });
 
   it("refuses a query with a snippet left in it, which SQLGlot would parse", () => {

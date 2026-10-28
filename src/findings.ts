@@ -22,6 +22,10 @@ export const LINT_RULES = [
   "duplicate-expectation-name",
   "unknown-table",
   "no-expectations",
+  "input-missing-read-column",
+  "upstream-column-mismatch",
+  "table-qualified-column",
+  "live-sql-input",
   "reads-not-checked",
 ] as const;
 
@@ -55,6 +59,10 @@ export const LINT_RULE_SEVERITY: Readonly<Record<LintRule, LintSeverity>> = {
   "duplicate-expectation-name": "error",
   "unknown-table": "warning",
   "no-expectations": "warning",
+  "input-missing-read-column": "warning",
+  "upstream-column-mismatch": "warning",
+  "table-qualified-column": "warning",
+  "live-sql-input": "warning",
   "reads-not-checked": "warning",
 };
 

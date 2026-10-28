@@ -67,7 +67,7 @@ export function reportCollectionNamespaces(
 }
 
 /** The single native stage of a native-only query, as Metabase defines one, or null. */
-function nativeOnlyStage(
+export function nativeOnlyStage(
   source: QuerySource,
 ): Readonly<Record<string, unknown>> | null {
   const { stages } = source.query;

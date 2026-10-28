@@ -69,6 +69,32 @@ describe("createSourceFinder", () => {
     ]);
   });
 
+  it("finds the column of each field id in a query, a foreign key's too", () => {
+    const sources = findSources(
+      transform([
+        mbql({
+          "source-table": [DB, null, "ORDERS"],
+          aggregation: [["sum", {}, field("ORDERS", "TOTAL")]],
+          breakout: [
+            field("PRODUCTS", "CATEGORY", {
+              "source-field": [DB, null, "ORDERS", "PRODUCT_ID"],
+            }),
+          ],
+        }),
+      ]),
+      "Transform",
+    );
+    const orders = { database: DB, schema: null, name: "ORDERS" };
+    expect(sources.fields).toEqual([
+      { table: orders, column: "TOTAL" },
+      { table: orders, column: "PRODUCT_ID" },
+      {
+        table: { database: DB, schema: null, name: "PRODUCTS" },
+        column: "CATEGORY",
+      },
+    ]);
+  });
+
   it("finds a joined table and the tables of the fields in its conditions", () => {
     const sources = findSources(
       transform([

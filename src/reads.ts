@@ -10,7 +10,11 @@ import {
 } from "./documents.js";
 import { createSourceFinder, type NativeSql } from "./query-sources.js";
 import type { Schemas } from "./schemas.js";
-import { expandSnippets, type SnippetLookup } from "./snippets.js";
+import {
+  type ExpandedSql,
+  expandSnippets,
+  type SnippetLookup,
+} from "./snippets.js";
 import type { SqlTableReader } from "./sql-tables.js";
 import { type TableKey, uniqueTables } from "./tables.js";
 
@@ -38,7 +42,20 @@ const SNIPPET_MODEL = "NativeQuerySnippet";
  * The snippet a query uses by `name`: by `id`, its template tag's
  * `snippet-id`, when the tag gives one, and else by its name.
  */
-type FindSnippet = (name: string, id: string | undefined) => SnippetLookup;
+export type FindSnippet = (
+  name: string,
+  id: string | undefined,
+) => SnippetLookup;
+
+/** The SQL of a native query with its snippets pasted in (`expandSnippets`). */
+export function expandNative(
+  native: NativeSql,
+  findSnippet: FindSnippet,
+): ExpandedSql {
+  return expandSnippets(native.sql, (name) =>
+    findSnippet(name, native.snippetIds.get(name)),
+  );
+}
 
 /**
  * The tables of native queries, in order, after pasting their snippets in;
@@ -52,9 +69,7 @@ function nativeReads(
 ): Reads {
   const tables: TableKey[] = [];
   for (const native of natives) {
-    const expanded = expandSnippets(native.sql, (name) =>
-      findSnippet(name, native.snippetIds.get(name)),
-    );
+    const expanded = expandNative(native, findSnippet);
     if (expanded.status === "unread") {
       return expanded;
     }
@@ -96,17 +111,15 @@ function pythonReads(source: PythonSource): Reads {
 }
 
 /**
- * Returns a function giving the tables an entity reads: those its schema
- * types as tables, those its native SQL names (`readSql`), and the tables of
- * each card, metric, measure or segment it uses, followed to their own files.
+ * Returns the lookup of the snippets a query uses among `docs`: a snippet
+ * named by id is the first file holding that id (`holderOf`); one named by
+ * name is the schema-valid snippet of that name. Says why a snippet cannot
+ * be pasted: absent, failing its schema, or of another model.
  */
-export function createReader(
+export function createSnippetFinder(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  schemas: Schemas,
-  readSql: SqlTableReader,
-): ReadsOf {
-  const findSources = createSourceFinder(schemas);
+): FindSnippet {
   const snippetByName = new Map(
     validDocsOf(docs, SNIPPET_MODEL).map((d) => [d.body.name, d.body.content]),
   );
@@ -115,7 +128,7 @@ export function createReader(
   );
   const failsSchema = (name: string, doc: Doc) =>
     `snippet ${name} is in ${doc.file}, which fails its schema`;
-  const findSnippet: FindSnippet = (name, id) => {
+  return (name, id) => {
     if (id !== undefined) {
       const doc = holderOf(byEntityId, id);
       if (doc === null) {
@@ -144,6 +157,21 @@ export function createReader(
           : failsSchema(name, invalid),
     };
   };
+}
+
+/**
+ * Returns a function giving the tables an entity reads: those its schema
+ * types as tables, those its native SQL names (`readSql`), and the tables of
+ * each card, metric, measure or segment it uses, followed to their own files.
+ */
+export function createReader(
+  docs: readonly Doc[],
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  schemas: Schemas,
+  readSql: SqlTableReader,
+): ReadsOf {
+  const findSources = createSourceFinder(schemas);
+  const findSnippet = createSnippetFinder(docs, byEntityId);
   const memo = new Map<Doc, Reads>();
 
   const readsOf = (doc: Doc, visiting: Set<Doc>): Reads => {

@@ -4,7 +4,13 @@ import { posix } from "path";
 import type { Schemas } from "./schemas.js";
 import { snippetIdsOf } from "./snippets.js";
 import { valuedTagNames } from "./sql-tables.js";
-import { type TableKey, tableOfRef, uniqueTables } from "./tables.js";
+import {
+  type ColumnKey,
+  columnOfRef,
+  type TableKey,
+  tableOfRef,
+  uniqueTables,
+} from "./tables.js";
 import { isRecord, stringOrNull } from "./values.js";
 
 export type NativeSql = {
@@ -19,6 +25,8 @@ export type NativeSql = {
 /** The data sources a document names, found where its schema types them. */
 export type DataSources = {
   tables: TableKey[];
+  /** The column of each field id inside a query. */
+  fields: ColumnKey[];
   /** Entity ids of cards, metrics, measures, segments and snippets a query uses. */
   entities: string[];
   natives: NativeSql[];
@@ -51,7 +59,7 @@ const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
  * Returns a function that finds the data sources in a representation
  * document. It walks the document alongside its entity schema and collects
  * each value the schema types as a table id (`common/id.yaml#/$defs/table_id`);
- * inside a query it also collects the table of each field id, each entity id
+ * inside a query it also collects each field id, with its table, each entity id
  * (a source card, a template tag's card or snippet), each metric, measure and
  * segment reference, and the SQL of each native stage. Where a value may
  * match several branches (`anyOf`, `oneOf`, `if`), the walk follows the
@@ -93,7 +101,12 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
   };
 
   return function findSources(doc: unknown, model: string): DataSources {
-    const sources: DataSources = { tables: [], entities: [], natives: [] };
+    const sources: DataSources = {
+      tables: [],
+      fields: [],
+      entities: [],
+      natives: [],
+    };
     const file = models.get(model);
     if (file === undefined) {
       return sources;
@@ -106,6 +119,11 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
           : null;
       if (table !== null) {
         sources.tables.push(table);
+      }
+      const field =
+        context.inQuery && key === FIELD_ID ? columnOfRef(value) : null;
+      if (field !== null) {
+        sources.fields.push(field);
       }
       if (!context.inQuery) {
         return;
@@ -206,6 +224,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
     walk(doc, { file, pointer: "" }, { inQuery: false, database: null });
     return {
       tables: uniqueTables(sources.tables),
+      fields: sources.fields,
       entities: [...new Set(sources.entities)],
       natives: sources.natives,
     };

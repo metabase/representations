@@ -50,15 +50,40 @@ describe("lint", () => {
       return run.stdout.toString().trim();
     };
     const mbqlOnly = mkdtempSync(join(tmpdir(), "representations-lint-mbql-"));
+    const mongoOnly = mkdtempSync(
+      join(tmpdir(), "representations-lint-mongo-"),
+    );
     try {
       const file = "collections/transforms/mbql_transform.yaml";
       mkdirSync(join(mbqlOnly, "collections/transforms"), { recursive: true });
       cpSync(join(EXAMPLES, file), join(mbqlOnly, file));
       cpSync(join(EXAMPLES, CONFIG_FILE), join(mbqlOnly, CONFIG_FILE));
       expect(parserStarted(mbqlOnly)).toBe("false");
+
+      // A native transform and its test, both with SQL, on a MongoDB database.
+      for (const native of [
+        "collections/transforms/native_transform.yaml",
+        "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+      ]) {
+        mkdirSync(join(mongoOnly, native, ".."), { recursive: true });
+        writeFileSync(
+          join(mongoOnly, native),
+          readFileSync(join(EXAMPLES, native), "utf8").replaceAll(
+            "Sample Database",
+            "Docs",
+          ),
+        );
+      }
+      writeFileSync(
+        join(mongoOnly, CONFIG_FILE),
+        JSON.stringify({ engines: { Docs: "mongo" } }),
+      );
+      expect(parserStarted(mongoOnly)).toBe("false");
+
       expect(parserStarted(EXAMPLES)).toBe("true");
     } finally {
       rmSync(mbqlOnly, { recursive: true, force: true });
+      rmSync(mongoOnly, { recursive: true, force: true });
     }
   }, 60_000);
 
@@ -625,6 +650,45 @@ describe("lint", () => {
           .map((f) => f.message),
       ).toEqual([
         "could not find the tables this transform reads: snippets remain after 9 rounds of pasting, as when a snippet uses itself",
+      ]);
+    });
+
+    it("reads a test's SQL input in a folder that holds no other SQL", async () => {
+      const files = [
+        CONFIG_FILE,
+        "collections/transforms/mbql_transform.yaml",
+        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+      ];
+      for (const file of files) {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        cpSync(join(EXAMPLES, file), join(workdir, file));
+      }
+      const testFile = join(workdir, files[2]);
+      const test: unknown = yaml.load(readFileSync(testFile, "utf8"));
+      if (!isRecord(test)) {
+        throw new Error("The example test is not a map");
+      }
+      test.inputs = [
+        {
+          table: { name: "ORDERS" },
+          format: "sql",
+          sql: "SELECT * FROM ORDERS",
+        },
+      ];
+      test.expectations = [
+        {
+          type: "equals",
+          name: "no months",
+          format: "rows",
+          columns: [{ name: "count", cast_type: "INTEGER" }],
+          rows: [],
+        },
+      ];
+      writeFileSync(testFile, yaml.dump(test));
+      expect(
+        (await findings(workdir)).map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "live-sql-input: input ORDERS reads ORDERS; Metabase runs an input's SQL on the database as written, so the test depends on live data",
       ]);
     });
 

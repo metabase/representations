@@ -776,3 +776,89 @@ exports[`lint output on a broken copy of the examples matches the recording: unt
   ],
 }
 `;
+
+exports[`lint output on a broken copy of the examples matches the recording: input missing read column 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "aRvM7DLesF1fOV4kRHidq",
+        "model": "TransformTest",
+        "name": "Product Revenue Report: category totals",
+      },
+      "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+      "message": "input ORDERS has no column PRODUCT_ID, which transform Product Revenue Report reads",
+      "related": [
+        "collections/transforms/native_transform.yaml",
+      ],
+      "rule": "input-missing-read-column",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: upstream column mismatch 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "r6q1WcFoBcq1eCQC9Yztl",
+        "model": "TransformTest",
+        "name": "Top Categories: three highest",
+      },
+      "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
+      "message": "input TRANSFORMS.product_revenue_report has column total_revenue, which transform Product Revenue Report does not return; it returns CATEGORY, order_count, revenue, avg_order_value",
+      "related": [
+        "collections/transforms/native_transform.yaml",
+      ],
+      "rule": "upstream-column-mismatch",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: table qualified column 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "r6q1WcFoBcq1eCQC9Yztl",
+        "model": "TransformTest",
+        "name": "Top Categories: three highest",
+      },
+      "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
+      "message": "transform Top Categories qualifies a column by product_revenue_report, the name of TRANSFORMS.product_revenue_report, which this test replaces. Metabase refuses the test. Alias the table and qualify its columns by the alias",
+      "related": [
+        "collections/transforms/top_categories.yaml",
+      ],
+      "rule": "table-qualified-column",
+      "severity": "warning",
+    },
+  ],
+}
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: live sql input 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "aRvM7DLesF1fOV4kRHidq",
+        "model": "TransformTest",
+        "name": "Product Revenue Report: category totals",
+      },
+      "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+      "message": "input PRODUCTS reads PRODUCTS; Metabase runs an input's SQL on the database as written, so the test depends on live data",
+      "related": [],
+      "rule": "live-sql-input",
+      "severity": "warning",
+    },
+  ],
+}
+`;

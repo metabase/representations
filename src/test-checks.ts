@@ -27,6 +27,23 @@ export function testInputs(test: TestDoc, transform: Transform): TableKey[] {
 }
 
 /**
+ * The query transform `test` tests: the schema-valid Transform its
+ * transform_id names (`holderOf`), when its source is a query. Null
+ * otherwise; `reportTestFindings` reports why.
+ */
+export function queryTransformOf(
+  test: TestDoc,
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  transformOfDoc: ReadonlyMap<Doc, Transform>,
+): Transform | null {
+  const holder = holderOf(byEntityId, test.body.transform_id);
+  const transform = holder === null ? undefined : transformOfDoc.get(holder);
+  return transform !== undefined && isQuerySource(transform.doc.body.source)
+    ? transform
+    : null;
+}
+
+/**
  * The query transform `test` tests: the file its transform_id names
  * (`holderOf`). Null after an error when that names nothing, names a file
  * that is not a Transform, or names a transform that is not a query

@@ -7,11 +7,14 @@ import type { LintRule } from "./findings.js";
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
 const PRODUCT_REVENUE_REPORT = "collections/transforms/native_transform.yaml";
+const TOP_CATEGORIES = "collections/transforms/top_categories.yaml";
 const CATEGORY_TOTALS_TEST =
   "collections/transforms/native_transform/product_revenue_report__category_totals.yaml";
 const TOP_CATEGORIES_TEST =
   "collections/transforms/top_categories/top_categories__three_highest.yaml";
 const MONTHLY_ORDER_SUMMARY = "collections/transforms/mbql_transform.yaml";
+const MONTHLY_ORDER_SUMMARY_TEST =
+  "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml";
 const DAILY_ORDER_SUMMARY_TEST =
   "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
 const PYTHON_TEST =
@@ -95,16 +98,24 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "implicit-join",
     description:
-      "An MBQL transform breaks out by a product field through ORDERS.PRODUCT_ID; its test has no PRODUCTS input.",
+      "An MBQL transform breaks out by a product field through ORDERS.PRODUCT_ID; its test gives ORDERS that column, and has no PRODUCTS input.",
     rules: ["missing-input"],
-    apply: (folder) =>
+    apply: (folder) => {
       edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
         doc.source.query.stages[0].breakout.push([
           "field",
           { "source-field": [DB, null, "ORDERS", "PRODUCT_ID"] },
           [DB, null, "PRODUCTS", "CATEGORY"],
         ]);
-      }),
+      });
+      edit(folder, MONTHLY_ORDER_SUMMARY_TEST, (doc) => {
+        const orders = doc.inputs[0];
+        orders.columns.push({ name: "PRODUCT_ID", cast_type: "INTEGER" });
+        for (const row of orders.rows) {
+          row.PRODUCT_ID = 1;
+        }
+      });
+    },
   },
   {
     name: "segment-filter",
@@ -345,6 +356,55 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       edit(folder, TOP_CATEGORIES_TEST, (doc) => {
         doc.expectations = [];
+      }),
+  },
+  {
+    name: "input-missing-read-column",
+    description:
+      "A test's ORDERS input drops PRODUCT_ID, a column its transform joins on.",
+    rules: ["input-missing-read-column"],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        const orders = doc.inputs[0];
+        orders.columns = orders.columns.filter(
+          (column: Record<string, any>) => column.name !== "PRODUCT_ID",
+        );
+        for (const row of orders.rows) {
+          delete row.PRODUCT_ID;
+        }
+      }),
+  },
+  {
+    name: "upstream-column-mismatch",
+    description:
+      "Product Revenue Report renames its total_revenue column; the test of Top Categories, which reads it, keeps the old name.",
+    rules: ["upstream-column-mismatch"],
+    apply: (folder) =>
+      editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
+        sql.replace("AS total_revenue", "AS revenue"),
+      ),
+  },
+  {
+    name: "table-qualified-column",
+    description:
+      "Top Categories qualifies a column by the name of the table it reads, outside the default schema, with no alias; Metabase's test rewrite leaves the qualifier naming no table.",
+    rules: ["table-qualified-column"],
+    apply: (folder) =>
+      editNativeSql(folder, TOP_CATEGORIES, (sql) =>
+        sql.replace(
+          "SELECT\n  CATEGORY,",
+          "SELECT\n  product_revenue_report.CATEGORY,",
+        ),
+      ),
+  },
+  {
+    name: "live-sql-input",
+    description:
+      "A test's SQL input reads the real PRODUCTS table, so the test depends on live data.",
+    rules: ["live-sql-input"],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        doc.inputs[1].sql = "SELECT ID, CATEGORY FROM PRODUCTS";
       }),
   },
   {

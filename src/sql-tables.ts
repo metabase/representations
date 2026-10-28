@@ -1,5 +1,11 @@
 import type { EngineOf } from "./databases.js";
-import { dialectOf, type ParsedTables, type SqlParser } from "./sql-parser.js";
+import { nativeQueriesAreSql } from "./engines.js";
+import {
+  dialectOf,
+  type ParsedTables,
+  type SqlParser,
+  type Unread,
+} from "./sql-parser.js";
 import { fold, type TableName } from "./tables.js";
 import { templateTagsOf } from "./values.js";
 
@@ -54,6 +60,41 @@ function replaceTemplateTags(
     .replace(TAG, ` ${TAG_PLACEHOLDER} `);
 }
 
+/** Whether `name`, a table or column SQLGlot read, is the word a template tag became. */
+export function isTagPlaceholder(name: string): boolean {
+  return name === TAG_PLACEHOLDER;
+}
+
+/**
+ * A native query of a database whose engine is `engine`, as the lint parses
+ * it: the SQLGlot dialect of the engine (`dialectOf`), and the SQL with each
+ * optional clause Metabase keeps pasted in (`valuedTags`, as
+ * `valuedTagNames` gives them; every clause without it) and each template
+ * tag a placeholder word (`isTagPlaceholder`). Unread when the engine's
+ * native queries are not SQL (`nativeQueriesAreSql`), or when a snippet is left in
+ * the SQL: expand snippets first.
+ */
+export function prepareSql(
+  sql: string,
+  engine: string | null,
+  valuedTags?: ReadonlySet<string>,
+): { status: "prepared"; sql: string; dialect: string | null } | Unread {
+  if (engine !== null && !nativeQueriesAreSql(engine)) {
+    return {
+      status: "unread",
+      reason: `native queries on ${engine} are not SQL; the lint does not read them`,
+    };
+  }
+  if (/\{\{\s*snippet:/i.test(sql)) {
+    return { status: "unread", reason: "the query has a snippet" };
+  }
+  return {
+    status: "prepared",
+    sql: replaceTemplateTags(sql, valuedTags),
+    dialect: dialectOf(engine),
+  };
+}
+
 /** `tables` without repeats, keeping the first of each: two repeat when their schema and name are equal ignoring case. */
 function uniqueNames(tables: readonly TableName[]): TableName[] {
   const seen = new Set<string>();
@@ -79,14 +120,12 @@ export type SqlTableReader = (
 ) => ParsedTables;
 
 /**
- * Returns a reader of the tables native SQL reads, as Metabase reads them:
- * `parser` in the dialect of the database's engine (`dialectOf`), each table
- * once, sorted. Before parsing, it pastes each optional clause Metabase keeps
- * and puts a placeholder word for each template tag; a placeholder read as a
- * table reads nothing, since the tag's own definition names its card or
- * table. Refuses (`unread`) a query with a snippet left in it (expand
- * snippets first), and SQL SQLGlot cannot parse. Each distinct SQL, in each
- * dialect, is parsed once.
+ * Returns a reader of the tables native SQL reads, as Metabase reads them
+ * with `parser`: each table once, sorted. It parses the SQL as `prepareSql`
+ * gives it for the database's engine; a placeholder read as a table reads
+ * nothing, since the tag's own definition names its card or table. Refuses
+ * (`unread`) what `prepareSql` refuses, and SQL SQLGlot cannot parse. Each
+ * distinct SQL, in each dialect, is parsed once.
  */
 export function createSqlTableReader(
   parser: SqlParser,
@@ -103,13 +142,11 @@ export function createSqlTableReader(
     return result;
   };
   return (sql, database, valuedTags) => {
-    if (/\{\{\s*snippet:/i.test(sql)) {
-      return { status: "unread", reason: "the query has a snippet" };
+    const prepared = prepareSql(sql, engineOf(database), valuedTags);
+    if (prepared.status === "unread") {
+      return prepared;
     }
-    const result = parse(
-      replaceTemplateTags(sql, valuedTags),
-      dialectOf(engineOf(database)),
-    );
+    const result = parse(prepared.sql, prepared.dialect);
     if (result.status === "unread") {
       return {
         status: "unread",
@@ -120,7 +157,7 @@ export function createSqlTableReader(
       status: "read",
       tables: uniqueNames(
         result.tables.filter(
-          (t) => t.schema !== null || t.name !== TAG_PLACEHOLDER,
+          (t) => t.schema !== null || !isTagPlaceholder(t.name),
         ),
       ),
     };

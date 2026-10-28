@@ -90,6 +90,20 @@ export function tableOfRef(ref: unknown): TableKey | null {
     : null;
 }
 
+/** A column of a table. */
+export type ColumnKey = { table: TableKey; column: string };
+
+/**
+ * The column a `[database, schema, table, field, ...]` field reference names
+ * (its first part, for a JSON-unfolded field), or null when `ref` is not one.
+ */
+export function columnOfRef(ref: unknown): ColumnKey | null {
+  const table = tableOfRef(ref);
+  return table !== null && Array.isArray(ref) && typeof ref[3] === "string"
+    ? { table, column: ref[3] }
+    : null;
+}
+
 /** The table as messages name it: `schema.name`, or `name` without a schema. */
 export function tableLabel(table: TableName): string {
   return table.schema === null ? table.name : `${table.schema}.${table.name}`;
