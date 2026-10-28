@@ -774,6 +774,40 @@ describe("lint", () => {
       ]);
     });
 
+    it("names the chain once when a card uses itself as a source", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const card = "collections/main/queries/orders_model.yaml";
+      const useCard = (file: string, indent: string) => {
+        const path = join(workdir, file);
+        const text = readFileSync(path, "utf8");
+        const sourceTable = [
+          "source-table:",
+          "- Sample Database",
+          "- null",
+          "- ORDERS",
+        ]
+          .map((line) => `${indent}${line}`)
+          .join("\n");
+        expect(text).toContain(sourceTable);
+        writeFileSync(
+          path,
+          text.replace(
+            sourceTable,
+            `${indent}source-card: 4eroqa4ZYl4WkNjP8XTvu`,
+          ),
+        );
+      };
+      useCard(card, "      ");
+      useCard("collections/transforms/mbql_transform.yaml", "        ");
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.rule === "reads-not-checked")
+          .map((f) => f.message),
+      ).toEqual([
+        `could not find the tables this transform reads: through ${card}: ${card} uses itself as a source`,
+      ]);
+    });
+
     it("says when a snippet uses itself", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       writeFileSync(

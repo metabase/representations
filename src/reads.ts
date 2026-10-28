@@ -206,12 +206,6 @@ export function createReader(
     if (known !== undefined) {
       return known;
     }
-    if (visiting.has(doc)) {
-      return {
-        status: "unread",
-        reason: `${doc.file} uses itself as a source`,
-      };
-    }
     const source = asValid(doc, "Transform")?.body.source;
     if (source !== undefined && isPythonSource(source)) {
       return pythonReads(source);
@@ -234,6 +228,14 @@ export function createReader(
       }
       if (sourceDoc.model === SNIPPET_MODEL) {
         continue;
+      }
+      // Checked before the recursive call: there, the reason would gain a
+      // "through" for a file the chain already names.
+      if (inner.has(sourceDoc)) {
+        return {
+          status: "unread",
+          reason: `${sourceDoc.file} uses itself as a source`,
+        };
       }
       const sourceReads = readsOf(sourceDoc, inner);
       if (sourceReads.status === "unread") {
