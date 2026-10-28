@@ -274,6 +274,25 @@ describe("lint", () => {
       ]);
     });
 
+    it("gives a Python transform whose target names no database no target, not one in its source_database_id", async () => {
+      mutateExamples("missing-target-database", workdir);
+      const original = "collections/transforms/python_hello_world.yaml";
+      const copy = "collections/transforms/python_hello_world_copy.yaml";
+      const doc: unknown = yaml.load(
+        readFileSync(join(EXAMPLES, original), "utf8"),
+      );
+      if (!isRecord(doc)) {
+        throw new Error(`${original} is not a YAML map`);
+      }
+      writeFileSync(
+        join(workdir, copy),
+        yaml.dump({ ...doc, entity_id: "PythonHelloWorldCopy1" }),
+      );
+      expect(
+        (await findings(workdir)).map((f) => `${f.rule} ${f.file}`),
+      ).toEqual([`missing-target-database ${original}`]);
+    });
+
     it("reports an unqualified and a qualified input as duplicates only in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       const file = join(

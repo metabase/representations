@@ -5,6 +5,7 @@ import type { LintRule } from "./findings.js";
 import {
   reportCollectionNamespaces,
   reportIncrementalTags,
+  reportMissingTargetDatabases,
 } from "./transform-checks.js";
 
 type Recorded = {
@@ -300,5 +301,66 @@ describe("reportIncrementalTags", () => {
     ]) {
       expect(incrementalFindings(doc)).toEqual([]);
     }
+  });
+});
+
+describe("reportMissingTargetDatabases", () => {
+  const PYTHON_SOURCE = {
+    type: "python",
+    "source-tables": [],
+    body: "def transform():\n    return None",
+  };
+
+  const targetDatabaseFindings = (doc: Doc): Recorded[] => {
+    const recorded: Recorded[] = [];
+    reportMissingTargetDatabases(
+      [doc],
+      (rule: LintRule, d: Doc, message: string, related: string[] = []) =>
+        recorded.push({ rule, file: d.file, message, related }),
+    );
+    return recorded;
+  };
+
+  it("reports a Python transform whose target names no database, whatever its source_database_id", () => {
+    expect(
+      targetDatabaseFindings(transformDoc({ source: PYTHON_SOURCE })),
+    ).toEqual([
+      {
+        rule: "missing-target-database",
+        file: TRANSFORM_FILE,
+        message:
+          "the target names no database, which Metabase requires unless the source is a query",
+        related: [],
+      },
+    ]);
+  });
+
+  it("accepts a Python transform whose target names a database", () => {
+    expect(
+      targetDatabaseFindings(
+        transformDoc({
+          source: PYTHON_SOURCE,
+          target: {
+            type: "table",
+            database: "Warehouse",
+            schema: "analytics",
+            name: "orders_by_day",
+          },
+        }),
+      ),
+    ).toEqual([]);
+  });
+
+  it("accepts a query transform whose target names no database: it writes to its query's database", () => {
+    expect(targetDatabaseFindings(transformDoc({}))).toEqual([]);
+  });
+
+  it("skips a transform that fails its schema", () => {
+    expect(
+      targetDatabaseFindings({
+        ...transformDoc({ source: PYTHON_SOURCE }),
+        schemaValid: false,
+      }),
+    ).toEqual([]);
   });
 });

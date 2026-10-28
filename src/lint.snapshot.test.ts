@@ -59,6 +59,10 @@ const TREES: [string, (folder: string) => void][] = [
     "missing incremental table tag",
     (f) => mutateExamples("missing-incremental-table-tag", f),
   ],
+  [
+    "missing target database",
+    (f) => mutateExamples("missing-target-database", f),
+  ],
   ["missing target schema", (f) => mutateExamples("missing-target-schema", f)],
   [
     "unsupported transform engine",

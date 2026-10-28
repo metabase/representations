@@ -589,6 +589,26 @@ exports[`lint output on a broken copy of the examples matches the recording: mis
 }
 `;
 
+exports[`lint output on a broken copy of the examples matches the recording: missing target database 1`] = `
+{
+  "files": 112,
+  "findings": [
+    {
+      "entity": {
+        "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+        "model": "Transform",
+        "name": "Python Hello World",
+      },
+      "file": "collections/transforms/python_hello_world.yaml",
+      "message": "the target names no database, which Metabase requires unless the source is a query",
+      "related": [],
+      "rule": "missing-target-database",
+      "severity": "error",
+    },
+  ],
+}
+`;
+
 exports[`lint output on a broken copy of the examples matches the recording: missing target schema 1`] = `
 {
   "files": 113,

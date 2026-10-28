@@ -22,7 +22,8 @@ const isBlank = (schema: string | null | undefined): boolean =>
 /**
  * Reports each transform whose target names no schema, or a blank one, on a
  * database whose engine has schemas. Metabase's API refuses such a transform;
- * an import accepts it.
+ * an import accepts it. A transform with no target database has nothing to
+ * check.
  */
 export function reportMissingTargetSchemas(
   docs: readonly Doc[],
@@ -31,6 +32,9 @@ export function reportMissingTargetSchemas(
 ): void {
   for (const transform of validDocsOf(docs, "Transform")) {
     const database = targetDatabaseOf(transform);
+    if (database === null) {
+      continue;
+    }
     const engine = engineOf(database);
     if (
       engineFacts(engine)?.schemas === true &&
@@ -65,7 +69,8 @@ function requiredFeature(transform: ValidDoc<"Transform">): {
 /**
  * Reports each query or Python transform whose target database's engine
  * cannot run that kind of transform. Metabase's API refuses such a transform;
- * an import accepts it.
+ * an import accepts it. A transform with no target database has nothing to
+ * check.
  */
 export function reportUnsupportedTransformEngines(
   docs: readonly Doc[],
@@ -75,6 +80,9 @@ export function reportUnsupportedTransformEngines(
   for (const transform of validDocsOf(docs, "Transform")) {
     const need = requiredFeature(transform);
     const database = targetDatabaseOf(transform);
+    if (database === null) {
+      continue;
+    }
     const engine = engineOf(database);
     const features = engineFacts(engine);
     if (need !== null && features !== null && !features[need.feature]) {

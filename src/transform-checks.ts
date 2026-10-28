@@ -3,6 +3,7 @@ import {
   type Doc,
   isQuerySource,
   type QuerySource,
+  targetDatabaseOf,
   validDocsOf,
   type ValidDoc,
 } from "./documents.js";
@@ -140,6 +141,26 @@ export function reportIncrementalTags(
         "missing-incremental-table-tag",
         transform,
         `no table template tag names ${tableLabel(checkpointTable)}, the table of the checkpoint field, for Metabase to put the incremental range filter in`,
+      );
+    }
+  }
+}
+
+/**
+ * Reports each transform with no target database: a transform whose source is
+ * not a query and whose target names no database. Metabase's API refuses such
+ * a transform, and cannot run it; an import accepts it.
+ */
+export function reportMissingTargetDatabases(
+  docs: readonly Doc[],
+  report: Report,
+): void {
+  for (const transform of validDocsOf(docs, "Transform")) {
+    if (targetDatabaseOf(transform) === null) {
+      report(
+        "missing-target-database",
+        transform,
+        "the target names no database, which Metabase requires unless the source is a query",
       );
     }
   }

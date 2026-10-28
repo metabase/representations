@@ -65,6 +65,13 @@ function transformDoc(body: Record<string, unknown>): Doc {
   };
 }
 
+/** A schema-valid Python transform whose target names `database`. */
+const pythonOn = (database: string): Doc =>
+  transformDoc({
+    source: PYTHON_SOURCE,
+    target: { type: "table", schema: "s", name: "t", database },
+  });
+
 /** A schema-valid test of the transform `transformId` names. */
 function testDoc(transformId: string): Doc {
   return {
@@ -184,6 +191,20 @@ describe("reportMissingTargetSchemas", () => {
     ]);
   });
 
+  it("skips a Python transform whose target names no database, whatever the engine of its source_database_id", () => {
+    expect(
+      targetSchemaFindings(
+        [
+          transformDoc({
+            source: PYTHON_SOURCE,
+            target: { type: "table", name: "t" },
+          }),
+        ],
+        { Warehouse: "postgres" },
+      ),
+    ).toEqual([]);
+  });
+
   it("accepts a target with a schema", () => {
     expect(
       targetSchemaFindings([withTarget({ schema: "analytics" })], {
@@ -225,7 +246,7 @@ describe("reportUnsupportedTransformEngines", () => {
 
   it("reports a Python transform on an engine that cannot run one", () => {
     expect(
-      engineFindings([transformDoc({ source: PYTHON_SOURCE })], {
+      engineFindings([pythonOn("Warehouse")], {
         Warehouse: "sqlite",
       }).map((r) => r.message),
     ).toEqual([
@@ -236,10 +257,7 @@ describe("reportUnsupportedTransformEngines", () => {
   it("checks each kind of transform against its own feature", () => {
     expect(
       engineFindings(
-        [
-          transformDoc({ source: PYTHON_SOURCE }),
-          transformDoc({ source: queryOn("Docs") }),
-        ],
+        [pythonOn("Warehouse"), transformDoc({ source: queryOn("Docs") })],
         { Warehouse: "mongo", Docs: "mongo" },
       ).map((r) => r.message),
     ).toEqual([
@@ -261,6 +279,14 @@ describe("reportUnsupportedTransformEngines", () => {
     ).toEqual([
       "Metabase cannot run a Python transform on database Lake: its engine vertica lacks the driver feature transforms/python",
     ]);
+  });
+
+  it("skips a Python transform whose target names no database, whatever the engine of its source_database_id", () => {
+    expect(
+      engineFindings([transformDoc({ source: PYTHON_SOURCE })], {
+        Warehouse: "sqlite",
+      }),
+    ).toEqual([]);
   });
 
   it("accepts a transform on an engine that runs it, an unknown engine, or none", () => {

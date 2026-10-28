@@ -31,21 +31,27 @@ export type Reads =
 /** The tables a document reads. */
 export type ReadsOf = (doc: Doc) => Reads;
 
-/** A transform document with the table it writes and the tables it reads. */
+/**
+ * A transform document with the table it writes and the tables it reads. Its
+ * target is null when the transform names no target database.
+ */
 export type Transform = {
   doc: ValidDoc<"Transform">;
-  target: TableKey;
+  target: TableKey | null;
   reads: Reads;
 };
 
-/** A transform whose source is a query. */
-export type QueryTransform = Transform & { doc: QueryTransformDoc };
+/** A transform whose source is a query; its query's database holds its target. */
+export type QueryTransform = Transform & {
+  doc: QueryTransformDoc;
+  target: TableKey;
+};
 
 /** Whether `transform`'s source is a query. */
 export function isQueryTransform(
   transform: Transform,
 ): transform is QueryTransform {
-  return isQueryTransformDoc(transform.doc);
+  return isQueryTransformDoc(transform.doc) && transform.target !== null;
 }
 
 const SNIPPET_MODEL = "NativeQuerySnippet";
@@ -246,20 +252,27 @@ export function createReader(
   return (doc: Doc) => readsOf(doc, new Set());
 }
 
-/** The transform in `doc`. Its target is in the database `targetDatabaseOf` finds. */
+/**
+ * The transform in `doc`. Its target is in the database `targetDatabaseOf`
+ * finds, and null when that finds none.
+ */
 export function transformOf(
   doc: ValidDoc<"Transform">,
   readsOf: ReadsOf,
 ): Transform {
   const { target } = doc.body;
+  const database = targetDatabaseOf(doc);
   return {
     doc,
-    target: {
-      database: targetDatabaseOf(doc),
-      schema: target.schema ?? null,
-      name: target.name,
-      nullSchema: "default",
-    },
+    target:
+      database === null
+        ? null
+        : {
+            database,
+            schema: target.schema ?? null,
+            name: target.name,
+            nullSchema: "default",
+          },
     reads: readsOf(doc),
   };
 }

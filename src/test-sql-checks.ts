@@ -250,6 +250,7 @@ export function reportUpstreamColumns(
       for (const upstream of checks.transforms) {
         if (
           upstream === transform ||
+          upstream.target === null ||
           !sameTable(table, upstream.target, checks.defaultSchemaOf)
         ) {
           continue;

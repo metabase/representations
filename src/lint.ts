@@ -65,6 +65,7 @@ import {
   incrementalFilterTables,
   reportCollectionNamespaces,
   reportIncrementalTags,
+  reportMissingTargetDatabases,
 } from "./transform-checks.js";
 import { isRecord, stringOrNull } from "./values.js";
 
@@ -114,14 +115,20 @@ function readEdges(
     const reads = transform.reads.tables;
     edges.set(
       i,
-      transforms.flatMap((upstream, j) =>
-        reads.some((t) => sameTable(t, upstream.target, defaultSchemaOf))
+      transforms.flatMap(({ target }, j) =>
+        target !== null &&
+        reads.some((t) => sameTable(t, target, defaultSchemaOf))
           ? [j]
           : [],
       ),
     );
   });
   return edges;
+}
+
+/** The tables `transforms` write, skipping a transform with no target. */
+function targetsOf(transforms: readonly Transform[]): TableKey[] {
+  return transforms.flatMap((t) => (t.target === null ? [] : [t.target]));
 }
 
 /** A warning for each transform whose sources could not be read. */
@@ -146,17 +153,21 @@ function reportDuplicateTargets(
   defaultSchemaOf: DefaultSchemaOf,
   report: Report,
 ): void {
-  for (const transform of transforms) {
+  for (const { doc, target } of transforms) {
+    if (target === null) {
+      continue;
+    }
     const clashes = transforms.filter(
       (other) =>
-        other !== transform &&
-        sameTable(transform.target, other.target, defaultSchemaOf),
+        other.doc !== doc &&
+        other.target !== null &&
+        sameTable(target, other.target, defaultSchemaOf),
     );
     if (clashes.length > 0) {
       report(
         "duplicate-target",
-        transform.doc,
-        `target ${tableLabel(transform.target)} is also written by ${clashes.length} other transform(s)`,
+        doc,
+        `target ${tableLabel(target)} is also written by ${clashes.length} other transform(s)`,
         clashes.map((c) => c.doc.file),
       );
     }
@@ -204,7 +215,7 @@ function createUnknownTableCheck(
   );
   const knownTables: TableKey[] = [
     ...tableDocs.map(tableOfFile),
-    ...transforms.map((t) => t.target),
+    ...targetsOf(transforms),
   ];
   return (doc: Doc, table: TableKey) => {
     if (
@@ -484,10 +495,10 @@ function comparedTables(
   });
   return [
     ...validDocsOf(docs, "Table").map(tableOfFile),
-    ...[...transformOfDoc.values()].flatMap((t) => [
-      t.target,
-      ...(t.reads.status === "read" ? t.reads.tables : []),
-    ]),
+    ...targetsOf([...transformOfDoc.values()]),
+    ...[...transformOfDoc.values()].flatMap((t) =>
+      t.reads.status === "read" ? t.reads.tables : [],
+    ),
     ...filterTables,
     ...testTables,
   ];
@@ -543,6 +554,7 @@ export async function lint({
   reportCycles(transforms, defaultSchemaOf, report);
   reportCollectionNamespaces(docs, byEntityId, report);
   reportIncrementalTags(docs, defaultSchemaOf, report);
+  reportMissingTargetDatabases(docs, report);
   reportMissingTargetSchemas(docs, engineOf, report);
   reportUnsupportedTransformEngines(docs, engineOf, report);
 

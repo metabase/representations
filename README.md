@@ -155,6 +155,14 @@ It takes a database's default schema from the first of these that gives one:
 
 In a Database file, `default_schema` is the schema unqualified names resolve to, as Metabase's metadata sync last read it from the database. `null` there means Metabase resolves an unqualified name to no schema. On an engine with schemas, such as Postgres, `null` is ambiguous: the connection named no current schema, or Metabase has not synced the database since it began storing the value. The Metabase that runs the tests syncs on its own, so its value can differ. The lint therefore ignores `null` on an engine with schemas, and takes the default schema from the engine or asks for it. On an engine without schemas, or one the lint does not know, `null` means no schema.
 
+### Target database
+
+A query transform writes its target to its query's database. Any other transform, such as a Python one, writes to the database its target names. `source_database_id` never stands in for it; Metabase has no such fallback.
+
+- `missing-target-database`, an error: a transform that is not a query transform names no target database. Metabase's API refuses it, and it cannot run; an import accepts it.
+
+Such a transform has no target. No rule compares it with other tables, and the engine rules skip it.
+
 ### Engine rules
 
 Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase's `master`:
@@ -163,7 +171,7 @@ Three rules compare a transform with what its database's engine can do, from a t
 - `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
 - `untestable-engine`, a warning: a test of a transform whose source database's engine cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
 
-A query transform's target is in its query's database, as Metabase finds it. An engine missing from the table gives no finding, nor does a database whose engine the lint does not know. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
+An engine missing from the table gives no finding, nor does a database whose engine the lint does not know. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
 
 ### How it reads SQL
 

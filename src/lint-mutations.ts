@@ -270,6 +270,16 @@ export const MUTATIONS: Mutation[] = [
       }),
   },
   {
+    name: "missing-target-database",
+    description:
+      "A Python transform's target names no database, which Metabase requires for a Python transform.",
+    rules: ["missing-target-database"],
+    apply: (folder) =>
+      edit(folder, PYTHON_HELLO_WORLD, (doc) => {
+        delete doc.target.database;
+      }),
+  },
+  {
     name: "missing-target-schema",
     description:
       "A transform's target names no schema, on a Postgres database, which has schemas.",

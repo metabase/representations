@@ -217,14 +217,16 @@ export function queryDatabaseOf(transform: QueryTransformDoc): string {
 
 /**
  * The database a transform writes its target to, as Metabase's
- * `target-db-id` finds it for a query transform: the database it runs on
+ * `target-db-id` finds it. For a query transform, the database it runs on
  * (`queryDatabaseOf`). For another transform, the database its target names,
- * or else its `source_database_id`.
+ * or null when it names none: `source_database_id` never stands in for it.
  */
-export function targetDatabaseOf(transform: ValidDoc<"Transform">): string {
+export function targetDatabaseOf(
+  transform: ValidDoc<"Transform">,
+): string | null {
   return isQueryTransformDoc(transform)
     ? queryDatabaseOf(transform)
-    : (transform.body.target.database ?? transform.body.source_database_id);
+    : (transform.body.target.database ?? null);
 }
 
 /** The document's name, or its file when it has none. */
