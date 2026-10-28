@@ -102,6 +102,65 @@ describe("lint", () => {
     }
   }, 60_000);
 
+  // A join may carry keys its schema does not name, such as `database`.
+  // Metabase runs every stage of a query on the query's database.
+  it("reads a join's native stage on its query's database, not on a database the join names", async () => {
+    const workdir = mkdtempSync(join(tmpdir(), "representations-lint-join-"));
+    try {
+      const file = "collections/transforms/mbql_transform.yaml";
+      mkdirSync(join(workdir, "collections/transforms"), { recursive: true });
+      const transform: unknown = yaml.load(
+        readFileSync(join(EXAMPLES, file), "utf8"),
+      );
+      if (
+        !isRecord(transform) ||
+        !isRecord(transform.source) ||
+        !isRecord(transform.source.query) ||
+        !Array.isArray(transform.source.query.stages) ||
+        !isRecord(transform.source.query.stages[0])
+      ) {
+        throw new Error(`${file} has no query stage`);
+      }
+      const ordersField = (column: string) => [
+        "field",
+        {},
+        ["Sample Database", null, "ORDERS", column],
+      ];
+      transform.source.query.stages[0].joins = [
+        {
+          alias: "Products",
+          database: "Docs",
+          stages: [
+            {
+              "lib/type": "mbql.stage/native",
+              native: "SELECT * FROM PRODUCTS",
+            },
+          ],
+          conditions: [["=", {}, ordersField("PRODUCT_ID"), ordersField("ID")]],
+        },
+      ];
+      writeFileSync(join(workdir, file), yaml.dump(transform));
+      writeFileSync(
+        join(workdir, CONFIG_FILE),
+        JSON.stringify({
+          engines: { "Sample Database": "postgres", Docs: "mongo" },
+          defaultSchemas: { "Sample Database": "PUBLIC" },
+        }),
+      );
+      expect((await lint({ folder: workdir })).findings).toEqual([]);
+      expect(
+        (await transformReads({ folder: workdir })).map((t) => t.tables),
+      ).toEqual([
+        [
+          { schema: null, name: "ORDERS" },
+          { schema: null, name: "PRODUCTS" },
+        ],
+      ]);
+    } finally {
+      rmSync(workdir, { recursive: true, force: true });
+    }
+  });
+
   it("has a mutation that reports each error rule", async () => {
     const mutated = new Set(MUTATIONS.flatMap((m) => m.rules));
     expect(

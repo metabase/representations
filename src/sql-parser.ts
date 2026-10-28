@@ -360,3 +360,39 @@ export function loadSqlParser(): Promise<SqlParser> {
 export function sqlParserStarted(): boolean {
   return started !== undefined;
 }
+
+/** Thrown by each function of `UNLOADED_SQL_PARSER`. */
+class SqlParserUnloaded extends Error {}
+
+const unloaded = (): never => {
+  throw new SqlParserUnloaded();
+};
+
+/** Stands in for the parser until it loads, and throws on any call. */
+const UNLOADED_SQL_PARSER: SqlParser = {
+  referencedTables: unloaded,
+  fieldReferences: unloaded,
+  replaceNames: unloaded,
+};
+
+/**
+ * `use`'s answer, given the SQL parser, which loads only if `use` calls it.
+ * Until the parser starts loading, `use` runs with a parser that throws on
+ * any call; if it called one, `use` runs again with the loaded parser. So
+ * `use` must have no effect besides its answer, and must not catch the
+ * parser's throw.
+ */
+export async function withSqlParser<T>(
+  use: (parser: SqlParser) => T,
+): Promise<T> {
+  if (!sqlParserStarted()) {
+    try {
+      return use(UNLOADED_SQL_PARSER);
+    } catch (e) {
+      if (!(e instanceof SqlParserUnloaded)) {
+        throw e;
+      }
+    }
+  }
+  return use(await loadSqlParser());
+}

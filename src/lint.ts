@@ -1,20 +1,13 @@
-import {
-  createEngineOf,
-  databaseDefaultSchemas,
-  type EngineOf,
-} from "./databases.js";
+import { createEngineOf, databaseDefaultSchemas } from "./databases.js";
 import {
   type DefaultSchemas,
   resolveDefaultSchemas,
 } from "./default-schemas.js";
 import {
-  asValid,
   displayName,
   type Doc,
-  holderOf,
   indexByEntityId,
   isQuerySource,
-  isQueryTransformDoc,
   loadDocs,
   queryDatabaseOf,
   type UnreadableFile,
@@ -33,13 +26,12 @@ import {
   type LintFinding,
   type Report,
 } from "./findings.js";
-import { nativeQueriesAreSql } from "./engines.js";
 import { cyclePath, cycles } from "./graph.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas, type Schemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
 import { createSqlColumnReader } from "./sql-columns.js";
-import { loadSqlParser, type SqlParser } from "./sql-parser.js";
+import { withSqlParser } from "./sql-parser.js";
 import { createSqlTableReader, type SqlTableReader } from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
@@ -67,7 +59,7 @@ import {
   reportIncrementalTags,
   reportMissingTargetDatabases,
 } from "./transform-checks.js";
-import { isRecord, stringOrNull } from "./values.js";
+import { stringOrNull } from "./values.js";
 
 export type LintOptions = {
   folder: string;
@@ -335,22 +327,24 @@ export async function transformReads({
   const { docs } = loadDocs(folder, schemas);
   const engineOf = createEngineOf(docs, readSettingsFile(folder).engines);
   const byEntityId = indexByEntityId(docs);
-  const readSql = createSqlTableReader(
-    await sqlParserFor(docs, byEntityId, engineOf),
-    engineOf,
+  const transforms = await withSqlParser((parser) =>
+    transformsOf(
+      docs,
+      byEntityId,
+      schemas,
+      createSqlTableReader(parser, engineOf),
+    ),
   );
-  return transformsOf(docs, byEntityId, schemas, readSql).map(
-    ({ doc, reads }) => ({
-      file: doc.file,
-      entity_id: doc.body.entity_id,
-      name: doc.body.name,
-      queryTransform: isQuerySource(doc.body.source),
-      tables:
-        reads.status === "read"
-          ? reads.tables.map(({ schema, name }) => ({ schema, name }))
-          : null,
-    }),
-  );
+  return transforms.map(({ doc, reads }) => ({
+    file: doc.file,
+    entity_id: doc.body.entity_id,
+    name: doc.body.name,
+    queryTransform: isQuerySource(doc.body.source),
+    tables:
+      reads.status === "read"
+        ? reads.tables.map(({ schema, name }) => ({ schema, name }))
+        : null,
+  }));
 }
 
 /** The schema-valid transforms among `docs`, in order, with their targets and reads. */
@@ -362,93 +356,6 @@ function transformsOf(
 ): Transform[] {
   const readsOf = createReader(docs, byEntityId, schemas, readSql);
   return validDocsOf(docs, "Transform").map((doc) => transformOf(doc, readsOf));
-}
-
-/**
- * Whether `value` holds a native query stage (a map with a `native` string)
- * that the lint reads as SQL: one in a query (a map with `database` and
- * `stages`) whose database's engine reads SQL (`nativeQueriesAreSql`).
- * `database` is the database of the query `value` is in.
- */
-function holdsSqlStage(
-  value: unknown,
-  database: string | null,
-  engineOf: EngineOf,
-): boolean {
-  if (Array.isArray(value)) {
-    return value.some((item) => holdsSqlStage(item, database, engineOf));
-  }
-  if (!isRecord(value)) {
-    return false;
-  }
-  const inner =
-    Array.isArray(value.stages) && typeof value.database === "string"
-      ? value.database
-      : database;
-  return (
-    (typeof value.native === "string" &&
-      nativeQueriesAreSql(engineOf(inner))) ||
-    Object.values(value).some((item) => holdsSqlStage(item, inner, engineOf))
-  );
-}
-
-/** Whether `value` is a list holding a map with a `sql` string. */
-const holdsSqlEntry = (value: unknown): boolean =>
-  Array.isArray(value) &&
-  value.some((entry) => isRecord(entry) && typeof entry.sql === "string");
-
-/**
- * Whether any document holds SQL the lint may read: a native query stage on
- * an engine that reads SQL, or a SQL input or expectation of a test of a
- * query transform whose database (`queryDatabaseOf`) reads SQL.
- */
-function holdsSql(
-  docs: readonly Doc[],
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  engineOf: EngineOf,
-): boolean {
-  const testedDatabaseReadsSql = (transformId: unknown) => {
-    const holder =
-      typeof transformId === "string"
-        ? holderOf(byEntityId, transformId)
-        : null;
-    const transform = holder === null ? null : asValid(holder, "Transform");
-    return (
-      transform !== null &&
-      isQueryTransformDoc(transform) &&
-      nativeQueriesAreSql(engineOf(queryDatabaseOf(transform)))
-    );
-  };
-  return docs.some(
-    ({ model, body }) =>
-      holdsSqlStage(body, null, engineOf) ||
-      (model === "TransformTest" &&
-        (holdsSqlEntry(body.inputs) || holdsSqlEntry(body.expectations)) &&
-        testedDatabaseReadsSql(body.transform_id)),
-  );
-}
-
-const noSql = (): never => {
-  throw new Error("The lint read SQL in a folder where it found none");
-};
-
-/** The parser for a folder that holds no SQL, which nothing calls. */
-const NO_SQL: SqlParser = {
-  referencedTables: noSql,
-  fieldReferences: noSql,
-  replaceNames: noSql,
-};
-
-/**
- * The SQL parser for `docs`. It loads the parser, once per process, only when
- * the documents hold SQL (`holdsSql`).
- */
-async function sqlParserFor(
-  docs: readonly Doc[],
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  engineOf: EngineOf,
-): Promise<SqlParser> {
-  return holdsSql(docs, byEntityId, engineOf) ? loadSqlParser() : NO_SQL;
 }
 
 /** A `Report` that appends each finding to `findings`. */
@@ -516,8 +423,8 @@ function comparedTables(
  * Checks the references between transforms, tables and transform tests in a
  * folder of representation files. Reads only the files; needs no Metabase.
  * Findings are grouped by rule, in the order of `LINT_RULES`, then by file.
- * Native SQL is parsed by Metabase's own code (`loadSqlParser`), loaded on
- * the first call whose folder holds SQL.
+ * Native SQL is parsed by Metabase's own code, loaded once per process, the
+ * first time a check reads SQL (`withSqlParser`).
  *
  * Rejects with a `LintSetupError` before any check when the settings file is
  * invalid, and a `MissingDefaultSchemasError` when a database needs a default
@@ -533,75 +440,73 @@ export async function lint({
   const { docs, unreadable } = loadDocs(folder, schemas);
   const engineOf = createEngineOf(docs, settings.engines);
   const byEntityId = indexByEntityId(docs);
-  const parser = await sqlParserFor(docs, byEntityId, engineOf);
-  const readSql = createSqlTableReader(parser, engineOf);
-  const transforms = transformsOf(docs, byEntityId, schemas, readSql);
-  const transformOfDoc = new Map<Doc, Transform>(
-    transforms.map((t) => [t.doc, t]),
-  );
-  const defaultSchemaOf = resolveDefaultSchemas({
-    names: comparedTables(docs, byEntityId, transformOfDoc, readSql),
-    given: {
-      ...databaseDefaultSchemas(docs, engineOf),
-      ...settings.defaultSchemas,
-      ...defaultSchemas,
-    },
-    engineOf,
-  });
+  const files = docs.length + unreadable.length;
+  return withSqlParser((parser) => {
+    const readSql = createSqlTableReader(parser, engineOf);
+    const transforms = transformsOf(docs, byEntityId, schemas, readSql);
+    const transformOfDoc = new Map<Doc, Transform>(
+      transforms.map((t) => [t.doc, t]),
+    );
+    const defaultSchemaOf = resolveDefaultSchemas({
+      names: comparedTables(docs, byEntityId, transformOfDoc, readSql),
+      given: {
+        ...databaseDefaultSchemas(docs, engineOf),
+        ...settings.defaultSchemas,
+        ...defaultSchemas,
+      },
+      engineOf,
+    });
 
-  const findings: LintFinding[] = [];
-  const report = createReport(findings);
+    const findings: LintFinding[] = [];
+    const report = createReport(findings);
 
-  reportUnreadableFiles(unreadable, report);
-  reportSchemaMismatches(docs, report);
-  reportDuplicateEntityIds(byEntityId, report);
+    reportUnreadableFiles(unreadable, report);
+    reportSchemaMismatches(docs, report);
+    reportDuplicateEntityIds(byEntityId, report);
 
-  reportUnreadSources(transforms, report);
-  reportDuplicateTargets(transforms, defaultSchemaOf, report);
+    reportUnreadSources(transforms, report);
+    reportDuplicateTargets(transforms, defaultSchemaOf, report);
 
-  reportCycles(transforms, defaultSchemaOf, report);
-  reportCollectionNamespaces(docs, byEntityId, report);
-  reportIncrementalTags(docs, defaultSchemaOf, report);
-  reportMissingTargetDatabases(docs, report);
-  reportMissingTargetSchemas(docs, engineOf, report);
-  reportUnsupportedTransformEngines(docs, engineOf, report);
+    reportCycles(transforms, defaultSchemaOf, report);
+    reportCollectionNamespaces(docs, byEntityId, report);
+    reportIncrementalTags(docs, defaultSchemaOf, report);
+    reportMissingTargetDatabases(docs, report);
+    reportMissingTargetSchemas(docs, engineOf, report);
+    reportUnsupportedTransformEngines(docs, engineOf, report);
 
-  const checkKnown = createUnknownTableCheck(
-    docs,
-    transforms,
-    defaultSchemaOf,
-    report,
-  );
-  checkReadTablesKnown(transforms, checkKnown);
-
-  reportTestFindings(
-    docs,
-    byEntityId,
-    transformOfDoc,
-    checkKnown,
-    defaultSchemaOf,
-    readSql,
-    report,
-  );
-  reportRowsColumns(docs, report);
-  reportExpectationNames(docs, report);
-  reportEmptyExpectations(docs, report);
-  reportUntestableEngines(docs, byEntityId, engineOf, report);
-  reportTestSql(
-    {
+    const checkKnown = createUnknownTableCheck(
       docs,
-      byEntityId,
       transforms,
       defaultSchemaOf,
-      schemas,
-      readSql,
-      columns: createSqlColumnReader(parser, engineOf),
-    },
-    report,
-  );
+      report,
+    );
+    checkReadTablesKnown(transforms, checkKnown);
 
-  return {
-    files: docs.length + unreadable.length,
-    findings: findings.sort(byRuleThenFile),
-  };
+    reportTestFindings(
+      docs,
+      byEntityId,
+      transformOfDoc,
+      checkKnown,
+      defaultSchemaOf,
+      readSql,
+      report,
+    );
+    reportRowsColumns(docs, report);
+    reportExpectationNames(docs, report);
+    reportEmptyExpectations(docs, report);
+    reportUntestableEngines(docs, byEntityId, engineOf, report);
+    reportTestSql(
+      {
+        docs,
+        byEntityId,
+        transforms,
+        defaultSchemaOf,
+        schemas,
+        readSql,
+        columns: createSqlColumnReader(parser, engineOf),
+      },
+      report,
+    );
+    return { files, findings: findings.sort(byRuleThenFile) };
+  });
 }
