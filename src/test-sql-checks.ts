@@ -243,6 +243,7 @@ export function reportUpstreamColumns(
       const table: TableKey = {
         database: transform.doc.body.source_database_id,
         ...inputTableOf(input.table),
+        nullSchema: "default",
       };
       for (const upstream of checks.transforms) {
         if (

@@ -1,13 +1,15 @@
-import { fold, type TableName } from "./tables.js";
+import { fold, type TableKey, type TableName } from "./tables.js";
 
 /**
  * Whether a test input stands in for a table the transform reads, by Metabase's
  * rule: names equal, ignoring case, and either schemas equal, ignoring case, or
  * the read unqualified and the input in the default schema. An unqualified
- * input never covers a qualified read.
+ * input never covers a qualified read. A read with no schema by an MBQL
+ * reference (`nullSchema` `"none"`) is not unqualified: no input in the default
+ * schema covers it.
  */
 export function inputCovers(
-  read: TableName,
+  read: Omit<TableKey, "database">,
   input: TableName,
   defaultSchema: string | null,
 ): boolean {
@@ -17,7 +19,11 @@ export function inputCovers(
   if (fold(read.schema) === fold(input.schema)) {
     return true;
   }
-  return read.schema === null && fold(input.schema) === fold(defaultSchema);
+  return (
+    read.schema === null &&
+    read.nullSchema === "default" &&
+    fold(input.schema) === fold(defaultSchema)
+  );
 }
 
 /**

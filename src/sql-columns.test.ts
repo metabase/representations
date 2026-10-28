@@ -18,7 +18,12 @@ beforeAll(async () => {
 }, 60_000);
 
 const column = (schema: string | null, table: string, name: string) => ({
-  table: { database: "Warehouse", schema, name: table },
+  table: {
+    database: "Warehouse",
+    schema,
+    name: table,
+    nullSchema: "default" as const,
+  },
   column: name,
 });
 

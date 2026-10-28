@@ -7,18 +7,27 @@ import {
   resolveDefaultSchemas,
 } from "./default-schemas.js";
 import { inputCovers, inputsCollide, rewriteCovers } from "./input-match.js";
-import { sameTable, type TableKey, type TableName } from "./tables.js";
+import { type NullSchema, sameTable, type TableKey } from "./tables.js";
 
-const t = (schema: string | null, name: string): TableName => ({
+/** A table named in SQL: a null schema is an unqualified name. */
+const t = (schema: string | null, name: string) => ({
   schema,
   name,
+  nullSchema: "default" as const,
+});
+
+/** A table named by an MBQL reference: a null schema is the table with no schema. */
+const ref = (schema: string | null, name: string) => ({
+  schema,
+  name,
+  nullSchema: "none" as const,
 });
 
 const k = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({ database, schema, name });
+): TableKey => ({ database, schema, name, nullSchema: "default" });
 
 describe("defaultSchemaNeed", () => {
   it("needs a default schema for an unqualified name", () => {
@@ -31,6 +40,12 @@ describe("defaultSchemaNeed", () => {
     expect(defaultSchemaNeed([t("A", "orders"), t("b", "ORDERS")])).toBe(
       "names orders in schemas A and b",
     );
+  });
+
+  it("needs none for an MBQL reference with no schema, which names the table with no schema", () => {
+    expect(
+      defaultSchemaNeed([ref(null, "ORDERS"), t("PUBLIC", "ORDERS")]),
+    ).toBeNull();
   });
 
   it("needs none when every name is qualified and each table name has one schema", () => {
@@ -49,16 +64,27 @@ describe("defaultSchemaNeed", () => {
 const tableName = fc.record({
   schema: fc.constantFrom(null, "a", "A", "b"),
   name: fc.constantFrom("t", "T", "u"),
+  nullSchema: fc.constantFrom<NullSchema>("default", "none"),
 });
+
+type GeneratedName = {
+  schema: string | null;
+  name: string;
+  nullSchema: NullSchema;
+};
 
 describe("the default-schema gate", () => {
   it("lets through only names whose matches never depend on the default schema", () => {
     const defaults = [null, "a", "b"] as const;
-    const key = (n: TableName) => k("db", n.schema, n.name);
-    const answers = (a: TableName, b: TableName, d: string | null) => [
-      inputCovers(a, b, d),
-      rewriteCovers(a, b, d),
-      inputsCollide(a, b, d),
+    const key = (n: GeneratedName): TableKey => ({ database: "db", ...n });
+    const isSql = (n: GeneratedName) => n.nullSchema === "default";
+    // Test inputs and transform targets are named as in SQL; only a read may
+    // be an MBQL reference.
+    const answers = (a: GeneratedName, b: GeneratedName, d: string | null) => [
+      ...(isSql(b) ? [inputCovers(a, b, d)] : []),
+      ...(isSql(a) && isSql(b)
+        ? [rewriteCovers(a, b, d), inputsCollide(a, b, d)]
+        : []),
       sameTable(key(a), key(b), () => d),
     ];
     fc.assert(

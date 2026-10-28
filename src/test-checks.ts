@@ -23,6 +23,7 @@ export function testInputs(test: TestDoc, transform: Transform): TableKey[] {
     database: transform.doc.body.source_database_id,
     schema: table.schema ?? null,
     name: table.name,
+    nullSchema: "default",
   }));
 }
 

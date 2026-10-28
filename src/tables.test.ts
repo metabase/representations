@@ -1,12 +1,25 @@
 import { describe, expect, it } from "bun:test";
 
-import { type DefaultSchemaOf, sameTable, type TableKey } from "./tables.js";
+import {
+  type DefaultSchemaOf,
+  sameTable,
+  type TableKey,
+  uniqueTables,
+} from "./tables.js";
 
+/** A table named in SQL: a null schema is an unqualified name. */
 const table = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({ database, schema, name });
+): TableKey => ({ database, schema, name, nullSchema: "default" });
+
+/** A table named by an MBQL reference: a null schema is the table with no schema. */
+const ref = (
+  database: string | null,
+  schema: string | null,
+  name: string,
+): TableKey => ({ database, schema, name, nullSchema: "none" });
 
 const noSchemas: DefaultSchemaOf = () => null;
 const defaultOf =
@@ -111,6 +124,33 @@ describe("sameTable", () => {
     ).toBe(false);
   });
 
+  it("takes an MBQL reference with no schema as the table with no schema, never the default", () => {
+    const publicDefault = defaultOf({ db: "public" });
+    expect(
+      sameTable(
+        ref("db", null, "t"),
+        table("db", "PUBLIC", "t"),
+        publicDefault,
+      ),
+    ).toBe(false);
+    expect(
+      sameTable(table("db", null, "t"), ref("db", null, "t"), publicDefault),
+    ).toBe(false);
+    expect(
+      sameTable(ref("db", null, "t"), ref("db", null, "t"), publicDefault),
+    ).toBe(true);
+    expect(
+      sameTable(ref("db", null, "t"), table("db", null, "t"), noSchemas),
+    ).toBe(true);
+    expect(
+      sameTable(
+        ref("db", "PUBLIC", "t"),
+        table("db", null, "t"),
+        publicDefault,
+      ),
+    ).toBe(true);
+  });
+
   it("compares two known databases ignoring case, and lets a missing one match any", () => {
     expect(
       sameTable(table("db1", "s", "t"), table("db2", "s", "t"), noSchemas),
@@ -135,5 +175,23 @@ describe("sameTable", () => {
     expect(
       sameTable(table("b", null, "t"), table(null, "other", "t"), schemas),
     ).toBe(true);
+  });
+});
+
+describe("uniqueTables", () => {
+  it("keeps an unqualified name apart from an MBQL reference with no schema, and a qualified table once", () => {
+    expect(
+      uniqueTables([
+        ref("db", null, "t"),
+        table("db", null, "T"),
+        ref("DB", null, "T"),
+        table("db", "S", "t"),
+        ref("db", "s", "t"),
+      ]),
+    ).toEqual([
+      ref("db", null, "t"),
+      table("db", null, "T"),
+      table("db", "S", "t"),
+    ]);
   });
 });

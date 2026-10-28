@@ -203,6 +203,36 @@ describe("lint", () => {
       ).toEqual([]);
     });
 
+    it("takes an MBQL reference with no schema as the table with no schema, and an unqualified SQL name as the default schema's", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      for (const test of [
+        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+        "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+      ]) {
+        const file = join(workdir, test);
+        const doc: unknown = yaml.load(readFileSync(file, "utf8"));
+        if (!isRecord(doc) || !Array.isArray(doc.inputs)) {
+          throw new Error(`${file} has no inputs`);
+        }
+        const [orders]: unknown[] = doc.inputs;
+        if (!isRecord(orders) || !isRecord(orders.table)) {
+          throw new Error(`${file} has no input table`);
+        }
+        orders.table.schema = "PUBLIC";
+        writeFileSync(file, yaml.dump(doc));
+      }
+      const messages = (
+        await lint({
+          folder: workdir,
+          defaultSchemas: { "Sample Database": "PUBLIC" },
+        })
+      ).findings.map((f) => `${f.rule}: ${f.message}`);
+      expect(messages).toEqual([
+        "missing-input: no input for ORDERS, which transform Monthly Order Summary reads",
+        "unused-input: input PUBLIC.ORDERS is not read by transform Monthly Order Summary",
+      ]);
+    });
+
     it("reads a Python transform's source tables in both forms", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(
@@ -825,8 +855,9 @@ describe("lint", () => {
       rmSync(join(workdir, CONFIG_FILE));
       writeDatabase("sqlite");
       expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
-      // SQLGlot has no MongoDB dialect, so the native transforms are unread:
-      // only the MBQL transforms' unqualified names need the default schema.
+      // SQLGlot has no MongoDB dialect, so the native transforms are unread
+      // and give no input finding. The tests' unqualified inputs still need
+      // the default schema, which the engine gives.
       writeDatabase("mongo");
       expect(await inputRules()).toEqual([]);
     });
@@ -1093,7 +1124,7 @@ describe("lint", () => {
       expect(await rulesWithDefault("PUBLIC")).toEqual([]);
     });
 
-    it("counts a table file as the table read unqualified only in the default schema", async () => {
+    it("counts a table file as the table read unqualified only in the default schema, and never as an MBQL reference with no schema", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const dir = join(workdir, "databases/sample_database/tables/orders");
       mkdirSync(dir, { recursive: true });
@@ -1106,21 +1137,25 @@ describe("lint", () => {
           "serdes/meta": [{ model: "Table" }],
         }),
       );
-      const unknownTables = async (schema?: string) =>
+      const sqlRead = "collections/transforms/daily_order_summary.yaml";
+      const mbqlRead = "collections/transforms/mbql_transform.yaml";
+      const ordersUnknown = async (schema: string) =>
         (
           await lint({
             folder: workdir,
-            defaultSchemas:
-              schema === undefined ? {} : { "Sample Database": schema },
+            defaultSchemas: { "Sample Database": schema },
           })
         ).findings
-          .filter((f) => f.rule === "unknown-table")
-          .map((f) => f.message);
-      const ordersUnknown =
-        "table ORDERS is defined by no table file or transform target";
-      expect(await unknownTables()).not.toContain(ordersUnknown);
-      expect(await unknownTables("public")).not.toContain(ordersUnknown);
-      expect(await unknownTables("OTHER")).toContain(ordersUnknown);
+          .filter(
+            (f) =>
+              f.rule === "unknown-table" &&
+              f.message ===
+                "table ORDERS is defined by no table file or transform target" &&
+              (f.file === sqlRead || f.file === mbqlRead),
+          )
+          .map((f) => f.file);
+      expect(await ordersUnknown("public")).toEqual([mbqlRead]);
+      expect(await ordersUnknown("OTHER")).toEqual([sqlRead, mbqlRead]);
     });
   });
 });

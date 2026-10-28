@@ -113,7 +113,12 @@ export function createSqlColumnReader(
           return table !== null &&
             field.type === "single_column" &&
             !isTagPlaceholder(field.column)
-            ? [{ table: { database, ...table }, column: field.column }]
+            ? [
+                {
+                  table: { database, ...table, nullSchema: "default" },
+                  column: field.column,
+                },
+              ]
             : [];
         }),
       })),

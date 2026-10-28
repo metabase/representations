@@ -140,7 +140,11 @@ An engine is Metabase's driver name, as a Database file's `engine` gives it. A D
 
 ### Default schemas
 
-An unqualified table name, such as `orders`, resolves to its database's default schema. The lint needs the default schema of a database when a name in it has no schema, or when one table name appears in two schemas. Without it, the lint stops before any check and names each such database.
+An unqualified table name, such as `orders` in SQL, a transform's target or a test's input, resolves to its database's default schema.
+
+An MBQL reference, `[database, schema, table]` or `[database, schema, table, field]`, names its schema as written, as Metabase's serdes import reads it: a `null` schema is the table with no schema, never the default schema. On a database whose default schema is `PUBLIC`, `["Sample Database", null, "ORDERS"]` is not `PUBLIC.ORDERS`, and an input for `PUBLIC.ORDERS` does not stand in for it. A Python transform's source table and a table file read a `null` schema the same way.
+
+The lint needs the default schema of a database when an unqualified name is in it, or when one table name appears in two schemas. Without it, the lint stops before any check and names each such database.
 
 It takes a database's default schema from the first of these that gives one:
 

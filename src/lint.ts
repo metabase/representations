@@ -180,6 +180,7 @@ function tableOfFile(doc: ValidDoc<"Table">): TableKey {
     database: doc.body.db_id,
     schema: doc.body.schema ?? null,
     name: doc.body.name,
+    nullSchema: "none",
   };
 }
 
@@ -463,7 +464,9 @@ function comparedTables(
       const result =
         "sql" in expectation ? readSql(expectation.sql, database) : null;
       return result?.status === "read"
-        ? result.tables.map((t) => ({ database, ...t }))
+        ? result.tables.map(
+            (t): TableKey => ({ database, ...t, nullSchema: "default" }),
+          )
         : [];
     });
     return [...testInputs(test, transform), ...expectationReads];

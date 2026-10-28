@@ -1,12 +1,7 @@
 import type { EngineOf } from "./databases.js";
 import { engineFacts } from "./engines.js";
 import { CONFIG_FILE, LintSetupError } from "./settings.js";
-import {
-  type DefaultSchemaOf,
-  fold,
-  type TableKey,
-  type TableName,
-} from "./tables.js";
+import { type DefaultSchemaOf, fold, type TableKey } from "./tables.js";
 
 /**
  * The schema an unqualified table name resolves to, by database name, as
@@ -36,16 +31,22 @@ export class MissingDefaultSchemasError extends LintSetupError {
 
 /**
  * Why a database whose tables the lint names by `names` needs its default
- * schema: a name with no schema, or one table name in two schemas. Null when
- * no comparison of these names depends on the default schema.
+ * schema: an unqualified name, or one table name in two schemas. Null when
+ * no comparison of these names depends on the default schema. A name with no
+ * schema by an MBQL reference (`nullSchema` `"none"`) never does.
  */
-export function defaultSchemaNeed(names: readonly TableName[]): string | null {
-  const unqualified = names.find((n) => n.schema === null);
+export function defaultSchemaNeed(
+  names: readonly Omit<TableKey, "database">[],
+): string | null {
+  const unqualified = names.find(
+    (n) => n.schema === null && n.nullSchema === "default",
+  );
   if (unqualified !== undefined) {
     return `names ${unqualified.name} without a schema`;
   }
-  for (const a of names) {
-    const b = names.find(
+  const qualified = names.filter((n) => n.schema !== null);
+  for (const a of qualified) {
+    const b = qualified.find(
       (n) => fold(n.name) === fold(a.name) && fold(n.schema) !== fold(a.schema),
     );
     if (b !== undefined) {
@@ -80,7 +81,7 @@ export function resolveDefaultSchemas({
       ? null
       : undefined;
   };
-  const byDatabase = new Map<string, TableName[]>();
+  const byDatabase = new Map<string, Omit<TableKey, "database">[]>();
   for (const { database, ...name } of names) {
     if (database !== null) {
       byDatabase.set(database, [...(byDatabase.get(database) ?? []), name]);

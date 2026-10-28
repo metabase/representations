@@ -78,26 +78,35 @@ function nativeReads(
       return result;
     }
     tables.push(
-      ...result.tables.map((t) => ({
-        database: native.database,
-        ...t,
-      })),
+      ...result.tables.map(
+        (t): TableKey => ({
+          database: native.database,
+          ...t,
+          nullSchema: "default",
+        }),
+      ),
     );
   }
   return { status: "read", tables };
 }
 
+/**
+ * The tables a Python transform's source tables name. Metabase looks each up
+ * by its database, schema and name as given, so a null schema is the table
+ * with no schema.
+ */
 function pythonReads(source: PythonSource): Reads {
   const tables: TableKey[] = [];
   for (const t of source["source-tables"]) {
     if (t.table_id !== undefined) {
       const [database, schema, name] = t.table_id;
-      tables.push({ database, schema, name });
+      tables.push({ database, schema, name, nullSchema: "none" });
     } else if (t.table !== undefined) {
       tables.push({
         database: t.database_id,
         schema: t.schema ?? null,
         name: t.table,
+        nullSchema: "none",
       });
     } else {
       // The schema requires neither `table` nor `table_id`.
@@ -240,6 +249,7 @@ export function transformOf(
       database: targetDatabaseOf(doc),
       schema: target.schema ?? null,
       name: target.name,
+      nullSchema: "default",
     },
     reads: readsOf(doc),
   };

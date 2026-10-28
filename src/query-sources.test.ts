@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { createSourceFinder } from "./query-sources.js";
 import { loadSchemas } from "./schemas.js";
+import type { TableKey } from "./tables.js";
 
 const findSources = createSourceFinder(loadSchemas());
 
@@ -36,7 +37,7 @@ describe("createSourceFinder", () => {
       "Transform",
     );
     expect(sources.tables).toEqual([
-      { database: DB, schema: null, name: "ORDERS" },
+      { database: DB, schema: null, name: "ORDERS", nullSchema: "none" },
     ]);
   });
 
@@ -64,8 +65,8 @@ describe("createSourceFinder", () => {
       "Transform",
     );
     expect(sources.tables).toEqual([
-      { database: DB, schema: "null", name: "ORDERS" },
-      { database: DB, schema: null, name: "ORDERS" },
+      { database: DB, schema: "null", name: "ORDERS", nullSchema: "none" },
+      { database: DB, schema: null, name: "ORDERS", nullSchema: "none" },
     ]);
   });
 
@@ -84,12 +85,22 @@ describe("createSourceFinder", () => {
       ]),
       "Transform",
     );
-    const orders = { database: DB, schema: null, name: "ORDERS" };
+    const orders: TableKey = {
+      database: DB,
+      schema: null,
+      name: "ORDERS",
+      nullSchema: "none",
+    };
     expect(sources.fields).toEqual([
       { table: orders, column: "TOTAL" },
       { table: orders, column: "PRODUCT_ID" },
       {
-        table: { database: DB, schema: null, name: "PRODUCTS" },
+        table: {
+          database: DB,
+          schema: null,
+          name: "PRODUCTS",
+          nullSchema: "none",
+        },
         column: "CATEGORY",
       },
     ]);
@@ -240,7 +251,7 @@ describe("createSourceFinder", () => {
       "NNNNNNNNNNNNNNNNNNNNN",
     ]);
     expect(sources.tables).toEqual([
-      { database: DB, schema: "PUBLIC", name: "PEOPLE" },
+      { database: DB, schema: "PUBLIC", name: "PEOPLE", nullSchema: "none" },
     ]);
   });
 
