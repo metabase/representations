@@ -24,8 +24,8 @@ const baseUrl = values["base-url"] ?? "https://raw.githubusercontent.com";
 const pypiUrl = values["pypi-url"] ?? "https://pypi.org";
 const { sqlTools, sqlglot } = readVendorSources();
 
-const README_STEP =
-  'Then update the "Metabase version" section of README.md, which names the Metabase versions the parser matches.';
+const DOCS_STEP =
+  'Then update the "Metabase versions" section of docs/lint.md, which names the Metabase versions the parser matches.';
 
 let failed = false;
 const fail = (line: string) => {
@@ -89,7 +89,7 @@ if (metabaseSqlTools !== null) {
     fail(
       `vendor/sql_tools.py differs from Metabase's ${sqlTools.path} on master. ` +
         "Copy it unchanged, and record the Metabase commit in vendor/sources.json. " +
-        README_STEP,
+        DOCS_STEP,
     );
   }
 }
@@ -108,7 +108,7 @@ if (pyproject !== null) {
     fail(
       `Metabase pins sqlglot ${pin[1]}; vendor/ holds ${sqlglot.version}. ` +
         "Vendor that wheel from PyPI, and update vendor/sources.json. " +
-        README_STEP,
+        DOCS_STEP,
     );
   }
 }
