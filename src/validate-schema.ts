@@ -83,6 +83,19 @@ export function validateSchema({
   return validateFolder(folder, loadSchemas());
 }
 
+/** The ways `doc` fails `validate`, in Ajv's order; empty when it passes. */
+export function validationErrors(
+  validate: ValidateFunction,
+  doc: unknown,
+): ValidationError[] {
+  return validate(doc)
+    ? []
+    : (validate.errors ?? []).map((e) => ({
+        path: e.instancePath || "/",
+        message: e.message ?? "",
+      }));
+}
+
 /** `validateSchema` against schemas the caller has loaded. */
 export function validateFolder(
   folder: string,
@@ -127,15 +140,12 @@ export function validateFolder(
       continue;
     }
 
-    if (validate(doc)) {
-      results.push({ file, model, status: "ok" });
-    } else {
-      const errors = (validate.errors ?? []).map((e) => ({
-        path: e.instancePath || "/",
-        message: e.message ?? "",
-      }));
-      results.push({ file, model, status: "fail", errors });
-    }
+    const errors = validationErrors(validate, doc);
+    results.push(
+      errors.length === 0
+        ? { file, model, status: "ok" }
+        : { file, model, status: "fail", errors },
+    );
   }
 
   return {

@@ -3,7 +3,13 @@ import { globSync } from "glob";
 import { resolve } from "path";
 
 import type { Schemas } from "./schemas.js";
-import { getModel, IMPORT_PATHS, validateFolder } from "./validate-schema.js";
+import {
+  getModel,
+  IMPORT_PATHS,
+  validateFolder,
+  type ValidationError,
+  validationErrors,
+} from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
 import {
   type NonStringKey,
@@ -17,8 +23,8 @@ export type Doc = {
   file: string;
   model: string | null;
   body: Record<string, unknown>;
-  /** False when the file fails its model's schema; true when it passes, or when its model has no schema. */
-  schemaValid: boolean;
+  /** The first way the file fails its model's schema; null when it passes, or when its model has no schema. */
+  schemaError: ValidationError | null;
   /** The keys of `body`'s maps that Metabase reads as something other than a string. */
   nonStringKeys: readonly NonStringKey[];
 };
@@ -32,19 +38,22 @@ export const DATABASE_PATHS = ["databases/*/*.yaml"];
 /**
  * Returns a check of a file that `validateSchema` does not see against its
  * model's schema: `table.yaml` for a Table, which has no `serdes/meta` model
- * constant to find it by. True when the model has no schema.
+ * constant to find it by. It gives the first error, or null when the file
+ * passes or its model has no schema.
  */
 function createUnimportedFileCheck(
   schemas: Schemas,
-): (model: string | null, body: unknown) => boolean {
+): (model: string | null, body: unknown) => ValidationError | null {
   return (model, body) => {
     if (model === null) {
-      return true;
+      return null;
     }
     const file = model === "Table" ? "table.yaml" : schemas.models.get(model);
     const validate =
       file === undefined ? undefined : schemas.ajv.getSchema(file);
-    return validate === undefined || validate(body) === true;
+    return validate === undefined
+      ? null
+      : (validationErrors(validate, body)[0] ?? null);
   };
 }
 
@@ -168,7 +177,9 @@ export function asValid<M extends keyof ValidBodies>(
 ): ValidDoc<M> | null {
   // The body passed the schema of `model`, and ValidBodies declares only
   // fields that schema requires or types.
-  return doc.model === model && doc.schemaValid ? (doc as ValidDoc<M>) : null;
+  return doc.model === model && doc.schemaError === null
+    ? (doc as ValidDoc<M>)
+    : null;
 }
 
 /** The documents of one model that match their schema. */
@@ -249,13 +260,13 @@ export function loadDocs(
   docs: Doc[];
   unreadable: UnreadableFile[];
 } {
-  const invalid = new Set(
-    validateFolder(folder, schemas)
-      .results.filter((r) => r.status === "fail")
-      .map((r) => r.file),
+  const importErrors = new Map(
+    validateFolder(folder, schemas).results.flatMap((r) =>
+      r.status === "fail" ? [[r.file, r.errors[0] ?? null] as const] : [],
+    ),
   );
   const imported = new Set(globSync(IMPORT_PATHS, { cwd: folder }));
-  const matchesSchema = createUnimportedFileCheck(schemas);
+  const schemaErrorOf = createUnimportedFileCheck(schemas);
   const docs: Doc[] = [];
   const unreadable: UnreadableFile[] = [];
   const files = new Set([
@@ -281,9 +292,9 @@ export function loadDocs(
       file,
       model,
       body,
-      schemaValid: imported.has(file)
-        ? !invalid.has(file)
-        : matchesSchema(model, body),
+      schemaError: imported.has(file)
+        ? (importErrors.get(file) ?? null)
+        : schemaErrorOf(model, body),
       nonStringKeys,
     });
   }

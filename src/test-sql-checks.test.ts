@@ -76,7 +76,7 @@ function transformDoc(
   return {
     file: `collections/transforms/${target}.yaml`,
     model: "Transform",
-    schemaValid: true,
+    schemaError: null,
     nonStringKeys: [],
     body: {
       name: target,
@@ -103,7 +103,7 @@ function testDoc(
   return {
     file: `${transform.file.replace(/\.yaml$/, "")}/test.yaml`,
     model: "TransformTest",
-    schemaValid: true,
+    schemaError: null,
     nonStringKeys: [],
     body: {
       name: `${String(transform.body.name)} test`,

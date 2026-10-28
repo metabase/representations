@@ -32,7 +32,7 @@ function testDoc(body: Record<string, unknown>): Doc {
   return {
     file: "collections/transforms/orders/orders__test.yaml",
     model: "TransformTest",
-    schemaValid: true,
+    schemaError: null,
     nonStringKeys: [],
     body: {
       name: "orders test",
@@ -157,7 +157,7 @@ describe("reportRowsColumns", () => {
   it("does not check a test that fails its schema", () => {
     const doc: Doc = {
       ...testDoc({ inputs: [ordersInput([{ id: 1 }])] }),
-      schemaValid: false,
+      schemaError: { path: "/name", message: "must be string" },
       nonStringKeys: [],
     };
     expect(run(reportRowsColumns, [doc])).toEqual([]);

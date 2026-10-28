@@ -51,7 +51,7 @@ function transformDoc(body: Record<string, unknown>): Doc {
   return {
     file: TRANSFORM_FILE,
     model: "Transform",
-    schemaValid: true,
+    schemaError: null,
     nonStringKeys: [],
     body: {
       name: "Orders by day",
@@ -77,7 +77,7 @@ function testDoc(transformId: string): Doc {
   return {
     file: TEST_FILE,
     model: "TransformTest",
-    schemaValid: true,
+    schemaError: null,
     nonStringKeys: [],
     body: {
       name: "Orders by day: one day",
@@ -224,9 +224,17 @@ describe("reportMissingTargetSchemas", () => {
 
   it("skips a transform that fails its schema", () => {
     expect(
-      targetSchemaFindings([{ ...withTarget({}), schemaValid: false }], {
-        Warehouse: "postgres",
-      }),
+      targetSchemaFindings(
+        [
+          {
+            ...withTarget({}),
+            schemaError: { path: "/name", message: "must be string" },
+          },
+        ],
+        {
+          Warehouse: "postgres",
+        },
+      ),
     ).toEqual([]);
   });
 });

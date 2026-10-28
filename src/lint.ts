@@ -288,10 +288,17 @@ function reportUnreadableFiles(
   report: Report,
 ): void {
   for (const { file, reason } of unreadable) {
+    const message = `the file ${reason}`;
     report(
       "schema",
-      { file, model: null, body: {}, schemaValid: false, nonStringKeys: [] },
-      `the file ${reason}`,
+      {
+        file,
+        model: null,
+        body: {},
+        schemaError: { path: "/", message },
+        nonStringKeys: [],
+      },
+      message,
     );
   }
 }
@@ -299,12 +306,13 @@ function reportUnreadableFiles(
 /** Reports each transform, transform test, table, Database or snippet file that fails its schema. */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
-    if (
-      !doc.schemaValid &&
-      doc.model !== null &&
-      LINTED_MODELS.has(doc.model)
-    ) {
-      report("schema", doc, `${doc.model} does not match its schema`);
+    const { model, schemaError } = doc;
+    if (schemaError !== null && model !== null && LINTED_MODELS.has(model)) {
+      report(
+        "schema",
+        doc,
+        `${model} does not match its schema: ${schemaError.path} ${schemaError.message}`,
+      );
     }
   }
 }

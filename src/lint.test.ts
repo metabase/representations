@@ -363,7 +363,26 @@ describe("lint", () => {
         (await findings(workdir)).map(
           (f) => `${f.rule}: ${f.file}: ${f.message}`,
         ),
-      ).toEqual([`schema: ${file}: Database does not match its schema`]);
+      ).toEqual([
+        `schema: ${file}: Database does not match its schema: /engine must be string`,
+      ]);
+    });
+
+    it("names the path and the reason of a schema mismatch, not the condition around it", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "collections/transforms/python_hello_world.yaml";
+      const path = join(workdir, file);
+      const doc: unknown = yaml.load(readFileSync(path, "utf8"));
+      if (!isRecord(doc) || !isRecord(doc.source)) {
+        throw new Error(`${file} is not a transform`);
+      }
+      const { body: _, ...source } = doc.source;
+      writeFileSync(path, yaml.dump({ ...doc, source }));
+      expect(
+        (await findings(workdir)).map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "schema: Transform does not match its schema: /source must have required property 'body'",
+      ]);
     });
 
     it("reports a duplicate key as a file that does not parse", async () => {
@@ -431,7 +450,7 @@ describe("lint", () => {
         {
           rule: "schema",
           file,
-          message: "Transform does not match its schema",
+          message: "Transform does not match its schema: /name must be string",
         },
       ]);
     });
@@ -593,16 +612,18 @@ describe("lint", () => {
         { content: "WHERE 1 = 1" },
         "undefined",
         "snippet undefined is not in the folder",
+        "/ must have required property 'name'",
       ],
       [
         "no content",
         { name: "Broken" },
         "Broken",
         "snippet Broken is in collections/snippets/broken.yaml, which fails its schema",
+        "/ must have required property 'content'",
       ],
     ])(
       "reports a snippet file with %s, and does not use it",
-      async (_, fields, usedName, reason) => {
+      async (_, fields, usedName, reason, schemaError) => {
         cpSync(EXAMPLES, workdir, { recursive: true });
         const snippetFile = "collections/snippets/broken.yaml";
         writeFileSync(
@@ -628,7 +649,7 @@ describe("lint", () => {
             (f) => `${f.file}: ${f.rule}: ${f.message}`,
           ),
         ).toEqual([
-          `${snippetFile}: schema: NativeQuerySnippet does not match its schema`,
+          `${snippetFile}: schema: NativeQuerySnippet does not match its schema: ${schemaError}`,
           `${transformFile}: reads-not-checked: could not find the tables this transform reads: ${reason}`,
         ]);
       },
