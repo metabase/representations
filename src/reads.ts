@@ -1,12 +1,14 @@
 import {
   asValid,
   type Doc,
+  holderOf,
   isPythonSource,
   type PythonSource,
+  validDocsOf,
   type ValidDoc,
 } from "./documents.js";
 import { createSourceFinder, type NativeSql } from "./query-sources.js";
-import { loadSchemas } from "./schemas.js";
+import type { Schemas } from "./schemas.js";
 import { expandSnippets } from "./snippets.js";
 import { tablesReadBySql } from "./sql-tables.js";
 import { type TableKey, uniqueTables } from "./tables.js";
@@ -99,15 +101,15 @@ function pythonReads(source: PythonSource): Reads {
 export function createReader(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  schemas: Schemas,
 ): ReadsOf {
-  const findSources = createSourceFinder(loadSchemas());
-  const snippetDocs = docs.filter((d) => d.model === SNIPPET_MODEL);
+  const findSources = createSourceFinder(schemas);
   const snippetByName = new Map(
-    snippetDocs.map((d) => [String(d.body.name), String(d.body.content)]),
+    validDocsOf(docs, SNIPPET_MODEL).map((d) => [d.body.name, d.body.content]),
   );
   const snippetById = (id: string) => {
-    const doc = byEntityId.get(id)?.find((d) => d.model === SNIPPET_MODEL);
-    return doc === undefined ? undefined : String(doc.body.content);
+    const doc = holderOf(byEntityId, id);
+    return doc === null ? undefined : asValid(doc, SNIPPET_MODEL)?.body.content;
   };
   const memo = new Map<Doc, Reads>();
 
@@ -135,8 +137,8 @@ export function createReader(
     tables.push(...native.tables);
     const inner = new Set([...visiting, doc]);
     for (const id of sources.entities) {
-      const sourceDoc = byEntityId.get(id)?.[0];
-      if (sourceDoc === undefined) {
+      const sourceDoc = holderOf(byEntityId, id);
+      if (sourceDoc === null) {
         return {
           status: "unread",
           reason: `source ${id} is not in the folder`,

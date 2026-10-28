@@ -1,6 +1,7 @@
 import {
   displayName,
   type Doc,
+  holderOf,
   isQuerySource,
   validDocsOf,
   type ValidDoc,
@@ -31,19 +32,20 @@ function testInputs(test: TestDoc, transform: Transform): TableKey[] {
 }
 
 /**
- * The query transform `test` tests. Null after an error when its transform_id
- * names nothing, names no Transform, or names a transform that is not a query
- * transform; null without one when the Transform it names fails its schema.
+ * The query transform `test` tests: the file its transform_id names
+ * (`holderOf`). Null after an error when that names nothing, names a file
+ * that is not a Transform, or names a transform that is not a query
+ * transform; null without one when the Transform fails its schema.
  */
 function testedTransform(
   test: TestDoc,
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  transformsById: ReadonlyMap<string, Transform>,
+  transformOfDoc: ReadonlyMap<Doc, Transform>,
   report: Report,
 ): Transform | null {
   const transformId = test.body.transform_id;
-  const holders = byEntityId.get(transformId) ?? [];
-  if (holders.length === 0) {
+  const holder = holderOf(byEntityId, transformId);
+  if (holder === null) {
     report(
       "dangling-transform-id",
       test,
@@ -51,16 +53,16 @@ function testedTransform(
     );
     return null;
   }
-  if (!holders.some((h) => h.model === "Transform")) {
+  if (holder.model !== "Transform") {
     report(
       "wrong-type-transform-id",
       test,
-      `transform_id ${transformId} names a ${holders[0].model ?? "file with no model"}, not a Transform`,
-      holders.map((h) => h.file),
+      `transform_id ${transformId} names a ${holder.model ?? "file with no model"}, not a Transform`,
+      (byEntityId.get(transformId) ?? []).map((h) => h.file),
     );
     return null;
   }
-  const transform = transformsById.get(transformId);
+  const transform = transformOfDoc.get(holder);
   if (transform === undefined) {
     return null;
   }
@@ -89,11 +91,11 @@ export function reportTestFindings(
   defaultSchemaOf: DefaultSchemaOf,
   report: Report,
 ): void {
-  const transformsById = new Map(
-    transforms.map((t) => [t.doc.body.entity_id, t]),
+  const transformOfDoc = new Map<Doc, Transform>(
+    transforms.map((t) => [t.doc, t]),
   );
   for (const test of validDocsOf(docs, "TransformTest")) {
-    const transform = testedTransform(test, byEntityId, transformsById, report);
+    const transform = testedTransform(test, byEntityId, transformOfDoc, report);
     if (transform === null) {
       continue;
     }

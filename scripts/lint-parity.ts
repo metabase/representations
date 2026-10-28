@@ -20,6 +20,7 @@ import { parseArgs } from "node:util";
 
 import { loadDocs, validDocsOf } from "../src/documents.js";
 import { lint, transformReads } from "../src/lint.js";
+import { loadSchemas } from "../src/schemas.js";
 import { isRecord } from "../src/values.js";
 import {
   ENVIRONMENT_REFUSALS,
@@ -238,7 +239,7 @@ for (const transform of transforms) {
 
 // Tests: Metabase's verdict on each test against the lint's errors on it.
 const testFiles = new Map(
-  validDocsOf(loadDocs(folder).docs, "TransformTest").map((d) => [
+  validDocsOf(loadDocs(folder, loadSchemas()).docs, "TransformTest").map((d) => [
     d.body.entity_id,
     d.file,
   ]),

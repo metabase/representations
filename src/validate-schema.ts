@@ -1,10 +1,11 @@
 import type { ValidateFunction } from "ajv/dist/2020.js";
 import { readFileSync } from "fs";
 import { globSync } from "glob";
-import yaml from "js-yaml";
 import { resolve } from "path";
 
-import { loadSchemas } from "./schemas.js";
+import { loadSchemas, type Schemas } from "./schemas.js";
+import { errorMessage, isRecord, stringOrNull } from "./values.js";
+import { readYaml } from "./yaml.js";
 
 /** The files of a folder that Metabase imports, as globs relative to the folder. */
 export const IMPORT_PATHS = [
@@ -45,20 +46,30 @@ export type ValidateSchemaResult = {
 };
 
 /**
- * The `model` of the last `serdes/meta` entry, or null when there is none.
- * Not checked to be a string.
+ * The `model` of the last `serdes/meta` entry, or null when there is none or
+ * it is not a string.
  */
-export function getModel(doc: any): string | null {
-  const meta = doc?.["serdes/meta"];
+export function getModel(doc: unknown): string | null {
+  const meta = isRecord(doc) ? doc["serdes/meta"] : undefined;
   if (!Array.isArray(meta) || meta.length === 0) {
     return null;
   }
-  return meta[meta.length - 1]?.model ?? null;
+  const last: unknown = meta[meta.length - 1];
+  return isRecord(last) ? stringOrNull(last.model) : null;
 }
 
-/** A failure of the whole file, before any schema check: no model, one error at the root. */
-function fileFailure(file: string, message: string): ValidationResult {
-  return { file, status: "fail", errors: [{ path: "/", message }] };
+/** A failure of the whole file, before any schema check: one error at the root. */
+function fileFailure(
+  file: string,
+  message: string,
+  model?: string,
+): ValidationResult {
+  return {
+    file,
+    ...(model === undefined ? {} : { model }),
+    status: "fail",
+    errors: [{ path: "/", message }],
+  };
 }
 
 /**
@@ -69,8 +80,14 @@ function fileFailure(file: string, message: string): ValidationResult {
 export function validateSchema({
   folder,
 }: ValidateSchemaOptions): ValidateSchemaResult {
-  const { ajv, models } = loadSchemas();
+  return validateFolder(folder, loadSchemas());
+}
 
+/** `validateSchema` against schemas the caller has loaded. */
+export function validateFolder(
+  folder: string,
+  { ajv, models }: Schemas,
+): ValidateSchemaResult {
   const validators: Record<string, ValidateFunction> = {};
   for (const [model, file] of models) {
     const validate = ajv.getSchema(file);
@@ -92,9 +109,9 @@ export function validateSchema({
 
     let doc: unknown;
     try {
-      doc = yaml.load(readFileSync(fullPath, "utf8"));
-    } catch (e: any) {
-      results.push(fileFailure(file, `invalid YAML: ${e.message}`));
+      doc = readYaml(readFileSync(fullPath, "utf8")).value;
+    } catch (e) {
+      results.push(fileFailure(file, `invalid YAML: ${errorMessage(e)}`));
       continue;
     }
 
@@ -106,7 +123,7 @@ export function validateSchema({
 
     const validate = validators[model];
     if (!validate) {
-      results.push(fileFailure(file, `unknown model "${model}"`));
+      results.push(fileFailure(file, `unknown model "${model}"`, model));
       continue;
     }
 

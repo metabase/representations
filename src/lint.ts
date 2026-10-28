@@ -17,6 +17,7 @@ import {
 } from "./findings.js";
 import { cyclePath, cycles } from "./graph.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
+import { loadSchemas, type Schemas } from "./schemas.js";
 import {
   type DefaultSchemaOf,
   fold,
@@ -52,7 +53,12 @@ export type LintResult = {
   findings: LintFinding[];
 };
 
-const LINTED_MODELS = new Set(["Transform", "TransformTest", "Table"]);
+const LINTED_MODELS = new Set([
+  "Transform",
+  "TransformTest",
+  "Table",
+  "NativeQuerySnippet",
+]);
 
 function entityOf(doc: Doc): LintEntity {
   return {
@@ -242,13 +248,13 @@ function reportUnreadableFiles(
   for (const { file, reason } of unreadable) {
     report(
       "schema",
-      { file, model: null, body: {}, schemaValid: false },
+      { file, model: null, body: {}, schemaValid: false, nonStringKeys: [] },
       `the file ${reason}`,
     );
   }
 }
 
-/** Reports each transform, transform test or table file that fails its schema. */
+/** Reports each transform, transform test, table or snippet file that fails its schema. */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
     if (
@@ -273,9 +279,10 @@ export type TransformReads = {
 
 /** The tables each schema-valid transform in the folder reads, as `lint` finds them. */
 export function transformReads({ folder }: LintOptions): TransformReads[] {
-  const { docs } = loadDocs(folder);
-  return transformsOf(docs, indexByEntityId(docs)).map(({ doc, reads }) => {
-    return {
+  const schemas = loadSchemas();
+  const { docs } = loadDocs(folder, schemas);
+  return transformsOf(docs, indexByEntityId(docs), schemas).map(
+    ({ doc, reads }) => ({
       file: doc.file,
       entity_id: doc.body.entity_id,
       name: doc.body.name,
@@ -284,16 +291,17 @@ export function transformReads({ folder }: LintOptions): TransformReads[] {
         reads.status === "read"
           ? reads.tables.map(({ schema, name }) => ({ schema, name }))
           : null,
-    };
-  });
+    }),
+  );
 }
 
 /** The schema-valid transforms among `docs`, in order, with their targets and reads. */
 function transformsOf(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  schemas: Schemas,
 ): Transform[] {
-  const readsOf = createReader(docs, byEntityId);
+  const readsOf = createReader(docs, byEntityId, schemas);
   return validDocsOf(docs, "Transform").map((doc) => transformOf(doc, readsOf));
 }
 
@@ -326,7 +334,8 @@ function createDefaultSchemaOf(
  * Findings are grouped by rule, in the order of `LINT_RULES`, then by file.
  */
 export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
-  const { docs, unreadable } = loadDocs(folder);
+  const schemas = loadSchemas();
+  const { docs, unreadable } = loadDocs(folder, schemas);
   const findings: LintFinding[] = [];
   const report = createReport(findings);
 
@@ -338,7 +347,7 @@ export function lint({ folder, defaultSchemas = {} }: LintOptions): LintResult {
   const byEntityId = indexByEntityId(docs);
   reportDuplicateEntityIds(byEntityId, report);
 
-  const transforms = transformsOf(docs, byEntityId);
+  const transforms = transformsOf(docs, byEntityId, schemas);
 
   reportUnreadSources(transforms, report);
   reportDuplicateTargets(transforms, defaultSchemaOf, report);

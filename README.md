@@ -39,6 +39,15 @@ npx @metabase/representations validate-schema --folder ./my-export
 
 Omit `--folder` to validate the current directory.
 
+The validator reads each file as Metabase does: YAML 1.1 with SnakeYAML's rules, so `NO` is `false` and `017` is 15. It refuses what SnakeYAML refuses, such as an unknown tag, more than 50 aliases to a map or list, and a document longer than 3,145,728 code points. A duplicate key is an error, although Metabase keeps the last value. A key that SnakeYAML reads as no string, such as a plain `1:` or `yes:`, stays under its text as written.
+
+Known differences from Metabase's reading:
+
+- An integer beyond 2^53 loses precision, where Metabase reads a `Long` or `BigInteger`. Two such keys that differ only past 2^53 are a duplicate key in the validator and two keys in Metabase.
+- An explicit tag on a value outside its type's plain form, such as `!!float 1` or `!!bool y`, is refused; Metabase reads `1.0` and `null`.
+- `!!binary`, `!!set`, `!!omap` and `!!pairs` read as JavaScript's `Uint8Array`, `Set`, `Map` and a list of one-key maps.
+- Nesting deeper than about 6,000 levels is refused for lack of stack. Metabase's limit is 10,000 levels, or less when its thread's stack runs out first.
+
 ### Extracting the spec
 
 Copy the bundled `spec.md` to a target file:

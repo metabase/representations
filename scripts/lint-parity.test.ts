@@ -3,6 +3,7 @@ import { resolve } from "path";
 
 import { loadDocs, validDocsOf } from "../src/documents.js";
 import { transformReads } from "../src/lint.js";
+import { loadSchemas } from "../src/schemas.js";
 import { isRecord } from "../src/values.js";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -15,7 +16,7 @@ const TRANSFORMS = transformReads({ folder: EXAMPLES }).map((t, i) => ({
 const transformByEntityId = new Map(
   TRANSFORMS.map((t) => [t.entity_id ?? "", t]),
 );
-const TESTS = validDocsOf(loadDocs(EXAMPLES).docs, "TransformTest").map(
+const TESTS = validDocsOf(loadDocs(EXAMPLES, loadSchemas()).docs, "TransformTest").map(
   (doc, i) => ({
     id: 100 + i,
     entity_id: doc.body.entity_id,

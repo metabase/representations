@@ -289,6 +289,48 @@ describe("validateSchema", () => {
       });
     });
 
+    it("fails a file with a duplicate key, naming its position", () => {
+      mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+      writeFileSync(
+        join(workdir, "collections", "main", "duplicate.yaml"),
+        "name: a\nslug: a\nname: b\n",
+      );
+
+      const [result] = validateSchema({ folder: workdir }).results;
+      expect(result.status === "fail" && result.errors).toEqual([
+        {
+          path: "/",
+          message: expect.stringMatching(
+            /^invalid YAML: duplicated mapping key \(3:1\)/,
+          ),
+        },
+      ]);
+    });
+
+    it.each([
+      ["Reports", 0],
+      ["yes", 1],
+      ["on", 1],
+      ["1:30", 1],
+    ])(
+      "reads a name of %s as Metabase does, failing %p file(s)",
+      (name, failed) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "reports.yaml"),
+          [
+            `name: ${name}`,
+            "entity_id: cOlRePorTs000ExAmPlx2",
+            "serdes/meta:",
+            "- model: Collection",
+            "",
+          ].join("\n"),
+        );
+
+        expect(validateSchema({ folder: workdir }).failed).toBe(failed);
+      },
+    );
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
@@ -302,11 +344,30 @@ describe("validateSchema", () => {
         ].join("\n"),
       );
 
-      const { failed, results } = validateSchema({ folder: workdir });
-      expect(failed).toBe(1);
-      if (results[0].status === "fail") {
-        expect(results[0].errors[0].message).toMatch(/unknown model/);
-      }
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("collections", "main", "unknown.yaml"),
+          model: "NotARealModel",
+          status: "fail",
+          errors: [{ path: "/", message: 'unknown model "NotARealModel"' }],
+        },
+      ]);
+    });
+
+    it("fails a file whose model is not a string as having no model", () => {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(
+        join(workdir, "transforms", "listed.yaml"),
+        "name: Listed\nserdes/meta:\n- model: [Transform]\n",
+      );
+
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("transforms", "listed.yaml"),
+          status: "fail",
+          errors: [{ path: "/", message: "missing serdes/meta or model" }],
+        },
+      ]);
     });
   });
 });

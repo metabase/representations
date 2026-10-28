@@ -1,11 +1,16 @@
 import { readFileSync } from "fs";
 import { globSync } from "glob";
-import yaml from "js-yaml";
 import { resolve } from "path";
 
-import { loadSchemas, type Schemas } from "./schemas.js";
-import { getModel, IMPORT_PATHS, validateSchema } from "./validate-schema.js";
-import { isRecord, stringOrNull } from "./values.js";
+import type { Schemas } from "./schemas.js";
+import { getModel, IMPORT_PATHS, validateFolder } from "./validate-schema.js";
+import { errorMessage, isRecord, stringOrNull } from "./values.js";
+import {
+  type NonStringKey,
+  readYaml,
+  type YamlDocument,
+  YamlReadError,
+} from "./yaml.js";
 
 /** A representation file or table file that parses to a YAML map. */
 export type Doc = {
@@ -14,6 +19,8 @@ export type Doc = {
   body: Record<string, unknown>;
   /** False when the file fails its model's schema; true when it passes, or when its model has no schema. */
   schemaValid: boolean;
+  /** The keys of `body`'s maps that Metabase reads as something other than a string. */
+  nonStringKeys: readonly NonStringKey[];
 };
 
 /** The table files of a folder. They are not imported, so `validateSchema` does not check them. */
@@ -24,16 +31,13 @@ export const TABLE_PATHS = ["databases/**/tables/**/*.yaml"];
  * model's schema: `table.yaml` for a Table, which has no `serdes/meta` model
  * constant to find it by. True when the model has no schema.
  */
-function createTableFileCheck(): (
-  model: string | null,
-  body: unknown,
-) => boolean {
-  let schemas: Schemas | undefined;
+function createTableFileCheck(
+  schemas: Schemas,
+): (model: string | null, body: unknown) => boolean {
   return (model, body) => {
     if (model === null) {
       return true;
     }
-    schemas ??= loadSchemas();
     const file = model === "Table" ? "table.yaml" : schemas.models.get(model);
     const validate =
       file === undefined ? undefined : schemas.ajv.getSchema(file);
@@ -124,7 +128,14 @@ type TableBody = {
   schema?: string | null;
 };
 
+/** The fields the lint reads from a schema-valid snippet, as `snippet.yaml` types them. */
+type SnippetBody = {
+  name: string;
+  content: string;
+};
+
 type ValidBodies = {
+  NativeQuerySnippet: SnippetBody;
   Transform: TransformBody;
   TransformTest: TransformTestBody;
   Table: TableBody;
@@ -180,17 +191,20 @@ export type UnreadableFile = { file: string; reason: string };
  * Every representation file and table file in `folder`, in path order: those
  * that parse to a YAML map as documents, and the others as unreadable files.
  */
-export function loadDocs(folder: string): {
+export function loadDocs(
+  folder: string,
+  schemas: Schemas,
+): {
   docs: Doc[];
   unreadable: UnreadableFile[];
 } {
   const invalid = new Set(
-    validateSchema({ folder })
+    validateFolder(folder, schemas)
       .results.filter((r) => r.status === "fail")
       .map((r) => r.file),
   );
   const imported = new Set(globSync(IMPORT_PATHS, { cwd: folder }));
-  const matchesSchema = createTableFileCheck();
+  const matchesSchema = createTableFileCheck(schemas);
   const docs: Doc[] = [];
   const unreadable: UnreadableFile[] = [];
   const files = new Set([
@@ -198,19 +212,20 @@ export function loadDocs(folder: string): {
     ...globSync(TABLE_PATHS, { cwd: folder }),
   ]);
   for (const file of [...files].sort()) {
-    let body: unknown;
+    let read: YamlDocument;
     try {
-      body = yaml.load(readFileSync(resolve(folder, file), "utf8"));
+      read = readYaml(readFileSync(resolve(folder, file), "utf8"));
     } catch (e) {
-      const reason = e instanceof yaml.YAMLException ? e.reason : String(e);
+      const reason = e instanceof YamlReadError ? e.reason : errorMessage(e);
       unreadable.push({ file, reason: `does not parse as YAML: ${reason}` });
       continue;
     }
+    const { value: body, nonStringKeys } = read;
     if (!isRecord(body)) {
       unreadable.push({ file, reason: "is not a YAML map" });
       continue;
     }
-    const model = stringOrNull(getModel(body));
+    const model = getModel(body);
     docs.push({
       file,
       model,
@@ -218,6 +233,7 @@ export function loadDocs(folder: string): {
       schemaValid: imported.has(file)
         ? !invalid.has(file)
         : matchesSchema(model, body),
+      nonStringKeys,
     });
   }
   return { docs, unreadable };
@@ -233,4 +249,15 @@ export function indexByEntityId(docs: readonly Doc[]): Map<string, Doc[]> {
     }
   }
   return byEntityId;
+}
+
+/**
+ * The document an entity_id names: of the files that hold it, the first in
+ * path order. Null when no file holds it.
+ */
+export function holderOf(
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  id: string,
+): Doc | null {
+  return byEntityId.get(id)?.[0] ?? null;
 }

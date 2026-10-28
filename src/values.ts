@@ -19,3 +19,8 @@ export function templateTagsOf(value: unknown): Record<string, unknown>[] {
       : [];
   return entries.filter(isRecord);
 }
+
+/** The message of a thrown `Error`, or any other thrown value as text. */
+export function errorMessage(thrown: unknown): string {
+  return thrown instanceof Error ? thrown.message : String(thrown);
+}

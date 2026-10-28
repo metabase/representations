@@ -33,6 +33,7 @@ function testDoc(body: Record<string, unknown>): Doc {
     file: "collections/transforms/orders/orders__test.yaml",
     model: "TransformTest",
     schemaValid: true,
+    nonStringKeys: [],
     body: {
       name: "orders test",
       entity_id: "OrdersTest00000000001",
@@ -122,10 +123,42 @@ describe("reportRowsColumns", () => {
     expect(run(reportRowsColumns, [doc])).toEqual([]);
   });
 
+  it("names each key Metabase reads as no string, as written, in an input or an expectation", () => {
+    const doc: Doc = {
+      ...testDoc({
+        inputs: [
+          ordersInput([
+            { id: 1, total: 10 },
+            { id: 2, yes: 20 },
+          ]),
+        ],
+        expectations: [
+          {
+            type: "equals",
+            name: "by id",
+            format: "rows",
+            columns: [{ name: "1", cast_type: "INTEGER" }],
+            rows: [{ "1": 5 }],
+          },
+        ],
+      }),
+      nonStringKeys: [
+        { path: ["inputs", 0, "rows", 1], source: "yes", shadowed: false },
+        { path: ["expectations", 0, "rows", 0], source: "1", shadowed: true },
+      ],
+    };
+    // The expectation's row also has the string key '1', which matches.
+    expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
+      'input public.orders, row 2: every row must carry exactly the declared columns; missing "total"; keys that are not strings: yes',
+      "expectation by id, row 1: every row must carry exactly the declared columns; keys that are not strings: 1",
+    ]);
+  });
+
   it("does not check a test that fails its schema", () => {
     const doc: Doc = {
       ...testDoc({ inputs: [ordersInput([{ id: 1 }])] }),
       schemaValid: false,
+      nonStringKeys: [],
     };
     expect(run(reportRowsColumns, [doc])).toEqual([]);
   });

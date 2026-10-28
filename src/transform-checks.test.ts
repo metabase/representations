@@ -24,6 +24,7 @@ function transformDoc(body: Record<string, unknown>): Doc {
     file: TRANSFORM_FILE,
     model: "Transform",
     schemaValid: true,
+    nonStringKeys: [],
     body: {
       name: "Orders by day",
       entity_id: "OrdersByDay0000000001",
@@ -54,6 +55,7 @@ function collectionDoc(namespace: string | null | undefined): Doc {
     file: COLLECTION_FILE,
     model: "Collection",
     schemaValid: true,
+    nonStringKeys: [],
     body: {
       name: "ETL",
       entity_id: COLLECTION_ID,
@@ -119,6 +121,7 @@ describe("reportCollectionNamespaces", () => {
       file: "collections/main/card.yaml",
       model: "Card",
       schemaValid: true,
+      nonStringKeys: [],
       body: { name: "A card", entity_id: COLLECTION_ID },
     };
     expect(collectionFindings([inCollection, card])).toEqual([

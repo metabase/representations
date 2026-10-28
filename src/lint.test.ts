@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "bun:test";
+import { afterEach, beforeEach, describe, expect, it, spyOn } from "bun:test";
 import {
   cpSync,
   mkdirSync,
@@ -15,6 +15,7 @@ import type { LintFinding } from "./findings.js";
 import { LINT_RULE_SEVERITY, LINT_RULES } from "./index.js";
 import { lint, transformReads } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./lint-mutations.js";
+import * as schemas from "./schemas.js";
 import { isRecord } from "./values.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
@@ -35,6 +36,16 @@ describe("lint", () => {
         (rule) => LINT_RULE_SEVERITY[rule] === "error" && !mutated.has(rule),
       ),
     ).toEqual([]);
+  });
+
+  it("loads the JSON schemas once per run", () => {
+    const load = spyOn(schemas, "loadSchemas");
+    try {
+      lint({ folder: EXAMPLES });
+      expect(load).toHaveBeenCalledTimes(1);
+    } finally {
+      load.mockRestore();
+    }
   });
 
   describe("with a mutated copy of the examples", () => {
@@ -228,6 +239,115 @@ describe("lint", () => {
       );
     });
 
+    it("reports a duplicate key as a file that does not parse", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "collections/transforms/duplicate_key.yaml";
+      writeFileSync(join(workdir, file), "name: a\nname: b\n");
+      expect(
+        findings(workdir).map(({ rule, file, message }) => ({
+          rule,
+          file,
+          message,
+        })),
+      ).toEqual([
+        {
+          rule: "schema",
+          file,
+          message: "the file does not parse as YAML: duplicated mapping key",
+        },
+      ]);
+    });
+
+    it.each([
+      ["1: x", "1"],
+      ["yes: x", "yes"],
+      ["'1': x\n    1: y", "1"],
+    ])(
+      "refuses a row whose key %p Metabase reads as no string",
+      (key, written) => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const file =
+          "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+        const path = join(workdir, file);
+        writeFileSync(
+          path,
+          readFileSync(path, "utf8").replace(
+            "    TOTAL: 20.0\n",
+            `    TOTAL: 20.0\n    ${key}\n`,
+          ),
+        );
+        expect(
+          findings(workdir).map((f) => `${f.file}: ${f.rule}: ${f.message}`),
+        ).toEqual([
+          `${file}: row-columns-mismatch: input ORDERS, row 3: every row must carry exactly the declared columns; ${key.startsWith("'") ? 'not declared: "1"; ' : ""}keys that are not strings: ${written}`,
+        ]);
+      },
+    );
+
+    it("reads a plain value as Metabase does, by YAML 1.1", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "collections/transforms/top_categories.yaml";
+      const path = join(workdir, file);
+      writeFileSync(
+        path,
+        readFileSync(path, "utf8").replace(/^name: .*$/m, "name: NO"),
+      );
+      expect(
+        findings(workdir).map(({ rule, file, message }) => ({
+          rule,
+          file,
+          message,
+        })),
+      ).toEqual([
+        {
+          rule: "schema",
+          file,
+          message: "Transform does not match its schema",
+        },
+      ]);
+    });
+
+    it("takes a duplicated entity_id to name the first file in path order, for every check", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const transforms = join(workdir, "collections/transforms");
+      writeFileSync(
+        join(transforms, "aaa_python_first.yaml"),
+        readFileSync(join(transforms, "python_hello_world.yaml"), "utf8")
+          .replace(/^entity_id: .*$/m, "entity_id: 7XqqzlsonSq4KFyOvtrAm")
+          .replace(/^name: .*$/m, "name: Python First"),
+      );
+      const test =
+        "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+      expect(
+        findings(workdir)
+          .filter((f) => f.file === test)
+          .map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "untestable-transform: transform Python First is not a query transform; Metabase tests only query transforms",
+      ]);
+    });
+
+    it("takes a transform_id whose first holder is a Card to name the Card", () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const card = join(workdir, "collections/main/queries/nested_query.yaml");
+      writeFileSync(
+        card,
+        readFileSync(card, "utf8").replace(
+          /^entity_id: .*$/m,
+          "entity_id: 7XqqzlsonSq4KFyOvtrAm",
+        ),
+      );
+      const test =
+        "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+      expect(
+        findings(workdir)
+          .filter((f) => f.file === test)
+          .map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "wrong-type-transform-id: transform_id 7XqqzlsonSq4KFyOvtrAm names a Card, not a Transform",
+      ]);
+    });
+
     it("cannot read a Python source table with no name", () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(
@@ -336,6 +456,41 @@ describe("lint", () => {
         "PEOPLE",
       ]);
     });
+
+    it.each([
+      ["no name", { content: "WHERE 1 = 1" }, "undefined"],
+      ["no content", { name: "Broken" }, "Broken"],
+    ])(
+      "reports a snippet file with %s, and does not use it",
+      (_, fields, usedName) => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const snippetFile = "collections/snippets/broken.yaml";
+        writeFileSync(
+          join(workdir, snippetFile),
+          yaml.dump({
+            ...fields,
+            entity_id: "BrokenSnippet00000001",
+            creator_id: "admin@example.com",
+            "serdes/meta": [{ model: "NativeQuerySnippet" }],
+          }),
+        );
+        const transformFile = "collections/transforms/native_transform.yaml";
+        const path = join(workdir, transformFile);
+        writeFileSync(
+          path,
+          readFileSync(path, "utf8").replace(
+            "GROUP BY",
+            `{{snippet: ${usedName}}} GROUP BY`,
+          ),
+        );
+        expect(
+          findings(workdir).map((f) => `${f.file}: ${f.rule}: ${f.message}`),
+        ).toEqual([
+          `${snippetFile}: schema: NativeQuerySnippet does not match its schema`,
+          `${transformFile}: reads-not-checked: could not find the tables this transform reads: a snippet it uses is not in the folder`,
+        ]);
+      },
+    );
 
     it("names the missing table", () => {
       mutateExamples("missing-input", workdir);

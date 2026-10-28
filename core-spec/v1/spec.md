@@ -6,6 +6,8 @@
 
 Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
+Metabase reads these files as YAML 1.1, with SnakeYAML. Some unquoted values read differently from YAML 1.2: `yes`, `no`, `on` and `off` (in lower case, capitalized or upper case) are booleans, so `country: NO` is `false`; a leading zero makes an octal number (`017` is 15); colons make a base-60 number (`1:30` is 90); and a date or date-time such as `2024-01-05` is a timestamp. Quote such a value to keep it a string. `<<` merge keys are supported.
+
 This specification covers user-created content entities. Database metadata entities (Database, Table, Field) are synced from connected databases and are outside the scope of this specification; they appear here only as foreign key references within user content.
 
 ## Table of Contents
