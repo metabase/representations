@@ -9,6 +9,18 @@ jobs:
   import-test:
     runs-on: ubuntu-latest
 
+    # The transforms read and write this warehouse: Metabase's Sample Database
+    # on Postgres, in schema public. The Sample Database itself is SQLite,
+    # which cannot run transform tests.
+    services:
+      postgres:
+        image: metabase/qa-databases:postgres-sample-15
+        options: >-
+          --health-cmd "pg_isready -U metabase -d sample"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
     steps:
       - uses: actions/checkout@v7
 
@@ -21,17 +33,16 @@ jobs:
           git -C "$RUNNER_TEMP/sync-repo" add .
           git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Examples"
 
-      # Metabase ships the Sample Database on SQLite, which cannot run
-      # transform tests. MB_SAMPLE_DATABASE_ENGINE=h2, a hook Metabase keeps
-      # for its own end-to-end tests, puts it on H2, which can.
+      # On the service's network, Metabase reaches the warehouse as postgres:5432.
       - name: Start Metabase
         env:
           MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
+          SERVICE_NETWORK: ${{ job.services.postgres.network }}
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
+            --network "$SERVICE_NETWORK" \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
-            -e MB_SAMPLE_DATABASE_ENGINE=h2 \
             -v "$RUNNER_TEMP/sync-repo:/sync-repo:ro" \
             -p 3000:3000 \
             metabase/metabase-enterprise-head:latest
@@ -69,10 +80,9 @@ jobs:
           echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
           # A new instance seeds the Sample Database's tables and fields from a
-          # snapshot. The H2 snapshot carries fingerprints, so the wait below
-          # ends at once; on SQLite, fingerprinting waits for the hourly "Sync
-          # and Analyze" job. Run that sync now, and wait until every field has
-          # a fingerprint, so nothing checks a half-analyzed database. Primary
+          # snapshot, and leaves fingerprinting to the hourly "Sync and Analyze"
+          # job. Run that sync now, and wait until every field has a
+          # fingerprint, so nothing checks a half-analyzed database. Primary
           # keys are never fingerprinted.
           SAMPLE_DB_ID=$(curl -sf http://localhost:3000/api/database -H "X-API-Key: $API_KEY" \
             | jq -er '.data[] | select(.is_sample == true) | .id')
@@ -94,6 +104,44 @@ jobs:
           fi
           echo "Sample Database fingerprinted"
 
+          # The import resolves each table reference against synced metadata,
+          # so connect the warehouse, under the name its Database file gives,
+          # and wait until its first sync has found the tables.
+          WAREHOUSE=$(sed -n 's/^name: //p' examples/v1/databases/sample_postgres/sample_postgres.yaml)
+          HTTP_CODE=$(curl -s -o /tmp/warehouse.txt -w '%{http_code}' \
+            -X POST http://localhost:3000/api/database \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg name "$WAREHOUSE" '{
+              name: $name,
+              engine: "postgres",
+              details: {host: "postgres", port: 5432, dbname: "sample", user: "metabase", password: "metasample123"}
+            }')")
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat /tmp/warehouse.txt
+            echo "Connecting $WAREHOUSE failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          WAREHOUSE_ID=$(jq -er '.id' /tmp/warehouse.txt)
+          echo "Waiting for $WAREHOUSE to sync..."
+          export WAREHOUSE_ID
+          # shellcheck disable=SC2016 # the inner shell expands the variables
+          if ! timeout 300 bash -c '
+            until
+              curl -sf "http://localhost:3000/api/database/$WAREHOUSE_ID/metadata" -H "X-API-Key: $API_KEY" \
+                | jq -e "[.tables[] | select(.schema == \"public\" and (.fields | length > 0)) | .name] | contains([\"orders\", \"products\", \"people\"])" > /dev/null
+            do
+              sleep 5
+            done
+          '; then
+            curl -s "http://localhost:3000/api/database/$WAREHOUSE_ID/metadata" -H "X-API-Key: $API_KEY" \
+              | jq '{initial_sync_status, tables: [.tables[]? | {schema, name, fields: (.fields | length)}]}' \
+              || true
+            echo "$WAREHOUSE did not sync its tables in time"
+            exit 1
+          fi
+          echo "$WAREHOUSE synced"
+
           # Without the data-apps feature, git sync skips data apps without an error.
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
             | jq -e '.["token-features"] | .remote_sync and .["data-apps"]' > /dev/null; then
@@ -109,33 +157,14 @@ jobs:
             -H "X-API-Key: $API_KEY" \
             -H 'Content-Type: application/json' \
             -d '{"remote-sync-url":"file:///sync-repo/.git","remote-sync-branch":"main","remote-sync-type":"read-only"}')
-          if [ "$HTTP_CODE" != "200" ]; then
+          if [ "$HTTP_CODE" != "200" ] || ! TASK_ID=$(jq -er '.task_id' /tmp/settings-response.txt); then
             cat /tmp/settings-response.txt
-            echo "Connecting the repository failed with HTTP $HTTP_CODE"
+            echo "Connecting the repository failed with HTTP $HTTP_CODE, or started no import"
             exit 1
           fi
 
           echo "Waiting for the git sync import..."
-          # shellcheck disable=SC2016 # the inner shell expands the variables
-          if ! timeout 300 bash -c '
-            until
-              STATUS=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY" \
-                | jq -r "select(.sync_task_type == \"import\") | .status") &&
-              [ -n "$STATUS" ] && [ "$STATUS" != "running" ]
-            do
-              sleep 2
-            done
-          '; then
-            echo "The git sync import did not finish in time"
-            exit 1
-          fi
-          TASK=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY")
-          if [ "$(echo "$TASK" | jq -r '.status')" != "successful" ]; then
-            echo "$TASK"
-            echo "Git sync import failed"
-            exit 1
-          fi
-          echo "Import succeeded"
+          MB_URL=http://localhost:3000 scripts/wait-for-import.sh "$TASK_ID"
 
           APPS=$(curl -sf http://localhost:3000/api/ee/apps -H "X-API-Key: $API_KEY")
           for DIR in examples/v1/data_apps/*/; do
@@ -253,11 +282,11 @@ jobs:
             || echo "(could not read the version)"
           echo "Image created: $(docker image inspect --format '{{.Created}}' metabase/metabase-enterprise-head:latest)"
 
-          # The Sample Database runs on H2, which resolves an unqualified table
-          # in PUBLIC.
+          # The lint reads each database's default schema from the folder's
+          # .metabase-lint.json.
           STATUS=0
           bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1 \
-            --default-schema "Sample Database=PUBLIC" || STATUS=$?
+            || STATUS=$?
           if [ "$STATUS" != "0" ]; then
             # When a driver's feature check throws, Metabase logs this message
             # and answers that the feature is unsupported.
@@ -270,3 +299,30 @@ jobs:
             fi
           fi
           exit "$STATUS"
+
+      # The examples hold no test Metabase refuses, so the step above compares
+      # no refusal. Import a copy in which four tests each break in a different
+      # way that Metabase refuses, and compare Metabase's refusals with the
+      # lint's errors.
+      - name: Compare the lint with Metabase on tests Metabase refuses
+        run: |
+          bun run src/test-support/lint-mutations.ts refused-tests "$RUNNER_TEMP/sync-repo"
+          git -C "$RUNNER_TEMP/sync-repo" add -A
+          git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Refused tests"
+
+          # Remote sync is read-write since the step above, whose probes may
+          # leave changes Metabase has not exported: force the import over them.
+          HTTP_CODE=$(curl -s -o /tmp/import-response.txt -w '%{http_code}' \
+            -X POST http://localhost:3000/api/ee/remote-sync/import \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"force":true}')
+          if [ "$HTTP_CODE" != "200" ] || ! TASK_ID=$(jq -er '.task_id' /tmp/import-response.txt); then
+            cat /tmp/import-response.txt
+            echo "Importing the refused tests failed with HTTP $HTTP_CODE, or started no import"
+            exit 1
+          fi
+          echo "Waiting for the git sync import..."
+          MB_URL=http://localhost:3000 scripts/wait-for-import.sh "$TASK_ID"
+
+          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder "$RUNNER_TEMP/sync-repo"
