@@ -16,6 +16,7 @@ type ParsedValues = {
   file?: string;
   count?: string;
   "default-schema"?: string[];
+  experimental?: boolean;
   help?: boolean;
 };
 
@@ -25,11 +26,14 @@ Commands:
   validate-schema    Validate YAML files against Metabase representation schemas
     --folder <path>    Folder to validate (default: cwd)
 
-  lint               Check references between transforms, tables and transform
-                     tests; prints one JSON finding per line, grouped
-                     by rule, then by file. Exits 1 on an error finding
-                     or when the folder has no YAML files, and 2 when
-                     it cannot run
+  lint               Experimental: its rules, output and options can change
+                     in any release, and it runs only with --experimental.
+                     Checks references between transforms, tables and
+                     transform tests; prints one JSON finding per line,
+                     grouped by rule, then by file. Exits 1 on an error
+                     finding or when the folder has no YAML files, and 2
+                     when it cannot run
+    --experimental     Run the experimental lint (required)
     --folder <path>    Folder to lint (default: cwd)
     --default-schema <database>=<schema>
                        The schema unqualified table names resolve to in
@@ -57,6 +61,7 @@ function parseArguments() {
     options: {
       folder: { type: "string" },
       "default-schema": { type: "string", multiple: true },
+      experimental: { type: "boolean", default: false },
       file: { type: "string" },
       count: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
@@ -140,6 +145,12 @@ function parseDefaultSchemas(
 }
 
 async function handleLint(values: ParsedValues): Promise<void> {
+  if (!values.experimental) {
+    console.error(
+      "lint is experimental: its rules, output and options can change in any release. Rerun with --experimental to run it.",
+    );
+    process.exit(1);
+  }
   const folder = values.folder ?? process.cwd();
   const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
   let result: LintResult;

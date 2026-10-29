@@ -42,11 +42,21 @@ The validator reads YAML as Metabase does, with a few [known differences](https:
 
 ## Lint
 
+The lint is experimental. It is outside the package's semver guarantees: its rules, findings, output and options can change in any release. The `lint` command runs only with `--experimental`, and its programmatic API comes from `@metabase/representations/experimental`.
+
 Check the references between transforms, tables and transform tests in a folder, without a Metabase:
 
 ```sh
-npx @metabase/representations lint --folder ./my-export
+npx @metabase/representations lint --experimental --folder ./my-export
 ```
+
+The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Install it, at the version the package pins, for the lint to read SQL:
+
+```sh
+npm install pyodide@314.0.7
+```
+
+Without it, a lint of a folder with SQL exits with code 2 and names that command.
 
 Omit `--folder` to lint the current directory. Give a database's default schema with `--default-schema "<database>=<schema>"`, or `"<database>="` for a database with no schemas. The option repeats, and overrides the settings file.
 
@@ -55,7 +65,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | Code | Meaning |
 |------|---------|
 | 0 | No finding is an error. |
-| 1 | A finding is an error, the folder has no YAML files, or an option is invalid. |
+| 1 | A finding is an error, the folder has no YAML files, or an option is invalid or missing, such as `--experimental`. |
 | 2 | The lint cannot run: the settings file is invalid, a database needs a default schema the lint does not have, or the SQL parser cannot start. |
 
 [The lint in detail](https://github.com/metabase/representations/blob/main/docs/lint.md) explains how it resolves default schemas, reads SQL and YAML, and where it can be wrong.
@@ -141,10 +151,12 @@ npx @metabase/representations generate-uuid --count 5
 import {
   generateEntityId,
   generateUuid,
-  lint,
-  MissingDefaultSchemasError,
   validateSchema,
 } from "@metabase/representations";
+import {
+  lint,
+  MissingDefaultSchemasError,
+} from "@metabase/representations/experimental";
 
 const { results, passed, failed } = validateSchema({ folder: "./my-export" });
 for (const result of results) {
@@ -153,7 +165,8 @@ for (const result of results) {
   }
 }
 
-// lint is asynchronous, and rejects with a LintSetupError when it cannot run.
+// lint is experimental and asynchronous, and rejects with a LintSetupError
+// when it cannot run.
 try {
   const { files, findings } = await lint({
     folder: "./my-export",

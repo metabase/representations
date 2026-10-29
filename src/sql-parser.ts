@@ -268,7 +268,7 @@ function fieldReferencesOf(
   };
 }
 
-/** The version of `pyodide`, an optional dependency, that `package.json` pins. */
+/** The version of `pyodide`, an optional peer dependency, that `package.json` pins. */
 const PYODIDE_VERSION = "314.0.7";
 
 /** Whether `error`, from importing `pyodide`, says the package is not installed. */
@@ -282,7 +282,7 @@ async function startSqlParser(): Promise<SqlParser> {
   const { loadPyodide } = await import("pyodide").catch((e: unknown) => {
     throw isPyodideMissing(e)
       ? new Error(
-          `the optional package pyodide is not installed. Install it with: npm install pyodide@${PYODIDE_VERSION}`,
+          `pyodide, an optional peer dependency, is not installed. Install it with: npm install pyodide@${PYODIDE_VERSION}`,
         )
       : e;
   });
@@ -362,8 +362,8 @@ let started: Promise<SqlParser> | undefined;
 /**
  * The SQL parser, loaded on the first call and shared by every later call in
  * the process; each parse after loading is synchronous. Rejects with a
- * `LintSetupError` when the parser cannot start, as when the optional
- * `pyodide` package or a vendored file is missing. A failed start is not
+ * `LintSetupError` when the parser cannot start, as when `pyodide`, an
+ * optional peer dependency, or a vendored file is missing. A failed start is not
  * kept: the next call starts the parser again.
  */
 export function loadSqlParser(): Promise<SqlParser> {

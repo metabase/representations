@@ -21,8 +21,8 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 
 import { MissingDefaultSchemasError } from "./default-schemas.js";
+import { LINT_RULE_SEVERITY, LINT_RULES } from "./experimental.js";
 import type { LintFinding } from "./findings.js";
-import { LINT_RULE_SEVERITY, LINT_RULES } from "./index.js";
 import { lint, transformReads } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./test-support/lint-mutations.js";
 import * as schemas from "./schemas.js";

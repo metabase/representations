@@ -3,8 +3,10 @@ import { readFileSync } from "fs";
 import { resolve } from "path";
 
 import { LINT_RULE_SEVERITY } from "./findings.js";
+import { isRecord } from "./values.js";
 
-const README = resolve(import.meta.dirname, "..", "README.md");
+const REPO_ROOT = resolve(import.meta.dirname, "..");
+const README = resolve(REPO_ROOT, "README.md");
 const RULES_HEADING = "### Lint rules";
 
 /** The README's text under `RULES_HEADING`, up to the next heading. */
@@ -55,4 +57,28 @@ describe("README rule table", () => {
   it("has one row per rule", () => {
     expect(rows.length).toBe(new Set(rows.map(([rule]) => rule)).size);
   });
+});
+
+describe("Pyodide install command", () => {
+  const manifest: unknown = JSON.parse(
+    readFileSync(resolve(REPO_ROOT, "package.json"), "utf8"),
+  );
+  const pinned =
+    isRecord(manifest) && isRecord(manifest.peerDependencies)
+      ? manifest.peerDependencies.pyodide
+      : undefined;
+
+  it.each(["README.md", "docs/lint.md"])(
+    "%s names the version package.json pins",
+    (file) => {
+      expect(typeof pinned).toBe("string");
+      const named = [
+        ...readFileSync(resolve(REPO_ROOT, file), "utf8").matchAll(
+          /npm install pyodide@(\S+?)[`\s]/g,
+        ),
+      ].map((m) => m[1]);
+      expect(named.length).toBeGreaterThan(0);
+      expect(named.filter((version) => version !== pinned)).toEqual([]);
+    },
+  );
 });

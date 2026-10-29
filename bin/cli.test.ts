@@ -39,13 +39,13 @@ function runCli(args: string[], cwd = REPO_ROOT): RunResult {
   };
 }
 
-/** The version of Pyodide, an optional dependency, in `package.json`. */
+/** The version of Pyodide, an optional peer dependency, in `package.json`. */
 function pinnedPyodide(): unknown {
   const manifest: unknown = JSON.parse(
     readFileSync(join(REPO_ROOT, "package.json"), "utf8"),
   );
-  return isRecord(manifest) && isRecord(manifest.optionalDependencies)
-    ? manifest.optionalDependencies.pyodide
+  return isRecord(manifest) && isRecord(manifest.peerDependencies)
+    ? manifest.peerDependencies.pyodide
     : undefined;
 }
 
@@ -67,6 +67,7 @@ describe("cli", () => {
     it("prints help and exits 0 with --help", () => {
       const { stdout, exitCode } = runCli(["--help"]);
       expect(stdout).toContain("Usage: representations");
+      expect(stdout).toContain("--experimental");
       expect(exitCode).toBe(0);
     });
 
@@ -271,11 +272,26 @@ describe("cli", () => {
       rmSync(workdir, { recursive: true, force: true });
     });
 
+    it("exits 1 without --experimental, printing no finding", () => {
+      mutateExamples("missing-input", workdir);
+      const { stdout, stderr, exitCode } = runCli([
+        "lint",
+        "--folder",
+        workdir,
+      ]);
+      expect(stdout).toBe("");
+      expect(stderr.trimEnd().split("\n")).toEqual([
+        "lint is experimental: its rules, output and options can change in any release. Rerun with --experimental to run it.",
+      ]);
+      expect(exitCode).toBe(1);
+    });
+
     it(
       "exits 0 on the bundled examples, printing no finding",
       () => {
         const { stdout, stderr, exitCode } = runCli([
           "lint",
+          "--experimental",
           "--folder",
           "examples/v1",
         ]);
@@ -290,7 +306,12 @@ describe("cli", () => {
       "exits 1 with one JSON line per finding on a broken tree",
       () => {
         mutateExamples("missing-input", workdir);
-        const { stdout, exitCode } = runCli(["lint", "--folder", workdir]);
+        const { stdout, exitCode } = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          workdir,
+        ]);
         const errors = stdout
           .trim()
           .split("\n")
@@ -319,6 +340,7 @@ describe("cli", () => {
         );
         const { stdout, stderr, exitCode } = runCli([
           "lint",
+          "--experimental",
           "--folder",
           workdir,
         ]);
@@ -347,7 +369,7 @@ describe("cli", () => {
       () => {
         mutateExamples("missing-input", workdir);
         rmSync(join(workdir, ".metabase-lint.json"));
-        const refused = runCli(["lint", "--folder", workdir]);
+        const refused = runCli(["lint", "--experimental", "--folder", workdir]);
         expect(refused.stdout).toBe("");
         expect(refused.stderr).toContain(
           "Sample Postgres: names orders without a schema",
@@ -356,6 +378,7 @@ describe("cli", () => {
 
         const given = runCli([
           "lint",
+          "--experimental",
           "--folder",
           workdir,
           "--default-schema",
@@ -390,12 +413,12 @@ describe("cli", () => {
           }
         }
         const { stdout, stderr, exitCode } = runCli(
-          ["lint", "--folder", EXAMPLES],
+          ["lint", "--experimental", "--folder", EXAMPLES],
           workdir,
         );
         expect(stdout).toBe("");
         expect(stderr.trimEnd().split("\n")).toEqual([
-          `The SQL parser could not start: the optional package pyodide is not installed. Install it with: npm install pyodide@${pinnedPyodide()}`,
+          `The SQL parser could not start: pyodide, an optional peer dependency, is not installed. Install it with: npm install pyodide@${pinnedPyodide()}`,
         ]);
         expect(exitCode).toBe(2);
       },
@@ -403,7 +426,12 @@ describe("cli", () => {
     );
 
     it("errors when the folder has no YAML files", () => {
-      const { stderr, exitCode } = runCli(["lint", "--folder", workdir]);
+      const { stderr, exitCode } = runCli([
+        "lint",
+        "--experimental",
+        "--folder",
+        workdir,
+      ]);
       expect(exitCode).toBe(1);
       expect(stderr).toContain("No YAML files found");
     });
@@ -436,60 +464,101 @@ describe("cli", () => {
       ).toEqual(readdirSync(join(REPO_ROOT, "core-spec/v1/schemas")).sort());
 
       // The published package carries the SQL parser's files and the lint's
-      // documentation; Pyodide comes as an optional dependency, pinned
-      // exactly.
-      const pack = Bun.spawnSync({
-        cmd: ["npm", "pack", "--dry-run", "--json"],
-        cwd: REPO_ROOT,
-      });
-      const packed: unknown = JSON.parse(pack.stdout.toString());
-      const packedPaths =
-        Array.isArray(packed) &&
-        isRecord(packed[0]) &&
-        Array.isArray(packed[0].files)
-          ? packed[0].files.flatMap((f: unknown) =>
-              isRecord(f) && typeof f.path === "string" ? [f.path] : [],
-            )
-          : [];
-      expect(packedPaths).toEqual(
-        expect.arrayContaining([
-          "dist/vendor/sources.json",
-          "dist/vendor/sql_tools.py",
-          "dist/vendor/sqlglot-30.20.0-py3-none-any.whl",
-          "docs/lint.md",
-        ]),
+      // documentation; Pyodide is an optional peer dependency, pinned exactly.
+      const consumer = mkdtempSync(
+        join(tmpdir(), "representations-cli-consumer-"),
       );
-      expect(pinnedPyodide()).toMatch(/^\d+\.\d+\.\d+$/);
-
-      // The test mutations and the examples they copy stay out of the package.
-      expect(
-        packedPaths.filter(
-          (path) =>
-            path.startsWith("dist/examples/") ||
-            path.includes("lint-mutations"),
-        ),
-      ).toEqual([]);
-
-      // The built package's lint runs under Node.
       const broken = mkdtempSync(join(tmpdir(), "representations-cli-dist-"));
       try {
+        const pack = Bun.spawnSync({
+          cmd: ["npm", "pack", "--json", "--pack-destination", consumer],
+          cwd: REPO_ROOT,
+        });
+        expect(pack.exitCode).toBe(0);
+        const packed: unknown = JSON.parse(pack.stdout.toString());
+        const tarball =
+          Array.isArray(packed) &&
+          isRecord(packed[0]) &&
+          typeof packed[0].filename === "string"
+            ? packed[0].filename
+            : undefined;
+        const packedPaths =
+          Array.isArray(packed) &&
+          isRecord(packed[0]) &&
+          Array.isArray(packed[0].files)
+            ? packed[0].files.flatMap((f: unknown) =>
+                isRecord(f) && typeof f.path === "string" ? [f.path] : [],
+              )
+            : [];
+        expect(packedPaths).toEqual(
+          expect.arrayContaining([
+            "dist/src/experimental.js",
+            "dist/src/experimental.d.ts",
+            "dist/vendor/sources.json",
+            "dist/vendor/sql_tools.py",
+            "dist/vendor/sqlglot-30.20.0-py3-none-any.whl",
+            "docs/lint.md",
+          ]),
+        );
+        expect(pinnedPyodide()).toMatch(/^\d+\.\d+\.\d+$/);
+
+        // The test mutations and the examples they copy stay out of the package.
+        expect(
+          packedPaths.filter(
+            (path) =>
+              path.startsWith("dist/examples/") ||
+              path.includes("lint-mutations"),
+          ),
+        ).toEqual([]);
+
+        // A plain install of the package leaves Pyodide out.
+        expect(typeof tarball).toBe("string");
+        writeFileSync(
+          join(consumer, "package.json"),
+          JSON.stringify({ name: "consumer", private: true, type: "module" }),
+        );
+        const npmInstall = (spec: string) =>
+          Bun.spawnSync({
+            cmd: [
+              "npm",
+              "install",
+              "--prefer-offline",
+              "--no-audit",
+              "--no-fund",
+              spec,
+            ],
+            cwd: consumer,
+          });
+        const installed = npmInstall(`./${tarball}`);
+        expect(installed.exitCode).toBe(0);
+        expect(existsSync(join(consumer, "node_modules", "pyodide"))).toBe(
+          false,
+        );
+
+        // The main entry has no lint; the experimental entry has it, and its
+        // lint runs under Node once the consumer installs Pyodide.
+        const withPyodide = npmInstall(`pyodide@${pinnedPyodide()}`);
+        expect(withPyodide.exitCode).toBe(0);
         mutateExamples("dangling-transform-id", broken);
         const linted = Bun.spawnSync({
           cmd: [
             "node",
             "--input-type=module",
             "-e",
-            `import { lint } from "./dist/src/index.js"; const { findings } = await lint({ folder: ${JSON.stringify(broken)} }); console.log(JSON.stringify(findings.map((f) => f.rule)));`,
+            `const main = await import("@metabase/representations"); const { lint } = await import("@metabase/representations/experimental"); const { findings } = await lint({ folder: ${JSON.stringify(broken)} }); console.log(JSON.stringify({ mainHasLint: "lint" in main, mainHasValidateSchema: "validateSchema" in main, rules: findings.map((f) => f.rule) }));`,
           ],
-          cwd: REPO_ROOT,
+          cwd: consumer,
         });
         expect(linted.stderr.toString()).toBe("");
-        expect(JSON.parse(linted.stdout.toString())).toEqual([
-          "dangling-transform-id",
-        ]);
+        expect(JSON.parse(linted.stdout.toString())).toEqual({
+          mainHasLint: false,
+          mainHasValidateSchema: true,
+          rules: ["dangling-transform-id"],
+        });
       } finally {
+        rmSync(consumer, { recursive: true, force: true });
         rmSync(broken, { recursive: true, force: true });
       }
-    }, 120_000);
+    }, 300_000);
   });
 });
