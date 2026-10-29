@@ -100,9 +100,15 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
 | `duplicate-target` | warning | Two transforms that write the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
+| `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |
+| `missing-incremental-table-tag` | error | An incremental native transform with no table template tag for the range filter, or none for the checkpoint field's table. |
+| `missing-target-database` | error | A transform that is not a query transform and names no target database. |
+| `missing-target-schema` | error | A transform whose target names no schema, on an engine with schemas. |
+| `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
 | `missing-input` | error | A test with no input for a table its transform reads. |
 | `unused-input` | error | A test with an input for a table its transform does not read. |
 | `untestable-transform` | error | A test of a transform that is not a query transform. |
+| `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |
 | `duplicate-input` | error | Two inputs of one test for the same table. |
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
 | `unknown-table` | warning | A table that no table file or transform target defines, in a database that has table files. |

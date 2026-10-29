@@ -53,6 +53,20 @@ const TREES: [string, (folder: string) => void][] = [
     (f) => mutateExamples("wrong-type-transform-id", f),
   ],
   ["transform cycle", (f) => mutateExamples("transform-cycle", f)],
+  ["transform collection", (f) => mutateExamples("transform-collection", f)],
+  [
+    "missing incremental table tag",
+    (f) => mutateExamples("missing-incremental-table-tag", f),
+  ],
+  [
+    "missing target database",
+    (f) => mutateExamples("missing-target-database", f),
+  ],
+  ["missing target schema", (f) => mutateExamples("missing-target-schema", f)],
+  [
+    "unsupported transform engine",
+    (f) => mutateExamples("unsupported-transform-engine", f),
+  ],
   ["missing input", (f) => mutateExamples("missing-input", f)],
   ["unused input", (f) => mutateExamples("unused-input", f)],
   [
@@ -65,6 +79,7 @@ const TREES: [string, (folder: string) => void][] = [
   ["null schema reference", (f) => mutateExamples("null-schema-reference", f)],
   ["broken table file", (f) => mutateExamples("broken-table-file", f)],
   ["untestable transform", (f) => mutateExamples("python-transform-test", f)],
+  ["untestable engine", (f) => mutateExamples("untestable-engine", f)],
   ["duplicate input", (f) => mutateExamples("duplicate-input", f)],
   [
     "expectation reads another table",

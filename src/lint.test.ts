@@ -387,6 +387,25 @@ describe("lint", () => {
       ]);
     });
 
+    it("gives a Python transform whose target names no database no target, not one in its source_database_id", async () => {
+      mutateExamples("missing-target-database", workdir);
+      const original = "collections/transforms/python_hello_world.yaml";
+      const copy = "collections/transforms/python_hello_world_copy.yaml";
+      const doc: unknown = yaml.load(
+        readFileSync(join(EXAMPLES, original), "utf8"),
+      );
+      if (!isRecord(doc)) {
+        throw new Error(`${original} is not a YAML map`);
+      }
+      writeFileSync(
+        join(workdir, copy),
+        yaml.dump({ ...doc, entity_id: "PythonHelloWorldCopy1" }),
+      );
+      expect(
+        (await findings(workdir)).map((f) => `${f.rule} ${f.file}`),
+      ).toEqual([`missing-target-database ${original}`]);
+    });
+
     it("reports an unqualified and a qualified input as duplicates only in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       const file = join(
@@ -1399,6 +1418,29 @@ describe("lint", () => {
       );
       expect(await rulesWithDefault("transforms")).toContain("transform-cycle");
       expect(await rulesWithDefault("public")).not.toContain("transform-cycle");
+    });
+
+    it("finds a duplicate target written unqualified only in the default schema", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const copy = "collections/transforms/top_categories_copy.yaml";
+      cpSync(
+        join(workdir, "collections/transforms/top_categories.yaml"),
+        join(workdir, copy),
+      );
+      replaceIn(
+        copy,
+        "entity_id: jf55MTi7z8cWQjPG2PEgz",
+        "entity_id: TopCategoriesCopy000a",
+      );
+      replaceIn(copy, "  schema: transforms\n", "");
+      // Postgres has schemas, so a target with none is also an error.
+      expect(await rulesWithDefault("transforms")).toEqual([
+        "duplicate-target",
+        "missing-target-schema",
+      ]);
+      expect(await rulesWithDefault("public")).toEqual([
+        "missing-target-schema",
+      ]);
     });
 
     it("counts a table file as the table read unqualified only in the default schema, and never as an MBQL reference with no schema", async () => {

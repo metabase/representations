@@ -15,6 +15,11 @@ import {
   type ValidDoc,
 } from "./documents.js";
 import {
+  reportMissingTargetSchemas,
+  reportUnsupportedTransformEngines,
+  reportUntestableEngines,
+} from "./engine-checks.js";
+import {
   type FindingSubject,
   LINT_RULE_SEVERITY,
   LINT_RULES,
@@ -44,6 +49,12 @@ import {
   testedTransformsOf,
   testInputs,
 } from "./test-checks.js";
+import {
+  incrementalFilterTables,
+  reportCollectionNamespaces,
+  reportIncrementalTags,
+  reportMissingTargetDatabases,
+} from "./transform-checks.js";
 import { stringOrNull } from "./values.js";
 
 export type LintOptions = {
@@ -428,8 +439,9 @@ function testRewriteTables(
 
 /**
  * Every table the checks compare, in its database: table files, transform
- * targets and reads, and, for each test of a query transform, its inputs and
- * the tables its SQL expectations read.
+ * targets and reads, the tables an incremental transform's range filter names,
+ * and, for each test of a query transform, its inputs and the tables its SQL
+ * expectations read.
  */
 function comparedTables(
   docs: readonly Doc[],
@@ -441,12 +453,21 @@ function comparedTables(
     ...testInputs(test, transform),
     ...expectationReads({ test, transform }, readSql),
   ]);
+  const filterTables = validDocsOf(docs, "Transform").flatMap((transform) => {
+    const filter = incrementalFilterTables(transform);
+    return filter === null
+      ? []
+      : [...filter.tagTables, filter.checkpointTable].filter(
+          (t): t is TableKey => t !== null,
+        );
+  });
   return [
     ...validDocsOf(docs, "Table").map(tableOfFile),
     ...targetsOf(transforms),
     ...transforms.flatMap((t) =>
       t.reads.status === "read" ? t.reads.tables : [],
     ),
+    ...filterTables,
     ...testTables,
   ];
 }
@@ -504,6 +525,11 @@ export async function lint({
     reportDuplicateTargets(transforms, defaultSchemaOf, report);
 
     reportCycles(transforms, defaultSchemaOf, report);
+    reportCollectionNamespaces(docs, byEntityId, report);
+    reportIncrementalTags(docs, defaultSchemaOf, report);
+    reportMissingTargetDatabases(docs, report);
+    reportMissingTargetSchemas(docs, engineOf, report);
+    reportUnsupportedTransformEngines(docs, engineOf, report);
 
     const checkKnown = createUnknownTableCheck(
       docs,
@@ -516,6 +542,7 @@ export async function lint({
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
     reportTestFindings(tested, checkKnown, defaultSchemaOf, readSql, report);
+    reportUntestableEngines(tested, engineOf, report);
     return { files, findings: findings.sort(byRuleThenFile) };
   });
 }

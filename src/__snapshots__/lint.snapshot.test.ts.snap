@@ -150,6 +150,93 @@ exports[`lint output on a broken copy of the examples matches the recording: tra
 ]
 `;
 
+exports[`lint output on a broken copy of the examples matches the recording: transform collection 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "collection Queries is in the default namespace; Metabase puts a transform only in a collection of the transforms namespace",
+    "related": [
+      "collections/main/queries.yaml",
+    ],
+    "rule": "transform-collection",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: missing incremental table tag 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "the incremental native query has no table template tag for Metabase to put its range filter in",
+    "related": [],
+    "rule": "missing-incremental-table-tag",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: missing target database 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+      "model": "Transform",
+      "name": "Python Hello World",
+    },
+    "file": "collections/transforms/python_hello_world.yaml",
+    "message": "the target names no database, which Metabase requires unless the source is a query",
+    "related": [],
+    "rule": "missing-target-database",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: missing target schema 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+      "model": "Transform",
+      "name": "Python Hello World",
+    },
+    "file": "collections/transforms/python_hello_world.yaml",
+    "message": "the target names no schema; Metabase requires one for database Sample Postgres, whose engine postgres has schemas",
+    "related": [],
+    "rule": "missing-target-schema",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: unsupported transform engine 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+      "model": "Transform",
+      "name": "Python Hello World",
+    },
+    "file": "collections/transforms/python_hello_world.yaml",
+    "message": "Metabase cannot run a Python transform on database Legacy: its engine h2 lacks the driver feature transforms/python",
+    "related": [],
+    "rule": "unsupported-transform-engine",
+    "severity": "warning",
+  },
+]
+`;
+
 exports[`lint output on a broken copy of the examples matches the recording: missing input 1`] = `
 [
   {
@@ -328,6 +415,25 @@ exports[`lint output on a broken copy of the examples matches the recording: unt
     ],
     "rule": "untestable-transform",
     "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: untestable engine 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "LfXNcELKeCrAfD4htCFDH",
+      "model": "TransformTest",
+      "name": "Daily Order Summary: orders per day",
+    },
+    "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+    "message": "Metabase cannot run this test: transform Daily Order Summary reads database Warehouse, whose engine snowflake lacks the driver feature transforms/testing",
+    "related": [
+      "collections/transforms/daily_order_summary.yaml",
+    ],
+    "rule": "untestable-engine",
+    "severity": "warning",
   },
 ]
 `;

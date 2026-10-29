@@ -37,6 +37,24 @@ An MBQL reference, `[database, schema, table]` or `[database, schema, table, fie
 
 An engine is Metabase's driver name, as a Database file's `engine` gives it. A Database file (`databases/<slug>/<slug>.yaml`) that names an engine takes precedence over the settings file's `engines`. Remote sync does not export Database files, so a repository it writes needs `engines` for the lint to know them.
 
+### Target database
+
+A query transform writes its target to its query's database. Any other transform, such as a Python one, writes to the database its target names. `source_database_id` never stands in for it; Metabase has no such fallback.
+
+`missing-target-database` is an error: a transform that is not a query transform names no target database. Metabase's API refuses it, and it cannot run; an import accepts it.
+
+Such a transform has no target. No rule compares it with other tables, and the engine rules skip it.
+
+### Engine rules
+
+Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase at the commit `src/engines.ts` names:
+
+- `missing-target-schema`, an error: a transform's target names no schema, on an engine with schemas. Metabase's API refuses such a transform; an import accepts it.
+- `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
+- `untestable-engine`, a warning: a test of a transform whose source database's engine cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
+
+An engine missing from the table gives no finding, nor does a database whose engine the lint does not know. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
+
 ## How the lint reads SQL
 
 The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at the version Metabase pins, and Metabase's `sql_tools.py`, run in WebAssembly by [Pyodide](https://pyodide.org). Nothing is fetched at run time. A CI job fails when either differs from Metabase's `master`.
