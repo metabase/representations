@@ -47,7 +47,7 @@ Such a transform has no target. No rule compares it with other tables, and the e
 
 ### Engine rules
 
-Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase at the commit `vendor/sources.json` records:
+Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase at the commit `src/engines.ts` names:
 
 - `missing-target-schema`, an error: a transform's target names no schema, on an engine with schemas. Metabase's API refuses such a transform; an import accepts it.
 - `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
