@@ -1,0 +1,18 @@
+{
+  "sqlTools": {
+    "repository": "metabase/metabase",
+    "path": "resources/python-sources/sql_tools.py",
+    "commit": "ad0af5b6b036e44ae23921378c3831e53bf8d198"
+  },
+  "importedModels": {
+    "repository": "metabase/metabase",
+    "path": "enterprise/backend/src/metabase_enterprise/serialization/v2/models.clj",
+    "commit": "147dffcf2bb2ec14e9ebbd9a750ada2d97233426"
+  },
+  "sqlglot": {
+    "version": "30.20.0",
+    "wheel": "sqlglot-30.20.0-py3-none-any.whl",
+    "sha256": "886fd92eba9bf944dee97164b16760f21576a7f55ef4a9211337903442e8aded",
+    "pin": "resources/python-sources/pyproject.toml"
+  }
+}

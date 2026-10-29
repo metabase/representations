@@ -205,6 +205,7 @@ function validateFile(
   let doc: unknown;
   try {
     doc = readYaml(readFileSync(resolve(folder, file), "utf8")).value;
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     return {
       file,
