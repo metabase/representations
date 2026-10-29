@@ -9,6 +9,7 @@ import {
   indexByEntityId,
   isQuerySource,
   loadDocs,
+  queryDatabaseOf,
   type UnreadableFile,
   validDocsOf,
   type ValidDoc,
@@ -35,7 +36,14 @@ import {
   type TableKey,
   type TableName,
 } from "./tables.js";
-import type { TableCheck } from "./test-checks.js";
+import {
+  reportTestFindings,
+  reportTransformIds,
+  type TableCheck,
+  type TestedTransform,
+  testedTransformsOf,
+  testInputs,
+} from "./test-checks.js";
 import { stringOrNull } from "./values.js";
 
 export type LintOptions = {
@@ -381,20 +389,65 @@ function createReport(findings: LintFinding[]): Report {
     });
 }
 
+/** The tables the SQL of a test's expectations reads, in its transform's database. */
+function expectationReads(
+  { test, transform }: TestedTransform,
+  readSql: SqlTableReader,
+): TableKey[] {
+  const database = queryDatabaseOf(transform.doc);
+  return test.body.expectations.flatMap((expectation) => {
+    const result =
+      "sql" in expectation ? readSql(expectation.sql, database) : null;
+    return result?.status === "read"
+      ? result.tables.map(
+          (t): TableKey => ({ database, ...t, nullSchema: "default" }),
+        )
+      : [];
+  });
+}
+
+/**
+ * For each test of a query transform, the tables its rewrite compares by the
+ * default schema: the tables it replaces (its inputs and the transform's
+ * target), and the tables named in SQL that the rewrite maps to them (those its
+ * expectations read, and those the transform reads by SQL).
+ */
+function testRewriteTables(
+  tested: readonly TestedTransform[],
+  readSql: SqlTableReader,
+): TableKey[][] {
+  return tested.map(({ test, transform }) => [
+    ...testInputs(test, transform),
+    transform.target,
+    ...expectationReads({ test, transform }, readSql),
+    ...(transform.reads.status === "read"
+      ? transform.reads.tables.filter((t) => t.nullSchema === "default")
+      : []),
+  ]);
+}
+
 /**
  * Every table the checks compare, in its database: table files, transform
- * targets and reads.
+ * targets and reads, and, for each test of a query transform, its inputs and
+ * the tables its SQL expectations read.
  */
 function comparedTables(
   docs: readonly Doc[],
   transforms: readonly Transform[],
+  tested: readonly TestedTransform[],
+  readSql: SqlTableReader,
 ): TableKey[] {
+  const testTables = tested.flatMap(({ test, transform }) => [
+    ...testInputs(test, transform),
+    ...expectationReads({ test, transform }, readSql),
+  ]);
   return [
     ...validDocsOf(docs, "Table").map(tableOfFile),
     ...targetsOf(transforms),
     ...transforms.flatMap((t) =>
       t.reads.status === "read" ? t.reads.tables : [],
     ),
+    ...testTables,
   ];
 }
 
@@ -424,9 +477,13 @@ export async function lint({
   return withSqlParser((parser) => {
     const readSql = createSqlTableReader(parser, engineOf);
     const transforms = transformsOf(docs, byEntityId, schemas, readSql);
+    const transformOfDoc = new Map<Doc, Transform>(
+      transforms.map((t) => [t.doc, t]),
+    );
+    const tested = testedTransformsOf(docs, byEntityId, transformOfDoc);
     const defaultSchemaOf = resolveDefaultSchemas({
-      names: comparedTables(docs, transforms),
-      testTables: [],
+      names: comparedTables(docs, transforms, tested, readSql),
+      testTables: testRewriteTables(tested, readSql),
       given: {
         ...databaseDefaultSchemas(docs, engineOf),
         ...settings.defaultSchemas,
@@ -457,6 +514,8 @@ export async function lint({
     checkReadTablesKnown(transforms, checkKnown);
     reportNullSchemaReferences(transforms, defaultSchemaOf, report);
 
+    reportTransformIds(docs, byEntityId, transformOfDoc, report);
+    reportTestFindings(tested, checkKnown, defaultSchemaOf, readSql, report);
     return { files, findings: findings.sort(byRuleThenFile) };
   });
 }

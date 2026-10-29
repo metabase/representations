@@ -7,12 +7,16 @@ import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
 import { generateUuid } from "../src/generate-uuid.js";
+import { lint, type LintResult } from "../src/lint.js";
+import { CONFIG_FILE, LintSetupError } from "../src/settings.js";
 import { validateSchema } from "../src/validate-schema.js";
 
 type ParsedValues = {
   folder?: string;
   file?: string;
   count?: string;
+  "default-schema"?: string[];
+  experimental?: boolean;
   help?: boolean;
 };
 
@@ -21,6 +25,20 @@ const HELP = `Usage: representations <command> [options]
 Commands:
   validate-schema    Validate YAML files against Metabase representation schemas
     --folder <path>    Folder to validate (default: cwd)
+
+  lint               Experimental: its rules, output and options can change
+                     in any release, and it runs only with --experimental.
+                     Checks references between transforms, tables and
+                     transform tests; prints one JSON finding per line,
+                     grouped by rule, then by file. Exits 1 on an error
+                     finding or when the folder has no YAML files, and 2
+                     when it cannot run
+    --experimental     Run the experimental lint (required)
+    --folder <path>    Folder to lint (default: cwd)
+    --default-schema <database>=<schema>
+                       The schema unqualified table names resolve to in
+                       a database (repeatable; <database>= for none),
+                       over ${CONFIG_FILE} in the folder
 
   extract-spec       Copy the bundled spec.md into a target file
     --file <path>      Destination file (default: ./spec.md)
@@ -42,6 +60,8 @@ function parseArguments() {
     allowPositionals: true,
     options: {
       folder: { type: "string" },
+      "default-schema": { type: "string", multiple: true },
+      experimental: { type: "boolean", default: false },
       file: { type: "string" },
       count: { type: "string" },
       help: { type: "boolean", short: "h", default: false },
@@ -105,6 +125,58 @@ function handleValidateSchema(values: ParsedValues): void {
   process.exit(failed > 0 ? 1 : 0);
 }
 
+// "DATABASE=SCHEMA" pairs; "DATABASE=" means the database has no schemas.
+function parseDefaultSchemas(
+  pairs: readonly string[],
+): Record<string, string | null> {
+  const schemas: Record<string, string | null> = {};
+  for (const pair of pairs) {
+    const at = pair.lastIndexOf("=");
+    if (at <= 0) {
+      console.error(
+        `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
+      );
+      process.exit(1);
+    }
+    const schema = pair.slice(at + 1);
+    schemas[pair.slice(0, at)] = schema === "" ? null : schema;
+  }
+  return schemas;
+}
+
+async function handleLint(values: ParsedValues): Promise<void> {
+  if (!values.experimental) {
+    console.error(
+      "lint is experimental: its rules, output and options can change in any release. Rerun with --experimental to run it.",
+    );
+    process.exit(1);
+  }
+  const folder = values.folder ?? process.cwd();
+  const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+  let result: LintResult;
+  try {
+    result = await lint({ folder, defaultSchemas });
+  } catch (e) {
+    if (e instanceof LintSetupError) {
+      console.error(e.message);
+      process.exit(2);
+    }
+    throw e;
+  }
+  const { files, findings } = result;
+
+  exitIfNoFiles(files, folder);
+
+  for (const finding of findings) {
+    console.log(JSON.stringify(finding));
+  }
+
+  const errors = findings.filter((f) => f.severity === "error").length;
+  const warnings = findings.length - errors;
+  console.error(`${files} files, ${errors} errors, ${warnings} warnings`);
+  process.exit(errors > 0 ? 1 : 0);
+}
+
 function handleExtractSpec(values: ParsedValues): void {
   const { target } = extractSpec({ file: values.file ?? "spec.md" });
   console.log(`Spec extracted to ${target}`);
@@ -134,7 +206,7 @@ function handleGenerateUuid(values: ParsedValues): void {
   handleGenerate(values, generateUuid);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const { values, positionals } = parseArguments();
   const command = positionals[0];
 
@@ -146,6 +218,8 @@ function main(): void {
   switch (command) {
     case "validate-schema":
       return handleValidateSchema(values);
+    case "lint":
+      return handleLint(values);
     case "extract-spec":
       return handleExtractSpec(values);
     case "extract-schema":
@@ -160,4 +234,4 @@ function main(): void {
   }
 }
 
-main();
+await main();

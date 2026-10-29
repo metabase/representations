@@ -20,12 +20,13 @@ import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
+import { MissingDefaultSchemasError } from "./default-schemas.js";
 import { LINT_RULE_SEVERITY, LINT_RULES } from "./experimental.js";
 import type { LintFinding } from "./findings.js";
 import { lint, transformReads } from "./lint.js";
 import { MUTATIONS, mutateExamples } from "./test-support/lint-mutations.js";
 import * as schemas from "./schemas.js";
-import { CONFIG_FILE } from "./settings.js";
+import { CONFIG_FILE, LintSetupError } from "./settings.js";
 import { loadSqlParser } from "./sql-parser.js";
 import { isRecord } from "./values.js";
 
@@ -229,6 +230,122 @@ describe("lint", () => {
       },
     );
 
+    it("breaks a different test with each rule of refused-tests", async () => {
+      const mutation = mutateExamples("refused-tests", workdir);
+      const errors = (await findings(workdir)).filter(
+        (f) => f.severity === "error",
+      );
+      expect(errors.map((f) => f.rule).sort()).toEqual(
+        [...mutation.rules].sort(),
+      );
+      expect(new Set(errors.map((f) => f.entity.entity_id)).size).toBe(
+        mutation.rules.length,
+      );
+    });
+
+    it("names the table an implicit join reads", async () => {
+      mutateExamples("implicit-join", workdir);
+      expect((await findings(workdir)).map((f) => f.message)).toEqual([
+        "no input for public.products, which transform Monthly Order Summary reads",
+      ]);
+    });
+
+    it("reports a table read both directly and through a segment once", async () => {
+      mutateExamples("implicit-join", workdir);
+      MUTATIONS.find((m) => m.name === "segment-filter")?.apply(workdir);
+      expect((await findings(workdir)).map((f) => f.message)).toEqual([
+        "no input for public.products, which transform Monthly Order Summary reads",
+      ]);
+    });
+
+    it("follows a card a query transform uses to the tables the card reads", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const transform = join(workdir, MBQL_TRANSFORM);
+      const doc: unknown = yaml.load(readFileSync(transform, "utf8"));
+      if (!isRecord(doc) || !isRecord(doc.source)) {
+        throw new Error(`${transform} has no source`);
+      }
+      // The Orders model card reads ORDERS on the Sample Database, which has
+      // no schemas.
+      doc.source.query = {
+        "lib/type": "mbql/query",
+        database: "Sample Database",
+        stages: [
+          {
+            "lib/type": "mbql.stage/mbql",
+            "source-card": "4eroqa4ZYl4WkNjP8XTvu",
+            aggregation: [["count", {}]],
+          },
+        ],
+      };
+      writeFileSync(transform, yaml.dump(doc));
+      const test = join(
+        workdir,
+        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+      );
+      const text = readFileSync(test, "utf8");
+      const input = "    schema: public\n    name: orders\n";
+      expect(text).toContain(input);
+      const giveInput = (table: string) =>
+        writeFileSync(test, text.replace(input, `    name: ${table}\n`));
+      giveInput("ORDERS");
+      expect(await findings(workdir)).toEqual([]);
+      giveInput("PRODUCTS");
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.rule === "missing-input")
+          .map((f) => f.message),
+      ).toEqual([
+        "no input for ORDERS (no schema), which transform Monthly Order Summary reads",
+      ]);
+    });
+
+    it("matches a qualified input to an unqualified read in the default schema", async () => {
+      mutateExamples("qualified-input", workdir);
+      expect(
+        rules(
+          (
+            await lint({
+              folder: workdir,
+              defaultSchemas: { [POSTGRES_DB]: "OTHER" },
+            })
+          ).findings,
+        ),
+      ).toEqual([]);
+    });
+
+    it("takes an MBQL reference with no schema as the table with no schema, and an unqualified SQL name as the default schema's", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      nullSchemaReferences(workdir);
+      // Both tests give the input public.orders.
+      const file = join(
+        workdir,
+        "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+      );
+      const doc: unknown = yaml.load(readFileSync(file, "utf8"));
+      if (!isRecord(doc) || !Array.isArray(doc.inputs)) {
+        throw new Error(`${file} has no inputs`);
+      }
+      const [orders]: unknown[] = doc.inputs;
+      if (!isRecord(orders) || !isRecord(orders.table)) {
+        throw new Error(`${file} has no input table`);
+      }
+      orders.table.schema = "public";
+      writeFileSync(file, yaml.dump(doc));
+      const messages = (
+        await lint({
+          folder: workdir,
+          defaultSchemas: { [POSTGRES_DB]: "public" },
+        })
+      ).findings
+        .filter((f) => f.rule === "missing-input" || f.rule === "unused-input")
+        .map((f) => `${f.rule}: ${f.message}`);
+      expect(messages).toEqual([
+        "missing-input: no input for orders (no schema), which transform Monthly Order Summary reads",
+        "unused-input: input public.orders is not read by transform Monthly Order Summary",
+      ]);
+    });
+
     it("reads a Python transform's source tables in both forms", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(
@@ -268,6 +385,38 @@ describe("lint", () => {
         { schema: "public", name: "people" },
         { schema: null, name: "orders" },
       ]);
+    });
+
+    it("reports an unqualified and a qualified input as duplicates only in the default schema", async () => {
+      mutateExamples("qualified-input", workdir);
+      const file = join(
+        workdir,
+        "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+      );
+      const doc: unknown = yaml.load(readFileSync(file, "utf8"));
+      if (!isRecord(doc) || !Array.isArray(doc.inputs)) {
+        throw new Error(`${file} has no inputs`);
+      }
+      doc.inputs.push({
+        table: { name: "orders" },
+        format: "sql",
+        sql: "SELECT 1 AS id",
+      });
+      writeFileSync(file, yaml.dump(doc));
+      const inputFindings = async (schema?: string) =>
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas:
+              schema === undefined ? {} : { [POSTGRES_DB]: schema },
+          })
+        ).findings
+          .filter((f) => f.message.startsWith("inputs"))
+          .map((f) => `${f.rule}: ${f.message}`);
+      expect(await inputFindings("OTHER")).toEqual([
+        "duplicate-input: inputs stand in for the same table: OTHER.orders, orders",
+      ]);
+      expect(await inputFindings("public")).toEqual([]);
     });
 
     it("reports a file that is not a YAML map as a schema error", async () => {
@@ -434,6 +583,47 @@ describe("lint", () => {
       ]);
     });
 
+    it("takes a duplicated entity_id to name the first file in path order, for every check", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const transforms = join(workdir, "collections/transforms");
+      writeFileSync(
+        join(transforms, "aaa_python_first.yaml"),
+        readFileSync(join(transforms, "python_hello_world.yaml"), "utf8")
+          .replace(/^entity_id: .*$/m, "entity_id: 7XqqzlsonSq4KFyOvtrAm")
+          .replace(/^name: .*$/m, "name: Python First"),
+      );
+      const test =
+        "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.file === test)
+          .map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "untestable-transform: transform Python First is not a query transform; Metabase tests only query transforms",
+      ]);
+    });
+
+    it("takes a transform_id whose first holder is a Card to name the Card", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const card = join(workdir, "collections/main/queries/nested_query.yaml");
+      writeFileSync(
+        card,
+        readFileSync(card, "utf8").replace(
+          /^entity_id: .*$/m,
+          "entity_id: 7XqqzlsonSq4KFyOvtrAm",
+        ),
+      );
+      const test =
+        "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.file === test)
+          .map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "wrong-type-transform-id: transform_id 7XqqzlsonSq4KFyOvtrAm names a Card, not a Transform",
+      ]);
+    });
+
     it("cannot read a Python source table with no name", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(
@@ -591,6 +781,88 @@ describe("lint", () => {
       },
     );
 
+    // Metabase compiles the text tag to a bind parameter, which names no
+    // table, and the table tag to a qualified name, which follows `public.`.
+    it.each([
+      [
+        "a text tag with a default",
+        { type: "text", default: "orders" },
+        [
+          "missing-input: no input for public.{{t}}, which transform Product Revenue Report reads",
+          "unused-input: input public.orders is not read by transform Product Revenue Report",
+        ],
+      ],
+      [
+        "a table tag",
+        { type: "table", "table-id": [POSTGRES_DB, "public", "orders"] },
+        [
+          "missing-input: no input for public.{{t}}, which transform Product Revenue Report reads",
+        ],
+      ],
+    ])(
+      "reports %s after a schema as a missing input, named as written",
+      async (_, tag, expected) => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const file = join(
+          workdir,
+          "collections/transforms/native_transform.yaml",
+        );
+        const doc: unknown = yaml.load(readFileSync(file, "utf8"));
+        if (
+          !isRecord(doc) ||
+          !isRecord(doc.source) ||
+          !isRecord(doc.source.query) ||
+          !Array.isArray(doc.source.query.stages) ||
+          !isRecord(doc.source.query.stages[0])
+        ) {
+          throw new Error(`${file} has no native stage`);
+        }
+        const stage = doc.source.query.stages[0];
+        if (typeof stage.native !== "string") {
+          throw new Error(`${file} has no native SQL`);
+        }
+        expect(stage.native).toContain("FROM orders o");
+        stage.native = stage.native.replace(
+          "FROM orders o",
+          "FROM public.{{t}} o",
+        );
+        stage["template-tags"] = [
+          {
+            ...tag,
+            name: "t",
+            id: "aa000003-0000-0000-0000-000000000003",
+            "display-name": "T",
+          },
+        ];
+        writeFileSync(file, yaml.dump(doc));
+        const testFile = join(
+          workdir,
+          "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+        );
+        const test = readFileSync(testFile, "utf8");
+        expect(test).toContain("- table:\n    name: orders\n");
+        writeFileSync(
+          testFile,
+          test.replace(
+            "- table:\n    name: orders\n",
+            "- table:\n    schema: public\n    name: orders\n",
+          ),
+        );
+        expect(
+          (
+            await lint({
+              folder: workdir,
+              defaultSchemas: { [POSTGRES_DB]: "public" },
+            })
+          ).findings
+            .filter(
+              (f) => f.rule === "missing-input" || f.rule === "unused-input",
+            )
+            .map((f) => `${f.rule}: ${f.message}`),
+        ).toEqual(expected);
+      },
+    );
+
     it("says why a snippet named by its entity id cannot be pasted", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = join(
@@ -734,6 +1006,357 @@ describe("lint", () => {
         ]);
       },
     );
+  });
+
+  describe("default schemas", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-defaults-"));
+      mutateExamples("qualified-input", workdir);
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const writeConfig = (text: string) =>
+      writeFileSync(join(workdir, CONFIG_FILE), text);
+
+    // Replaces the Database file of the database the transforms run on.
+    const DATABASE_FILE = "databases/sample_postgres/sample_postgres.yaml";
+
+    const writeDatabase = (
+      engine: string,
+      fields: Record<string, unknown> = {},
+    ) =>
+      writeFileSync(
+        join(workdir, DATABASE_FILE),
+        yaml.dump({
+          name: POSTGRES_DB,
+          engine,
+          ...fields,
+          "serdes/meta": [{ model: "Database" }],
+        }),
+      );
+
+    const lintRules = async (defaultSchemas?: Record<string, string | null>) =>
+      rules((await lint({ folder: workdir, defaultSchemas })).findings);
+
+    // The rules that depend on the default schema, without the engine rules
+    // a Database file's engine adds.
+    const inputRules = async () =>
+      (await lintRules()).filter(
+        (rule) => rule === "missing-input" || rule === "unused-input",
+      );
+
+    it("refuses to lint, before any check, when a database needs a default schema nobody gives", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      // A finding the checks would report, were they run.
+      MUTATIONS.find((m) => m.name === "missing-input")?.apply(workdir);
+      let error: unknown;
+      try {
+        await lint({ folder: workdir });
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeInstanceOf(MissingDefaultSchemasError);
+      expect(
+        error instanceof MissingDefaultSchemasError &&
+          error.databases.map((d) => d.database),
+      ).toEqual([POSTGRES_DB]);
+      expect(String(error)).toContain(CONFIG_FILE);
+      expect(String(error)).toContain("--default-schema");
+    });
+
+    it("reads the default schemas in the folder's settings file", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Postgres": "OTHER"}}');
+      expect(await lintRules()).toEqual([]);
+      writeConfig('{"defaultSchemas": {"Sample Postgres": "public"}}');
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+    });
+
+    it("takes a default schema passed to lint over the settings file's", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Postgres": "public"}}');
+      expect(await lintRules({ [POSTGRES_DB]: "OTHER" })).toEqual([]);
+    });
+
+    it("reads null in the settings file as a database with no schemas", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Postgres": null}}');
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+    });
+
+    it("takes the default schema of a SQLite or MongoDB database as null, as Metabase hard-codes it", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("sqlite");
+      expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
+      // MongoDB's native queries are not SQL, so the native transforms are unread
+      // and give no input finding. The tests' unqualified inputs still need
+      // the default schema, which the engine gives.
+      writeDatabase("mongo");
+      expect(await inputRules()).toEqual([]);
+    });
+
+    it("takes a MySQL database to have no schemas, and asks for a Postgres database's default", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("mysql");
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+      writeDatabase("postgres");
+      await expect(lint({ folder: workdir })).rejects.toThrow(
+        MissingDefaultSchemasError,
+      );
+    });
+
+    it("takes an engine from the settings file, unless a Database file names one", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      rmSync(join(workdir, DATABASE_FILE));
+      writeConfig('{"engines": {"Sample Postgres": "mysql"}}');
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+      writeDatabase("postgres");
+      await expect(lint({ folder: workdir })).rejects.toThrow(
+        MissingDefaultSchemasError,
+      );
+    });
+
+    it("reads a Database file's default_schema, over the engine's", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("postgres", { default_schema: "OTHER" });
+      expect(await lintRules()).toEqual([]);
+      writeDatabase("mysql", { default_schema: "OTHER" });
+      expect(await lintRules()).toEqual([]);
+    });
+
+    it("reads a Database file's null default_schema as no schemas on an engine without schemas, or an unknown one", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      for (const engine of ["sqlite", "duckdb"]) {
+        writeDatabase(engine, { default_schema: null });
+        expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
+      }
+    });
+
+    it("asks for the default schema when a Database file gives null on an engine with schemas", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("postgres", { default_schema: null });
+      await expect(lint({ folder: workdir })).rejects.toThrow(
+        MissingDefaultSchemasError,
+      );
+    });
+
+    it("falls through to the engine when a Database file's null default_schema is not taken", async () => {
+      rmSync(join(workdir, CONFIG_FILE));
+      writeDatabase("bigquery-cloud-sdk", { default_schema: null });
+      expect(await inputRules()).toEqual(["missing-input", "unused-input"]);
+    });
+
+    it("takes the settings file's default schema over a Database file's", async () => {
+      writeConfig('{"defaultSchemas": {"Sample Postgres": "public"}}');
+      writeDatabase("postgres", { default_schema: "OTHER" });
+      expect(await lintRules()).toEqual(["missing-input", "unused-input"]);
+    });
+
+    it("refuses a settings file it cannot read", async () => {
+      for (const text of [
+        "{not json",
+        "[]",
+        '{"defaultSchema": {}}',
+        '{"defaultSchemas": {"Sample Database": 5}}',
+        '{"engines": {"Sample Database": null}}',
+      ]) {
+        writeConfig(text);
+        await expect(lint({ folder: workdir })).rejects.toThrow(LintSetupError);
+      }
+    });
+  });
+
+  // Two qualified names compare the same whatever the default schema, except
+  // where a transform test's rewrite falls back to a table's unqualified key.
+  describe("with one table name in two schemas", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-two-"));
+      writeTransform("a_copy", "SELECT id FROM a.account");
+      writeTransform("b_copy", "SELECT id FROM b.account");
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const DATABASE = "Warehouse";
+
+    function writeTransform(name: string, sql: string): void {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(
+        join(workdir, "transforms", `${name}.yaml`),
+        yaml.dump({
+          name,
+          entity_id: `${name}_transform_00000`.slice(0, 21),
+          creator_id: "admin@example.com",
+          source_database_id: DATABASE,
+          source: {
+            type: "query",
+            query: {
+              "lib/type": "mbql/query",
+              database: DATABASE,
+              stages: [{ "lib/type": "mbql.stage/native", native: sql }],
+            },
+          },
+          target: { database: DATABASE, type: "table", schema: "out", name },
+          "serdes/meta": [{ model: "Transform" }],
+        }),
+      );
+    }
+
+    function writeTest(transform: string, input: string, sql: string): void {
+      const [schema, name] = input.split(".");
+      writeFileSync(
+        join(workdir, "transforms", `${transform}__test.yaml`),
+        yaml.dump({
+          name: `${transform} test`,
+          entity_id: `${transform}_test_000000000`.slice(0, 21),
+          transform_id: `${transform}_transform_00000`.slice(0, 21),
+          creator_id: "admin@example.com",
+          inputs: [
+            {
+              table: { schema, name },
+              format: "rows",
+              columns: [{ name: "id", cast_type: "INTEGER" }],
+              rows: [{ id: 1 }],
+            },
+          ],
+          expectations: [{ type: "empty", name: "no rows", sql }],
+          "serdes/meta": [{ model: "TransformTest" }],
+        }),
+      );
+    }
+
+    // The rules of the findings, or, when the lint stops for default
+    // schemas, each database it names and why.
+    const outcome = async (): Promise<
+      { rules: string[] } | { stops: string[] }
+    > => {
+      try {
+        return { rules: rules((await lint({ folder: workdir })).findings) };
+      } catch (e) {
+        if (e instanceof MissingDefaultSchemasError) {
+          return {
+            stops: e.databases.map((d) => `${d.database}: ${d.reason}`),
+          };
+        }
+        throw e;
+      }
+    };
+
+    const stop = { stops: [`${DATABASE}: names account in schemas a and b`] };
+
+    it("lints when no transform test compares the two", async () => {
+      expect(await outcome()).toEqual({ rules: [] });
+    });
+
+    it("lints when each test's tables name the table in one schema", async () => {
+      writeTest("a_copy", "a.account", "SELECT * FROM a.account WHERE id < 0");
+      writeTest("b_copy", "b.account", "SELECT * FROM out.b_copy WHERE id < 0");
+      expect(await outcome()).toEqual({ rules: [] });
+    });
+
+    it("stops when a test's input and expectation name the table in two schemas", async () => {
+      writeTest("a_copy", "a.account", "SELECT * FROM b.account WHERE id < 0");
+      expect(await outcome()).toEqual(stop);
+    });
+
+    it("stops when a test's input and its transform's SQL name the table in two schemas", async () => {
+      writeTransform(
+        "a_copy",
+        "SELECT x.id FROM a.account x JOIN b.account y ON x.id = y.id",
+      );
+      writeTest("a_copy", "a.account", "SELECT * FROM out.a_copy WHERE id < 0");
+      expect(await outcome()).toEqual(stop);
+    });
+  });
+
+  // Metabase rewrites an expectation's tables by name: a qualified name by the
+  // key with its schema, or else by an unqualified key, which a table has when
+  // it is unqualified or in the default schema.
+  describe("with an expectation that names its table another way", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-expect-"));
+      cpSync(EXAMPLES, workdir, { recursive: true });
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const TEST =
+      "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+
+    const editTest = (change: (doc: Record<string, unknown>) => void) => {
+      const path = join(workdir, TEST);
+      const doc: unknown = yaml.load(readFileSync(path, "utf8"));
+      if (!isRecord(doc)) {
+        throw new Error(`${TEST} is not a YAML map`);
+      }
+      change(doc);
+      writeFileSync(path, yaml.dump(doc));
+    };
+
+    const readOrders = (table: string, inputSchema?: string) =>
+      editTest((doc) => {
+        const [input] = Array.isArray(doc.inputs) ? doc.inputs : [];
+        if (inputSchema !== undefined && isRecord(input?.table)) {
+          input.table.schema = inputSchema;
+        }
+        doc.expectations = [
+          {
+            type: "empty",
+            name: "orders read",
+            sql: `SELECT * FROM ${table} WHERE total < 0`,
+          },
+        ];
+      });
+
+    const expectationRules = async (schema?: string): Promise<string[]> =>
+      (
+        await lint({
+          folder: workdir,
+          defaultSchemas: schema === undefined ? {} : { [POSTGRES_DB]: schema },
+        })
+      ).findings
+        .filter((f) => f.message.startsWith("expectation"))
+        .map((f) => f.rule);
+
+    it("accepts a qualified read of an unqualified input, whatever the default schema", async () => {
+      readOrders("public.orders");
+      expect(await expectationRules()).toEqual([]);
+      expect(await expectationRules("public")).toEqual([]);
+      expect(await expectationRules("OTHER")).toEqual([]);
+    });
+
+    it("accepts a read in another schema of an input in the default schema only", async () => {
+      readOrders("OTHER.orders", "public");
+      expect(await expectationRules("public")).toEqual([]);
+      expect(await expectationRules("OTHER2")).toEqual([
+        "expectation-reads-other-table",
+      ]);
+    });
+
+    it("refuses an unqualified read of an input outside the default schema", async () => {
+      readOrders("orders", "public");
+      expect(await expectationRules("public")).toEqual([]);
+      expect(await expectationRules("OTHER")).toEqual([
+        "expectation-reads-other-table",
+      ]);
+    });
+
+    it("refuses a read of a table that is neither input nor target", async () => {
+      readOrders("people");
+      expect(await expectationRules()).toEqual([
+        "expectation-reads-other-table",
+      ]);
+    });
   });
 
   // Two names for a table, one unqualified: the lint takes them as one table
@@ -914,6 +1537,105 @@ describe("lint", () => {
     it("does not warn when the default schema is unknown", async () => {
       rmSync(join(workdir, SQL));
       expect(await nullSchemaFindings()).toEqual([]);
+    });
+  });
+
+  // Metabase keeps a transform's source_database_id when its query changes, so
+  // the two can name different databases. A test runs on the query's database.
+  describe("with a source_database_id other than the query's database", () => {
+    let workdir: string;
+
+    const TEST =
+      "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml";
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-querydb-"));
+      for (const file of [MBQL_TRANSFORM, TEST]) {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        cpSync(join(EXAMPLES, file), join(workdir, file));
+      }
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const edit = (
+      file: string,
+      change: (doc: Record<string, unknown>) => void,
+    ) => {
+      const path = join(workdir, file);
+      const doc: unknown = yaml.load(readFileSync(path, "utf8"));
+      if (!isRecord(doc)) {
+        throw new Error(`${file} is not a YAML map`);
+      }
+      change(doc);
+      writeFileSync(path, yaml.dump(doc));
+    };
+
+    // The query reads Sample Postgres; source_database_id names another.
+    const setUp = (
+      sourceDatabaseId: string,
+      settings: {
+        engines: Record<string, string>;
+        defaultSchemas: Record<string, string>;
+      },
+      expectationSql: readonly string[],
+    ) => {
+      writeFileSync(join(workdir, CONFIG_FILE), JSON.stringify(settings));
+      edit(MBQL_TRANSFORM, (doc) => {
+        doc.source_database_id = sourceDatabaseId;
+      });
+      edit(TEST, (doc) => {
+        doc.expectations = expectationSql.map((sql, i) => ({
+          type: "empty",
+          name: `expectation ${i + 1}`,
+          sql,
+        }));
+      });
+    };
+
+    const messages = async () =>
+      (await lint({ folder: workdir })).findings.map(
+        (f) => `${f.rule}: ${f.message}`,
+      );
+
+    it("reads a test's SQL when source_database_id names a MongoDB database and the query a Postgres one", async () => {
+      setUp(
+        "Docs",
+        {
+          engines: { [POSTGRES_DB]: "postgres", Docs: "mongo" },
+          defaultSchemas: { [POSTGRES_DB]: "public" },
+        },
+        ["SELECT * FROM people"],
+      );
+      expect(await messages()).toEqual([
+        "expectation-reads-other-table: expectation expectation 1 reads people, which is neither the transform's target nor an input of this test",
+      ]);
+    });
+
+    it("reads a test's SQL in the dialect, and its inputs with the default schema, of the query's database", async () => {
+      // MySQL reads backquoted names, which Postgres cannot parse. MySQL has no
+      // schemas, so the input public.orders is another table than orders.
+      setUp(
+        "Warehouse",
+        {
+          engines: { [POSTGRES_DB]: "mysql", Warehouse: "postgres" },
+          defaultSchemas: { Warehouse: "public" },
+        },
+        ["SELECT * FROM `transforms`.`monthly_order_summary` WHERE sum < 0"],
+      );
+      nullSchemaReferences(workdir);
+      edit(TEST, (doc) => {
+        const [orders]: unknown[] = Array.isArray(doc.inputs) ? doc.inputs : [];
+        if (!isRecord(orders) || !isRecord(orders.table)) {
+          throw new Error(`${TEST} has no input table`);
+        }
+        doc.inputs = [{ ...orders, table: { name: "orders" } }, orders];
+      });
+      expect(await messages()).toEqual([
+        "unused-input: input public.orders is not read by transform Monthly Order Summary",
+      ]);
     });
   });
 });

@@ -2,7 +2,7 @@
 
 Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
-This repository contains the specification and examples for the Metabase Representation Format.
+This repository holds the specification and examples of the Metabase Representation Format, and the `@metabase/representations` package. The package's CLI validates a folder of YAML files against the schemas, and lints the references between transforms, tables and transform tests.
 
 ## Contents
 
@@ -44,11 +44,29 @@ The validator reads YAML as Metabase does, with a few [known differences](https:
 
 The lint is experimental. It is outside the package's semver guarantees: its rules, findings, output and options can change in any release. The `lint` command runs only with `--experimental`, and its programmatic API comes from `@metabase/representations/experimental`.
 
+Check the references between transforms, tables and transform tests in a folder, without a Metabase:
+
+```sh
+npx @metabase/representations lint --experimental --folder ./my-export
+```
+
 The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Install it, at the version the package pins, for the lint to read SQL:
 
 ```sh
 npm install pyodide@314.0.7
 ```
+
+Without it, a lint of a folder with SQL exits with code 2 and names that command.
+
+Omit `--folder` to lint the current directory. Give a database's default schema with `--default-schema "<database>=<schema>"`, or `"<database>="` for a database with no schemas. The option repeats, and overrides the settings file.
+
+The lint prints one JSON finding per line on stdout, grouped by rule, then by file, and a count on stderr. Its exit codes:
+
+| Code | Meaning |
+|------|---------|
+| 0 | No finding is an error. |
+| 1 | A finding is an error, the folder has no YAML files, or an option is invalid or missing, such as `--experimental`. |
+| 2 | The lint cannot run: the settings file is invalid, a database needs a default schema the lint does not have, or the SQL parser cannot start. |
 
 [The lint in detail](https://github.com/metabase/representations/blob/main/docs/lint.md) explains how it resolves default schemas, reads SQL and YAML, and where it can be wrong.
 
@@ -78,8 +96,15 @@ npm install pyodide@314.0.7
 | `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map, or a file whose `serdes/meta` names no model or a model Metabase does not import. |
 | `skipped-by-metabase` | warning | A file with no `serdes/meta`, or an empty file, which Metabase skips. |
 | `duplicate-entity-id` | error | Two files that hold the same `entity_id`. |
+| `dangling-transform-id` | error | A test whose `transform_id` matches no entity. |
+| `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
 | `duplicate-target` | warning | Two transforms that write the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
+| `missing-input` | error | A test with no input for a table its transform reads. |
+| `unused-input` | error | A test with an input for a table its transform does not read. |
+| `untestable-transform` | error | A test of a transform that is not a query transform. |
+| `duplicate-input` | error | Two inputs of one test for the same table. |
+| `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
 | `unknown-table` | warning | A table that no table file or transform target defines, in a database that has table files. |
 | `null-schema-reference` | warning | An MBQL reference with a `null` schema, on a database whose default schema is not `null`. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
