@@ -4,15 +4,26 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "fs";
 import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
-import { validateSchema } from "./validate-schema.js";
+import { loadSchemas } from "./schemas.js";
+import { IMPORTED_MODELS, validateSchema } from "./validate-schema.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
+
+describe("IMPORTED_MODELS", () => {
+  it("holds every model a schema describes", () => {
+    const imported = new Set<string>(IMPORTED_MODELS);
+    expect(
+      [...loadSchemas().models.keys()].filter((model) => !imported.has(model)),
+    ).toEqual([]);
+  });
+});
 
 describe("validateSchema", () => {
   it("validates all bundled example files", () => {
@@ -40,20 +51,31 @@ describe("validateSchema", () => {
       expect(failed).toBe(0);
     });
 
-    it("fails files missing serdes/meta", () => {
+    it.each([
+      ["a map with no serdes/meta", "name: Notes\n"],
+      ["a map whose serdes/meta is null", "name: Notes\nserdes/meta:\n"],
+      ["an empty file", ""],
+      ["a file that holds only a comment", "# notes\n"],
+    ])("passes %s, which Metabase skips, with a warning", (_, content) => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
-        join(workdir, "collections", "main", "broken.yaml"),
-        "name: Broken\n",
+        join(workdir, "collections", "main", "notes.yaml"),
+        content,
       );
 
-      const { passed, failed, results } = validateSchema({ folder: workdir });
-      expect(passed).toBe(0);
-      expect(failed).toBe(1);
-      expect(results[0].status).toBe("fail");
-      if (results[0].status === "fail") {
-        expect(results[0].errors[0].message).toMatch(/serdes\/meta/);
-      }
+      expect(validateSchema({ folder: workdir })).toEqual({
+        results: [
+          {
+            file: join("collections", "main", "notes.yaml"),
+            status: "skipped",
+            warning: "Metabase skips this file because it has no serdes/meta",
+          },
+        ],
+        passed: 0,
+        failed: 0,
+        skipped: 1,
+        unchecked: 0,
+      });
     });
 
     it.each([
@@ -66,11 +88,103 @@ describe("validateSchema", () => {
       ["actions", ["actions"], "broken.yaml"],
     ])("validates %s", (_, dirs, file) => {
       mkdirSync(join(workdir, ...dirs), { recursive: true });
-      writeFileSync(join(workdir, ...dirs, file), "name: Broken\n");
+      writeFileSync(
+        join(workdir, ...dirs, file),
+        "name: 5\nserdes/meta:\n- model: Collection\n",
+      );
 
       const { failed, results } = validateSchema({ folder: workdir });
       expect(failed).toBe(1);
       expect(results[0].file).toBe(join(...dirs, file));
+    });
+
+    describe("which files it reads", () => {
+      const write = (file: string, content: string): void => {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        writeFileSync(join(workdir, file), content);
+      };
+      const table = yaml.dump({
+        name: "ORDERS",
+        db_id: "Sample Database",
+        "serdes/meta": [
+          { model: "Database", id: "Sample Database" },
+          { model: "Table", id: "ORDERS" },
+        ],
+      });
+      const transform = readFileSync(
+        join(EXAMPLES, "collections", "transforms", "native_transform.yaml"),
+        "utf8",
+      );
+      const collection = yaml.dump({
+        name: "Archive",
+        entity_id: "cOlArChIvE000ExAmPlx2",
+        "serdes/meta": [{ model: "Collection" }],
+      });
+      const statuses = (): string[] =>
+        validateSchema({ folder: workdir }).results.map((r) =>
+          [r.file, "model" in r ? r.model : "", r.status].join(" "),
+        );
+
+      it("checks a file against the schema of its model, wherever it sits under an imported folder", () => {
+        write("collections/odd/place/orders.yaml", table);
+        write("snippets/elsewhere/report.yaml", transform);
+        write(
+          "databases/db/fields/ID.yaml",
+          "name: 5\nserdes/meta:\n- model: Field\n",
+        );
+
+        expect(statuses()).toEqual([
+          "collections/odd/place/orders.yaml Table ok",
+          "databases/db/fields/ID.yaml Field fail",
+          "snippets/elsewhere/report.yaml Transform ok",
+        ]);
+      });
+
+      it("reads a file under a dot folder, and a data app manifest at any depth", () => {
+        write("collections/.archive/archive.yaml", collection);
+        write("data_apps/data_app.yaml", collection);
+        write("data_apps/group/shop/data_app.yaml", collection);
+
+        expect(statuses()).toEqual([
+          "collections/.archive/archive.yaml Collection ok",
+          "data_apps/data_app.yaml Collection ok",
+          "data_apps/group/shop/data_app.yaml Collection ok",
+        ]);
+      });
+
+      it("follows no symbolic link to a folder, and follows one to a file", () => {
+        const outside = mkdtempSync(join(tmpdir(), "representations-linked-"));
+        try {
+          mkdirSync(join(outside, "group"));
+          writeFileSync(join(outside, "linked.yaml"), collection);
+          writeFileSync(join(outside, "group", "nested.yaml"), collection);
+          write("collections/real/real.yaml", collection);
+          symlinkSync(outside, join(workdir, "collections", "linked"));
+          symlinkSync(outside, join(workdir, "transforms"));
+          symlinkSync(
+            join(outside, "linked.yaml"),
+            join(workdir, "collections", "file.yaml"),
+          );
+
+          expect(statuses()).toEqual([
+            "collections/file.yaml Collection ok",
+            "collections/real/real.yaml Collection ok",
+          ]);
+        } finally {
+          rmSync(outside, { recursive: true, force: true });
+        }
+      });
+
+      it("skips the files Metabase does not import", () => {
+        write("collection.yaml", collection);
+        write("notes/collection.yaml", collection);
+        write("collections/collection.yml", collection);
+        write("collections/.collection.yaml", collection);
+        write("data_apps/shop/settings.yaml", collection);
+        mkdirSync(join(workdir, "collections", "folder.yaml"));
+
+        expect(statuses()).toEqual([]);
+      });
     });
 
     describe("actions", () => {
@@ -289,6 +403,97 @@ describe("validateSchema", () => {
       });
     });
 
+    it("fails a file with a duplicate key, naming its position", () => {
+      mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+      writeFileSync(
+        join(workdir, "collections", "main", "duplicate.yaml"),
+        "name: a\nslug: a\nname: b\n",
+      );
+
+      const [result] = validateSchema({ folder: workdir }).results;
+      expect(result.status === "fail" && result.errors).toEqual([
+        {
+          path: "/",
+          message: expect.stringMatching(
+            /^invalid YAML: duplicated mapping key \(3:1\)/,
+          ),
+        },
+      ]);
+    });
+
+    it.each([
+      ["Reports", 0],
+      ["yes", 1],
+      ["on", 1],
+      ["1:30", 1],
+    ])(
+      "reads a name of %s as Metabase does, failing %p file(s)",
+      (name, failed) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "reports.yaml"),
+          [
+            `name: ${name}`,
+            "entity_id: cOlRePorTs000ExAmPlx2",
+            "serdes/meta:",
+            "- model: Collection",
+            "",
+          ].join("\n"),
+        );
+
+        expect(validateSchema({ folder: workdir }).failed).toBe(failed);
+      },
+    );
+
+    it("passes a file of a model Metabase imports and no schema describes, as not checked", () => {
+      const files = [
+        ["custom_viz_plugins/plugin/plugin.yaml", "CustomVizPlugin"],
+        ["databases/db/tables/t/dimensions/d.yaml", "Dimension"],
+        ["databases/db/tables/t/t__settings.yaml", "TableUserSettings"],
+        ["embedding_themes/theme.yaml", "EmbeddingTheme"],
+        ["osi_ai_context/context.yaml", "OsiAiContext"],
+      ];
+      for (const [file, model] of files) {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        writeFileSync(
+          join(workdir, file),
+          yaml.dump({ name: 5, "serdes/meta": [{ model }] }),
+        );
+      }
+
+      expect(validateSchema({ folder: workdir })).toEqual({
+        results: files.map(([file, model]) => ({
+          file,
+          model,
+          status: "unchecked",
+        })),
+        passed: 0,
+        failed: 0,
+        skipped: 0,
+        unchecked: files.length,
+      });
+    });
+
+    it.each(["Setting", "DashboardCard"])(
+      "fails a file of model %s, which Metabase loads from no file of its own, as an unknown model",
+      (model) => {
+        mkdirSync(join(workdir, "collections"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "entity.yaml"),
+          yaml.dump({ name: "Entity", "serdes/meta": [{ model, id: "x" }] }),
+        );
+
+        expect(validateSchema({ folder: workdir }).results).toEqual([
+          {
+            file: join("collections", "entity.yaml"),
+            model,
+            status: "fail",
+            errors: [{ path: "/", message: `unknown model "${model}"` }],
+          },
+        ]);
+      },
+    );
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
@@ -302,11 +507,33 @@ describe("validateSchema", () => {
         ].join("\n"),
       );
 
-      const { failed, results } = validateSchema({ folder: workdir });
-      expect(failed).toBe(1);
-      if (results[0].status === "fail") {
-        expect(results[0].errors[0].message).toMatch(/unknown model/);
-      }
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("collections", "main", "unknown.yaml"),
+          model: "NotARealModel",
+          status: "fail",
+          errors: [{ path: "/", message: 'unknown model "NotARealModel"' }],
+        },
+      ]);
+    });
+
+    it.each([
+      ["a model that is not a string", "serdes/meta:\n- model: [Transform]\n"],
+      ["an entry with no model", "serdes/meta:\n- id: x\n"],
+      ["an empty serdes/meta", "serdes/meta: []\n"],
+      ["a serdes/meta that is not a list", "serdes/meta: 5\n"],
+      ["a list in place of a map", "- serdes/meta\n"],
+    ])("fails a file with %s as having no model", (_, content) => {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(join(workdir, "transforms", "listed.yaml"), content);
+
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("transforms", "listed.yaml"),
+          status: "fail",
+          errors: [{ path: "/", message: "missing serdes/meta or model" }],
+        },
+      ]);
     });
   });
 });

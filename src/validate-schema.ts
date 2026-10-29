@@ -1,27 +1,106 @@
-import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
-import type { FormatsPlugin } from "ajv-formats";
-import { readFileSync } from "fs";
+import type { ValidateFunction } from "ajv/dist/2020.js";
+import { lstatSync, readFileSync } from "fs";
 import { globSync } from "glob";
-import yaml from "js-yaml";
-import { createRequire } from "node:module";
-import { resolve } from "path";
+import { dirname, resolve } from "path";
 
-const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
+import { loadSchemas, type Schemas } from "./schemas.js";
+import { errorMessage, isRecord, stringOrNull } from "./values.js";
+import { readYaml } from "./yaml.js";
 
-const PACKAGE_ROOT = resolve(import.meta.dirname, "..");
-
-const IMPORT_PATHS = [
-  "actions/**/*.yaml",
-  "channels/**/*.yaml",
-  "collections/**/*.yaml",
-  "data_apps/*/data_app.yaml",
-  "databases/**/segments/**/*.yaml",
-  "databases/**/measures/**/*.yaml",
-  "metabots/**/*.yaml",
-  "python_libraries/**/*.yaml",
-  "python-libraries/**/*.yaml",
-  "transforms/**/*.yaml",
+/** The top-level folders whose `.yaml` files Metabase imports, other than `data_apps`. */
+const ENTITY_FOLDERS = [
+  "actions",
+  "channels",
+  "collections",
+  "custom_viz_plugins",
+  "databases",
+  "embedding_themes",
+  "glossary",
+  "metabots",
+  "osi_ai_context",
+  "python_libraries",
+  "python-libraries",
+  "snippets",
+  "transforms",
 ];
+
+/**
+ * The models whose entity files Metabase imports: `exported-models` in
+ * Metabase's file and commit that `importedModels` in `vendor/sources.json`
+ * records, except `Setting`, which Metabase reads from `settings.yaml` alone.
+ */
+export const IMPORTED_MODELS = [
+  "Action",
+  "Card",
+  "Channel",
+  "Collection",
+  "CustomVizPlugin",
+  "Dashboard",
+  "DataApp",
+  "Database",
+  "Dimension",
+  "Document",
+  "EmbeddingTheme",
+  "Field",
+  "FieldUserSettings",
+  "FieldValues",
+  "Glossary",
+  "Measure",
+  "Metabot",
+  "NativeQuerySnippet",
+  "OsiAiContext",
+  "PythonLibrary",
+  "Segment",
+  "Table",
+  "TableUserSettings",
+  "Timeline",
+  "Transform",
+  "TransformJob",
+  "TransformTag",
+  "TransformTest",
+] as const;
+
+const IMPORTED = new Set<string>(IMPORTED_MODELS);
+
+/**
+ * The files of `folder` that Metabase imports, in path order: each `.yaml`
+ * file at any depth under an `ENTITY_FOLDERS` folder, and each
+ * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
+ * A file whose name starts with a dot is skipped; a folder whose name does is
+ * not. A file inside a folder that is a symbolic link is skipped, though
+ * Metabase follows such a folder; a symbolic link to a file is followed.
+ */
+export function entityFiles(folder: string): string[] {
+  const linked = createLinkedFolderCheck(folder);
+  return globSync(
+    [
+      ...ENTITY_FOLDERS.map((top) => `${top}/**/[!.]*.yaml`),
+      "data_apps/**/data_app.yaml",
+    ],
+    { cwd: folder, dot: true, nodir: true },
+  )
+    .filter((file) => !linked(dirname(file)))
+    .sort();
+}
+
+/**
+ * Returns whether a folder, by its path relative to `folder`, is a symbolic
+ * link or lies inside one.
+ */
+function createLinkedFolderCheck(folder: string): (dir: string) => boolean {
+  const known = new Map<string, boolean>([[".", false]]);
+  const linked = (dir: string): boolean => {
+    let answer = known.get(dir);
+    if (answer === undefined) {
+      answer =
+        lstatSync(resolve(folder, dir)).isSymbolicLink() ||
+        linked(dirname(dir));
+      known.set(dir, answer);
+    }
+    return answer;
+  };
+  return linked;
+}
 
 export type ValidateSchemaOptions = {
   folder: string;
@@ -34,6 +113,10 @@ export type ValidationError = {
 
 export type ValidationResult =
   | { file: string; model: string; status: "ok" }
+  // A model Metabase imports and no schema describes.
+  | { file: string; model: string; status: "unchecked" }
+  // A file Metabase skips without an error, and why.
+  | { file: string; status: "skipped"; warning: string }
   | {
       file: string;
       model?: string;
@@ -45,118 +128,160 @@ export type ValidateSchemaResult = {
   results: ValidationResult[];
   passed: number;
   failed: number;
+  skipped: number;
+  unchecked: number;
 };
 
-function extractModel(schema: any): string | null {
-  const items = schema?.properties?.["serdes/meta"]?.items;
-  const props = items?.properties ?? items?.items?.properties;
-  return props?.model?.const ?? null;
-}
+/** How a parsed file stands as Metabase imports it, and against the schema of its model. */
+export type SchemaCheck =
+  // Metabase skips the file without an error: it has no `serdes/meta`.
+  | { status: "skipped" }
+  // Metabase reads the file and cannot load it: its `serdes/meta` names no model.
+  | { status: "no-model" }
+  // Metabase reads the file and cannot load it: it imports no such model.
+  | { status: "unknown-model"; model: string }
+  // Metabase imports the model, and no schema describes it.
+  | { status: "unchecked"; model: string }
+  | { status: "checked"; model: string; errors: ValidationError[] };
 
-function getModel(doc: any): string | null {
-  const meta = doc?.["serdes/meta"];
+/**
+ * The `model` of the last `serdes/meta` entry, or null when there is none or
+ * it is not a string.
+ */
+function getModel(doc: unknown): string | null {
+  const meta = isRecord(doc) ? doc["serdes/meta"] : undefined;
   if (!Array.isArray(meta) || meta.length === 0) {
     return null;
   }
-  return meta[meta.length - 1]?.model ?? null;
+  const last: unknown = meta[meta.length - 1];
+  return isRecord(last) ? stringOrNull(last.model) : null;
 }
 
+/**
+ * Whether Metabase skips `doc`, a parsed file, without an error: the file is
+ * empty, or a map whose `serdes/meta` is absent or null.
+ */
+function skippedByMetabase(doc: unknown): boolean {
+  return (
+    doc === null || (isRecord(doc) && (doc["serdes/meta"] ?? null) === null)
+  );
+}
+
+/** One error at the root of the file. */
+const rootError = (message: string): ValidationError[] => [
+  { path: "/", message },
+];
+
+/**
+ * Checks each of `entityFiles(folder)`, in path order, against the schema of
+ * its model. A file Metabase skips, with no `serdes/meta`, is skipped with a
+ * warning. A file of a model Metabase imports and no schema describes is not
+ * checked. A file that does not parse as YAML, has no model, or names a model
+ * Metabase does not import fails with one error at "/".
+ */
 export function validateSchema({
   folder,
 }: ValidateSchemaOptions): ValidateSchemaResult {
-  const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
+  const schemas = loadSchemas();
+  const results = entityFiles(folder).map((file) =>
+    validateFile(folder, file, schemas),
+  );
+  const count = (status: ValidationResult["status"]): number =>
+    results.filter((r) => r.status === status).length;
+  return {
+    results,
+    passed: count("ok"),
+    failed: count("fail"),
+    skipped: count("skipped"),
+    unchecked: count("unchecked"),
+  };
+}
 
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strictTuples: false,
-    allowUnionTypes: true,
-  });
-  addFormats(ajv);
-
-  for (const file of globSync("common/*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    ajv.addSchema(body, file);
+function validateFile(
+  folder: string,
+  file: string,
+  schemas: Schemas,
+): ValidationResult {
+  let doc: unknown;
+  try {
+    doc = readYaml(readFileSync(resolve(folder, file), "utf8")).value;
+  } catch (e) {
+    return {
+      file,
+      status: "fail",
+      errors: rootError(`invalid YAML: ${errorMessage(e)}`),
+    };
   }
-
-  const schemas: Record<string, any> = {};
-  for (const file of globSync("*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    const model = extractModel(raw);
-    if (model) {
-      schemas[model] = body;
-    } else {
-      ajv.addSchema(body, file);
-    }
-  }
-
-  const validators: Record<string, ValidateFunction> = {};
-  for (const [model, schema] of Object.entries(schemas)) {
-    validators[model] = ajv.compile(schema);
-  }
-
-  const files = globSync(IMPORT_PATHS, { cwd: folder });
-
-  if (files.length === 0) {
-    return { results: [], passed: 0, failed: 0 };
-  }
-
-  const results: ValidationResult[] = [];
-
-  for (const file of files.sort()) {
-    const fullPath = resolve(folder, file);
-
-    let doc: any;
-    try {
-      doc = yaml.load(readFileSync(fullPath, "utf8"));
-    } catch (e: any) {
-      results.push({
+  const check = checkSchema(doc, schemas);
+  switch (check.status) {
+    case "skipped":
+      return {
+        file,
+        status: "skipped",
+        warning: "Metabase skips this file because it has no serdes/meta",
+      };
+    case "no-model":
+      return {
         file,
         status: "fail",
-        errors: [{ path: "/", message: `invalid YAML: ${e.message}` }],
-      });
-      continue;
-    }
-
-    const model = getModel(doc);
-    if (!model) {
-      results.push({
+        errors: rootError("missing serdes/meta or model"),
+      };
+    case "unknown-model":
+      return {
         file,
+        model: check.model,
         status: "fail",
-        errors: [{ path: "/", message: "missing serdes/meta or model" }],
-      });
-      continue;
+        errors: rootError(`unknown model "${check.model}"`),
+      };
+    case "unchecked":
+      return { file, model: check.model, status: "unchecked" };
+    case "checked": {
+      const { model, errors } = check;
+      return errors.length === 0
+        ? { file, model, status: "ok" }
+        : { file, model, status: "fail", errors };
     }
+  }
+}
 
-    const validate = validators[model];
-    if (!validate) {
-      results.push({
-        file,
-        status: "fail",
-        errors: [{ path: "/", message: `unknown model "${model}"` }],
-      });
-      continue;
-    }
-
-    if (validate(doc)) {
-      results.push({ file, model, status: "ok" });
-    } else {
-      const errors = (validate.errors ?? []).map((e) => ({
+/** The ways `doc` fails `validate`, in Ajv's order; empty when it passes. */
+function validationErrors(
+  validate: ValidateFunction,
+  doc: unknown,
+): ValidationError[] {
+  return validate(doc)
+    ? []
+    : (validate.errors ?? []).map((e) => ({
         path: e.instancePath || "/",
         message: e.message ?? "",
       }));
-      results.push({ file, model, status: "fail", errors });
-    }
-  }
+}
 
-  return {
-    results,
-    passed: results.filter((r) => r.status === "ok").length,
-    failed: results.filter((r) => r.status === "fail").length,
-  };
+/**
+ * How `doc`, a parsed representation file, stands as Metabase imports it, and
+ * the ways it fails the schema of its `serdes/meta` model, in Ajv's order.
+ */
+export function checkSchema(
+  doc: unknown,
+  { ajv, models }: Schemas,
+): SchemaCheck {
+  if (skippedByMetabase(doc)) {
+    return { status: "skipped" };
+  }
+  const model = getModel(doc);
+  if (model === null) {
+    return { status: "no-model" };
+  }
+  const file = models.get(model);
+  const validate = file === undefined ? undefined : ajv.getSchema(file);
+  if (validate !== undefined) {
+    return {
+      status: "checked",
+      model,
+      errors: validationErrors(validate, doc),
+    };
+  }
+  return IMPORTED.has(model)
+    ? { status: "unchecked", model }
+    : { status: "unknown-model", model };
 }
