@@ -30,6 +30,10 @@ export const LINT_RULE_SEVERITY = {
   "unknown-table": "warning",
   "null-schema-reference": "warning",
   "no-expectations": "warning",
+  "input-missing-read-column": "warning",
+  "upstream-column-mismatch": "warning",
+  "table-qualified-column": "warning",
+  "live-sql-input": "warning",
   "reads-not-checked": "warning",
 } as const satisfies Record<string, LintSeverity>;
 

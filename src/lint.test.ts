@@ -1018,6 +1018,45 @@ describe("lint", () => {
       ]);
     });
 
+    it("reads a test's SQL input in a folder that holds no other SQL", async () => {
+      const files = [
+        CONFIG_FILE,
+        MBQL_TRANSFORM,
+        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+      ];
+      for (const file of files) {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        cpSync(join(EXAMPLES, file), join(workdir, file));
+      }
+      const testFile = join(workdir, files[2]);
+      const test: unknown = yaml.load(readFileSync(testFile, "utf8"));
+      if (!isRecord(test)) {
+        throw new Error("The example test is not a map");
+      }
+      test.inputs = [
+        {
+          table: { schema: "public", name: "orders" },
+          format: "sql",
+          sql: "SELECT * FROM orders",
+        },
+      ];
+      test.expectations = [
+        {
+          type: "equals",
+          name: "no months",
+          format: "rows",
+          columns: [{ name: "count", cast_type: "INTEGER" }],
+          rows: [],
+        },
+      ];
+      writeFileSync(testFile, yaml.dump(test));
+      expect(
+        (await findings(workdir)).map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "live-sql-input: input public.orders reads orders; Metabase runs an input's SQL on the database as written, so the test depends on live data",
+      ]);
+    });
+
     // The test of this transform has inputs; were the reads taken as empty,
     // each input would be reported unused.
     it.each([

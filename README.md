@@ -116,6 +116,10 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `unknown-table` | warning | A table that no table file or transform target defines, in a database that has table files. |
 | `null-schema-reference` | warning | An MBQL reference with a `null` schema, on a database whose default schema is not `null`. |
 | `no-expectations` | warning | A test with no expectations. |
+| `input-missing-read-column` | warning | A test input without a column its transform reads. |
+| `upstream-column-mismatch` | warning | A test input for another transform's target, with a column that transform does not return. |
+| `table-qualified-column` | warning | A SQL column qualifier that names no table or alias once a transform test replaces the tables. |
+| `live-sql-input` | warning | A test's SQL input that reads a real table, so the test depends on live data. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
 ## Other commands

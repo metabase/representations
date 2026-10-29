@@ -31,6 +31,7 @@ import { cyclePath, cycles } from "./graph.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas, type Schemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
+import { createSqlColumnReader } from "./sql-columns.js";
 import { withSqlParser } from "./sql-parser.js";
 import { createSqlTableReader, type SqlTableReader } from "./sql-tables.js";
 import {
@@ -54,6 +55,7 @@ import {
   testedTransformsOf,
   testInputs,
 } from "./test-checks.js";
+import { reportTestSql } from "./test-sql-checks.js";
 import {
   incrementalFilterTables,
   reportCollectionNamespaces,
@@ -551,6 +553,19 @@ export async function lint({
     reportExpectationNames(docs, report);
     reportEmptyExpectations(docs, report);
     reportUntestableEngines(tested, engineOf, report);
+    reportTestSql(
+      {
+        docs,
+        byEntityId,
+        transforms,
+        tested,
+        defaultSchemaOf,
+        schemas,
+        readSql,
+        columns: createSqlColumnReader(parser, engineOf),
+      },
+      report,
+    );
     return { files, findings: findings.sort(byRuleThenFile) };
   });
 }
