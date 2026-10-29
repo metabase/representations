@@ -1254,6 +1254,113 @@ describe("lint", () => {
     });
   });
 
+  // Two qualified names compare the same whatever the default schema, except
+  // where a transform test's rewrite falls back to a table's unqualified key.
+  describe("with one table name in two schemas", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-two-"));
+      writeTransform("a_copy", "SELECT id FROM a.account");
+      writeTransform("b_copy", "SELECT id FROM b.account");
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const DATABASE = "Warehouse";
+
+    function writeTransform(name: string, sql: string): void {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(
+        join(workdir, "transforms", `${name}.yaml`),
+        yaml.dump({
+          name,
+          entity_id: `${name}_transform_00000`.slice(0, 21),
+          creator_id: "admin@example.com",
+          source_database_id: DATABASE,
+          source: {
+            type: "query",
+            query: {
+              "lib/type": "mbql/query",
+              database: DATABASE,
+              stages: [{ "lib/type": "mbql.stage/native", native: sql }],
+            },
+          },
+          target: { database: DATABASE, type: "table", schema: "out", name },
+          "serdes/meta": [{ model: "Transform" }],
+        }),
+      );
+    }
+
+    function writeTest(transform: string, input: string, sql: string): void {
+      const [schema, name] = input.split(".");
+      writeFileSync(
+        join(workdir, "transforms", `${transform}__test.yaml`),
+        yaml.dump({
+          name: `${transform} test`,
+          entity_id: `${transform}_test_000000000`.slice(0, 21),
+          transform_id: `${transform}_transform_00000`.slice(0, 21),
+          creator_id: "admin@example.com",
+          inputs: [
+            {
+              table: { schema, name },
+              format: "rows",
+              columns: [{ name: "id", cast_type: "INTEGER" }],
+              rows: [{ id: 1 }],
+            },
+          ],
+          expectations: [{ type: "empty", name: "no rows", sql }],
+          "serdes/meta": [{ model: "TransformTest" }],
+        }),
+      );
+    }
+
+    // The rules of the findings, or, when the lint stops for default
+    // schemas, each database it names and why.
+    const outcome = async (): Promise<
+      { rules: string[] } | { stops: string[] }
+    > => {
+      try {
+        return { rules: rules((await lint({ folder: workdir })).findings) };
+      } catch (e) {
+        if (e instanceof MissingDefaultSchemasError) {
+          return {
+            stops: e.databases.map((d) => `${d.database}: ${d.reason}`),
+          };
+        }
+        throw e;
+      }
+    };
+
+    const stop = { stops: [`${DATABASE}: names account in schemas a and b`] };
+
+    it("lints when no transform test compares the two", async () => {
+      expect(await outcome()).toEqual({ rules: [] });
+    });
+
+    it("lints when each test's tables name the table in one schema", async () => {
+      writeTest("a_copy", "a.account", "SELECT * FROM a.account WHERE id < 0");
+      writeTest("b_copy", "b.account", "SELECT * FROM out.b_copy WHERE id < 0");
+      expect(await outcome()).toEqual({ rules: [] });
+    });
+
+    it("stops when a test's input and expectation name the table in two schemas", async () => {
+      writeTest("a_copy", "a.account", "SELECT * FROM b.account WHERE id < 0");
+      expect(await outcome()).toEqual(stop);
+    });
+
+    it("stops when a test's input and its transform's SQL name the table in two schemas", async () => {
+      writeTransform(
+        "a_copy",
+        "SELECT x.id FROM a.account x JOIN b.account y ON x.id = y.id",
+      );
+      writeTest("a_copy", "a.account", "SELECT * FROM out.a_copy WHERE id < 0");
+      expect(await outcome()).toEqual(stop);
+    });
+  });
+
   // Metabase rewrites an expectation's tables by name: a qualified name by the
   // key with its schema, or else by an unqualified key, which a table has when
   // it is unqualified or in the default schema.

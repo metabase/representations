@@ -31,32 +31,43 @@ const k = (
 
 describe("defaultSchemaNeed", () => {
   it("needs a default schema for an unqualified name", () => {
-    expect(defaultSchemaNeed([t("PUBLIC", "ORDERS"), t(null, "PEOPLE")])).toBe(
-      "names PEOPLE without a schema",
-    );
+    expect(
+      defaultSchemaNeed([t("PUBLIC", "ORDERS"), t(null, "PEOPLE")], []),
+    ).toBe("names PEOPLE without a schema");
   });
 
-  it("needs a default schema for one table name in two schemas", () => {
-    expect(defaultSchemaNeed([t("A", "orders"), t("b", "ORDERS")])).toBe(
+  it("needs a default schema for one table name in two schemas in one test", () => {
+    const names = [t("A", "orders"), t("b", "ORDERS")];
+    expect(defaultSchemaNeed(names, [names])).toBe(
       "names orders in schemas A and b",
     );
   });
 
+  it("needs none for one table name in two schemas outside any test", () => {
+    expect(
+      defaultSchemaNeed([t("A", "orders"), t("b", "ORDERS")], []),
+    ).toBeNull();
+  });
+
+  it("needs none when each test names the table in one schema", () => {
+    const [a, b] = [t("A", "orders"), t("b", "ORDERS")];
+    expect(defaultSchemaNeed([a, b], [[a, t("c", "people")], [b]])).toBeNull();
+  });
+
   it("needs none for an MBQL reference with no schema, which names the table with no schema", () => {
     expect(
-      defaultSchemaNeed([ref(null, "ORDERS"), t("PUBLIC", "ORDERS")]),
+      defaultSchemaNeed([ref(null, "ORDERS"), t("PUBLIC", "ORDERS")], []),
     ).toBeNull();
   });
 
   it("needs none when every name is qualified and each table name has one schema", () => {
-    expect(
-      defaultSchemaNeed([
-        t("PUBLIC", "ORDERS"),
-        t("public", "orders"),
-        t("RAW", "PEOPLE"),
-      ]),
-    ).toBeNull();
-    expect(defaultSchemaNeed([])).toBeNull();
+    const names = [
+      t("PUBLIC", "ORDERS"),
+      t("public", "orders"),
+      t("RAW", "PEOPLE"),
+    ];
+    expect(defaultSchemaNeed(names, [names])).toBeNull();
+    expect(defaultSchemaNeed([], [])).toBeNull();
   });
 });
 
@@ -74,23 +85,35 @@ type GeneratedName = {
 };
 
 describe("the default-schema gate", () => {
+  // A test's rewrite (`rewriteCovers`) compares only the tables of one test;
+  // every other comparison may pair any two names.
   it("lets through only names whose matches never depend on the default schema", () => {
     const defaults = [null, "a", "b"] as const;
     const key = (n: GeneratedName): TableKey => ({ database: "db", ...n });
     const isSql = (n: GeneratedName) => n.nullSchema === "default";
     // Test inputs and transform targets are named as in SQL; only a read may
     // be an MBQL reference.
-    const answers = (a: GeneratedName, b: GeneratedName, d: string | null) => [
+    const answers = (
+      a: GeneratedName,
+      b: GeneratedName,
+      inOneTest: boolean,
+      d: string | null,
+    ) => [
       ...(isSql(b) ? [inputCovers(a, b, d)] : []),
-      ...(isSql(a) && isSql(b) ? [rewriteCovers(a, b, d)] : []),
+      ...(inOneTest && isSql(a) && isSql(b) ? [rewriteCovers(a, b, d)] : []),
       sameTable(key(a), key(b), () => d),
     ];
+    const names = fc.array(tableName, { maxLength: 4 });
     fc.assert(
-      fc.property(fc.array(tableName, { maxLength: 4 }), (names) => {
-        fc.pre(defaultSchemaNeed(names) === null);
-        for (const a of names) {
-          for (const b of names) {
-            const [first, ...rest] = defaults.map((d) => answers(a, b, d));
+      fc.property(names, names, (outside, test) => {
+        const all = [...outside, ...test];
+        fc.pre(defaultSchemaNeed(all, [test]) === null);
+        for (const a of all) {
+          for (const b of all) {
+            const inOneTest = test.includes(a) && test.includes(b);
+            const [first, ...rest] = defaults.map((d) =>
+              answers(a, b, inOneTest, d),
+            );
             for (const other of rest) {
               expect(other).toEqual(first);
             }
@@ -106,15 +129,18 @@ describe("resolveDefaultSchemas", () => {
   const noEngines = () => null;
 
   it("refuses, naming each database that needs a default schema and why", () => {
+    const legacy = [k("Legacy", "a", "t"), k("Legacy", "b", "t")];
     const resolve = () =>
       resolveDefaultSchemas({
         names: [
           k("Warehouse", null, "orders"),
-          k("Legacy", "a", "t"),
-          k("Legacy", "b", "t"),
+          ...legacy,
           k("Clean", "public", "orders"),
+          k("Spread", "a", "t"),
+          k("Spread", "b", "t"),
           k("Given", null, "orders"),
         ],
+        testTables: [legacy, [k("Spread", "a", "t")], [k("Spread", "b", "t")]],
         given: { Given: "public" },
         engineOf: noEngines,
       });
@@ -131,6 +157,7 @@ describe("resolveDefaultSchemas", () => {
 
   it("gives the default schema given, null given, or null for a MySQL or BigQuery engine", () => {
     const defaultSchemaOf = resolveDefaultSchemas({
+      testTables: [],
       names: [
         k("Warehouse", null, "orders"),
         k("Flat", null, "orders"),
@@ -153,6 +180,7 @@ describe("resolveDefaultSchemas", () => {
 
   it("takes a given default schema over the engine's", () => {
     const defaultSchemaOf = resolveDefaultSchemas({
+      testTables: [],
       names: [k("Shop", null, "orders")],
       given: { Shop: "shop" },
       engineOf: () => "mysql",
@@ -163,6 +191,7 @@ describe("resolveDefaultSchemas", () => {
   it("asks for the default schema of any other engine", () => {
     expect(() =>
       resolveDefaultSchemas({
+        testTables: [],
         names: [k("Warehouse", null, "orders")],
         given: {},
         engineOf: () => "postgres",
@@ -173,6 +202,7 @@ describe("resolveDefaultSchemas", () => {
   it("ignores names with no database", () => {
     expect(
       resolveDefaultSchemas({
+        testTables: [],
         names: [k(null, null, "orders")],
         given: {},
         engineOf: noEngines,
