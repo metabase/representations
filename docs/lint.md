@@ -2,11 +2,45 @@
 
 How the `lint` command resolves tables, reads SQL and YAML, and where it can be wrong. The [README](../README.md) shows how to run it and lists its rules.
 
+## Default schemas
+
+An unqualified table name, such as `orders` in SQL, a transform's target or a test's input, resolves to its database's default schema.
+
+### Where the lint finds a default schema
+
+The lint needs the default schema of a database when an unqualified name is in it, or when one transform test's tables name one table in two schemas. Without it, the lint stops before any check and names each such database.
+
+It takes a database's default schema from the first of these that gives one:
+
+1. `--default-schema "<database>=<schema>"` on the command line; `"<database>="` for no schemas.
+2. The settings file's `defaultSchemas`; `null` for no schemas.
+3. The Database file's `default_schema`, which a full serdes export writes. A file without the field, as Metabase wrote before it stored the value, gives none.
+4. The engine: `mysql`, `bigquery-cloud-sdk`, `sqlite` and `mongo` have `null`, which Metabase hard-codes.
+
+### `null` in a Database file
+
+In a Database file, `default_schema` is the schema unqualified names resolve to, as Metabase's metadata sync last read it from the database. `null` there means Metabase resolves an unqualified name to no schema.
+
+On an engine with schemas, such as Postgres, `null` is ambiguous: the connection named no current schema, or Metabase has not synced the database since it began storing the value. The Metabase that runs the tests syncs on its own, so its value can differ. The lint therefore ignores `null` on an engine with schemas, and takes the default schema from the engine or asks for it.
+
+On an engine without schemas, an engine whose schemas depend on the connection (such as Athena), or an engine the lint does not know, `null` means no schema.
+
+### `null` schemas in MBQL references
+
+An MBQL reference, `[database, schema, table]` or `[database, schema, table, field]`, names its schema as written, as Metabase's serdes import reads it: a `null` schema is the table with no schema, never the default schema. On a database whose default schema is `PUBLIC`, `["Sample Database", null, "ORDERS"]` is not `PUBLIC.ORDERS`, and an input for `PUBLIC.ORDERS` does not stand in for it. A Python transform's source table and a table file read a `null` schema the same way. Findings name such a table `ORDERS (no schema)`, and an unqualified name `ORDERS`.
+
+`null-schema-reference` warns when a transform reads a table by a reference with a `null` schema, on a database whose default schema is known and is not `null`. Such a database rarely has a table with no schema. Where none exists, Metabase's import creates an inactive one, and every query on it fails: for example `["Sample Database", null, "ORDERS"]` on the H2 Sample Database, whose default schema is `PUBLIC`. The rule needs no table files. A database whose default schema is unknown gives no finding.
+
+## Engines
+
+An engine is Metabase's driver name, as a Database file's `engine` gives it. A Database file (`databases/<slug>/<slug>.yaml`) that names an engine takes precedence over the settings file's `engines`. Remote sync does not export Database files, so a repository it writes needs `engines` for the lint to know them.
+
 ## How the lint reads SQL
 
 The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at the version Metabase pins, and Metabase's `sql_tools.py`, run in WebAssembly by [Pyodide](https://pyodide.org). Nothing is fetched at run time. A CI job fails when either differs from Metabase's `master`.
 
 - The SQL dialect follows the database's engine, as Metabase maps drivers to dialects.
+- Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag.
 - Loading the parser takes a moment and some memory, once per process, and only when the lint reads SQL in the folder.
 - Pyodide is an optional peer dependency, which a plain install of the package leaves out. Install it with `npm install pyodide@314.0.7`, the version the package pins. Without it, a lint that reads SQL exits with code 2 and names that command.
 
@@ -33,3 +67,26 @@ Known differences from Metabase's reading:
 The lint reads SQL as Metabase 0.65 does, from 0.65.0 through 0.65.2.1, and as `master` does at the commit `vendor/sources.json` records. Those versions pin the same SQLGlot, 30.20.0, and their `sql_tools.py` has the same `referenced_tables`, `field_references` and `replace_names`. The files can differ elsewhere, in functions the lint does not call.
 
 Metabase 0.64 and earlier pin SQLGlot 28.6.0 and an older `referenced_tables` and `replace_names`. On those versions, the lint can find tables or columns that Metabase does not, or parse SQL that Metabase cannot, and the reverse. A later Metabase version can differ too; compare its `resources/python-sources/sql_tools.py` and `pyproject.toml` with the copy in `vendor/`.
+
+## Known limits
+
+Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input.
+
+When neither a Database file nor the settings file gives a database's engine, the lint parses its SQL in SQLGlot's default dialect, where Metabase uses the engine's. Engine-specific syntax then fails to parse, for example backticked names in MySQL and BigQuery or bracketed names in SQL Server, and the query is reported as `reads-not-checked`.
+
+A query near Metabase's limit of 10,000,000 characters takes the parser a long time and much memory to read. The parser's memory never shrinks, so the rest of the run keeps that memory.
+
+### Reported as `reads-not-checked`
+
+- SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
+- An expression nested deeper than Python's recursion limit allows, such as a deeply nested expression in parentheses.
+- A snippet left in the query after pasting, such as one whose file is not in the folder.
+- Snippets Metabase refuses to paste: a snippet that uses itself through any chain of snippets, more than 10,000 pastes in one query, or SQL longer than 10,000,000 characters after pasting.
+- A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
+
+### Read differently from what the database runs, with no warning
+
+- A table function reads no table: `generate_series(…)`, `UNNEST`, `LATERAL FLATTEN`, and in ClickHouse `numbers(…)`, `s3(…)` and a parameterized view `db.v(p = 1)`. So do ClickHouse's `remote('host', db.t)` and `cluster('c', db.t)`, which read `db.t`.
+- In ClickHouse, `WHERE id IN db.u` misses `db.u`, and `WITH 1 AS orders SELECT * FROM orders` reads no table.
+- The table an `INSERT`, `UPDATE`, `DELETE` or `MERGE` writes counts as read.
+- A three-part name keeps its schema and table and drops the first part, even in MySQL, which has no three-part names.
