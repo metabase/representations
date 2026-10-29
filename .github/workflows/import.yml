@@ -157,32 +157,14 @@ jobs:
             -H "X-API-Key: $API_KEY" \
             -H 'Content-Type: application/json' \
             -d '{"remote-sync-url":"file:///sync-repo/.git","remote-sync-branch":"main","remote-sync-type":"read-only"}')
-          if [ "$HTTP_CODE" != "200" ]; then
+          if [ "$HTTP_CODE" != "200" ] || ! TASK_ID=$(jq -er '.task_id' /tmp/settings-response.txt); then
             cat /tmp/settings-response.txt
-            echo "Connecting the repository failed with HTTP $HTTP_CODE"
+            echo "Connecting the repository failed with HTTP $HTTP_CODE, or started no import"
             exit 1
           fi
 
           echo "Waiting for the git sync import..."
-          if ! timeout 300 bash -c '
-            until
-              STATUS=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY" \
-                | jq -r "select(.sync_task_type == \"import\") | .status") &&
-              [ -n "$STATUS" ] && [ "$STATUS" != "running" ]
-            do
-              sleep 2
-            done
-          '; then
-            echo "The git sync import did not finish in time"
-            exit 1
-          fi
-          TASK=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY")
-          if [ "$(echo "$TASK" | jq -r '.status')" != "successful" ]; then
-            echo "$TASK"
-            echo "Git sync import failed"
-            exit 1
-          fi
-          echo "Import succeeded"
+          MB_URL=http://localhost:3000 scripts/wait-for-import.sh "$TASK_ID"
 
           APPS=$(curl -sf http://localhost:3000/api/ee/apps -H "X-API-Key: $API_KEY")
           for DIR in examples/v1/data_apps/*/; do
@@ -246,3 +228,101 @@ jobs:
             echo "$WARNINGS"
             exit 1
           fi
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install the lint's dependencies
+        run: bun install --frozen-lockfile
+
+      # The lint reads the files alone; Metabase is the reference. The step
+      # compares the tables each transform reads, and Metabase's verdict on
+      # each transform test with the lint's errors on it. Any difference is a
+      # lint bug, and a run that compares nothing fails.
+      - name: Compare the lint with Metabase
+        run: |
+          if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
+            | jq -e '.["token-features"]["transforms-testing"]' > /dev/null; then
+            echo "The token lacks the transforms-testing feature"
+            exit 1
+          fi
+
+          # A self-hosted instance keeps transforms off until the
+          # transforms-enabled setting is set, and GET /api/transform answers
+          # 403 while they are off.
+          HTTP_CODE=$(curl -s -o /tmp/transforms-enabled.txt -w '%{http_code}' \
+            -X PUT http://localhost:3000/api/setting/transforms-enabled \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"value":true}')
+          if [ "$HTTP_CODE" != "204" ]; then
+            cat /tmp/transforms-enabled.txt
+            echo "Enabling transforms failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          # In read-only remote sync no transform can be written, and creating
+          # a transform test needs write access to its transform: every probe
+          # would answer 403. The import is done, so switch to read-write.
+          HTTP_CODE=$(curl -s -o /tmp/read-write.txt -w '%{http_code}' \
+            -X PUT http://localhost:3000/api/ee/remote-sync/settings \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"remote-sync-url":"file:///sync-repo/.git","remote-sync-branch":"main","remote-sync-type":"read-write"}')
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat /tmp/read-write.txt
+            echo "Switching remote sync to read-write failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          # Record which build runs, so a refusal can be traced to its image.
+          echo "Metabase version:"
+          curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" | jq '.version' \
+            || echo "(could not read the version)"
+          echo "Image created: $(docker image inspect --format '{{.Created}}' metabase/metabase-enterprise-head:latest)"
+
+          # The lint reads each database's default schema from the folder's
+          # .metabase-lint.json.
+          STATUS=0
+          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1 \
+            || STATUS=$?
+          if [ "$STATUS" != "0" ]; then
+            # When a driver's feature check throws, Metabase logs this message
+            # and answers that the feature is unsupported.
+            FEATURE_ERRORS=$(docker logs metabase 2>&1 | grep "Failed to check feature" || true)
+            if [ -n "$FEATURE_ERRORS" ]; then
+              echo "Metabase failed to check a driver feature:"
+              echo "$FEATURE_ERRORS"
+            else
+              echo "Metabase logged no failed feature check"
+            fi
+          fi
+          exit "$STATUS"
+
+      # The examples hold no test Metabase refuses, so the step above compares
+      # no refusal. Import a copy in which four tests each break in a different
+      # way that Metabase refuses, and compare Metabase's refusals with the
+      # lint's errors.
+      - name: Compare the lint with Metabase on tests Metabase refuses
+        run: |
+          bun run src/test-support/lint-mutations.ts refused-tests "$RUNNER_TEMP/sync-repo"
+          git -C "$RUNNER_TEMP/sync-repo" add -A
+          git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Refused tests"
+
+          # Remote sync is read-write since the step above, whose probes may
+          # leave changes Metabase has not exported: force the import over them.
+          HTTP_CODE=$(curl -s -o /tmp/import-response.txt -w '%{http_code}' \
+            -X POST http://localhost:3000/api/ee/remote-sync/import \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"force":true}')
+          if [ "$HTTP_CODE" != "200" ] || ! TASK_ID=$(jq -er '.task_id' /tmp/import-response.txt); then
+            cat /tmp/import-response.txt
+            echo "Importing the refused tests failed with HTTP $HTTP_CODE, or started no import"
+            exit 1
+          fi
+          echo "Waiting for the git sync import..."
+          MB_URL=http://localhost:3000 scripts/wait-for-import.sh "$TASK_ID"
+
+          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder "$RUNNER_TEMP/sync-repo"
