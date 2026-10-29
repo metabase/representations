@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import { sameTableLabel } from "./parity.js";
+import type { LintFinding } from "../src/findings.js";
+import { sameTableLabel, testVerdictDiffers } from "./parity.js";
 
 const t = (schema: string | null, name: string) => ({ schema, name });
 
@@ -28,5 +29,31 @@ describe("sameTableLabel", () => {
     ["a dot in the name", "a.b.c", t("a", "b.c"), true],
   ] as const)("%s", (_, label, table, expected) => {
     expect(sameTableLabel(label, table)).toBe(expected);
+  });
+});
+
+describe("testVerdictDiffers", () => {
+  const otherTable: LintFinding = {
+    rule: "expectation-reads-other-table",
+    severity: "error",
+    file: "test.yaml",
+    entity: { model: "TransformTest", entity_id: "test", name: "test" },
+    message: "expectation reads people",
+    related: [],
+  };
+  const unremapped = (onTransform: boolean) => ({
+    code: "transform-test.unremapped-reference",
+    message: "people",
+    onTransform,
+  });
+
+  it("agrees when an expectation's unremapped reference is the lint's error", () => {
+    expect(testVerdictDiffers(unremapped(false), [otherTable])).toBeNull();
+  });
+
+  it("differs when the transform's unremapped reference meets the expectation's error", () => {
+    expect(testVerdictDiffers(unremapped(true), [otherTable])).toBe(
+      'Metabase refuses it with transform-test.unremapped-reference on the transform ("people"), which no lint rule predicts',
+    );
   });
 });

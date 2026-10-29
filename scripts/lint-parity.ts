@@ -23,8 +23,10 @@ import { lint, transformReads } from "../src/lint.js";
 import { loadSchemas } from "../src/schemas.js";
 import { isRecord } from "../src/values.js";
 import {
+  describeRefusal,
   ENVIRONMENT_REFUSALS,
   readsDiffer,
+  type TestRefusal,
   testVerdictDiffers,
 } from "./parity.js";
 
@@ -97,16 +99,11 @@ const isStringArray = (value: unknown): value is string[] =>
 type Probe =
   | { kind: "accepted" }
   /**
-   * Refused with a transform-test error code. `refusal` names the code and
-   * Metabase's message; `tables` when the refusal lists them.
+   * Refused with a transform-test error code; `tables` when the refusal lists
+   * them. Metabase's answer does not say whether the refusal is about the
+   * transform, so `refusal.onTransform` is false.
    */
-  | {
-      kind: "refused";
-      code: string;
-      refusal: string;
-      tables: string[] | null;
-      body: Record<string, unknown>;
-    }
+  | { kind: "refused"; refusal: TestRefusal; tables: string[] | null }
   /** Anything else, such as a 403: the probe did not run. */
   | { kind: "failed"; answer: string };
 
@@ -128,16 +125,44 @@ async function probe(test: {
   if (typeof code === "string" && code.startsWith("transform-test.")) {
     return {
       kind: "refused",
-      code,
-      refusal:
-        typeof json.message === "string"
-          ? `${code} (${JSON.stringify(json.message)})`
-          : code,
+      refusal: {
+        code,
+        message: typeof json.message === "string" ? json.message : null,
+        onTransform: false,
+      },
       tables: isStringArray(json.tables) ? json.tables : null,
-      body: json,
     };
   }
   return { kind: "failed", answer: describe(answer) };
+}
+
+/** An expectation whose SQL reads no table, which no test is refused for. */
+const NO_TABLE_EXPECTATION = {
+  type: "empty",
+  name: "probe",
+  sql: "SELECT 1 WHERE 1 = 0",
+};
+
+/**
+ * `refusal` of `test`, with `onTransform` set. Metabase checks the transform's
+ * SQL before the expectations', and its unremapped-reference refusal does not
+ * say which one it is about. The test with only an expectation that reads no
+ * table tells: Metabase refuses it the same way only when the transform's
+ * SQL is at fault.
+ */
+async function locateRefusal(
+  refusal: TestRefusal,
+  test: { transform_id: number; inputs: unknown },
+): Promise<TestRefusal> {
+  if (refusal.code !== "transform-test.unremapped-reference") {
+    return refusal;
+  }
+  const answer = await probe({ ...test, expectations: [NO_TABLE_EXPECTATION] });
+  return {
+    ...refusal,
+    onTransform:
+      answer.kind === "refused" && answer.refusal.code === refusal.code,
+  };
 }
 
 let failed = false;
@@ -174,23 +199,24 @@ for (const transform of transforms) {
   const answer = await probe({
     transform_id: id,
     inputs: [],
-    expectations: [
-      { type: "empty", name: "probe", sql: "SELECT 1 WHERE 1 = 0" },
-    ],
+    expectations: [NO_TABLE_EXPECTATION],
   });
   if (answer.kind === "failed") {
     fail(`${label}: Metabase answered the probe ${answer.answer}`);
     continue;
   }
-  if (answer.kind === "refused" && ENVIRONMENT_REFUSALS.has(answer.code)) {
+  if (
+    answer.kind === "refused" &&
+    ENVIRONMENT_REFUSALS.has(answer.refusal.code)
+  ) {
     console.log(
-      `SKIP  ${label}: Metabase refused the probe with ${answer.refusal}`,
+      `SKIP  ${label}: Metabase refused the probe with ${describeRefusal(answer.refusal)}`,
     );
     continue;
   }
   if (
     answer.kind === "refused" &&
-    answer.code === "transform-test.unsupported-transform"
+    answer.refusal.code === "transform-test.unsupported-transform"
   ) {
     if (transform.queryTransform) {
       fail(
@@ -208,13 +234,13 @@ for (const transform of transforms) {
   if (answer.kind === "accepted") {
     metabaseTables = [];
   } else if (
-    answer.code === "transform-test.missing-inputs" &&
+    answer.refusal.code === "transform-test.missing-inputs" &&
     answer.tables !== null
   ) {
     metabaseTables = answer.tables;
   } else {
     fail(
-      `${label}: Metabase refused the probe with ${answer.refusal}, which the lint does not explain`,
+      `${label}: Metabase refused the probe with ${describeRefusal(answer.refusal)}, which the lint does not explain`,
     );
     continue;
   }
@@ -239,10 +265,9 @@ for (const transform of transforms) {
 
 // Tests: Metabase's verdict on each test against the lint's errors on it.
 const testFiles = new Map(
-  validDocsOf(loadDocs(folder, loadSchemas()).docs, "TransformTest").map((d) => [
-    d.body.entity_id,
-    d.file,
-  ]),
+  validDocsOf(loadDocs(folder, loadSchemas()).docs, "TransformTest").map(
+    (d) => [d.body.entity_id, d.file],
+  ),
 );
 const { findings } = await lint({ folder, defaultSchemas });
 const tests = await api("GET", "/api/ee/transform-test");
@@ -281,30 +306,28 @@ for (const [entityId, file] of testFiles) {
     fail(`${label}: Metabase answered the probe ${answer.answer}`);
     continue;
   }
-  if (answer.kind === "refused" && ENVIRONMENT_REFUSALS.has(answer.code)) {
+  if (
+    answer.kind === "refused" &&
+    ENVIRONMENT_REFUSALS.has(answer.refusal.code)
+  ) {
     console.log(
-      `SKIP  ${label}: Metabase refused the probe with ${answer.refusal}`,
+      `SKIP  ${label}: Metabase refused the probe with ${describeRefusal(answer.refusal)}`,
     );
     continue;
   }
   testsCompared++;
-  // Metabase's unremapped-reference refusal covers the transform's SQL as well
-  // as an expectation's. The error rule that predicts it,
-  // expectation-reads-other-table, checks expectations only, and
-  // table-qualified-column is a warning, which the comparison ignores.
   const refusal =
     answer.kind === "accepted"
       ? null
-      : answer.code === "transform-test.unremapped-reference" &&
-          answer.body.expectation === undefined
-        ? `${answer.code} on the transform`
-        : answer.code;
+      : await locateRefusal(answer.refusal, test);
   const difference = testVerdictDiffers(
     refusal,
     findings.filter((f) => f.entity.entity_id === entityId),
   );
   if (difference === null) {
-    console.log(`OK    ${label}: ${refusal ?? "accepted"}`);
+    console.log(
+      `OK    ${label}: ${refusal === null ? "accepted" : describeRefusal(refusal)}`,
+    );
   } else {
     fail(`${label}: ${difference}`);
   }

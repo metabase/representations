@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { resolve } from "path";
+import { mkdtempSync, rmSync } from "fs";
+import { tmpdir } from "os";
+import { join, resolve } from "path";
 
 import { loadDocs, validDocsOf } from "../src/documents.js";
 import { transformReads } from "../src/lint.js";
 import { loadSchemas } from "../src/schemas.js";
+import { mutateExamples } from "../src/test-support/lint-mutations.js";
 import { isRecord } from "../src/values.js";
 
 const ROOT = resolve(import.meta.dirname, "..");
@@ -16,15 +19,17 @@ const TRANSFORMS = (await transformReads({ folder: EXAMPLES })).map((t, i) => ({
 const transformByEntityId = new Map(
   TRANSFORMS.map((t) => [t.entity_id ?? "", t]),
 );
-const TESTS = validDocsOf(loadDocs(EXAMPLES, loadSchemas()).docs, "TransformTest").map(
-  (doc, i) => ({
-    id: 100 + i,
-    entity_id: doc.body.entity_id,
-    transform_id: transformByEntityId.get(doc.body.transform_id)?.id ?? 0,
-    inputs: doc.body.inputs,
-    expectations: doc.body.expectations,
-  }),
-);
+/** The transform tests of `folder`, as Metabase lists them once imported. */
+const testsOf = (folder: string) =>
+  validDocsOf(loadDocs(folder, loadSchemas()).docs, "TransformTest").map(
+    (doc, i) => ({
+      id: 100 + i,
+      entity_id: doc.body.entity_id,
+      transform_id: transformByEntityId.get(doc.body.transform_id)?.id ?? 0,
+      inputs: doc.body.inputs,
+      expectations: doc.body.expectations,
+    }),
+  );
 
 // Each parity run lints the examples in a new process, which loads the SQL
 // parser and takes seconds.
@@ -53,21 +58,54 @@ const missingInputs = (transform: Transform): Reply =>
 type Fake = {
   /** The answer to creating a test with no inputs, the probe of a transform's reads. */
   readsProbe?: (transform: Transform) => Reply;
-  /** The answer to creating a copy of an imported test. */
-  testProbe?: (transform: Transform) => Reply;
+  /** The answer to creating a test with inputs, given the test's expectations. */
+  testProbe?: (transform: Transform, expectations: unknown) => Reply;
+  /** The folder Metabase imported. */
+  folder?: string;
 };
 
 let server: ReturnType<typeof Bun.serve> | undefined;
+let workdir: string | undefined;
 
 afterEach(() => {
   server?.stop(true);
   server = undefined;
+  if (workdir !== undefined) {
+    rmSync(workdir, { recursive: true, force: true });
+    workdir = undefined;
+  }
 });
+
+/** `examples/v1` with the named mutation applied, in a new folder. */
+function mutated(name: string): string {
+  workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+  const folder = join(workdir, "repo");
+  mutateExamples(name, folder);
+  return folder;
+}
+
+/** Whether an expectation in `expectations` has SQL that reads `table`. */
+const readsTable = (expectations: unknown, table: string) =>
+  Array.isArray(expectations) &&
+  expectations.some(
+    (e) =>
+      isRecord(e) &&
+      typeof e.sql === "string" &&
+      new RegExp(`\\b${table}\\b`, "i").test(e.sql),
+  );
+
+/**
+ * Metabase's unremapped-reference refusal. Its body carries the code and the
+ * message only: Metabase keeps the rest of the refusal's data on the server.
+ */
+const unremapped = (message: string): Reply =>
+  refusal(400, "transform-test.unremapped-reference", { message });
 
 /** Runs lint-parity.ts against a fake Metabase that imported the examples. */
 async function runParity({
   readsProbe = missingInputs,
   testProbe = () => ({ status: 200, body: { id: 999 } }),
+  folder = EXAMPLES,
 }: Fake): Promise<{ exitCode: number; output: string }> {
   server = Bun.serve({
     port: 0,
@@ -80,7 +118,7 @@ async function runParity({
         );
       }
       if (request.method === "GET" && path === "/api/ee/transform-test") {
-        return Response.json(TESTS);
+        return Response.json(testsOf(folder));
       }
       if (request.method === "DELETE") {
         return new Response(null, { status: 204 });
@@ -96,7 +134,9 @@ async function runParity({
         const isReadsProbe =
           Array.isArray(body.inputs) && body.inputs.length === 0;
         return reply(
-          isReadsProbe ? readsProbe(transform) : testProbe(transform),
+          isReadsProbe
+            ? readsProbe(transform)
+            : testProbe(transform, body.expectations),
         );
       }
       return new Response("Not found.", { status: 404 });
@@ -112,7 +152,7 @@ async function runParity({
       "--api-key",
       "key",
       "--folder",
-      EXAMPLES,
+      folder,
     ],
     { stdout: "pipe", stderr: "pipe" },
   );
@@ -230,12 +270,53 @@ describe("lint-parity", () => {
         testProbe: (t) =>
           t.name === "Daily Order Summary"
             ? refusal(400, "transform-test.unused-inputs", {
+                message:
+                  "Test input(s) declared for table(s) the transform does not read: ORDERS. Remove them.",
                 tables: ["ORDERS"],
               })
             : { status: 200, body: { id: 999 } },
       });
       expect(output).toContain(
-        "Metabase refuses it with transform-test.unused-inputs; the lint reports no unused-input",
+        'Metabase refuses it with transform-test.unused-inputs ("Test input(s) declared for table(s) the transform does not read: ORDERS. Remove them."); the lint reports no unused-input',
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "agrees with Metabase on an expectation that reads a table the test does not stand in for",
+    async () => {
+      const message =
+        'Expectation "no negative revenue" reads table(s) this test does not stand in for: people. An expectation may only read the transform\'s output and its declared inputs.';
+      const { exitCode, output } = await runParity({
+        folder: mutated("expectation-reads-other-table"),
+        testProbe: (_t, expectations) =>
+          readsTable(expectations, "people")
+            ? unremapped(message)
+            : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        `OK    test collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: transform-test.unremapped-reference (${JSON.stringify(message)})\n`,
+      );
+      expect(exitCode).toBe(0);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails when Metabase cannot remap the transform's own SQL",
+    async () => {
+      const message =
+        "The transform test could not fully remap the source to test tables; these reference(s) remain: orders.";
+      const { exitCode, output } = await runParity({
+        testProbe: (t) =>
+          t.name === "Daily Order Summary"
+            ? unremapped(message)
+            : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}), which no lint rule predicts\n`,
       );
       expect(exitCode).toBe(1);
     },
