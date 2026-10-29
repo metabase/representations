@@ -230,6 +230,19 @@ describe("lint", () => {
       },
     );
 
+    it("breaks a different test with each rule of refused-tests", async () => {
+      const mutation = mutateExamples("refused-tests", workdir);
+      const errors = (await findings(workdir)).filter(
+        (f) => f.severity === "error",
+      );
+      expect(errors.map((f) => f.rule).sort()).toEqual(
+        [...mutation.rules].sort(),
+      );
+      expect(new Set(errors.map((f) => f.entity.entity_id)).size).toBe(
+        mutation.rules.length,
+      );
+    });
+
     it("names the table an implicit join reads", async () => {
       mutateExamples("implicit-join", workdir);
       expect((await findings(workdir)).map((f) => f.message)).toEqual([

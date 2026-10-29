@@ -150,6 +150,17 @@ function addSqlInput(
   });
 }
 
+/**
+ * The rules of the mutations that break a transform test in a way Metabase
+ * refuses when the test is created, each on a different test.
+ */
+const REFUSED_TEST_RULES = [
+  "missing-input",
+  "unused-input",
+  "duplicate-input",
+  "expectation-reads-other-table",
+] as const satisfies readonly LintRule[];
+
 /** Known-broken edits to the `examples/v1` tree, each named for what it breaks. */
 export const MUTATIONS: Mutation[] = [
   {
@@ -601,14 +612,31 @@ export const MUTATIONS: Mutation[] = [
         "serdes/meta": [{ model: "Table" }],
       }),
   },
+  {
+    name: "refused-tests",
+    description:
+      "Four tests each break in a different way that Metabase refuses when the test is created.",
+    rules: [...REFUSED_TEST_RULES],
+    // The mutation of each rule has the rule's name.
+    apply: (folder) => {
+      for (const rule of REFUSED_TEST_RULES) {
+        findMutation(rule).apply(folder);
+      }
+    },
+  },
 ];
 
-/** Copies `examples/v1` to `folder` and applies the named mutation. */
-export function mutateExamples(name: string, folder: string): Mutation {
+function findMutation(name: string): Mutation {
   const mutation = MUTATIONS.find((m) => m.name === name);
   if (mutation === undefined) {
     throw new Error(`Unknown mutation: ${name}`);
   }
+  return mutation;
+}
+
+/** Copies `examples/v1` to `folder` and applies the named mutation. */
+export function mutateExamples(name: string, folder: string): Mutation {
+  const mutation = findMutation(name);
   cpSync(EXAMPLES, folder, { recursive: true });
   mutation.apply(folder);
   return mutation;
