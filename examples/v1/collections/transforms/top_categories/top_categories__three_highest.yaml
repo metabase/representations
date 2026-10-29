@@ -5,38 +5,38 @@ creator_id: admin@example.com
 description: 'Cases: four categories, of which the lowest is left out.'
 inputs:
 - table:
-    schema: TRANSFORMS
+    schema: transforms
     name: product_revenue_report
   format: rows
   columns:
-  - name: CATEGORY
+  - name: category
     cast_type: TEXT
   - name: total_revenue
-    cast_type: REAL
+    cast_type: DOUBLE PRECISION
   rows:
-  - CATEGORY: Doohickey
+  - category: Doohickey
     total_revenue: 10.0
-  - CATEGORY: Gadget
+  - category: Gadget
     total_revenue: 40.0
-  - CATEGORY: Gizmo
+  - category: Gizmo
     total_revenue: 30.0
-  - CATEGORY: Widget
+  - category: Widget
     total_revenue: 20.0
 expectations:
 - type: equals
   name: the three highest categories by revenue
   format: rows
   columns:
-  - name: CATEGORY
+  - name: category
     cast_type: TEXT
   - name: total_revenue
-    cast_type: REAL
+    cast_type: DOUBLE PRECISION
   rows:
-  - CATEGORY: Gadget
+  - category: Gadget
     total_revenue: 40.0
-  - CATEGORY: Gizmo
+  - category: Gizmo
     total_revenue: 30.0
-  - CATEGORY: Widget
+  - category: Widget
     total_revenue: 20.0
 serdes/meta:
 - model: TransformTest

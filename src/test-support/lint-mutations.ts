@@ -3,7 +3,6 @@ import yaml from "js-yaml";
 import { dirname, join, resolve } from "path";
 
 import type { LintRule } from "../findings.js";
-import { CONFIG_FILE } from "../settings.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "..", "examples", "v1");
 
@@ -22,14 +21,17 @@ const PYTHON_TEST =
   "collections/transforms/daily_order_summary/python_hello_world__greetings.yaml";
 const PYTHON_HELLO_WORLD = "collections/transforms/python_hello_world.yaml";
 const DAILY_ORDER_SUMMARY = "collections/transforms/daily_order_summary.yaml";
+const PRODUCT_SUMMARY = "collections/transforms/product_summary.yaml";
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
-const WIDGET_PRODUCTS_SEGMENT_ENTITY_ID = "aB3kLmN9pQrStUvWxYz1a";
-const PRODUCT_COUNT_MEASURE_ENTITY_ID = "8kxQ2Wr7PmN5dLf3hYz9v";
 const ORDERS_MODEL = "collections/main/queries/orders_model.yaml";
 const ORDERS_MODEL_ENTITY_ID = "4eroqa4ZYl4WkNjP8XTvu";
 const QUERIES_COLLECTION_ENTITY_ID = "cOlQuErIeS0ExAmPlE2x1";
 const DB = "Sample Database";
+const POSTGRES_DB = "Sample Postgres";
+const POSTGRES_PRODUCTS = [POSTGRES_DB, "public", "products"] as const;
+const WIDGETS_SEGMENT_ENTITY_ID = "WarehouseWidgets00001";
+const PRODUCT_COUNT_MEASURE_ENTITY_ID = "WarehouseProducts0001";
 const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
 
 export type Mutation = {
@@ -78,9 +80,40 @@ function writeDatabase(
   });
 }
 
-/** Writes a Database file that gives the Sample Database `engine`. */
-function writeEngine(folder: string, engine: string): void {
-  writeDatabase(folder, DB, engine);
+/**
+ * Writes a segment or a measure on the warehouse's products table, whose
+ * definition adds `clause`, a filter or an aggregation, to a query of the table.
+ */
+function writeProductsDefinition(
+  folder: string,
+  model: "Segment" | "Measure",
+  name: string,
+  entityId: string,
+  clause: Readonly<Record<string, unknown>>,
+): void {
+  const slug = name.toLowerCase().replaceAll(" ", "_");
+  write(
+    folder,
+    `databases/sample_postgres/tables/products/${model.toLowerCase()}s/${slug}.yaml`,
+    {
+      name,
+      entity_id: entityId,
+      creator_id: "admin@example.com",
+      table_id: POSTGRES_PRODUCTS,
+      definition: {
+        "lib/type": "mbql/query",
+        database: POSTGRES_DB,
+        stages: [
+          {
+            "lib/type": "mbql.stage/mbql",
+            "source-table": POSTGRES_PRODUCTS,
+            ...clause,
+          },
+        ],
+      },
+      "serdes/meta": [{ model }],
+    },
+  );
 }
 
 /** Moves the transform in `file`, its query and its target to `database`. */
@@ -122,21 +155,21 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "implicit-join",
     description:
-      "An MBQL transform breaks out by a product field through ORDERS.PRODUCT_ID; its test gives ORDERS that column, and has no PRODUCTS input.",
+      "An MBQL transform breaks out by a product field through orders.product_id; its test gives orders that column, and has no products input.",
     rules: ["missing-input"],
     apply: (folder) => {
       edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
         doc.source.query.stages[0].breakout.push([
           "field",
-          { "source-field": [DB, null, "ORDERS", "PRODUCT_ID"] },
-          [DB, null, "PRODUCTS", "CATEGORY"],
+          { "source-field": [POSTGRES_DB, "public", "orders", "product_id"] },
+          [POSTGRES_DB, "public", "products", "category"],
         ]);
       });
       edit(folder, MONTHLY_ORDER_SUMMARY_TEST, (doc) => {
         const orders = doc.inputs[0];
-        orders.columns.push({ name: "PRODUCT_ID", cast_type: "INTEGER" });
+        orders.columns.push({ name: "product_id", cast_type: "INTEGER" });
         for (const row of orders.rows) {
-          row.PRODUCT_ID = 1;
+          row.product_id = 1;
         }
       });
     },
@@ -144,28 +177,57 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "segment-filter",
     description:
-      "An MBQL transform filters by a segment on PRODUCTS; its test has no PRODUCTS input.",
+      "An MBQL transform filters by a segment on products; its test has no products input.",
     rules: ["missing-input"],
-    apply: (folder) =>
+    apply: (folder) => {
+      writeProductsDefinition(
+        folder,
+        "Segment",
+        "Widgets",
+        WIDGETS_SEGMENT_ENTITY_ID,
+        {
+          filters: [
+            [
+              "=",
+              {},
+              ["field", {}, [...POSTGRES_PRODUCTS, "category"]],
+              "Widget",
+            ],
+          ],
+        },
+      );
       edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
         doc.source.query.stages[0].filters = [
-          ["segment", {}, WIDGET_PRODUCTS_SEGMENT_ENTITY_ID],
+          ["segment", {}, WIDGETS_SEGMENT_ENTITY_ID],
         ];
-      }),
+      });
+    },
   },
   {
     name: "measure-aggregation",
     description:
-      "An MBQL transform aggregates a measure on PRODUCTS; its test has no PRODUCTS input.",
+      "An MBQL transform aggregates a measure on products; its test has no products input.",
     rules: ["missing-input"],
-    apply: (folder) =>
+    apply: (folder) => {
+      writeProductsDefinition(
+        folder,
+        "Measure",
+        "Product Count",
+        PRODUCT_COUNT_MEASURE_ENTITY_ID,
+        {
+          aggregation: [
+            ["distinct", {}, ["field", {}, [...POSTGRES_PRODUCTS, "id"]]],
+          ],
+        },
+      );
       edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
         doc.source.query.stages[0].aggregation.push([
           "measure",
           {},
           PRODUCT_COUNT_MEASURE_ENTITY_ID,
         ]);
-      }),
+      });
+    },
   },
   {
     name: "absent-source",
@@ -239,8 +301,8 @@ export const MUTATIONS: Mutation[] = [
       addSqlInput(
         folder,
         DAILY_ORDER_SUMMARY_TEST,
-        { name: "orders" },
-        "SELECT 1 AS ID",
+        { name: "ORDERS" },
+        "SELECT 1 AS id",
       ),
   },
   {
@@ -249,9 +311,9 @@ export const MUTATIONS: Mutation[] = [
       "An expectation's SQL reads a table that is neither the output nor an input.",
     rules: ["expectation-reads-other-table"],
     apply: (folder) =>
-      edit(folder, DAILY_ORDER_SUMMARY_TEST, (doc) => {
-        doc.expectations[1].sql =
-          "SELECT * FROM TRANSFORMS.daily_order_summary d JOIN PEOPLE p ON 1 = 1 WHERE d.total_revenue < 0";
+      edit(folder, MONTHLY_ORDER_SUMMARY_TEST, (doc) => {
+        doc.expectations[0].sql =
+          "SELECT * FROM transforms.monthly_order_summary m JOIN people p ON 1 = 1 WHERE m.sum < 0";
       }),
   },
   {
@@ -301,15 +363,15 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) => {
       editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
         sql.replace(
-          "JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID",
-          "JOIN PRODUCTS p ON o.PRODUCT_ID = p.ID\nJOIN TRANSFORMS.top_categories t ON t.CATEGORY = p.CATEGORY",
+          "JOIN products p ON o.product_id = p.id",
+          "JOIN products p ON o.product_id = p.id\nJOIN transforms.top_categories t ON t.category = p.category",
         ),
       );
       addSqlInput(
         folder,
         CATEGORY_TOTALS_TEST,
-        { schema: "TRANSFORMS", name: "top_categories" },
-        "SELECT 'Gadget' AS CATEGORY, 40.0 AS total_revenue",
+        { schema: "transforms", name: "top_categories" },
+        "SELECT 'Gadget' AS category, 40.0 AS total_revenue",
       );
     },
   },
@@ -333,7 +395,12 @@ export const MUTATIONS: Mutation[] = [
         doc.target.type = "table-incremental";
         doc.source["source-incremental-strategy"] = {
           type: "checkpoint",
-          "checkpoint-filter-field-id": [DB, null, "ORDERS", "CREATED_AT"],
+          "checkpoint-filter-field-id": [
+            POSTGRES_DB,
+            "public",
+            "orders",
+            "created_at",
+          ],
         };
       }),
   },
@@ -352,12 +419,10 @@ export const MUTATIONS: Mutation[] = [
     description:
       "A transform's target names no schema, on a Postgres database, which has schemas.",
     rules: ["missing-target-schema"],
-    apply: (folder) => {
-      writeEngine(folder, "postgres");
+    apply: (folder) =>
       edit(folder, PYTHON_HELLO_WORLD, (doc) => {
         delete doc.target.schema;
-      });
-    },
+      }),
   },
   {
     name: "unsupported-transform-engine",
@@ -388,7 +453,7 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.inputs = doc.inputs.filter(
-          (input: Record<string, any>) => input.table.name !== "PRODUCTS",
+          (input: Record<string, any>) => input.table.name !== "products",
         );
       }),
   },
@@ -399,9 +464,9 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       addSqlInput(
         folder,
-        CATEGORY_TOTALS_TEST,
-        { name: "PEOPLE" },
-        "SELECT 1 AS ID",
+        TOP_CATEGORIES_TEST,
+        { name: "people" },
+        "SELECT 1 AS id",
       ),
   },
   {
@@ -411,7 +476,7 @@ export const MUTATIONS: Mutation[] = [
     rules: ["missing-input", "unused-input"],
     apply: (folder) =>
       editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
-        sql.replace("FROM ORDERS o", "FROM ORDRES o"),
+        sql.replace("FROM orders o", "FROM ordres o"),
       ),
   },
   {
@@ -422,8 +487,8 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         const row = doc.inputs[0].rows[1];
-        row.TOTL = row.TOTAL;
-        delete row.TOTAL;
+        row.totl = row.total;
+        delete row.total;
       }),
   },
   {
@@ -447,16 +512,16 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "input-missing-read-column",
     description:
-      "A test's ORDERS input drops PRODUCT_ID, a column its transform joins on.",
+      "A test's orders input drops product_id, a column its transform joins on.",
     rules: ["input-missing-read-column"],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         const orders = doc.inputs[0];
         orders.columns = orders.columns.filter(
-          (column: Record<string, any>) => column.name !== "PRODUCT_ID",
+          (column: Record<string, any>) => column.name !== "product_id",
         );
         for (const row of orders.rows) {
-          delete row.PRODUCT_ID;
+          delete row.product_id;
         }
       }),
   },
@@ -478,31 +543,34 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       editNativeSql(folder, TOP_CATEGORIES, (sql) =>
         sql.replace(
-          "SELECT\n  CATEGORY,",
-          "SELECT\n  product_revenue_report.CATEGORY,",
+          "SELECT\n  category,",
+          "SELECT\n  product_revenue_report.category,",
         ),
       ),
   },
   {
     name: "live-sql-input",
     description:
-      "A test's SQL input reads the real PRODUCTS table, so the test depends on live data.",
+      "A test's SQL input reads the real products table, so the test depends on live data.",
     rules: ["live-sql-input"],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
-        doc.inputs[1].sql = "SELECT ID, CATEGORY FROM PRODUCTS";
+        doc.inputs[1].sql = "SELECT id, category FROM products";
       }),
   },
   {
     name: "null-schema-reference",
     description:
-      "The Sample Database's default schema is PUBLIC, as on H2, so the MBQL references with a null schema name tables that likely do not exist.",
+      "Product Summary reads products by a reference with a null schema, on a database whose default schema is public, so it names a table that likely does not exist.",
     rules: ["null-schema-reference"],
     apply: (folder) =>
-      writeFileSync(
-        join(folder, CONFIG_FILE),
-        JSON.stringify({ defaultSchemas: { [DB]: "PUBLIC" } }),
-      ),
+      edit(folder, PRODUCT_SUMMARY, (doc) => {
+        doc.source.query.stages[0]["source-table"] = [
+          POSTGRES_DB,
+          null,
+          "products",
+        ];
+      }),
   },
   {
     name: "skipped-by-metabase",

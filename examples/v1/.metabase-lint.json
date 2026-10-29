@@ -1,5 +1,6 @@
 {
   "defaultSchemas": {
-    "Sample Database": null
+    "Sample Database": null,
+    "Sample Postgres": "public"
   }
 }

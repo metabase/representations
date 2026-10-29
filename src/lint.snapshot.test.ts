@@ -16,14 +16,14 @@ import { MUTATIONS, mutateExamples } from "./test-support/lint-mutations.js";
 import { loadSqlParser } from "./sql-parser.js";
 
 function writeOrdersTable(folder: string): void {
-  const dir = join(folder, "databases/sample_database/tables/orders");
+  const dir = join(folder, "databases/sample_postgres/tables/orders");
   mkdirSync(dir, { recursive: true });
   writeFileSync(
     join(dir, "orders.yaml"),
     yaml.dump({
-      name: "ORDERS",
-      db_id: "Sample Database",
-      schema: null,
+      name: "orders",
+      db_id: "Sample Postgres",
+      schema: "public",
       "serdes/meta": [{ model: "Table" }],
     }),
   );

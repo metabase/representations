@@ -2,25 +2,25 @@ name: Top Categories
 entity_id: jf55MTi7z8cWQjPG2PEgz
 creator_id: admin@example.com
 description: The three categories with the most revenue, read from the Product Revenue Report transform's table.
-source_database_id: Sample Database
+source_database_id: Sample Postgres
 source:
   type: query
   query:
     "lib/type": mbql/query
-    database: Sample Database
+    database: Sample Postgres
     stages:
       - "lib/type": mbql.stage/native
         native: |-
           SELECT
-            CATEGORY,
+            category,
             total_revenue
-          FROM TRANSFORMS.product_revenue_report
+          FROM transforms.product_revenue_report
           ORDER BY total_revenue DESC
           LIMIT 3
 target:
-  database: Sample Database
+  database: Sample Postgres
   type: table
-  schema: TRANSFORMS
+  schema: transforms
   name: top_categories
 serdes/meta:
 - model: Transform

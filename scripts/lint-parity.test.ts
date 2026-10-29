@@ -45,7 +45,7 @@ const missingInputs = (transform: Transform): Reply =>
       ? { status: 200, body: { id: 999 } }
       : refusal(400, "transform-test.missing-inputs", {
           tables: (transform.tables ?? []).map((t) =>
-            t.schema === null ? `PUBLIC.${t.name}` : `${t.schema}.${t.name}`,
+            t.schema === null ? `public.${t.name}` : `${t.schema}.${t.name}`,
           ),
         })
     : refusal(422, "transform-test.unsupported-transform");
@@ -113,8 +113,6 @@ async function runParity({
       "key",
       "--folder",
       EXAMPLES,
-      "--default-schema",
-      "Sample Database=PUBLIC",
     ],
     { stdout: "pipe", stderr: "pipe" },
   );
@@ -218,7 +216,7 @@ describe("lint-parity", () => {
             : missingInputs(t),
       });
       expect(output).toContain(
-        "only the lint reads TRANSFORMS.product_revenue_report; only Metabase reads OTHER.product_revenue_report",
+        "only the lint reads transforms.product_revenue_report; only Metabase reads OTHER.product_revenue_report",
       );
       expect(exitCode).toBe(1);
     },

@@ -350,7 +350,7 @@ describe("cli", () => {
         const refused = runCli(["lint", "--folder", workdir]);
         expect(refused.stdout).toBe("");
         expect(refused.stderr).toContain(
-          "Sample Database: names ORDERS without a schema",
+          "Sample Postgres: names orders without a schema",
         );
         expect(refused.exitCode).toBe(2);
 
@@ -359,7 +359,7 @@ describe("cli", () => {
           "--folder",
           workdir,
           "--default-schema",
-          "Sample Database=PUBLIC",
+          "Sample Postgres=public",
         ]);
         expect(given.exitCode).toBe(1);
         expect(
