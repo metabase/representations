@@ -111,8 +111,11 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |
 | `duplicate-input` | error | Two inputs of one test for the same table. |
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
+| `row-columns-mismatch` | error | A row of an input or expectation that does not carry exactly the declared columns. |
+| `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
 | `unknown-table` | warning | A table that no table file or transform target defines, in a database that has table files. |
 | `null-schema-reference` | warning | An MBQL reference with a `null` schema, on a database whose default schema is not `null`. |
+| `no-expectations` | warning | A test with no expectations. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
 ## Other commands

@@ -42,6 +42,11 @@ import {
   type TableName,
 } from "./tables.js";
 import {
+  reportEmptyExpectations,
+  reportExpectationNames,
+  reportRowsColumns,
+} from "./test-body-checks.js";
+import {
   reportTestFindings,
   reportTransformIds,
   type TableCheck,
@@ -542,6 +547,9 @@ export async function lint({
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
     reportTestFindings(tested, checkKnown, defaultSchemaOf, readSql, report);
+    reportRowsColumns(docs, report);
+    reportExpectationNames(docs, report);
+    reportEmptyExpectations(docs, report);
     reportUntestableEngines(tested, engineOf, report);
     return { files, findings: findings.sort(byRuleThenFile) };
   });
