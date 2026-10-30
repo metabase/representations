@@ -275,6 +275,38 @@ describe("validateSchema", () => {
       it("rejects a card with an unknown display", () => {
         expect(validateEntity({ ...card, display: "venn" }).failed).toBe(1);
       });
+
+      const withTemporalUnits = (temporalUnits: string[]) => {
+        const dashboard = example("dashboards", "all_parameter_types.yaml");
+        return {
+          ...dashboard,
+          parameters: dashboard.parameters.map(
+            (parameter: Record<string, any>) =>
+              parameter.type === "temporal-unit"
+                ? { ...parameter, temporal_units: temporalUnits }
+                : parameter,
+          ),
+        };
+      };
+
+      it("accepts a temporal-unit parameter offering extraction units", () => {
+        expect(
+          validateEntity(
+            withTemporalUnits([
+              "month",
+              "day-of-week",
+              "month-of-year",
+              "year-of-era",
+            ]),
+          ).failed,
+        ).toBe(0);
+      });
+
+      it("rejects a temporal-unit parameter offering an extraction mode", () => {
+        expect(
+          validateEntity(withTemporalUnits(["day-of-week-iso"])).failed,
+        ).toBe(1);
+      });
     });
 
     describe("serdes/meta", () => {

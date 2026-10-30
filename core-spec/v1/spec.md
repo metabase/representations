@@ -2042,7 +2042,7 @@ On **cards**, parameters are typically empty `[]` for MBQL queries. For native q
 | `default` | any | No | Default value |
 | `required` | boolean | No | Whether a value is required |
 | `sectionId` | string | No | Parameter section grouping |
-| `temporal_units` | array | No | Allowed temporal units (for `temporal-unit` type) |
+| `temporal_units` | array | No | Allowed temporal units (for `temporal-unit` type): `default`, a truncation unit (`millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`), or an extraction unit (`second-of-minute`, `minute-of-hour`, `hour-of-day`, `day-of-week`, `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`, `year-of-era`) |
 | `values_query_type` | string | No | `"list"`, `"search"`, or `"none"` — controls how values are fetched |
 | `values_source_type` | string | No | `null`, `"card"`, or `"static-list"` — where values come from |
 | `values_source_config` | map | No | Source configuration (see below) |

@@ -53,10 +53,15 @@ properties:
       - location
   temporal_units:
     type: array
-    description: Allowed temporal units (for temporal-unit type)
+    description: >
+      Allowed temporal units (for temporal-unit type): truncation units,
+      extraction units, or default.
     items:
       type: string
       enum:
+        - default
+        - millisecond
+        - second
         - minute
         - hour
         - day
@@ -64,6 +69,16 @@ properties:
         - month
         - quarter
         - year
+        - second-of-minute
+        - minute-of-hour
+        - hour-of-day
+        - day-of-week
+        - day-of-month
+        - day-of-year
+        - week-of-year
+        - month-of-year
+        - quarter-of-year
+        - year-of-era
   values_query_type:
     type: string
     enum:
