@@ -496,6 +496,29 @@ describe("lint", () => {
       );
     });
 
+    it("warns on each transform and card whose database has no engine, as in a remote-sync repository", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      rmSync(join(workdir, "databases/sample_postgres/sample_postgres.yaml"));
+      const files = (await findings(workdir))
+        .filter((f) => f.rule === "unknown-engine")
+        .map((f) => f.file);
+      expect(files).toContain(MBQL_TRANSFORM);
+      expect(files.every((f) => f.startsWith("collections/transforms/"))).toBe(
+        true,
+      );
+      writeFileSync(
+        join(workdir, CONFIG_FILE),
+        JSON.stringify({
+          defaultSchemas: {
+            "Sample Database": "PUBLIC",
+            [POSTGRES_DB]: "public",
+          },
+          engines: { "Sample Database": "h2", [POSTGRES_DB]: "postgres" },
+        }),
+      );
+      expect(await findings(workdir)).toEqual([]);
+    });
+
     it("gives no finding for a table that no table file or transform target defines", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       // Remote sync writes a Table file only for some tables; a transform
@@ -1246,6 +1269,7 @@ describe("lint", () => {
         CONFIG_FILE,
         MBQL_TRANSFORM,
         "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+        "databases/sample_postgres/sample_postgres.yaml",
       ];
       for (const file of files) {
         mkdirSync(join(workdir, file, ".."), { recursive: true });
@@ -1349,8 +1373,12 @@ describe("lint", () => {
         }),
       );
 
+    // The settings these tests write give no engine for the Sample
+    // Database, whose cards then warn of it.
     const lintRules = async (defaultSchemas?: Record<string, string | null>) =>
-      rules((await lint({ folder: workdir, defaultSchemas })).findings);
+      rules((await lint({ folder: workdir, defaultSchemas })).findings).filter(
+        (rule) => rule !== "unknown-engine",
+      );
 
     // The rules that depend on the default schema, without the engine rules
     // a Database file's engine adds.
@@ -1485,6 +1513,10 @@ describe("lint", () => {
 
     beforeEach(() => {
       workdir = mkdtempSync(join(tmpdir(), "representations-lint-two-"));
+      writeFileSync(
+        join(workdir, CONFIG_FILE),
+        JSON.stringify({ engines: { [DATABASE]: "postgres" } }),
+      );
       writeTransform("a_copy", "SELECT id FROM a.account");
       writeTransform("b_copy", "SELECT id FROM b.account");
     });

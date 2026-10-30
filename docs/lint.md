@@ -43,7 +43,26 @@ A table reference (MBQL or a Python source table), a table file and a transform 
 
 ## Engines
 
-An engine is Metabase's driver name, as a Database file's `engine` gives it. A Database file (`databases/<slug>/<slug>.yaml`) that names an engine takes precedence over the settings file's `engines`. Remote sync does not export Database files, so a repository it writes needs `engines` for the lint to know them.
+An engine is Metabase's driver name, as a Database file's `engine` gives it. A Database file (`databases/<slug>/<slug>.yaml`) that names an engine takes precedence over the settings file's `engines`.
+
+### Remote-sync repositories
+
+Remote sync does not export Database files. In a repository it writes, the lint learns each database's engine and default schema only from `.metabase-lint.json`. Give both for every database the transforms and cards name, by the name the files use:
+
+```json
+{
+  "engines": {
+    "Warehouse": "postgres",
+    "Events": "bigquery-cloud-sdk"
+  },
+  "defaultSchemas": {
+    "Warehouse": "public",
+    "Events": null
+  }
+}
+```
+
+Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema`, `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns on each transform and card whose database has no engine the lint knows, so this silence is visible. A transform's database is the one it writes its target to; a card's, its query's.
 
 ### Target database
 
@@ -61,7 +80,7 @@ Three rules compare a transform with what its database's engine can do, from a t
 - `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
 - `untestable-engine`, a warning: a test of a query transform whose query's database (`source.query.database`, not `source_database_id`) has an engine that cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
 
-An engine missing from the table gives no finding, nor does a database whose engine the lint does not know. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
+An engine missing from the table gives no finding, nor does a database whose engine the lint does not know; `unknown-engine` warns on both. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
 
 ## How the lint reads SQL
 

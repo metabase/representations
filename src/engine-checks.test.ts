@@ -4,6 +4,7 @@ import type { EngineOf } from "./databases.js";
 import { type Doc, indexByEntityId, validDocsOf } from "./documents.js";
 import {
   reportMissingTargetSchemas,
+  reportUnknownEngines,
   reportUnsupportedTransformEngines,
   reportUntestableEngines,
 } from "./engine-checks.js";
@@ -382,5 +383,77 @@ describe("reportUntestableEngines", () => {
         engines,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("reportUnknownEngines", () => {
+  const cardOn = (database: string | undefined): Doc => ({
+    file: "collections/main/orders.yaml",
+    model: "Card",
+    schema: { status: "passed" },
+    nonStringKeys: [],
+    body: {
+      name: "Orders",
+      dataset_query:
+        database === undefined ? {} : { "lib/type": "mbql/query", database },
+      "serdes/meta": [{ model: "Card" }],
+    },
+  });
+
+  const unknownEngineFindings = (
+    docs: readonly Doc[],
+    engines: Readonly<Record<string, string>>,
+  ): Recorded[] => {
+    const recorded: Recorded[] = [];
+    reportUnknownEngines(docs, enginesOf(engines), recorder(recorded));
+    return recorded;
+  };
+
+  const advice =
+    'so the checks that depend on it do not run. Give the database\'s driver name under "engines" in .metabase-lint.json';
+
+  it("warns on a transform and a card whose database no file gives an engine", () => {
+    expect(
+      unknownEngineFindings([transformDoc({}), cardOn("Warehouse")], {}),
+    ).toEqual(
+      [TRANSFORM_FILE, "collections/main/orders.yaml"].map((file) => ({
+        rule: "unknown-engine",
+        file,
+        message: `no Database file or .metabase-lint.json names the engine of database Warehouse, ${advice}`,
+        related: [],
+      })),
+    );
+  });
+
+  it("warns on an engine the lint does not know", () => {
+    expect(
+      unknownEngineFindings([transformDoc({})], { Warehouse: "duckdb" }).map(
+        (r) => r.message,
+      ),
+    ).toEqual([
+      `the lint does not know the engine duckdb of database Warehouse, ${advice}`,
+    ]);
+  });
+
+  it("checks the database a Python transform's target names, and skips one that names none", () => {
+    expect(
+      unknownEngineFindings([pythonOn("Lake")], { Warehouse: "postgres" }).map(
+        (r) => r.message,
+      ),
+    ).toEqual([
+      `no Database file or .metabase-lint.json names the engine of database Lake, ${advice}`,
+    ]);
+    expect(
+      unknownEngineFindings([transformDoc({ source: PYTHON_SOURCE })], {}),
+    ).toEqual([]);
+  });
+
+  it("gives no finding for a known engine, or a card whose query names no database", () => {
+    expect(
+      unknownEngineFindings([transformDoc({}), cardOn("Warehouse")], {
+        Warehouse: "postgres",
+      }),
+    ).toEqual([]);
+    expect(unknownEngineFindings([cardOn(undefined)], {})).toEqual([]);
   });
 });

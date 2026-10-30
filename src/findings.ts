@@ -20,6 +20,7 @@ export const LINT_RULE_SEVERITY = {
   "missing-target-database": "error",
   "missing-target-schema": "error",
   "unsupported-transform-engine": "warning",
+  "unknown-engine": "warning",
   "empty-native-query": "warning",
   "missing-input": "error",
   "unused-input": "error",

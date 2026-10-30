@@ -76,7 +76,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 ### Settings file
 
-`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional:
+`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema; without them, the engine checks and `null-schema-reference` give no finding, and `unknown-engine` warns. Give both for each database the repository's transforms and cards name:
 
 ```json
 {
@@ -91,7 +91,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 }
 ```
 
-`null` means the database has no schemas. An engine is Metabase's driver name, such as `postgres`. A Database file that names an engine takes precedence.
+`null` means the database has no schemas. An engine is Metabase's driver name, such as `postgres`, `snowflake` or `bigquery-cloud-sdk`. A Database file that names an engine takes precedence.
 
 ### Lint rules
 
@@ -110,6 +110,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `missing-target-database` | error | A transform that is not a query transform and names no target database. |
 | `missing-target-schema` | error | A transform whose target names no schema, on an engine with schemas. |
 | `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
+| `unknown-engine` | warning | A transform or card whose database has no engine the lint knows, so the checks that depend on the engine give no finding. Give it under `engines` in the settings file. |
 | `empty-native-query` | warning | A transform whose native query is empty or only whitespace. Metabase accepts it, and every run fails. |
 | `missing-input` | error | A test with no input for a table its transform reads. |
 | `unused-input` | error | A test with an input for a table its transform does not read. |

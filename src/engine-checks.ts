@@ -12,7 +12,8 @@ import {
 import { engineFacts } from "./engines.js";
 import type { Report } from "./findings.js";
 import type { TestedTransform } from "./test-checks.js";
-import { isJavaBlank } from "./values.js";
+import { CONFIG_FILE } from "./settings.js";
+import { isJavaBlank, isRecord, stringOrNull } from "./values.js";
 
 /** Whether `schema` is what Clojure's `str/blank?` calls blank: absent, empty or Java whitespace. */
 const isBlank = (schema: string | null | undefined): boolean =>
@@ -114,5 +115,53 @@ export function reportUntestableEngines(
         [transform.doc.file],
       );
     }
+  }
+}
+
+/** The database a Card's query runs on, or null when it names none. */
+function cardDatabaseOf(card: Doc): string | null {
+  const query = card.body.dataset_query;
+  return isRecord(query) ? stringOrNull(query.database) : null;
+}
+
+/**
+ * Warns on each transform, and each Card, whose database has no engine the
+ * lint knows: no Database file or settings file names one, or the one named
+ * is not in the lint's driver table. The checks that depend on the engine
+ * then give no finding. A transform's database is the one `targetDatabaseOf`
+ * finds; a Card's, its query's. A remote-sync repository holds no Database
+ * file, so there `CONFIG_FILE` gives the engines.
+ */
+export function reportUnknownEngines(
+  docs: readonly Doc[],
+  engineOf: EngineOf,
+  report: Report,
+): void {
+  const subjects = [
+    ...validDocsOf(docs, "Transform").map((doc) => ({
+      doc,
+      database: targetDatabaseOf(doc),
+    })),
+    ...docs
+      .filter((doc) => doc.model === "Card")
+      .map((doc) => ({ doc, database: cardDatabaseOf(doc) })),
+  ];
+  for (const { doc, database } of subjects) {
+    if (database === null) {
+      continue;
+    }
+    const engine = engineOf(database);
+    if (engineFacts(engine) !== null) {
+      continue;
+    }
+    const cause =
+      engine === null
+        ? `no Database file or ${CONFIG_FILE} names the engine of database ${database}`
+        : `the lint does not know the engine ${engine} of database ${database}`;
+    report(
+      "unknown-engine",
+      doc,
+      `${cause}, so the checks that depend on it do not run. Give the database's driver name under "engines" in ${CONFIG_FILE}`,
+    );
   }
 }

@@ -24,6 +24,7 @@ import {
 } from "./documents.js";
 import {
   reportMissingTargetSchemas,
+  reportUnknownEngines,
   reportUnsupportedTransformEngines,
   reportUntestableEngines,
 } from "./engine-checks.js";
@@ -623,6 +624,7 @@ export async function lint({
     reportMissingTargetDatabases(docs, report);
     reportMissingTargetSchemas(docs, engineOf, report);
     reportUnsupportedTransformEngines(docs, engineOf, report);
+    reportUnknownEngines(docs, engineOf, report);
     reportEmptyNativeQueries(docs, findSources, report);
 
     reportNullSchemaReferences(docs, transforms, findSources, engineOf, report);
