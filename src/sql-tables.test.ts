@@ -73,7 +73,7 @@ describe("a SQL table reader", () => {
       [{ schema: "PUBLIC", name: "{{t}}" }],
     ],
     [
-      "the text of an optional clause, without a list of valued tags",
+      "the text of an optional clause whose tags have values",
       "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.STATE = {{state}}]]",
       [
         { schema: null, name: "ORDERS" },
@@ -81,7 +81,19 @@ describe("a SQL table reader", () => {
       ],
     ],
   ])("reads %s", (_, sql, tables) => {
-    expect(readSql(sql, null)).toEqual({ status: "read", tables });
+    expect(readSql(sql, null, new Set(["state"]))).toEqual({
+      status: "read",
+      tables,
+    });
+  });
+
+  it("reads SQL that is not a native query as written, with no template tags", () => {
+    expect(readSql("SELECT * FROM t WHERE x = '{{snippet: s}}'", null)).toEqual(
+      { status: "read", tables: [{ schema: null, name: "t" }] },
+    );
+    expect(readSql("SELECT * FROM {{t}}", null)).toMatchObject({
+      status: "unread",
+    });
   });
 
   it("parses in the dialect of the database's engine", () => {
@@ -118,9 +130,9 @@ describe("a SQL table reader", () => {
   });
 
   it("refuses a query with a snippet left in it, which SQLGlot would parse", () => {
-    expect(readSql("SELECT * FROM a WHERE {{snippet: filters}}", null)).toEqual(
-      { status: "unread", reason: "the query has a snippet" },
-    );
+    expect(
+      readSql("SELECT * FROM a WHERE {{snippet: filters}}", null, new Set()),
+    ).toEqual({ status: "unread", reason: "the query has a snippet" });
   });
 
   it("refuses SQL SQLGlot cannot parse, giving SQLGlot's error", () => {
@@ -201,18 +213,24 @@ describe("a SQL table reader of template tags in comments and strings", () => {
   });
 
   it("reads a snippet tag inside a comment as text", () => {
-    expect(readSql("SELECT * FROM t -- {{snippet: gone}}", null)).toEqual({
+    expect(
+      readSql("SELECT * FROM t -- {{snippet: gone}}", null, new Set()),
+    ).toEqual({
       status: "read",
       tables: [{ schema: null, name: "t" }],
     });
-    expect(readSql("SELECT * FROM t /* {{snippet: gone}} */", null)).toEqual({
+    expect(
+      readSql("SELECT * FROM t /* {{snippet: gone}} */", null, new Set()),
+    ).toEqual({
       status: "read",
       tables: [{ schema: null, name: "t" }],
     });
   });
 
   it("reads an unmatched [[ in a string literal as text, and a tag there as a tag", () => {
-    expect(readSql("SELECT * FROM t WHERE x = 'a[[b'", null)).toEqual({
+    expect(
+      readSql("SELECT * FROM t WHERE x = 'a[[b'", null, new Set()),
+    ).toEqual({
       status: "read",
       tables: [{ schema: null, name: "t" }],
     });
@@ -222,7 +240,7 @@ describe("a SQL table reader of template tags in comments and strings", () => {
   });
 
   it("refuses what Metabase refuses: an unmatched [[ and an optional clause with no tag", () => {
-    expect(readSql("SELECT * FROM t [[WHERE x = 1", null)).toEqual({
+    expect(readSql("SELECT * FROM t [[WHERE x = 1", null, new Set())).toEqual({
       status: "unread",
       reason:
         "Metabase cannot parse its template tags: Invalid query: found '[[' or '{{' with no matching ']]' or '}}'",
@@ -231,6 +249,7 @@ describe("a SQL table reader of template tags in comments and strings", () => {
       readSql(
         "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.ID = o.USER_ID]]",
         null,
+        new Set(),
       ),
     ).toEqual({
       status: "unread",

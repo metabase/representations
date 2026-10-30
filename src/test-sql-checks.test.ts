@@ -196,6 +196,26 @@ describe("reportLiveSqlInputs", () => {
     expect(run(reportLiveSqlInputs, [transform, test])).toEqual([]);
   });
 
+  it("reads an input's SQL as written, as Metabase runs it, with no optional clause or template tag", () => {
+    const test = testDoc(transform, [
+      sqlInput(
+        "public",
+        "orders",
+        "SELECT 1 AS id -- [[ a comment ]]\nUNION ALL SELECT id FROM public.orders [[WHERE x = {{x}}]]",
+      ),
+    ]);
+    expect(run(reportLiveSqlInputs, [transform, test])).toEqual([
+      {
+        rule: "reads-not-checked",
+        file: test.file,
+        message: expect.stringMatching(
+          /^could not find the tables input public\.orders reads: SQLGlot could not parse it: /,
+        ),
+        related: [],
+      },
+    ]);
+  });
+
   it("reports an input's SQL it cannot read as unread", () => {
     const test = testDoc(transform, [
       sqlInput("public", "customers", "SELECT * FROM a b c"),

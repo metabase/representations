@@ -122,7 +122,7 @@ describe("readColumns", () => {
 
   it("reads no column a template tag became", () => {
     expect(
-      columns.readColumns("SELECT {{x}} FROM orders", "Warehouse"),
+      columns.readColumns("SELECT {{x}} FROM orders", "Warehouse", new Set()),
     ).toEqual({ status: "read", columns: [] });
   });
 
@@ -131,7 +131,11 @@ describe("readColumns", () => {
       "unread",
     );
     expect(
-      columns.readColumns("SELECT * FROM a WHERE {{snippet: f}}", "Warehouse"),
+      columns.readColumns(
+        "SELECT * FROM a WHERE {{snippet: f}}",
+        "Warehouse",
+        new Set(),
+      ),
     ).toEqual({ status: "unread", reason: "the query has a snippet" });
   });
 });

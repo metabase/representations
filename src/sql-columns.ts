@@ -22,10 +22,11 @@ export type ColumnQuoting = "quoted" | "unquoted" | "compiled" | "unknown";
 export type ReadColumn = ColumnKey & { quoting: ColumnQuoting };
 
 /**
- * The columns of native SQL in the database `database`, as Metabase's
+ * The columns of SQL in the database `database`, as Metabase's
  * `field_references` reads them. Each function parses the SQL as
- * `prepareSql` gives it for the database's engine, with `valuedTags`, and is
- * unread when `prepareSql` refuses it or SQLGlot cannot read it.
+ * `prepareSql` gives it for the database's engine, with `valuedTags` for a
+ * native query and as written without, and is unread when `prepareSql`
+ * refuses it or SQLGlot cannot read it.
  */
 export type SqlColumnReader = {
   /**

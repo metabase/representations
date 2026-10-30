@@ -1468,6 +1468,19 @@ describe("lint", () => {
       ]);
     });
 
+    it("reads an expectation's SQL as written, as Metabase runs it: a template tag does not parse", async () => {
+      readOrders("{{orders}}");
+      expect(
+        (await lint({ folder: workdir })).findings.map(
+          (f) => `${f.rule}: ${f.message}`,
+        ),
+      ).toEqual([
+        expect.stringMatching(
+          /^reads-not-checked: could not find the tables expectation orders read reads: SQLGlot could not parse it: ParseError:/,
+        ),
+      ]);
+    });
+
     it("refuses a read of a table that is neither input nor target", async () => {
       readOrders("people");
       expect(await expectationRules()).toEqual([
