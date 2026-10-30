@@ -76,7 +76,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 ### Settings file
 
-`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional:
+`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema; without them, the engine checks and `null-schema-reference` give no finding, and `unknown-engine` warns. Give both for each database the repository's transforms and cards name:
 
 ```json
 {
@@ -105,9 +105,17 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
 | `duplicate-target` | warning | Two transforms that write the same table. On Redshift, which folds every name to lower case, targets that differ only in case are the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
+| `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |
+| `missing-incremental-table-tag` | error | An incremental native transform with no table variable (a `{{table}}` template tag) for Metabase to filter new rows into, or none for the checkpoint field's table. |
+| `missing-target-database` | error | A transform that is not a query transform and names no target database. |
+| `missing-target-schema` | error | A transform whose target names no schema, on an engine with schemas. |
+| `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
+| `unknown-engine` | warning | A database that a transform or card writes to or reads and that has no engine the lint knows, so the checks that depend on the engine give no finding. Give it under `engines` in the settings file; an engine missing from the lint's table, such as a third-party driver, keeps the warning. |
+| `empty-native-query` | warning | A transform whose native query is empty or only whitespace. Metabase accepts it, and every run fails. |
 | `missing-input` | error | A test with no input for a table its transform reads. |
 | `unused-input` | error | A test with an input for a table its transform does not read. |
 | `untestable-transform` | error | A test of a transform that is not a query transform. |
+| `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |
 | `duplicate-input` | error | Two inputs of one test for the same table. |
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
 | `null-schema-reference` | error | An MBQL reference in a transform or a card with a `null` schema, on a database whose engine has schemas. Metabase imports it as a table with no schema, which such a database lacks, and every run fails. An unknown engine gives no finding, and so does a `null` default schema given for the database, which says it has no schemas. |

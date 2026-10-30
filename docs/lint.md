@@ -62,6 +62,26 @@ Remote sync does not export Database files. In a repository it writes, the lint 
 }
 ```
 
+Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema`, `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns once on each database a transform or card writes to or reads that has no engine the lint knows, so this silence is visible: a transform's target database and the databases of its Python source tables, a card's query's database, and the databases of the tables and native queries either names. An engine that the settings file names and the lint's table of Metabase's drivers lacks, such as a third-party driver, keeps the warning; check the driver name.
+
+### Target database
+
+A query transform writes its target to its query's database. Any other transform, such as a Python one, writes to the database its target names. `source_database_id` never stands in for it; Metabase has no such fallback.
+
+`missing-target-database` is an error: a transform that is not a query transform names no target database. Metabase's API refuses it, and it cannot run; an import accepts it.
+
+Such a transform has no target. No rule compares it with other tables, and the engine rules skip it.
+
+### Engine rules
+
+Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase at the commit `src/engines.ts` names:
+
+- `missing-target-schema`, an error: a transform's target names no schema, on an engine with schemas. Metabase's API refuses such a transform; an import accepts it.
+- `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
+- `untestable-engine`, a warning: a test of a query transform whose query's database (`source.query.database`, not `source_database_id`) has an engine that cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
+
+An engine missing from the table gives no finding, nor does a database whose engine the lint does not know; `unknown-engine` warns on both. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
+
 ## How the lint reads SQL
 
 The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at the version Metabase pins, and Metabase's `sql_tools.py`, run in WebAssembly by [Pyodide](https://pyodide.org). Nothing is fetched at run time. A CI job, on every pull request, every push to `main` and daily, fails when either differs from Metabase's `master`. When `sql_tools.py` differs, `bun run scripts/update-metabase-sources.ts` copies Metabase's file into `vendor/` and records its commit in `vendor/sources.json`.
