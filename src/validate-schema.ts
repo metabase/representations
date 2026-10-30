@@ -4,7 +4,7 @@ import { globSync } from "glob";
 import { dirname, resolve } from "path";
 
 import { loadSchemas, type Schemas } from "./schemas.js";
-import { errorMessage, isRecord, stringOrNull } from "./values.js";
+import { errorMessage, isJavaBlank, isRecord, stringOrNull } from "./values.js";
 import { readYaml } from "./yaml.js";
 
 /** The top-level folders whose `.yaml` files Metabase imports, other than `data_apps`. */
@@ -224,7 +224,7 @@ function badTimestamp(doc: unknown): { key: string; message: string } | null {
     if (!key.endsWith("_at") && key !== "last_analyzed") {
       continue;
     }
-    if (value === null || (typeof value === "string" && value.trim() === "")) {
+    if (value === null || (typeof value === "string" && isJavaBlank(value))) {
       continue;
     }
     if (typeof value !== "string") {

@@ -54,3 +54,7 @@ export const isJavaWhitespace = (ch: string): boolean => {
   const code = ch.charCodeAt(0);
   return (code >= 0x1c && code <= 0x1f) || JAVA_WHITESPACE.test(ch);
 };
+
+/** Whether `text` is empty or all whitespace, as Clojure's `str/blank?` reads it (`isJavaWhitespace`). */
+export const isJavaBlank = (text: string): boolean =>
+  [...text].every(isJavaWhitespace);

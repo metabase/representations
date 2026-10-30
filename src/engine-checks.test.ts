@@ -167,6 +167,16 @@ describe("reportMissingTargetSchemas", () => {
     }
   });
 
+  it("reads blank as Java's whitespace does: U+001F is blank, a no-break space and U+FEFF are not", () => {
+    const findings = (schema: string) =>
+      targetSchemaFindings([withTarget({ schema })], {
+        Warehouse: "postgres",
+      }).length;
+    expect(findings("\u001f\u2028\t")).toBe(1);
+    expect(findings("\u00a0")).toBe(0);
+    expect(findings("\ufeff")).toBe(0);
+  });
+
   it("checks a Python transform's target on the database the target names", () => {
     expect(
       targetSchemaFindings(

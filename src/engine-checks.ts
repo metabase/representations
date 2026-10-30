@@ -12,10 +12,11 @@ import {
 import { engineFacts } from "./engines.js";
 import type { Report } from "./findings.js";
 import type { TestedTransform } from "./test-checks.js";
+import { isJavaBlank } from "./values.js";
 
-/** Whether `schema` is what Clojure's `str/blank?` calls blank: absent, empty or whitespace. */
+/** Whether `schema` is what Clojure's `str/blank?` calls blank: absent, empty or Java whitespace. */
 const isBlank = (schema: string | null | undefined): boolean =>
-  schema === undefined || schema === null || schema.trim() === "";
+  schema === undefined || schema === null || isJavaBlank(schema);
 
 /**
  * Reports each transform whose target names no schema, or a blank one, on a
