@@ -271,6 +271,19 @@ describe("cli", () => {
       }
     });
 
+    it("says when the folder is missing, or is a file", () => {
+      for (const command of [["validate-schema"], ["lint", "--experimental"]]) {
+        const missing = runCli([...command, "--folder", "no/such/folder"]);
+        expect(missing.stderr.trim()).toBe("No such folder: no/such/folder");
+        expect(missing.exitCode).toBe(2);
+        const file = runCli([...command, "--folder", "README.md"]);
+        expect(file.stderr.trim()).toBe(
+          "Not a folder: README.md. Pass the folder that holds the YAML files.",
+        );
+        expect(file.exitCode).toBe(2);
+      }
+    });
+
     it("errors when the folder has no YAML files", () => {
       const empty = mkdtempSync(join(tmpdir(), "representations-cli-empty-"));
       try {

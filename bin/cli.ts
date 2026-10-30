@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { statSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { relative } from "path";
 
@@ -105,6 +106,26 @@ function parseCount(raw: string | undefined): number {
   return count;
 }
 
+/**
+ * The folder `--folder` names, or the current directory; exits with code 2,
+ * saying why, when it is missing or is not a folder.
+ */
+function folderToCheck(values: ParsedValues): string {
+  const folder = values.folder ?? process.cwd();
+  const stat = statSync(folder, { throwIfNoEntry: false });
+  if (stat === undefined) {
+    console.error(`No such folder: ${folder}`);
+    process.exit(NOTHING_CHECKED);
+  }
+  if (!stat.isDirectory()) {
+    console.error(
+      `Not a folder: ${folder}. Pass the folder that holds the YAML files.`,
+    );
+    process.exit(NOTHING_CHECKED);
+  }
+  return folder;
+}
+
 /** Exits with code 2, saying so, when a command found no files in `folder`. */
 function exitIfNoFiles(files: number, folder: string): void {
   if (files === 0) {
@@ -114,7 +135,7 @@ function exitIfNoFiles(files: number, folder: string): void {
 }
 
 function handleValidateSchema(values: ParsedValues): void {
-  const folder = values.folder ?? process.cwd();
+  const folder = folderToCheck(values);
   const { results, passed, failed, skipped, unchecked } = validateSchema({
     folder,
   });
@@ -176,7 +197,7 @@ async function handleLint(values: ParsedValues): Promise<void> {
       "lint is experimental: its rules, output and options can change in any release. Rerun with --experimental to run it.",
     );
   }
-  const folder = values.folder ?? process.cwd();
+  const folder = folderToCheck(values);
   const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
   let result: LintResult;
   try {
