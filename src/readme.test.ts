@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "fs";
 import { resolve } from "path";
 
-import { LINT_RULE_SEVERITY } from "./findings.js";
+import { LINT_RULE_SEVERITY, type LintFinding } from "./findings.js";
 import { isRecord } from "./values.js";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
@@ -81,4 +81,24 @@ describe("Pyodide install command", () => {
       expect(named.filter((version) => version !== pinned)).toEqual([]);
     },
   );
+});
+
+describe("README finding fields", () => {
+  it("lists exactly the fields of a finding", () => {
+    // A complete finding: the type rejects a missing or an extra field.
+    const finding: LintFinding = {
+      rule: "schema",
+      severity: "error",
+      file: "f.yaml",
+      entity: { model: null, entity_id: null, name: null },
+      message: "m",
+      related: [],
+    };
+    const readme = readFileSync(README, "utf8");
+    const table = readme.slice(readme.indexOf("| Field | Value |"));
+    const fields = [
+      ...table.slice(0, table.indexOf("\n\n")).matchAll(/^\| `([^`]+)` \|/gm),
+    ].map((m) => m[1]);
+    expect(fields).toEqual(Object.keys(finding));
+  });
 });

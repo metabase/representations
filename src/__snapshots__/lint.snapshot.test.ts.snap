@@ -95,6 +95,44 @@ exports[`lint output on a broken copy of the examples matches the recording: dup
 ]
 `;
 
+exports[`lint output on a broken copy of the examples matches the recording: dangling transform id 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "aRvM7DLesF1fOV4kRHidq",
+      "model": "TransformTest",
+      "name": "Product Revenue Report: category totals",
+    },
+    "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+    "message": "transform_id MissingTransform00000 matches no entity; the test likely tests Product Revenue Report, whose entity_id is 7JwIkkAG-06-nsl4jzsaq",
+    "related": [
+      "collections/transforms/native_transform.yaml",
+    ],
+    "rule": "dangling-transform-id",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: wrong-type transform id 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "aRvM7DLesF1fOV4kRHidq",
+      "model": "TransformTest",
+      "name": "Product Revenue Report: category totals",
+    },
+    "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+    "message": "transform_id dUW7nvQHQBdA0Rx0gJckI names a TransformTag, not a Transform",
+    "related": [
+      "transforms/transform_tags/daily.yaml",
+    ],
+    "rule": "wrong-type-transform-id",
+    "severity": "error",
+  },
+]
+`;
+
 exports[`lint output on a broken copy of the examples matches the recording: transform cycle 1`] = `
 [
   {
@@ -109,6 +147,44 @@ exports[`lint output on a broken copy of the examples matches the recording: tra
       "collections/transforms/top_categories.yaml",
     ],
     "rule": "transform-cycle",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: missing input 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "aRvM7DLesF1fOV4kRHidq",
+      "model": "TransformTest",
+      "name": "Product Revenue Report: category totals",
+    },
+    "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
+    "message": "no input for products, which transform Product Revenue Report reads",
+    "related": [
+      "collections/transforms/native_transform.yaml",
+    ],
+    "rule": "missing-input",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: unused input 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "r6q1WcFoBcq1eCQC9Yztl",
+      "model": "TransformTest",
+      "name": "Top Categories: three highest",
+    },
+    "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
+    "message": "input people is not read by transform Top Categories",
+    "related": [
+      "collections/transforms/top_categories.yaml",
+    ],
+    "rule": "unused-input",
     "severity": "error",
   },
 ]
@@ -143,6 +219,61 @@ exports[`lint output on a broken copy of the examples matches the recording: bro
     "message": "Table does not match its schema: / must have required property 'name'",
     "related": [],
     "rule": "schema",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: untestable transform 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "PythonTransformTest01",
+      "model": "TransformTest",
+      "name": "Python Hello World: greetings",
+    },
+    "file": "collections/transforms/daily_order_summary/python_hello_world__greetings.yaml",
+    "message": "transform Python Hello World is not a query transform; Metabase tests only query transforms",
+    "related": [
+      "collections/transforms/python_hello_world.yaml",
+    ],
+    "rule": "untestable-transform",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: duplicate input 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "LfXNcELKeCrAfD4htCFDH",
+      "model": "TransformTest",
+      "name": "Daily Order Summary: orders per day",
+    },
+    "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+    "message": "inputs stand in for the same table: orders, ORDERS",
+    "related": [],
+    "rule": "duplicate-input",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: expectation reads another table 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "57lhlfQkXUllMLTaY9IRu",
+      "model": "TransformTest",
+      "name": "Monthly Order Summary: orders per month",
+    },
+    "file": "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+    "message": "expectation no negative revenue reads people, which is neither the transform's target nor an input of this test",
+    "related": [
+      "collections/transforms/mbql_transform.yaml",
+    ],
+    "rule": "expectation-reads-other-table",
     "severity": "error",
   },
 ]

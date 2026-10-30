@@ -32,9 +32,22 @@ const TREES: [string, (folder: string) => void][] = [
     "duplicate entity id and target",
     (f) => mutateExamples("copied-transform", f),
   ],
+  ["dangling transform id", (f) => mutateExamples("dangling-transform-id", f)],
+  [
+    "wrong-type transform id",
+    (f) => mutateExamples("wrong-type-transform-id", f),
+  ],
   ["transform cycle", (f) => mutateExamples("transform-cycle", f)],
+  ["missing input", (f) => mutateExamples("missing-input", f)],
+  ["unused input", (f) => mutateExamples("unused-input", f)],
   ["null schema reference", (f) => mutateExamples("null-schema-reference", f)],
   ["broken table file", (f) => mutateExamples("broken-table-file", f)],
+  ["untestable transform", (f) => mutateExamples("python-transform-test", f)],
+  ["duplicate input", (f) => mutateExamples("duplicate-input", f)],
+  [
+    "expectation reads another table",
+    (f) => mutateExamples("expectation-reads-other-table", f),
+  ],
   ["reads not checked", (f) => mutateExamples("missing-snippet", f)],
   [
     "several rules",
