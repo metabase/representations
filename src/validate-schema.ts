@@ -387,12 +387,32 @@ function entityIdMessage(value: unknown, pointer: string): string {
     : message;
 }
 
+// Stands in for a YAML timestamp, which Ajv would take as an object: a
+// symbol fails every JSON type.
+const TIMESTAMP = Symbol("YAML timestamp");
+
+/** `value` with each `Date` in it replaced by `TIMESTAMP`. */
+function withoutDates(value: unknown): unknown {
+  if (value instanceof Date) {
+    return TIMESTAMP;
+  }
+  if (isUnknownArray(value)) {
+    return value.map(withoutDates);
+  }
+  if (isRecord(value)) {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, withoutDates(v)]),
+    );
+  }
+  return value;
+}
+
 /** The ways `doc` fails `validate`, in Ajv's order; empty when it passes. */
 function validationErrors(
   validate: ValidateFunction,
   doc: unknown,
 ): ValidationError[] {
-  return validate(doc)
+  return validate(withoutDates(doc))
     ? []
     : (validate.errors ?? []).map((e) => ({
         path: e.instancePath || "/",

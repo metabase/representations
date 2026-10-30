@@ -690,6 +690,35 @@ describe("validateSchema", () => {
       });
     });
 
+    it("fails a YAML timestamp where the schema wants a map", () => {
+      mkdirSync(join(workdir, "collections"), { recursive: true });
+      const orders = readFileSync(
+        resolve(
+          import.meta.dir,
+          "../examples/v1/collections/main/queries/orders_model.yaml",
+        ),
+        "utf8",
+      );
+      expect(orders).toContain("visualization_settings: {}");
+      const write = (value: string) =>
+        writeFileSync(
+          join(workdir, "collections", "card.yaml"),
+          orders.replace(
+            "visualization_settings: {}",
+            `visualization_settings: ${value}`,
+          ),
+        );
+      write("{}");
+      expect(validateSchema({ folder: workdir }).results[0].status).toBe("ok");
+      write("2024-01-05");
+      expect(validateSchema({ folder: workdir }).results[0]).toMatchObject({
+        status: "fail",
+        errors: [
+          { path: "/visualization_settings", message: "must be object" },
+        ],
+      });
+    });
+
     it("does not suggest a fresh entity id for a reference", () => {
       mkdirSync(join(workdir, "collections"), { recursive: true });
       writeFileSync(
