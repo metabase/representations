@@ -1,0 +1,253 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`lint output on a broken copy of the examples matches the recording: schema 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "r6q1WcFoBcq1eCQC9Yztl",
+      "model": "TransformTest",
+      "name": "Top Categories: three highest",
+    },
+    "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
+    "message": "TransformTest does not match its schema: /expectations/0/type must be equal to one of the allowed values",
+    "related": [],
+    "rule": "schema",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: skipped by metabase 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": null,
+      "model": null,
+      "name": null,
+    },
+    "file": "collections/transforms/notes.yaml",
+    "message": "Metabase skips this file because it has no serdes/meta",
+    "related": [],
+    "rule": "skipped-by-metabase",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: duplicate entity id and target 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
+    "related": [
+      "collections/transforms/native_transform_copy.yaml",
+    ],
+    "rule": "duplicate-entity-id",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform_copy.yaml",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
+    "related": [
+      "collections/transforms/native_transform.yaml",
+    ],
+    "rule": "duplicate-entity-id",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "related": [
+      "collections/transforms/native_transform_copy.yaml",
+    ],
+    "rule": "duplicate-target",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform_copy.yaml",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "related": [
+      "collections/transforms/native_transform.yaml",
+    ],
+    "rule": "duplicate-target",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: transform cycle 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "transforms read each other's targets: Product Revenue Report reads transforms.top_categories, the target of Top Categories -> Top Categories reads transforms.product_revenue_report, the target of Product Revenue Report. Remove one of these reads, or write one of these targets elsewhere",
+    "related": [
+      "collections/transforms/top_categories.yaml",
+    ],
+    "rule": "transform-cycle",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: null schema reference 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "rT5vWxYz1aBcDeFgHiJkL",
+      "model": "Transform",
+      "name": "Product Summary",
+    },
+    "file": "collections/transforms/product_summary.yaml",
+    "message": "reads products (no schema) in database Sample Postgres, whose engine postgres has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema",
+    "related": [],
+    "rule": "null-schema-reference",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: broken table file 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": null,
+      "model": "Table",
+      "name": null,
+    },
+    "file": "databases/sample_database/tables/orders/orders.yaml",
+    "message": "Table does not match its schema: / must have required property 'name'",
+    "related": [],
+    "rule": "schema",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: reads not checked 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "could not find the tables this transform reads: snippet No Such Snippet is not in the folder",
+    "related": [],
+    "rule": "reads-not-checked",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: several rules 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
+    "related": [
+      "collections/transforms/native_transform_copy.yaml",
+    ],
+    "rule": "duplicate-entity-id",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform_copy.yaml",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
+    "related": [
+      "collections/transforms/native_transform.yaml",
+    ],
+    "rule": "duplicate-entity-id",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "related": [
+      "collections/transforms/native_transform_copy.yaml",
+    ],
+    "rule": "duplicate-target",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform_copy.yaml",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "related": [
+      "collections/transforms/native_transform.yaml",
+    ],
+    "rule": "duplicate-target",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform_copy.yaml",
+    "message": "transforms read each other's targets: Product Revenue Report reads transforms.top_categories, the target of Top Categories -> Top Categories reads transforms.product_revenue_report, the target of Product Revenue Report. Remove one of these reads, or write one of these targets elsewhere",
+    "related": [
+      "collections/transforms/top_categories.yaml",
+    ],
+    "rule": "transform-cycle",
+    "severity": "error",
+  },
+  {
+    "entity": {
+      "entity_id": "7JwIkkAG-06-nsl4jzsaq",
+      "model": "Transform",
+      "name": "Product Revenue Report",
+    },
+    "file": "collections/transforms/native_transform.yaml",
+    "message": "could not find the tables this transform reads: snippet No Such Snippet is not in the folder",
+    "related": [],
+    "rule": "reads-not-checked",
+    "severity": "warning",
+  },
+]
+`;
