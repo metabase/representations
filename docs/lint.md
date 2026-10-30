@@ -33,13 +33,13 @@ On an engine without schemas, an engine whose schemas depend on the connection (
 
 ### `null` schemas in MBQL references
 
-An MBQL reference, `[database, schema, table]` or `[database, schema, table, field]`, names its schema as written, as Metabase's serdes import reads it: a `null` schema is the table with no schema, never the default schema. On a database whose default schema is `PUBLIC`, `["Sample Database", null, "ORDERS"]` is not `PUBLIC.ORDERS`, and an input for `PUBLIC.ORDERS` does not stand in for it. A Python transform's source table and a table file read a `null` schema the same way. Findings name such a table `ORDERS (no schema)`, and an unqualified name `ORDERS`.
+An MBQL reference, `[database, schema, table]` or `[database, schema, table, field]`, names its schema as written, as Metabase's serdes import reads it: a `null` schema is the table with no schema, never the default schema. On a database whose default schema is `PUBLIC`, `["Sample Database", null, "ORDERS"]` is not `PUBLIC.ORDERS`, and an input for `PUBLIC.ORDERS` does not stand in for it: Metabase's import looks the reference up by its exact schema and name, finds no `ORDERS` with no schema, and creates an inactive table with no schema for it (`src/metabase/models/serialization/resolve/default.clj:123-130`, `src/metabase/models/db.clj:285-293`). The query then reads that table, never `PUBLIC.ORDERS`. A Python transform's source table and a table file read a `null` schema the same way. Findings name such a table `ORDERS (no schema)`, and an unqualified name `ORDERS`.
 
 `null-schema-reference` is an error when a transform or a card names a table by a reference with a `null` schema, on a database whose engine has schemas, such as Postgres or H2. No synced table there has a `null` schema. Metabase's import creates an inactive table with no schema for the reference, and every query on it fails: for example `["Sample Database", null, "ORDERS"]` on the H2 Sample Database, whose table is `PUBLIC.ORDERS`. A transform is reported for the tables of the cards it reads too; a card, only for those its own query names. The rule needs no table files. A database whose engine the lint does not know, or whose engine has no schemas, gives no finding, nor does a table that a table file or a transform target with no schema names.
 
 ### Case in table names
 
-A table reference (MBQL or a Python source table), a table file and a transform target name a table exactly, as Metabase's import looks it up. `["Sample Postgres", "public", "Orders"]` is not the table file for `public.orders`: Metabase's import creates an inactive `Orders` table for it. Database names compare exactly too. A name read from SQL, and a transform test's input, compare ignoring case with any other name, as Metabase's transform-test validator compares them.
+A table reference (MBQL or a Python source table), a table file and a transform target name a table exactly, as Metabase's import looks it up. `["Sample Postgres", "public", "Orders"]` is not the table file for `public.orders`: Metabase's import creates an inactive `Orders` table for it. Database names compare exactly too. An unquoted name read from SQL, and a transform test's input, compare ignoring case with any other name, as Metabase's transform-test validator compares them. In a transform test's expectation SQL, a quoted name compares as written, as Metabase's `replace_names` matches it: `analytics."T"` is not the target `analytics.t`.
 
 ## Engines
 
@@ -107,6 +107,7 @@ A file that is not valid UTF-8 is an error; Metabase reads each invalid byte as 
 
 Known differences from Metabase's reading:
 
+- A document whose aliases expand to more than 3,145,728 nodes is refused; Metabase reads it.
 - An integer beyond 2^53 loses precision, where Metabase reads a `Long` or `BigInteger`. Two such keys that differ only past 2^53 are a duplicate key here and two keys in Metabase.
 - Two date keys for the same time, such as `2024-01-05:` twice, are not reported as a duplicate key. Metabase reads one key and keeps the last value.
 - An explicit tag on a value outside its type's plain form, such as `!!float 1` or `!!bool y`, is refused; Metabase reads `1.0` and `null`.
@@ -121,11 +122,11 @@ Metabase 0.64 and earlier pin SQLGlot 28.6.0 and an older `referenced_tables` an
 
 ## Known limits
 
-Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input. Metabase refuses a transform test whose transform or expectation SQL it cannot parse, so such a warning on a test's SQL means Metabase refuses the test.
+Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input. Metabase refuses a transform test whose transform or expectation SQL it cannot parse. So when the lint parses a test's SQL in its engine's dialect and SQLGlot cannot parse it, Metabase refuses the test. Other `reads-not-checked` warnings on a test, such as SQL parsed in the default dialect, a missing snippet file, or columns the parser cannot read, say nothing about Metabase's verdict.
 
 When neither a Database file nor the settings file gives a database's engine, the lint parses its SQL in SQLGlot's default dialect, where Metabase uses the engine's. Engine-specific syntax then fails to parse, for example backticked names in MySQL and BigQuery or bracketed names in SQL Server, and the query is reported as `reads-not-checked`.
 
-A query near Metabase's limit of 10,000,000 characters takes the parser a long time and much memory to read. The parser's memory never shrinks, so the rest of the run keeps that memory.
+A query near Metabase's limit of 10,000,000 characters takes the parser a long time and much memory to read. The parser's memory never shrinks, so the rest of the run keeps that memory. Metabase stops a parse after 30 seconds (`src/metabase/sql_parsing/graal.clj` `call-timeout-ms`); the lint has no time limit, so it reads a query that Metabase gives up on.
 
 ### Reported as `reads-not-checked`
 
