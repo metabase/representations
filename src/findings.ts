@@ -28,7 +28,10 @@ export const LINT_RULE_SEVERITY = {
   "untestable-engine": "warning",
   "duplicate-input": "error",
   "expectation-reads-other-table": "error",
+  "row-columns-mismatch": "error",
+  "duplicate-expectation-name": "error",
   "null-schema-reference": "error",
+  "no-expectations": "warning",
   "reads-not-checked": "warning",
 } as const satisfies Record<string, LintSeverity>;
 
