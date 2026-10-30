@@ -578,6 +578,39 @@ describe("validateSchema", () => {
         }
       });
 
+      it("fails a file with a top-level key that is not text, as Metabase's time reading does", () => {
+        for (const key of ["1", "true", "~"]) {
+          expect(
+            resultOf([
+              "name: Archive",
+              `${key}: x`,
+              "serdes/meta:",
+              "- model: Collection",
+            ]),
+          ).toMatchObject({
+            status: "fail",
+            errors: [
+              {
+                path: `/${key}`,
+                message: `the top-level key ${key} is not text, which Metabase requires; quote it`,
+              },
+            ],
+          });
+        }
+        expect(
+          resultOf([
+            "name: Archive",
+            "'1': x",
+            "serdes/meta:",
+            "- model: Collection",
+          ]),
+        ).not.toMatchObject({
+          errors: expect.arrayContaining([
+            expect.objectContaining({ path: "/1" }),
+          ]),
+        });
+      });
+
       it("fails a time in a zone that does not exist", () => {
         expect(
           resultOf(["name: Notes", "created_at: '2024-01-05 Nowhere/Land'"])

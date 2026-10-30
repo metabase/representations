@@ -282,7 +282,7 @@ export function loadDocs(
       continue;
     }
     const { value: body, nonStringKeys, duplicateKeys } = read;
-    const check = checkSchema(body, schemas);
+    const check = checkSchema(read, schemas);
     if (check.status === "bad-timestamp") {
       unreadable.push({ file, reason: `fails to load: ${check.message}` });
     } else if (check.status === "skipped") {

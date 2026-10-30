@@ -11,7 +11,7 @@ import {
   isUnknownArray,
   stringOrNull,
 } from "./values.js";
-import { decodeUtf8, readYaml } from "./yaml.js";
+import { decodeUtf8, readYaml, type YamlDocument } from "./yaml.js";
 
 /** The top-level folders whose `.yaml` files Metabase imports, other than `data_apps`. */
 const ENTITY_FOLDERS = [
@@ -289,9 +289,9 @@ function validateFile(
   if (text === null) {
     return { file, status: "fail", errors: rootError("not valid UTF-8") };
   }
-  let doc: unknown;
+  let read: YamlDocument;
   try {
-    const read = readYaml(text);
+    read = readYaml(text);
     const [duplicate] = read.duplicateKeys;
     if (duplicate !== undefined) {
       return {
@@ -302,7 +302,6 @@ function validateFile(
         ),
       };
     }
-    doc = read.value;
     // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     return {
@@ -311,7 +310,7 @@ function validateFile(
       errors: rootError(`invalid YAML: ${errorMessage(e)}`),
     };
   }
-  const check = checkSchema(doc, schemas);
+  const check = checkSchema(read, schemas);
   switch (check.status) {
     case "bad-timestamp":
       return {
@@ -391,13 +390,23 @@ function validationErrors(
 }
 
 /**
- * How `doc`, a parsed representation file, stands as Metabase imports it, and
- * the ways it fails the schema of its `serdes/meta` model, in Ajv's order.
+ * How a parsed representation file stands as Metabase imports it, and the
+ * ways it fails the schema of its `serdes/meta` model, in Ajv's order.
  */
 export function checkSchema(
-  doc: unknown,
+  { value: doc, nonStringKeys }: Pick<YamlDocument, "value" | "nonStringKeys">,
   { ajv, models }: Schemas,
 ): SchemaCheck {
+  // Metabase's import takes the name of each top-level key to find its times,
+  // which fails on a key that is not text.
+  const topLevel = nonStringKeys.find((k) => k.path.length === 0);
+  if (topLevel !== undefined) {
+    return {
+      status: "bad-timestamp",
+      key: topLevel.source,
+      message: `the top-level key ${topLevel.source} is not text, which Metabase requires; quote it`,
+    };
+  }
   const timestamp = badTimestamp(doc);
   if (timestamp !== null) {
     return { status: "bad-timestamp", ...timestamp };
