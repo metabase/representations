@@ -161,6 +161,54 @@ describe("readColumns on other engines", () => {
     });
   });
 
+  it("reads a qualified column that a CTE's alias shares a name with", () => {
+    for (const engine of ["postgres", "redshift", "clickhouse"]) {
+      expect(
+        onEngine(engine).readColumns(
+          "WITH c AS (SELECT id AS customer_id FROM people) SELECT o.customer_id FROM orders o JOIN c ON c.customer_id = o.customer_id",
+          "Warehouse",
+        ),
+      ).toEqual({
+        status: "read",
+        columns: [
+          column(null, "orders", "customer_id"),
+          column(null, "people", "id"),
+        ],
+      });
+    }
+  });
+
+  it("reads a select-list alias as a column only where the engine has no lateral aliases", () => {
+    const sql =
+      "SELECT price * 2 AS doubled, doubled + 1 AS d2 FROM orders WHERE doubled > 0";
+    const names = (engine: string) => {
+      const result = onEngine(engine).readColumns(sql, "Warehouse");
+      return result.status === "read"
+        ? result.columns.map((c) => c.column).sort()
+        : result;
+    };
+    expect(names("postgres")).toEqual(["doubled", "price"]);
+    expect(names("redshift")).toEqual(["doubled", "price"]);
+    expect(names("clickhouse")).toEqual(["price"]);
+    expect(
+      onEngine("redshift").readColumns(
+        "SELECT price * 2 AS doubled, doubled + 1 AS d2 FROM orders",
+        "Warehouse",
+      ),
+    ).toEqual({ status: "read", columns: [column(null, "orders", "price")] });
+  });
+
+  it("reads no alias that a GROUP BY names where the engine allows it", () => {
+    const names = (engine: string, sql: string) => {
+      const result = onEngine(engine).readColumns(sql, "Warehouse");
+      return result.status === "read"
+        ? result.columns.map((c) => c.column).sort()
+        : result;
+    };
+    const grouped = "SELECT lower(name) AS n FROM people GROUP BY n";
+    expect(names("postgres", grouped)).toEqual(["name"]);
+  });
+
   it("reads no ClickHouse ARRAY JOIN alias", () => {
     expect(
       onEngine("clickhouse").readColumns(

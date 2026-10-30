@@ -41,6 +41,27 @@ export type FieldReferences = {
   missingTableAliases: string[];
 };
 
+/** A clause of a SELECT, as `QueryShape.aliasRefs` names it. */
+export type AliasClause =
+  | "select"
+  | "where"
+  | "group"
+  | "having"
+  | "order"
+  | "other";
+
+const ALIAS_CLAUSES: ReadonlySet<string> = new Set([
+  "select",
+  "where",
+  "group",
+  "having",
+  "order",
+  "other",
+]);
+
+const isAliasClause = (value: unknown): value is AliasClause =>
+  typeof value === "string" && ALIAS_CLAUSES.has(value);
+
 /**
  * What SQLGlot's tree of a statement shows and `field_references` does not
  * say, as the lint reads it.
@@ -49,10 +70,13 @@ export type QueryShape = {
   /** Whether an outermost SELECT returns `*` or `table.*`. */
   returnsStar: boolean;
   /**
-   * The alias of each expression in any SELECT list, except an alias that
-   * repeats its column's name (`total AS total`).
+   * Each unqualified column that names an alias of its own SELECT list, with
+   * the clause of that SELECT it is in. An alias that repeats its column's
+   * name (`total AS total`) is no alias.
    */
-  selectAliases: string[];
+  aliasRefs: { name: string; clause: AliasClause }[];
+  /** The name of each column that is not in `aliasRefs`. */
+  otherColumns: string[];
   /** The alias of each ClickHouse `ARRAY JOIN` expression, by the same rule. */
   arrayJoinAliases: string[];
   /** Each table whose alias names its columns, as in `t AS s(x, y)`. */
@@ -199,9 +223,34 @@ def lint_query_shape(sql, dialect):
     def renames(e):
         return isinstance(e, exp.Alias) and not (isinstance(e.this, exp.Column) and e.this.name.lower() == e.alias.lower())
 
+    clauses = {"expressions": "select", "where": "where", "group": "group", "having": "having", "order": "order"}
+
+    def alias_clause(column):
+        # The clause of the column's own SELECT that holds it, when the column
+        # is unqualified and names an alias of that SELECT's list; else None.
+        select = column.find_ancestor(exp.Select)
+        if select is None or column.table or column.name.lower() not in {
+                e.alias.lower() for e in select.expressions if renames(e)}:
+            return None
+        node = column
+        while node.parent is not select:
+            node = node.parent
+        return clauses.get(node.arg_key, "other")
+
+    alias_refs = set()
+    other_columns = set()
+    for column in ast.find_all(exp.Column):
+        if isinstance(column.this, exp.Identifier):
+            clause = alias_clause(column)
+            if clause is None:
+                other_columns.add(column.name)
+            else:
+                alias_refs.add((column.name, clause))
+
     return json.dumps({
         "returns_star": any(is_star(e) for s in outermost(ast) for e in s.expressions),
-        "select_aliases": sorted({e.alias for s in ast.find_all(exp.Select) for e in s.expressions if renames(e)}),
+        "alias_refs": sorted(alias_refs),
+        "other_columns": sorted(other_columns),
         "array_join_aliases": sorted({j.this.alias for j in ast.find_all(exp.Join)
                                       if j.args.get("kind") == "ARRAY" and renames(j.this)}),
         "column_aliased_tables": [[t.db or None, t.name] for t in ast.find_all(exp.Table)
@@ -448,13 +497,26 @@ export function queryShapeOf(
   if (
     !isRecord(json) ||
     typeof json.returns_star !== "boolean" ||
-    !isStringArray(json.select_aliases) ||
+    !isUnknownArray(json.alias_refs) ||
+    !isStringArray(json.other_columns) ||
     !isStringArray(json.array_join_aliases) ||
     !isUnknownArray(json.column_aliased_tables) ||
     !isStringArray(json.quoted_columns) ||
     !isStringArray(json.unquoted_columns)
   ) {
     return UNEXPECTED_SHAPE;
+  }
+  const aliasRefs: QueryShape["aliasRefs"] = [];
+  for (const ref of json.alias_refs) {
+    if (
+      !isUnknownArray(ref) ||
+      ref.length !== 2 ||
+      typeof ref[0] !== "string" ||
+      !isAliasClause(ref[1])
+    ) {
+      return UNEXPECTED_SHAPE;
+    }
+    aliasRefs.push({ name: ref[0], clause: ref[1] });
   }
   const columnAliasedTables: TableName[] = [];
   for (const table of json.column_aliased_tables) {
@@ -472,7 +534,8 @@ export function queryShapeOf(
     status: "read",
     shape: {
       returnsStar: json.returns_star,
-      selectAliases: json.select_aliases,
+      aliasRefs,
+      otherColumns: json.other_columns,
       arrayJoinAliases: json.array_join_aliases,
       columnAliasedTables,
       quotedColumns: json.quoted_columns,

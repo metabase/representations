@@ -3,6 +3,7 @@ import {
   cacheBySql,
   type FieldReferences,
   type FieldSpec,
+  type AliasClause,
   type QueryShape,
   type SqlParser,
   type TableReplacement,
@@ -100,23 +101,51 @@ const IMPLICIT_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   redshift: [...POSTGRES_IMPLICIT_COLUMNS, "sysdate"],
 };
 
+// Every engine reads an output column's alias in ORDER BY. Postgres reads one
+// in GROUP BY too (its SELECT documentation), and MySQL in GROUP BY and
+// HAVING (its SELECT statement documentation). Redshift reads an alias later
+// in the same SELECT list, a lateral alias (its "SELECT list" documentation).
+// ClickHouse reads an alias anywhere in its query or subquery (its "Syntax",
+// "Expression Aliases").
+const ALIAS_CLAUSES_BY_ENGINE: Readonly<
+  Record<string, readonly AliasClause[]>
+> = {
+  postgres: ["order", "group"],
+  mysql: ["order", "group", "having"],
+  redshift: ["order", "select"],
+  clickhouse: ["order", "select", "where", "group", "having", "other"],
+};
+
+/** The clauses where the engine reads an alias of the SELECT list. */
+function aliasClausesOf(engine: string | null): readonly AliasClause[] {
+  return engine !== null && Object.hasOwn(ALIAS_CLAUSES_BY_ENGINE, engine)
+    ? ALIAS_CLAUSES_BY_ENGINE[engine]
+    : ["order"];
+}
+
 /**
  * Whether a column `field_references` reads from `table` names no column of
- * it, by `shape` and the engine's `implicit` names, which only an unquoted
- * name can be.
+ * it, by `shape`, the engine's `implicit` names, which only an unquoted name
+ * can be, and the clauses where the engine reads an alias of the SELECT list
+ * (`aliasClauses`): every place the statement names the column must be one.
  */
 function isNotTableColumn(
   column: string,
   table: TableName,
   shape: QueryShape,
   implicit: readonly string[],
+  aliasClauses: readonly AliasClause[],
 ): boolean {
   const name = fold(column);
+  const named = (names: readonly string[]) =>
+    names.some((other) => fold(other) === name);
+  const refs = shape.aliasRefs.filter((ref) => fold(ref.name) === name);
   return (
     (implicit.includes(name) && quotingOf(column, shape) !== "quoted") ||
-    [...shape.selectAliases, ...shape.arrayJoinAliases].some(
-      (alias) => fold(alias) === name,
-    ) ||
+    (refs.length > 0 &&
+      refs.every((ref) => aliasClauses.includes(ref.clause)) &&
+      !named(shape.otherColumns)) ||
+    named(shape.arrayJoinAliases) ||
     shape.columnAliasedTables.some(
       (t) =>
         fold(t.name) === fold(table.name) &&
@@ -195,7 +224,13 @@ export function createSqlColumnReader(
           return table !== null &&
             field.type === "single_column" &&
             !isTagPlaceholder(field.column) &&
-            !isNotTableColumn(field.column, table, shape, implicit)
+            !isNotTableColumn(
+              field.column,
+              table,
+              shape,
+              implicit,
+              aliasClausesOf(engine),
+            )
             ? [
                 {
                   table: {

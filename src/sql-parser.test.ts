@@ -185,7 +185,8 @@ describe("reading sql_tools' answers", () => {
   it("reads a query shape only in the shape lint_query_shape writes", () => {
     const shape = {
       returns_star: false,
-      select_aliases: ["a"],
+      alias_refs: [["a", "order"]],
+      other_columns: ["x"],
       array_join_aliases: [],
       column_aliased_tables: [[null, "t"]],
       quoted_columns: [],
@@ -195,7 +196,8 @@ describe("reading sql_tools' answers", () => {
       status: "read",
       shape: {
         returnsStar: false,
-        selectAliases: ["a"],
+        aliasRefs: [{ name: "a", clause: "order" }],
+        otherColumns: ["x"],
         arrayJoinAliases: [],
         columnAliasedTables: [{ schema: null, name: "t" }],
         quotedColumns: [],
@@ -204,7 +206,7 @@ describe("reading sql_tools' answers", () => {
     });
     for (const broken of [
       { ...shape, returns_star: "no" },
-      { ...shape, select_aliases: [1] },
+      { ...shape, alias_refs: [["a", "limit"]] },
       { ...shape, column_aliased_tables: [["t"]] },
     ]) {
       expect(queryShapeOf(JSON.stringify(broken))).toEqual(unexpected);
