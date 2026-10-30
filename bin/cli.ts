@@ -9,7 +9,7 @@ import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
 import { generateUuid } from "../src/generate-uuid.js";
-import { lint, type LintResult, namedDatabases } from "../src/lint.js";
+import { lint, type LintResult } from "../src/lint.js";
 import {
   CONFIG_FILE,
   LintSetupError,
@@ -205,28 +205,24 @@ function parseDefaultSchemas(
 
 /**
  * Says on stderr which default schema each `--default-schema` sets, and
- * which it overrides in the settings file; warns on a database no file in
- * `folder` names, such as a misspelled one.
+ * which it overrides in the settings file; warns on a database the folder's
+ * files do not name (`named`), such as a misspelled one.
  */
 function echoDefaultSchemas(
   folder: string,
   given: Readonly<Record<string, string | null>>,
+  named: readonly string[],
 ): void {
-  const databases = Object.keys(given);
-  if (databases.length === 0) {
-    return;
-  }
   const settings = readSettingsFile(folder).defaultSchemas;
-  const named = new Set(namedDatabases({ folder }));
   const show = (schema: string | null) => schema ?? "none (no schemas)";
-  for (const database of databases) {
+  for (const database of Object.keys(given)) {
     const over = Object.hasOwn(settings, database)
       ? `, over ${show(settings[database])} in ${CONFIG_FILE}`
       : "";
     console.error(
       `--default-schema: ${database} has the default schema ${show(given[database])}${over}`,
     );
-    if (!named.has(database)) {
+    if (!named.includes(database)) {
       console.error(
         `Warning: --default-schema names ${database}, which no file in the folder names`,
       );
@@ -244,7 +240,6 @@ async function handleLint(values: ParsedValues): Promise<void> {
   const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
   let result: LintResult;
   try {
-    echoDefaultSchemas(folder, defaultSchemas);
     result = await lint({ folder, defaultSchemas });
   } catch (e) {
     if (e instanceof MissingDefaultSchemasError) {
@@ -259,9 +254,10 @@ async function handleLint(values: ParsedValues): Promise<void> {
     }
     throw e;
   }
-  const { files, findings } = result;
+  const { files, findings, databases } = result;
 
   exitIfNoFiles(files, folder);
+  echoDefaultSchemas(folder, defaultSchemas, databases);
 
   for (const finding of findings) {
     console.log(JSON.stringify(finding));

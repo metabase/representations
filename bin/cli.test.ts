@@ -574,6 +574,21 @@ describe("cli", () => {
       LINT_PROCESS_TIMEOUT_MS,
     );
 
+    it("says only that a folder has no YAML files, with --default-schema", () => {
+      const { stderr, exitCode } = runCli([
+        "lint",
+        "--experimental",
+        "--folder",
+        workdir,
+        "--default-schema",
+        "Foo=public",
+      ]);
+      expect(stderr.trimEnd().split("\n")).toEqual([
+        `No YAML files found in ${workdir}: Metabase imports only the .yaml files under collections/, databases/, transforms/ and its other top-level folders`,
+      ]);
+      expect(exitCode).toBe(2);
+    });
+
     it(
       "reads --default-schema DATABASE= as a database with no schemas",
       () => {

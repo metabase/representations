@@ -91,6 +91,12 @@ export type LintOptions = {
 export type LintResult = {
   files: number;
   findings: LintFinding[];
+  /**
+   * The names of the databases the files name, sorted: Database and table
+   * files, and the databases of queries, table references and transform
+   * targets. SQL is not read.
+   */
+  databases: string[];
 };
 
 /** The models whose files the schema rule checks against their schemas. */
@@ -412,14 +418,8 @@ export async function transformReads({
   }));
 }
 
-/**
- * The names of the databases the files in the folder name, sorted: Database
- * and table files, and the databases of queries, table references and
- * transform targets. SQL is not read.
- */
-export function namedDatabases({ folder }: LintOptions): string[] {
-  const schemas = loadSchemas();
-  const { docs } = loadDocs(folder, schemas);
+/** `LintResult.databases` for `docs`. */
+function namedDatabases(docs: readonly Doc[], schemas: Schemas): string[] {
   const findSources = createSourceFinder(schemas);
   const names = new Set<string>();
   const add = (name: unknown) => {
@@ -654,6 +654,10 @@ export async function lint({
       },
       report,
     );
-    return { files, findings: findings.sort(byRuleThenFile) };
+    return {
+      files,
+      findings: findings.sort(byRuleThenFile),
+      databases: namedDatabases(docs, schemas),
+    };
   });
 }
