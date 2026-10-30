@@ -50,14 +50,18 @@ export type LintEntity = {
   name: string | null;
 };
 
-export type LintFinding = {
-  rule: LintRule;
-  severity: LintSeverity;
+/** A finding of the rule `R`, at that rule's severity. */
+export type LintFindingOf<R extends LintRule> = {
+  rule: R;
+  severity: (typeof LINT_RULE_SEVERITY)[R];
   file: string;
   entity: LintEntity;
   message: string;
   related: string[];
 };
+
+/** A finding of any rule; its severity is its rule's (`LINT_RULE_SEVERITY`). */
+export type LintFinding = { [R in LintRule]: LintFindingOf<R> }[LintRule];
 
 /** The file a finding is on, with the model and the body the lint read from it. */
 export type FindingSubject = {

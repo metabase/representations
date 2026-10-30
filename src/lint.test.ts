@@ -235,7 +235,7 @@ describe("lint", () => {
       const errors = (await findings(workdir)).filter(
         (f) => f.severity === "error",
       );
-      expect(errors.map((f) => f.rule).sort()).toEqual(
+      expect(errors.map((f): string => f.rule).sort()).toEqual(
         [...mutation.rules].sort(),
       );
       expect(new Set(errors.map((f) => f.entity.entity_id)).size).toBe(

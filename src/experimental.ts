@@ -10,6 +10,7 @@ export {
   LINT_RULES,
   type LintEntity,
   type LintFinding,
+  type LintFindingOf,
   type LintRule,
   type LintSeverity,
 } from "./findings.js";

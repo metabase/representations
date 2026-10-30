@@ -25,6 +25,8 @@ import {
   LINT_RULES,
   type LintEntity,
   type LintFinding,
+  type LintFindingOf,
+  type LintRule,
   type Report,
 } from "./findings.js";
 import { cyclePath, cycles } from "./graph.js";
@@ -407,17 +409,29 @@ function transformsOf(
   return validDocsOf(docs, "Transform").map((doc) => transformOf(doc, readsOf));
 }
 
+/** A finding of `rule` on `subject`, at the rule's severity. */
+function findingOf<R extends LintRule>(
+  rule: R,
+  subject: FindingSubject,
+  message: string,
+  related: string[],
+): LintFindingOf<R> {
+  return {
+    rule,
+    severity: LINT_RULE_SEVERITY[rule],
+    file: subject.file,
+    entity: entityOf(subject),
+    message,
+    related,
+  };
+}
+
 /** A `Report` that appends each finding to `findings`. */
 function createReport(findings: LintFinding[]): Report {
   return (rule, subject, message, related = []) =>
-    findings.push({
-      rule,
-      severity: LINT_RULE_SEVERITY[rule],
-      file: subject.file,
-      entity: entityOf(subject),
-      message,
-      related,
-    });
+    // A finding of one rule is a LintFinding; TypeScript cannot tie the
+    // generic rule to its member of the union.
+    findings.push(findingOf(rule, subject, message, related) as LintFinding);
 }
 
 /** The tables the SQL of a test's expectations reads, in its transform's database. */
