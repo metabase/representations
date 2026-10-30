@@ -13,7 +13,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - null
+    - PUBLIC
     - PRODUCTS
     aggregation:
     - - count
@@ -23,7 +23,7 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - null
+          - PUBLIC
           - PRODUCTS
           - PRICE
     - - avg
@@ -31,14 +31,14 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - null
+          - PUBLIC
           - PRODUCTS
           - RATING
     breakout:
     - - field
       - {}
       - - Sample Database
-        - null
+        - PUBLIC
         - PRODUCTS
         - CATEGORY
     order-by:

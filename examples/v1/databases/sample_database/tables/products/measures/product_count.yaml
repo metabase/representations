@@ -3,7 +3,7 @@ entity_id: 8kxQ2Wr7PmN5dLf3hYz9v
 creator_id: admin@example.com
 table_id:
 - Sample Database
-- null
+- PUBLIC
 - PRODUCTS
 definition:
   "lib/type": mbql/query
@@ -12,7 +12,7 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - null
+    - PUBLIC
     - PRODUCTS
     aggregation:
     - - distinct
@@ -20,7 +20,7 @@ definition:
       - - field
         - {}
         - - Sample Database
-          - null
+          - PUBLIC
           - PRODUCTS
           - ID
 serdes/meta:

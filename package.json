@@ -1,6 +1,6 @@
 {
   "name": "@metabase/representations",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "description": "Metabase representation format specification and schema validator",
   "license": "SEE LICENSE IN LICENSE.txt",
   "repository": {
@@ -16,7 +16,8 @@
   "files": [
     "dist",
     "core-spec/v1/schemas",
-    "core-spec/v1/spec.md"
+    "core-spec/v1/spec.md",
+    "docs/lint.md"
   ],
   "main": "dist/src/index.js",
   "types": "dist/src/index.d.ts",
@@ -24,16 +25,20 @@
     ".": {
       "types": "./dist/src/index.d.ts",
       "import": "./dist/src/index.js"
+    },
+    "./experimental": {
+      "types": "./dist/src/experimental.d.ts",
+      "import": "./dist/src/experimental.js"
     }
   },
   "bin": {
     "representations": "dist/bin/cli.js"
   },
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json && cp -r core-spec dist/core-spec",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && cp -r core-spec dist/core-spec && cp -r vendor dist/vendor",
     "type-check": "tsc --noEmit",
-    "lint-eslint": "eslint --max-warnings 0 --report-unused-disable-directives bin src",
-    "lint-format": "oxfmt --check bin src",
+    "lint-eslint": "eslint --max-warnings 0 --report-unused-disable-directives bin scripts src",
+    "lint-format": "oxfmt --check bin scripts src",
     "test": "bun test",
     "validate-schema": "bun run bin/cli.ts validate-schema --folder examples/v1"
   },
@@ -41,8 +46,16 @@
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
     "glob": "^11.0.1",
-    "js-yaml": "^4.1.0",
-    "nanoid": "^5.1.9"
+    "nanoid": "^5.1.9",
+    "yaml": "^2.9.1"
+  },
+  "peerDependencies": {
+    "pyodide": "314.0.7"
+  },
+  "peerDependenciesMeta": {
+    "pyodide": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -50,7 +63,10 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.6.0",
     "eslint": "^10.2.1",
+    "fast-check": "^4.10.2",
+    "js-yaml": "^4.1.0",
     "oxfmt": "^0.45.0",
+    "pyodide": "314.0.7",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.2"
   }

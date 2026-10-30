@@ -12,6 +12,7 @@ export type ExtractSchemaResult = {
   target: string;
 };
 
+/** Copies the bundled schema files into `folder`, creating it. */
 export function extractSchema({
   folder,
 }: ExtractSchemaOptions): ExtractSchemaResult {

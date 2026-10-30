@@ -1,16 +1,32 @@
 name: Import
 
+# Imports the examples into the latest Metabase build and compares the lint
+# with Metabase. Metabase changes on its own schedule, so this also runs daily.
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "30 6 * * *"
 
 jobs:
   import-test:
     runs-on: ubuntu-latest
 
+    # The transforms read and write this warehouse: Metabase's Sample Database
+    # on Postgres, in schema public. The Sample Database itself is SQLite,
+    # which cannot run transform tests.
+    services:
+      postgres:
+        image: metabase/qa-databases:postgres-sample-15
+        options: >-
+          --health-cmd "pg_isready -U metabase -d sample"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Git sync reads its content from the root of a repository, so the
       # examples get a repository of their own, which Metabase reads from disk.
@@ -21,11 +37,16 @@ jobs:
           git -C "$RUNNER_TEMP/sync-repo" add .
           git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Examples"
 
+      # On the service's network, Metabase reaches the warehouse as postgres:5432.
       - name: Start Metabase
+        env:
+          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
+          SERVICE_NETWORK: ${{ job.services.postgres.network }}
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
-            -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
+            --network "$SERVICE_NETWORK" \
+            -e MB_PREMIUM_EMBEDDING_TOKEN \
             -v "$RUNNER_TEMP/sync-repo:/sync-repo:ro" \
             -p 3000:3000 \
             metabase/metabase-enterprise-head:latest
@@ -39,7 +60,10 @@ jobs:
 
       - name: Setup, create API key, and import
         run: |
-          # Complete first-time setup
+          # Complete first-time setup. The session and the API key are
+          # credentials: mask each before anything can print it, including
+          # the env block of later steps. jq -e fails on a missing value, so
+          # the mask never gets an empty string or "null".
           SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
           SESSION=$(curl -sf http://localhost:3000/api/setup -X POST \
             -H 'Content-Type: application/json' \
@@ -47,28 +71,30 @@ jobs:
               token: $token,
               user: {email:"admin@test.com", password:"Metabase123!", first_name:"Admin", last_name:"User", site_name:"Test"},
               prefs: {site_name:"Test", site_locale:"en", allow_tracking:false}
-            }')" | jq -r '.id')
-          echo "Setup complete (session: $SESSION)"
+            }')" | jq -er '.id')
+          echo "::add-mask::$SESSION"
+          echo "Setup complete"
 
-          # Create API key
           API_KEY=$(curl -sf http://localhost:3000/api/api-key \
             -H "X-Metabase-Session: $SESSION" \
             -H 'Content-Type: application/json' \
-            -d '{"name":"ci","group_id":2}' | jq -r '.unmasked_key')
+            -d '{"name":"ci","group_id":2}' | jq -er '.unmasked_key')
+          echo "::add-mask::$API_KEY"
           echo "API key created"
           echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
           # A new instance seeds the Sample Database's tables and fields from a
-          # snapshot and leaves fingerprinting to the hourly "Sync and Analyze" job.
-          # Run that sync now, and wait until every field has a fingerprint, so
-          # nothing checks a half-analyzed database. Primary keys are never
-          # fingerprinted.
+          # snapshot, and leaves fingerprinting to the hourly "Sync and Analyze"
+          # job. Run that sync now, and wait until every field has a
+          # fingerprint, so nothing checks a half-analyzed database. Primary
+          # keys are never fingerprinted.
           SAMPLE_DB_ID=$(curl -sf http://localhost:3000/api/database -H "X-API-Key: $API_KEY" \
             | jq -er '.data[] | select(.is_sample == true) | .id')
           curl -sf -X POST "http://localhost:3000/api/database/$SAMPLE_DB_ID/sync_schema" \
             -H "X-API-Key: $API_KEY" > /dev/null
           echo "Waiting for the Sample Database to be fingerprinted..."
           export API_KEY SAMPLE_DB_ID
+          # shellcheck disable=SC2016 # the inner shell expands the variables
           if ! timeout 600 bash -c '
             until
               curl -sf "http://localhost:3000/api/database/$SAMPLE_DB_ID/metadata" -H "X-API-Key: $API_KEY" \
@@ -81,6 +107,44 @@ jobs:
             exit 1
           fi
           echo "Sample Database fingerprinted"
+
+          # The import resolves each table reference against synced metadata,
+          # so connect the warehouse, under the name its Database file gives,
+          # and wait until its first sync has found the tables.
+          WAREHOUSE=$(sed -n 's/^name: //p' examples/v1/databases/sample_postgres/sample_postgres.yaml)
+          HTTP_CODE=$(curl -s -o /tmp/warehouse.txt -w '%{http_code}' \
+            -X POST http://localhost:3000/api/database \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg name "$WAREHOUSE" '{
+              name: $name,
+              engine: "postgres",
+              details: {host: "postgres", port: 5432, dbname: "sample", user: "metabase", password: "metasample123"}
+            }')")
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat /tmp/warehouse.txt
+            echo "Connecting $WAREHOUSE failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          WAREHOUSE_ID=$(jq -er '.id' /tmp/warehouse.txt)
+          echo "Waiting for $WAREHOUSE to sync..."
+          export WAREHOUSE_ID
+          # shellcheck disable=SC2016 # the inner shell expands the variables
+          if ! timeout 300 bash -c '
+            until
+              curl -sf "http://localhost:3000/api/database/$WAREHOUSE_ID/metadata" -H "X-API-Key: $API_KEY" \
+                | jq -e "[.tables[] | select(.schema == \"public\" and (.fields | length > 0)) | .name] | contains([\"orders\", \"products\", \"people\"])" > /dev/null
+            do
+              sleep 5
+            done
+          '; then
+            curl -s "http://localhost:3000/api/database/$WAREHOUSE_ID/metadata" -H "X-API-Key: $API_KEY" \
+              | jq '{initial_sync_status, tables: [.tables[]? | {schema, name, fields: (.fields | length)}]}' \
+              || true
+            echo "$WAREHOUSE did not sync its tables in time"
+            exit 1
+          fi
+          echo "$WAREHOUSE synced"
 
           # Without the data-apps feature, git sync skips data apps without an error.
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
@@ -97,32 +161,14 @@ jobs:
             -H "X-API-Key: $API_KEY" \
             -H 'Content-Type: application/json' \
             -d '{"remote-sync-url":"file:///sync-repo/.git","remote-sync-branch":"main","remote-sync-type":"read-only"}')
-          if [ "$HTTP_CODE" != "200" ]; then
+          if [ "$HTTP_CODE" != "200" ] || ! TASK_ID=$(jq -er '.task_id' /tmp/settings-response.txt); then
             cat /tmp/settings-response.txt
-            echo "Connecting the repository failed with HTTP $HTTP_CODE"
+            echo "Connecting the repository failed with HTTP $HTTP_CODE, or started no import"
             exit 1
           fi
 
           echo "Waiting for the git sync import..."
-          if ! timeout 300 bash -c '
-            until
-              STATUS=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY" \
-                | jq -r "select(.sync_task_type == \"import\") | .status") &&
-              [ -n "$STATUS" ] && [ "$STATUS" != "running" ]
-            do
-              sleep 2
-            done
-          '; then
-            echo "The git sync import did not finish in time"
-            exit 1
-          fi
-          TASK=$(curl -sf http://localhost:3000/api/ee/remote-sync/current-task -H "X-API-Key: $API_KEY")
-          if [ "$(echo "$TASK" | jq -r '.status')" != "successful" ]; then
-            echo "$TASK"
-            echo "Git sync import failed"
-            exit 1
-          fi
-          echo "Import succeeded"
+          MB_URL=http://localhost:3000 scripts/wait-for-import.sh "$TASK_ID"
 
           APPS=$(curl -sf http://localhost:3000/api/ee/apps -H "X-API-Key: $API_KEY")
           for DIR in examples/v1/data_apps/*/; do
@@ -160,14 +206,14 @@ jobs:
 
           FAILED=0
           while read -r ID; do
-            HTTP_CODE=$(curl -s -o /tmp/card-query-$ID.txt -w '%{http_code}' \
+            HTTP_CODE=$(curl -s -o "/tmp/card-query-$ID.txt" -w '%{http_code}' \
               -X POST \
               -H "X-API-Key: $API_KEY" \
               "http://localhost:3000/api/card/$ID/query")
 
             if [ "$HTTP_CODE" != "202" ]; then
               echo "Card $ID query failed with HTTP $HTTP_CODE"
-              cat /tmp/card-query-$ID.txt
+              cat "/tmp/card-query-$ID.txt"
               FAILED=1
             else
               echo "Card $ID query OK"
@@ -186,3 +232,101 @@ jobs:
             echo "$WARNINGS"
             exit 1
           fi
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.9"
+
+      - name: Install the lint's dependencies
+        run: bun install --frozen-lockfile
+
+      # The lint reads the files alone; Metabase is the reference. The step
+      # compares the tables each transform reads, and Metabase's verdict on
+      # each transform test with the lint's errors on it. Any difference is a
+      # lint bug, and a run that compares nothing fails.
+      - name: Compare the lint with Metabase
+        run: |
+          if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
+            | jq -e '.["token-features"]["transforms-testing"]' > /dev/null; then
+            echo "The token lacks the transforms-testing feature"
+            exit 1
+          fi
+
+          # A self-hosted instance keeps transforms off until the
+          # transforms-enabled setting is set, and GET /api/transform answers
+          # 403 while they are off.
+          HTTP_CODE=$(curl -s -o /tmp/transforms-enabled.txt -w '%{http_code}' \
+            -X PUT http://localhost:3000/api/setting/transforms-enabled \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"value":true}')
+          if [ "$HTTP_CODE" != "204" ]; then
+            cat /tmp/transforms-enabled.txt
+            echo "Enabling transforms failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          # In read-only remote sync no transform can be written, and creating
+          # a transform test needs write access to its transform: every probe
+          # would answer 403. The import is done, so switch to read-write.
+          HTTP_CODE=$(curl -s -o /tmp/read-write.txt -w '%{http_code}' \
+            -X PUT http://localhost:3000/api/ee/remote-sync/settings \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"remote-sync-url":"file:///sync-repo/.git","remote-sync-branch":"main","remote-sync-type":"read-write"}')
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat /tmp/read-write.txt
+            echo "Switching remote sync to read-write failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+
+          # Record which build runs, so a refusal can be traced to its image.
+          echo "Metabase version:"
+          curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" | jq '.version' \
+            || echo "(could not read the version)"
+          echo "Image created: $(docker image inspect --format '{{.Created}}' metabase/metabase-enterprise-head:latest)"
+
+          # The lint reads each database's default schema from the folder's
+          # .metabase-lint.json.
+          STATUS=0
+          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1 \
+            || STATUS=$?
+          if [ "$STATUS" != "0" ]; then
+            # When a driver's feature check throws, Metabase logs this message
+            # and answers that the feature is unsupported.
+            FEATURE_ERRORS=$(docker logs metabase 2>&1 | grep "Failed to check feature" || true)
+            if [ -n "$FEATURE_ERRORS" ]; then
+              echo "Metabase failed to check a driver feature:"
+              echo "$FEATURE_ERRORS"
+            else
+              echo "Metabase logged no failed feature check"
+            fi
+          fi
+          exit "$STATUS"
+
+      # The examples hold no test Metabase refuses, so the step above compares
+      # no refusal. Import a copy in which four tests each break in a different
+      # way that Metabase refuses, and compare Metabase's refusals with the
+      # lint's errors.
+      - name: Compare the lint with Metabase on tests Metabase refuses
+        run: |
+          bun run src/test-support/lint-mutations.ts refused-tests "$RUNNER_TEMP/sync-repo"
+          git -C "$RUNNER_TEMP/sync-repo" add -A
+          git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Refused tests"
+
+          # Remote sync is read-write since the step above, whose probes may
+          # leave changes Metabase has not exported: force the import over them.
+          HTTP_CODE=$(curl -s -o /tmp/import-response.txt -w '%{http_code}' \
+            -X POST http://localhost:3000/api/ee/remote-sync/import \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d '{"force":true}')
+          if [ "$HTTP_CODE" != "200" ] || ! TASK_ID=$(jq -er '.task_id' /tmp/import-response.txt); then
+            cat /tmp/import-response.txt
+            echo "Importing the refused tests failed with HTTP $HTTP_CODE, or started no import"
+            exit 1
+          fi
+          echo "Waiting for the git sync import..."
+          MB_URL=http://localhost:3000 scripts/wait-for-import.sh "$TASK_ID"
+
+          bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder "$RUNNER_TEMP/sync-repo"

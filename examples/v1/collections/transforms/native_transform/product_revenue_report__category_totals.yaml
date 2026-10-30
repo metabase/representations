@@ -5,53 +5,53 @@ creator_id: admin@example.com
 description: 'Cases: two orders of one category are summed and averaged; a category with one order stands alone.'
 inputs:
 - table:
-    name: ORDERS
+    name: orders
   format: rows
   columns:
-  - name: ID
+  - name: id
     cast_type: INTEGER
-  - name: PRODUCT_ID
+  - name: product_id
     cast_type: INTEGER
-  - name: TOTAL
-    cast_type: REAL
+  - name: total
+    cast_type: DOUBLE PRECISION
   rows:
-  - ID: 1
-    PRODUCT_ID: 1
-    TOTAL: 10.0
-  - ID: 2
-    PRODUCT_ID: 1
-    TOTAL: 30.0
-  - ID: 3
-    PRODUCT_ID: 2
-    TOTAL: 25.0
+  - id: 1
+    product_id: 1
+    total: 10.0
+  - id: 2
+    product_id: 1
+    total: 30.0
+  - id: 3
+    product_id: 2
+    total: 25.0
 - table:
-    name: PRODUCTS
+    name: products
   format: sql
-  sql: SELECT 1 AS ID, 'Gadget' AS CATEGORY UNION ALL SELECT 2, 'Widget'
+  sql: SELECT 1 AS id, 'Gadget' AS category UNION ALL SELECT 2, 'Widget'
 expectations:
 - type: equals
   name: order count, revenue and average order value per category
   format: rows
   columns:
-  - name: CATEGORY
+  - name: category
     cast_type: TEXT
   - name: order_count
     cast_type: INTEGER
   - name: total_revenue
-    cast_type: REAL
+    cast_type: DOUBLE PRECISION
   - name: avg_order_value
-    cast_type: REAL
+    cast_type: DOUBLE PRECISION
   rows:
-  - CATEGORY: Gadget
+  - category: Gadget
     order_count: 2
     total_revenue: 40.0
     avg_order_value: 20.0
-  - CATEGORY: Widget
+  - category: Widget
     order_count: 1
     total_revenue: 25.0
     avg_order_value: 25.0
 - type: empty
   name: one row per category
-  sql: SELECT CATEGORY FROM TRANSFORMS.product_revenue_report GROUP BY CATEGORY HAVING COUNT(*) > 1
+  sql: SELECT category FROM transforms.product_revenue_report GROUP BY category HAVING COUNT(*) > 1
 serdes/meta:
 - model: TransformTest
