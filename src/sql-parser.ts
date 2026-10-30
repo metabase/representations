@@ -298,6 +298,12 @@ function fieldSpecOf(spec: FieldSpecJson): FieldSpec {
       return { type: spec.type, alias: spec.alias };
     case "unknown_columns":
       return { type: spec.type };
+    default: {
+      // A type a later sql_tools adds reads as columns the lint cannot place.
+      const unknownType: never = spec;
+      void unknownType;
+      return { type: "unknown_columns" };
+    }
   }
 }
 
@@ -315,6 +321,8 @@ function fieldReferencesOf(
   const errors = json.errors.map((e) =>
     Array.isArray(e) ? (Object.fromEntries(e) as FieldError) : e,
   );
+  // A missing_column error, an unqualified column that no table in its scope
+  // can give, names no table's column; the column checks need none.
   if (errors.some((e) => e.type === "syntax_error")) {
     return { status: "unread", reason: "field_references could not parse it" };
   }
