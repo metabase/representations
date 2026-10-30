@@ -2569,7 +2569,7 @@ A dashboard card places a card (question) on the dashboard grid. Most dashboard 
 | `size_y` | integer | Yes | Height in grid units (1+) |
 | `serdes/meta` | array | Yes | Identity path: Dashboard → DashboardCard |
 | `dashboard_tab_id` | string | No | Tab entity_id, `null` for untabbed |
-| `inline_parameters` | array | No | List of parameter UUIDs to display directly on this dashcard |
+| `inline_parameters` | array | No | List of parameter UUIDs to display directly on this dashcard. `null` on dashcards created before inline parameters existed |
 | `parameter_mappings` | array | No | Parameter-to-card mappings (see below) |
 | `series` | array | No | Overlay series (see below) |
 | `visualization_settings` | map | No | Display settings |

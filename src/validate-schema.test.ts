@@ -307,6 +307,27 @@ describe("validateSchema", () => {
           validateEntity(withTemporalUnits(["day-of-week-iso"])).failed,
         ).toBe(1);
       });
+
+      const withInlineParameters = (inlineParameters: unknown) => {
+        const dashboard = example("dashboards", "inline_parameters.yaml");
+        return {
+          ...dashboard,
+          dashcards: dashboard.dashcards.map(
+            (dashcard: Record<string, any>) => ({
+              ...dashcard,
+              inline_parameters: inlineParameters,
+            }),
+          ),
+        };
+      };
+
+      it("accepts a dashcard whose inline parameters are null", () => {
+        expect(validateEntity(withInlineParameters(null)).failed).toBe(0);
+      });
+
+      it("rejects a dashcard whose inline parameters are not a list", () => {
+        expect(validateEntity(withInlineParameters("d0000001")).failed).toBe(1);
+      });
     });
 
     describe("serdes/meta", () => {
