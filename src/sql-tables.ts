@@ -5,6 +5,7 @@ import {
   dialectOf,
   type ParsedTables,
   type SqlParser,
+  type TableReplacement,
   type Unread,
 } from "./sql-parser.js";
 import { fold } from "./tables.js";
@@ -79,6 +80,12 @@ function tagOfPlaceholder(name: string): string | null {
     : `{{${Buffer.from(hex, "hex").toString("utf8")}}}`;
 }
 
+/** Why the lint does not read a native query of `engine`. */
+const notSql = (engine: string): Unread => ({
+  status: "unread",
+  reason: `native queries on ${engine} are not SQL; the lint does not read them`,
+});
+
 /**
  * A native query of a database whose engine is `engine`, as the lint parses
  * it: the SQLGlot dialect of the engine (`dialectOf`), and the SQL with each
@@ -94,10 +101,7 @@ export function prepareSql(
   valuedTags?: ReadonlySet<string>,
 ): { status: "prepared"; sql: string; dialect: string | null } | Unread {
   if (engine !== null && !nativeQueriesAreSql(engine)) {
-    return {
-      status: "unread",
-      reason: `native queries on ${engine} are not SQL; the lint does not read them`,
-    };
+    return notSql(engine);
   }
   if (/\{\{\s*snippet:/i.test(sql)) {
     return { status: "unread", reason: "the query has a snippet" };
@@ -162,5 +166,44 @@ export function createSqlTableReader(
         ({ schema, name }) => JSON.stringify([fold(schema), fold(name)]),
       ),
     };
+  };
+}
+
+/**
+ * The tables SQL reads once `replacements` replace the tables they name, in
+ * the database `database`: Metabase's `replace_names`, then
+ * `referenced_tables`, on the SQL as written, in the dialect of the
+ * database's engine. A quoted name matches a replacement only in its own
+ * case. Unread when the engine's native queries are not SQL, or SQLGlot
+ * cannot parse the SQL.
+ */
+export type RewrittenTableReader = (
+  sql: string,
+  database: string | null,
+  replacements: readonly TableReplacement[],
+) => ParsedTables;
+
+/** Returns a `RewrittenTableReader` that parses with `parser`. */
+export function createRewrittenTableReader(
+  parser: SqlParser,
+  engineOf: EngineOf,
+): RewrittenTableReader {
+  return (sql, database, replacements) => {
+    const engine = engineOf(database);
+    if (engine !== null && !nativeQueriesAreSql(engine)) {
+      return notSql(engine);
+    }
+    const dialect = dialectOf(engine);
+    const replaced = parser.replaceNames(sql, replacements, dialect);
+    const result =
+      replaced.status === "read"
+        ? parser.referencedTables(replaced.sql, dialect)
+        : replaced;
+    return result.status === "read"
+      ? result
+      : {
+          status: "unread",
+          reason: `SQLGlot could not parse it: ${result.reason}`,
+        };
   };
 }

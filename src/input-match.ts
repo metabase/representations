@@ -1,3 +1,4 @@
+import type { ReplacedTableKey, TableReplacement } from "./sql-parser.js";
 import { fold, type TableKey, type TableName } from "./tables.js";
 
 /**
@@ -26,25 +27,49 @@ export function inputCovers(
   );
 }
 
+const STAND_IN_PREFIX = "__lint_stand_in_";
+
 /**
- * Whether Metabase rewrites `read`, a table an expectation's SQL names, to the
- * stand-in for `table`, an input or the transform's target. A read is
- * rewritten by the key of its own schema and name, or else by `table`'s
- * unqualified key, which `table` has when it is unqualified or in the default
- * schema. So, unlike `inputCovers`, a qualified read is rewritten to an
- * unqualified table of its name.
+ * The ways a query can name `table`, as Metabase's `table-keys` gives them:
+ * qualified, and unqualified when its schema is none or the default.
  */
-export function rewriteCovers(
-  read: TableName,
+function tableKeys(
   table: TableName,
   defaultSchema: string | null,
-): boolean {
-  if (fold(read.name) !== fold(table.name)) {
-    return false;
-  }
+): ReplacedTableKey[] {
+  return [
+    ...(table.schema === null
+      ? []
+      : [{ schema: table.schema, table: table.name }]),
+    ...(table.schema === null || fold(table.schema) === fold(defaultSchema)
+      ? [{ table: table.name }]
+      : []),
+  ];
+}
+
+/**
+ * The replacements of a transform test run, as Metabase's
+ * `table-replacements` builds them: every way a query names each of
+ * `tables`, to a stand-in table of its own (`isStandIn`).
+ */
+export function standInReplacements(
+  tables: readonly TableName[],
+  defaultSchema: string | null,
+): TableReplacement[] {
+  return tables.flatMap((table, i) =>
+    tableKeys(table, defaultSchema).map(
+      (key): TableReplacement => [
+        key,
+        { db: null, schema: null, table: `${STAND_IN_PREFIX}${i}__` },
+      ],
+    ),
+  );
+}
+
+/** Whether `table` is one of the stand-ins of `standInReplacements`. */
+export function isStandIn(table: TableName): boolean {
   return (
-    fold(read.schema) === fold(table.schema) ||
-    table.schema === null ||
-    fold(table.schema) === fold(defaultSchema)
+    table.schema === null &&
+    new RegExp(`^${STAND_IN_PREFIX}[0-9]+__$`).test(table.name)
   );
 }

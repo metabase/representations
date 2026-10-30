@@ -6,8 +6,14 @@ import {
   MissingDefaultSchemasError,
   resolveDefaultSchemas,
 } from "./default-schemas.js";
-import { inputCovers, rewriteCovers } from "./input-match.js";
-import { type NullSchema, sameTable, type TableKey } from "./tables.js";
+import { inputCovers } from "./input-match.js";
+import {
+  fold,
+  type NullSchema,
+  sameTable,
+  type TableKey,
+  type TableName,
+} from "./tables.js";
 
 /** A table named in SQL: a null schema is an unqualified name. */
 const t = (schema: string | null, name: string) => ({
@@ -90,8 +96,24 @@ type GeneratedName = {
   nullSchema: NullSchema;
 };
 
+/**
+ * Whether Metabase's test rewrite replaces `read`, an unquoted name in SQL,
+ * with the stand-in for `table`: `replace_names` matches the read's own
+ * schema and name, or else `table`'s unqualified key, which `table` has when
+ * it is unqualified or in the default schema (`table-keys`).
+ */
+const rewrites = (
+  read: TableName,
+  table: TableName,
+  defaultSchema: string | null,
+): boolean =>
+  fold(read.name) === fold(table.name) &&
+  (fold(read.schema) === fold(table.schema) ||
+    table.schema === null ||
+    fold(table.schema) === fold(defaultSchema));
+
 describe("the default-schema gate", () => {
-  // A test's rewrite (`rewriteCovers`) compares only the tables of one test;
+  // A test's rewrite (`rewrites`) compares only the tables of one test;
   // every other comparison may pair any two names.
   it("lets through only names whose matches never depend on the default schema", () => {
     const defaults = [null, "a", "b"] as const;
@@ -110,7 +132,7 @@ describe("the default-schema gate", () => {
       d: string | null,
     ) => [
       ...(isSql(b) ? [inputCovers(a, b, d)] : []),
-      ...(inOneTest && isSql(a) && isSql(b) ? [rewriteCovers(a, b, d)] : []),
+      ...(inOneTest && isSql(a) && isSql(b) ? [rewrites(a, b, d)] : []),
       sameTable(key(a), key(b), () => d),
     ];
     const names = fc.array(tableName, { maxLength: 4 });

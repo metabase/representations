@@ -5,16 +5,12 @@ import {
   queryDatabaseOf,
 } from "./documents.js";
 import type { Report } from "./findings.js";
-import { inputCovers } from "./input-match.js";
+import { inputCovers, standInReplacements } from "./input-match.js";
 import { createSourceFinder } from "./query-sources.js";
 import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
 import type { Schemas } from "./schemas.js";
 import type { SqlColumnReader } from "./sql-columns.js";
-import type {
-  ReplacedTableKey,
-  TableReplacement,
-  Unread,
-} from "./sql-parser.js";
+import type { Unread } from "./sql-parser.js";
 import type { SqlTableReader } from "./sql-tables.js";
 import {
   type ColumnKey,
@@ -333,43 +329,6 @@ export function reportUpstreamColumns(
       }
     }
   }
-}
-
-/**
- * The ways a query can name `table`, as Metabase's `table-keys` gives them:
- * qualified, and unqualified when its schema is none or the default.
- */
-function tableKeys(
-  table: TableName,
-  defaultSchema: string | null,
-): ReplacedTableKey[] {
-  return [
-    ...(table.schema === null
-      ? []
-      : [{ schema: table.schema, table: table.name }]),
-    ...(table.schema === null || fold(table.schema) === fold(defaultSchema)
-      ? [{ table: table.name }]
-      : []),
-  ];
-}
-
-/**
- * The replacements of a test run, as Metabase's `table-replacements` builds
- * them: every way a query names each of `tables`, to a stand-in table of its
- * own.
- */
-function standInReplacements(
-  tables: readonly TableName[],
-  defaultSchema: string | null,
-): TableReplacement[] {
-  return tables.flatMap((table, i) =>
-    tableKeys(table, defaultSchema).map(
-      (key): TableReplacement => [
-        key,
-        { db: null, schema: null, table: `mb_test_${i}` },
-      ],
-    ),
-  );
 }
 
 /**

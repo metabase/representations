@@ -7,13 +7,13 @@ import {
   type ValidDoc,
 } from "./documents.js";
 import type { Report } from "./findings.js";
-import { inputCovers, rewriteCovers } from "./input-match.js";
+import { inputCovers, isStandIn, standInReplacements } from "./input-match.js";
 import {
   isQueryTransform,
   type QueryTransform,
   type Transform,
 } from "./reads.js";
-import type { SqlTableReader } from "./sql-tables.js";
+import type { RewrittenTableReader } from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
   sameTable,
@@ -112,7 +112,7 @@ export function reportTestFindings(
   tested: readonly TestedTransform[],
   checkKnown: TableCheck,
   defaultSchemaOf: DefaultSchemaOf,
-  readSql: SqlTableReader,
+  readRewritten: RewrittenTableReader,
   report: Report,
 ): void {
   for (const { test, transform } of tested) {
@@ -124,7 +124,7 @@ export function reportTestFindings(
       transform,
       inputs,
       defaultSchema,
-      readSql,
+      readRewritten,
       report,
     );
     if (transform.reads.status !== "read") {
@@ -170,26 +170,33 @@ function reportDuplicateInputs(
 }
 
 /**
- * Reports each table an expectation's SQL reads that Metabase would not
- * rewrite to the stand-in for the transform's target or for one of the test's
- * inputs (`rewriteCovers`); an expectation may read only those. SQL
- * `readSql` cannot read gives a reads-not-checked warning.
+ * Reports each table an expectation's SQL still reads once Metabase's rewrite
+ * replaces the transform's target and the test's inputs with stand-ins
+ * (`standInReplacements`); an expectation may read only those. SQL
+ * `readRewritten` cannot read gives a reads-not-checked warning.
  */
 function reportExpectationReads(
   test: TestDoc,
   transform: QueryTransform,
   inputs: readonly TableKey[],
   defaultSchema: string | null,
-  readSql: SqlTableReader,
+  readRewritten: RewrittenTableReader,
   report: Report,
 ): void {
-  const allowed = [...inputs, transform.target];
+  const replacements = standInReplacements(
+    [...inputs, transform.target],
+    defaultSchema,
+  );
   for (const expectation of test.body.expectations) {
     if (!("sql" in expectation)) {
       continue;
     }
     const name = expectation.name;
-    const result = readSql(expectation.sql, queryDatabaseOf(transform.doc));
+    const result = readRewritten(
+      expectation.sql,
+      queryDatabaseOf(transform.doc),
+      replacements,
+    );
     if (result.status === "unread") {
       report(
         "reads-not-checked",
@@ -199,7 +206,7 @@ function reportExpectationReads(
       continue;
     }
     for (const table of result.tables) {
-      if (!allowed.some((a) => rewriteCovers(table, a, defaultSchema))) {
+      if (!isStandIn(table)) {
         report(
           "expectation-reads-other-table",
           test,

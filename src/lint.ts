@@ -33,7 +33,11 @@ import { loadSchemas, type Schemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { withSqlParser } from "./sql-parser.js";
-import { createSqlTableReader, type SqlTableReader } from "./sql-tables.js";
+import {
+  createRewrittenTableReader,
+  createSqlTableReader,
+  type SqlTableReader,
+} from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
   sameTable,
@@ -553,7 +557,13 @@ export async function lint({
     reportNullSchemaReferences(transforms, defaultSchemaOf, report);
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
-    reportTestFindings(tested, checkKnown, defaultSchemaOf, readSql, report);
+    reportTestFindings(
+      tested,
+      checkKnown,
+      defaultSchemaOf,
+      createRewrittenTableReader(parser, engineOf),
+      report,
+    );
     reportRowsColumns(docs, report);
     reportExpectationNames(docs, report);
     reportEmptyExpectations(docs, report);

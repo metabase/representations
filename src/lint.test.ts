@@ -1437,6 +1437,37 @@ describe("lint", () => {
       ]);
     });
 
+    it("matches a quoted name only in its own case, as Metabase's rewrite does", async () => {
+      readOrders('"Orders"');
+      expect(await expectationRules()).toEqual([
+        "expectation-reads-other-table",
+      ]);
+      readOrders('"orders"');
+      expect(await expectationRules()).toEqual([]);
+      readOrders("Orders");
+      expect(await expectationRules()).toEqual([]);
+    });
+
+    it("refuses the quoted mixed-case name of the transform's target", async () => {
+      const test =
+        "collections/transforms/native_transform/product_revenue_report__category_totals.yaml";
+      const path = join(workdir, test);
+      const text = readFileSync(path, "utf8");
+      const target = "FROM transforms.product_revenue_report";
+      expect(text).toContain(target);
+      writeFileSync(
+        path,
+        text.replace(target, 'FROM "Transforms"."Product_Revenue_Report"'),
+      );
+      expect(
+        (await lint({ folder: workdir })).findings.map(
+          (f) => `${f.file}: ${f.rule}: ${f.message}`,
+        ),
+      ).toEqual([
+        `${test}: expectation-reads-other-table: expectation one row per category reads Transforms.Product_Revenue_Report, which is neither the transform's target nor an input of this test`,
+      ]);
+    });
+
     it("refuses a read of a table that is neither input nor target", async () => {
       readOrders("people");
       expect(await expectationRules()).toEqual([
