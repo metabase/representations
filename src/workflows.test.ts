@@ -222,10 +222,30 @@ function commandsOf(script: string): Command[] {
 const isBunInstall = ({ words }: Command) =>
   words[0] === "bun" && (words[1] === "install" || words[1] === "i");
 
+/** Commands that run the command after their own options and arguments. */
+const WRAPPERS = new Set(["env", "time", "command", "exec", "nice"]);
+
+/** `words` without the wrappers in front, and their options and `NAME=VAL` arguments. */
+function wrappedWords(words: readonly string[]): readonly string[] {
+  let i = 0;
+  while (WRAPPERS.has(words[i] ?? "")) {
+    const wrapper = words[i++];
+    while ((words[i] ?? "").startsWith("-") || /^\w+=/.test(words[i] ?? "")) {
+      // `nice -n 10`: the option takes the next word.
+      i += wrapper === "nice" && words[i] === "-n" ? 2 : 1;
+    }
+  }
+  return words.slice(i);
+}
+
 /** Whether `command` publishes a package with npm, Bun, Yarn or pnpm. */
-const isPublish = ({ words }: Command) =>
-  ["npm", "bun", "yarn", "pnpm"].includes(words[0] ?? "") &&
-  words.slice(1, 3).includes("publish");
+const isPublish = (command: Command) => {
+  const words = wrappedWords(command.words);
+  return (
+    ["npm", "bun", "yarn", "pnpm"].includes(words[0] ?? "") &&
+    words.slice(1, 3).includes("publish")
+  );
+};
 
 const where = ({ workflow, job, step }: RunStep) =>
   `${workflow} ${job}: ${step}`;
@@ -267,6 +287,28 @@ describe("commandsOf", () => {
       { words: ["tee", "-a", "out"], before: "|", after: null },
     ]);
   });
+});
+
+describe("isPublish", () => {
+  it.each([
+    "npm publish",
+    "env NPM_CONFIG_TAG=x npm publish",
+    "env -i npm publish",
+    "time npm publish",
+    "command npm publish",
+    "exec pnpm publish",
+    "nice -n 10 yarn npm publish",
+    "time env X=1 bun publish",
+  ])("finds the publish in %p", (script) => {
+    expect(commandsOf(script).some(isPublish)).toBe(true);
+  });
+
+  it.each(["npm pack", "echo npm publish", "env X=1 npm test"])(
+    "finds no publish in %p",
+    (script) => {
+      expect(commandsOf(script).some(isPublish)).toBe(false);
+    },
+  );
 });
 
 describe("workflows", () => {
