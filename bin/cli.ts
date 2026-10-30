@@ -11,6 +11,7 @@ import { generateUuid } from "../src/generate-uuid.js";
 import { lint, type LintResult } from "../src/lint.js";
 import { CONFIG_FILE, LintSetupError } from "../src/settings.js";
 import { validateSchema } from "../src/validate-schema.js";
+import { errorMessage } from "../src/values.js";
 
 type ParsedValues = {
   folder?: string;
@@ -20,6 +21,9 @@ type ParsedValues = {
   experimental?: boolean;
   help?: boolean;
 };
+
+const DOCS_URL =
+  "https://github.com/metabase/representations/blob/main/README.md#lint-rules";
 
 const HELP = `Usage: representations <command> [options]
 
@@ -31,15 +35,14 @@ Commands:
                      in any release, and it runs only with --experimental.
                      Checks references between transforms, tables and
                      transform tests; prints one JSON finding per line,
-                     grouped by rule, then by file. Exits 1 on an error
-                     finding or when the folder has no YAML files, and 2
-                     when it cannot run
+                     grouped by rule, then by file. Rules and finding
+                     fields: ${DOCS_URL}
     --experimental     Run the experimental lint (required)
     --folder <path>    Folder to lint (default: cwd)
     --default-schema <database>=<schema>
                        The schema unqualified table names resolve to in
-                       a database (repeatable; <database>= for none),
-                       over ${CONFIG_FILE} in the folder
+                       a database (repeatable; <database>= for none).
+                       Overrides defaultSchemas in ${CONFIG_FILE}
 
   extract-spec       Copy the bundled spec.md into a target file
     --file <path>      Destination file (default: ./spec.md)
@@ -54,36 +57,59 @@ Commands:
     --count <n>        Number to generate (default: 1)
 
 Options:
-  -h, --help           Show this help message`;
+  -h, --help           Show this help message
 
+Exit codes:
+  0  The command ran. validate-schema: no file failed; lint: no finding
+     is an error.
+  1  validate-schema: a file failed; lint: a finding is an error.
+  2  Nothing was checked: a usage error (an unknown command or option, an
+     option with no value or an invalid one, lint without
+     --experimental), a folder that is missing, is not a folder or holds
+     no YAML files, or a lint that cannot run (an invalid settings file,
+     an unknown default schema, a SQL parser that cannot start).`;
+
+/** The exit code when nothing was checked: a usage error, no files, or a lint that cannot run. */
+const NOTHING_CHECKED = 2;
+
+/** Exits with code 2 after `message` and a pointer to the help. */
+function usageError(message: string): never {
+  console.error(`${message}\nSee representations --help.`);
+  process.exit(NOTHING_CHECKED);
+}
+
+/** The command line's options and positionals; a usage error when it does not parse. */
 function parseArguments() {
-  return parseArgs({
-    allowPositionals: true,
-    options: {
-      folder: { type: "string" },
-      "default-schema": { type: "string", multiple: true },
-      experimental: { type: "boolean", default: false },
-      file: { type: "string" },
-      count: { type: "string" },
-      help: { type: "boolean", short: "h", default: false },
-    },
-  });
+  try {
+    return parseArgs({
+      allowPositionals: true,
+      options: {
+        folder: { type: "string" },
+        "default-schema": { type: "string", multiple: true },
+        experimental: { type: "boolean", default: false },
+        file: { type: "string" },
+        count: { type: "string" },
+        help: { type: "boolean", short: "h", default: false },
+      },
+    });
+  } catch (e) {
+    return usageError(errorMessage(e));
+  }
 }
 
 function parseCount(raw: string | undefined): number {
   const count = raw === undefined ? 1 : Number(raw);
   if (!Number.isInteger(count) || count < 1) {
-    console.error(`Invalid --count: ${raw} (expected a positive integer)`);
-    process.exit(1);
+    usageError(`Invalid --count: ${raw} (expected a positive integer)`);
   }
   return count;
 }
 
-/** Exits with status 1, saying so, when a command found no files in `folder`. */
+/** Exits with code 2, saying so, when a command found no files in `folder`. */
 function exitIfNoFiles(files: number, folder: string): void {
   if (files === 0) {
     console.error(`No YAML files found in ${folder}`);
-    process.exit(1);
+    process.exit(NOTHING_CHECKED);
   }
 }
 
@@ -134,10 +160,9 @@ function parseDefaultSchemas(
   for (const pair of pairs) {
     const at = pair.lastIndexOf("=");
     if (at <= 0) {
-      console.error(
+      usageError(
         `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
       );
-      process.exit(1);
     }
     const schema = pair.slice(at + 1);
     schemas[pair.slice(0, at)] = schema === "" ? null : schema;
@@ -147,10 +172,9 @@ function parseDefaultSchemas(
 
 async function handleLint(values: ParsedValues): Promise<void> {
   if (!values.experimental) {
-    console.error(
+    usageError(
       "lint is experimental: its rules, output and options can change in any release. Rerun with --experimental to run it.",
     );
-    process.exit(1);
   }
   const folder = values.folder ?? process.cwd();
   const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
@@ -162,11 +186,11 @@ async function handleLint(values: ParsedValues): Promise<void> {
       console.error(
         `${e.message}\nOr pass --default-schema "<database>=<schema>" for each, "<database>=" for no schemas.`,
       );
-      process.exit(2);
+      process.exit(NOTHING_CHECKED);
     }
     if (e instanceof LintSetupError) {
       console.error(e.message);
-      process.exit(2);
+      process.exit(NOTHING_CHECKED);
     }
     throw e;
   }
@@ -215,11 +239,18 @@ function handleGenerateUuid(values: ParsedValues): void {
 
 async function main(): Promise<void> {
   const { values, positionals } = parseArguments();
-  const command = positionals[0];
+  const [command, ...extra] = positionals;
 
-  if (values.help || !command) {
+  if (values.help) {
     console.log(HELP);
-    process.exit(values.help ? 0 : 1);
+    process.exit(0);
+  }
+  if (command === undefined) {
+    console.log(HELP);
+    process.exit(NOTHING_CHECKED);
+  }
+  if (extra.length > 0) {
+    usageError(`Unexpected argument: ${extra[0]}`);
   }
 
   switch (command) {
@@ -236,8 +267,7 @@ async function main(): Promise<void> {
     case "generate-uuid":
       return handleGenerateUuid(values);
     default:
-      console.error(`Unknown command: ${command}`);
-      process.exit(1);
+      usageError(`Unknown command: ${command}`);
   }
 }
 

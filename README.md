@@ -36,7 +36,7 @@ Validate a folder of YAML files against the schemas:
 npx @metabase/representations validate-schema --folder ./my-export
 ```
 
-Omit `--folder` to validate the current directory. It exits 1 when a file fails, or when the folder has no YAML files. A file with no `serdes/meta`, or an empty file, passes with a warning: Metabase skips it. A file of a model that Metabase imports and no schema here describes, such as `CustomVizPlugin` or `Dimension`, passes and is counted as not checked. A model that Metabase does not import fails.
+Omit `--folder` to validate the current directory. It exits 1 when a file fails, and 2 when the folder has no YAML files ([exit codes](#exit-codes)). A file with no `serdes/meta`, or an empty file, passes with a warning: Metabase skips it. A file of a model that Metabase imports and no schema here describes, such as `CustomVizPlugin` or `Dimension`, passes and is counted as not checked. A model that Metabase does not import fails.
 
 The validator reads YAML as Metabase does, with a few [known differences](https://github.com/metabase/representations/blob/main/docs/lint.md#how-yaml-is-read).
 
@@ -60,13 +60,7 @@ Without it, a lint of a folder with SQL exits with code 2 and names that command
 
 Omit `--folder` to lint the current directory. Give a database's default schema with `--default-schema "<database>=<schema>"`, or `"<database>="` for a database with no schemas. The option repeats, and overrides the settings file.
 
-The lint prints one JSON finding per line on stdout, grouped by rule, then by file, and a count on stderr. Its exit codes:
-
-| Code | Meaning |
-|------|---------|
-| 0 | No finding is an error. |
-| 1 | A finding is an error, the folder has no YAML files, or an option is invalid or missing, such as `--experimental`. |
-| 2 | The lint cannot run: the settings file is invalid, a database needs a default schema the lint does not have, or the SQL parser cannot start. |
+The lint prints one JSON finding per line on stdout, grouped by rule, then by file, and a count on stderr. It exits 1 when a finding is an error, and 2 when it checks nothing ([exit codes](#exit-codes)). When a database needs a default schema the lint does not have, it names each such database and the first file that needs it, and runs no check.
 
 [The lint in detail](https://github.com/metabase/representations/blob/main/docs/lint.md) explains how it resolves default schemas, reads SQL and YAML, and where it can be wrong.
 
@@ -144,6 +138,16 @@ npx @metabase/representations generate-uuid --count 5
 ```
 
 `--count` defaults to 1.
+
+## Exit codes
+
+Every command exits with one of these codes; `representations --help` prints the same table.
+
+| Code | Meaning |
+|------|---------|
+| 0 | The command ran. `validate-schema`: no file failed; `lint`: no finding is an error. |
+| 1 | `validate-schema`: a file failed; `lint`: a finding is an error. |
+| 2 | Nothing was checked: a usage error (an unknown command or option, an option with no value or an invalid one, `lint` without `--experimental`), a folder that is missing, is not a folder or holds no YAML files, or a lint that cannot run (an invalid settings file, an unknown default schema, a SQL parser that cannot start). |
 
 ## Programmatic use
 

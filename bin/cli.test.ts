@@ -58,10 +58,10 @@ const NANOID_REGEX = /^[\w-]{21}$/;
 
 describe("cli", () => {
   describe("help", () => {
-    it("prints help and exits 1 with no args", () => {
+    it("prints help and exits 2 with no args", () => {
       const { stdout, exitCode } = runCli([]);
       expect(stdout).toContain("Usage: representations");
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
     });
 
     it("prints help and exits 0 with --help", () => {
@@ -71,10 +71,36 @@ describe("cli", () => {
       expect(exitCode).toBe(0);
     });
 
-    it("errors on an unknown command", () => {
-      const { stderr, exitCode } = runCli(["bogus"]);
-      expect(stderr).toContain("Unknown command: bogus");
-      expect(exitCode).toBe(1);
+    it("exits 2 on a usage error, with the message and a pointer to the help", () => {
+      for (const [args, message] of [
+        [["bogus"], "Unknown command: bogus"],
+        [["validate-schema", "--bogus"], "Unknown option '--bogus'"],
+        [
+          ["validate-schema", "--folder"],
+          "Option '--folder <value>' argument missing",
+        ],
+        [["validate-schema", "extra"], "Unexpected argument: extra"],
+      ] as const) {
+        const { stdout, stderr, exitCode } = runCli([...args]);
+        expect(stdout).toBe("");
+        expect(stderr).toContain(message);
+        expect(stderr).toContain("See representations --help.");
+        expect(stderr).not.toContain("    at ");
+        expect(exitCode).toBe(2);
+      }
+    });
+
+    it("prints the exit codes the README lists", () => {
+      const { stdout } = runCli(["--help"]);
+      const readme = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
+      const readmeCodes = [...readme.matchAll(/^\| (\d) \| /gm)].map(
+        (m) => m[1],
+      );
+      const helpCodes = [
+        ...stdout.split("Exit codes:")[1].matchAll(/^ {2}(\d) {2}/gm),
+      ].map((m) => m[1]);
+      expect(helpCodes).toEqual(["0", "1", "2"]);
+      expect(readmeCodes).toEqual(helpCodes);
     });
   });
 
@@ -109,7 +135,7 @@ describe("cli", () => {
         "0",
       ]);
       expect(stderr).toContain("Invalid --count");
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
     });
 
     it("rejects non-integer --count", () => {
@@ -119,7 +145,7 @@ describe("cli", () => {
         "abc",
       ]);
       expect(stderr).toContain("Invalid --count");
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
     });
   });
 
@@ -253,7 +279,7 @@ describe("cli", () => {
           "--folder",
           empty,
         ]);
-        expect(exitCode).toBe(1);
+        expect(exitCode).toBe(2);
         expect(stderr).toContain("No YAML files found");
       } finally {
         rmSync(empty, { recursive: true, force: true });
@@ -272,7 +298,7 @@ describe("cli", () => {
       rmSync(workdir, { recursive: true, force: true });
     });
 
-    it("exits 1 without --experimental, printing no finding", () => {
+    it("exits 2 without --experimental, printing no finding", () => {
       mutateExamples("missing-input", workdir);
       const { stdout, stderr, exitCode } = runCli([
         "lint",
@@ -282,8 +308,9 @@ describe("cli", () => {
       expect(stdout).toBe("");
       expect(stderr.trimEnd().split("\n")).toEqual([
         "lint is experimental: its rules, output and options can change in any release. Rerun with --experimental to run it.",
+        "See representations --help.",
       ]);
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
     });
 
     it(
@@ -435,9 +462,59 @@ describe("cli", () => {
         "--folder",
         workdir,
       ]);
-      expect(exitCode).toBe(1);
+      expect(exitCode).toBe(2);
       expect(stderr).toContain("No YAML files found");
     });
+
+    it("refuses a --default-schema with no database, and reads DATABASE= as no schemas", () => {
+      const refused = runCli([
+        "lint",
+        "--experimental",
+        "--folder",
+        workdir,
+        "--default-schema",
+        "bad",
+      ]);
+      expect(refused.stderr).toContain(
+        "Invalid --default-schema: bad (expected DATABASE=SCHEMA)",
+      );
+      expect(refused.exitCode).toBe(2);
+    });
+
+    it(
+      "reads --default-schema DATABASE= as a database with no schemas",
+      () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const dir = join(workdir, "databases/sample_postgres/tables/orders");
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(
+          join(dir, "orders.yaml"),
+          [
+            "name: orders",
+            "db_id: Sample Postgres",
+            "schema: null",
+            "serdes/meta:",
+            "- model: Table",
+            "",
+          ].join("\n"),
+        );
+        const { stdout } = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          workdir,
+          "--default-schema",
+          "Sample Postgres=",
+        ]);
+        // The unqualified SQL read of orders is the table file's table with
+        // no schema.
+        expect(stdout).not.toContain(
+          "table orders is defined by no table file",
+        );
+        expect(stdout).toContain("is defined by no table file");
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
   });
 
   describe("build", () => {
