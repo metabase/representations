@@ -2077,6 +2077,34 @@ describe("lint", () => {
       ]);
     });
 
+    it("gives no finding on a database whose default schema is given as null, which says it has no schemas", async () => {
+      writeSettings({
+        engines: { [POSTGRES_DB]: "postgres" },
+        defaultSchemas: { [POSTGRES_DB]: null },
+      });
+      expect(await nullSchemaFindings()).toEqual([]);
+      writeSettings({
+        engines: { [POSTGRES_DB]: "postgres" },
+        defaultSchemas: { [POSTGRES_DB]: "public" },
+      });
+      expect(
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas: { [POSTGRES_DB]: null },
+          })
+        ).findings.filter((f) => f.rule === "null-schema-reference"),
+      ).toEqual([]);
+    });
+
+    it("reports an error on an engine with schemas when no default schema is given", async () => {
+      rmSync(join(workdir, SQL));
+      writeSettings({ engines: { [POSTGRES_DB]: "postgres" } });
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError(MBQL_TRANSFORM, "postgres"),
+      ]);
+    });
+
     it("takes the engine from a Database file", async () => {
       writeDatabase({ engine: "postgres", default_schema: "public" });
       expect(await nullSchemaFindings()).toEqual([

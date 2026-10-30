@@ -206,8 +206,9 @@ function reportDuplicateTargets(
  * engine has schemas. Metabase imports such a reference as the table with no
  * schema, and creates an inactive table when none exists
  * (`resolve/default.clj` `import-table-fk`), so every query on it fails. A
- * database whose engine is unknown gives no finding, nor does a table that a
- * table file or a transform target with no schema names. A transform reports
+ * database whose engine is unknown gives no finding, nor does one in
+ * `noSchemaDatabases`, nor a table that a table file or a transform target
+ * with no schema names. A transform reports
  * the tables of the cards it reads too; a Card, only those its own query
  * names.
  */
@@ -216,6 +217,7 @@ function reportNullSchemaReferences(
   transforms: readonly Transform[],
   findSources: SourceFinder,
   engineOf: EngineOf,
+  noSchemaDatabases: ReadonlySet<string>,
   report: Report,
 ): void {
   const noSchemaTables = [
@@ -237,6 +239,7 @@ function reportNullSchemaReferences(
         table.schema === null &&
         table.nullSchema === "none" &&
         engineFacts(engine)?.schemas === true &&
+        !(table.database !== null && noSchemaDatabases.has(table.database)) &&
         !noSchemaTables.some(
           (t) => t.database === table.database && t.name === table.name,
         )
@@ -633,7 +636,21 @@ export async function lint({
     reportUnknownEngines(docs, engineOf, findSources, report);
     reportEmptyNativeQueries(docs, findSources, report);
 
-    reportNullSchemaReferences(docs, transforms, findSources, engineOf, report);
+    // A null default schema that the user gives says the database has no
+    // schemas, over what its engine allows.
+    const noSchemaDatabases = new Set(
+      Object.entries({ ...settings.defaultSchemas, ...defaultSchemas })
+        .filter(([, schema]) => schema === null)
+        .map(([database]) => database),
+    );
+    reportNullSchemaReferences(
+      docs,
+      transforms,
+      findSources,
+      engineOf,
+      noSchemaDatabases,
+      report,
+    );
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
     reportTestFindings(
