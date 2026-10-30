@@ -67,6 +67,7 @@ import {
 import { reportTestSql } from "./test-sql-checks.js";
 import {
   reportCollectionNamespaces,
+  reportEmptyNativeQueries,
   reportIncrementalTags,
   reportMissingTargetDatabases,
 } from "./transform-checks.js";
@@ -608,6 +609,7 @@ export async function lint({
     reportMissingTargetDatabases(docs, report);
     reportMissingTargetSchemas(docs, engineOf, report);
     reportUnsupportedTransformEngines(docs, engineOf, report);
+    reportEmptyNativeQueries(docs, createSourceFinder(schemas), report);
 
     const checkKnown = createUnknownTableCheck(
       docs,

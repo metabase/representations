@@ -1633,6 +1633,54 @@ describe("lint", () => {
     });
   });
 
+  describe("with an empty native query", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-empty-"));
+      cpSync(EXAMPLES, workdir, { recursive: true });
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const TRANSFORM = "collections/transforms/hourly_product_stats.yaml";
+
+    const withStage = (stage: Record<string, unknown>) => {
+      const path = join(workdir, TRANSFORM);
+      const doc: unknown = yaml.load(readFileSync(path, "utf8"));
+      if (
+        !isRecord(doc) ||
+        !isRecord(doc.source) ||
+        !isRecord(doc.source.query)
+      ) {
+        throw new Error(`${TRANSFORM} has no query`);
+      }
+      doc.source.query.stages = [stage];
+      writeFileSync(path, yaml.dump(doc));
+    };
+
+    const findingsOn = async () =>
+      (await lint({ folder: workdir })).findings
+        .filter((f) => f.file === TRANSFORM)
+        .map((f) => `${f.rule}: ${f.message}`);
+
+    it("warns on a native stage of empty or blank SQL, and not on one with SQL", async () => {
+      for (const native of ["", " \n\t"]) {
+        withStage({ "lib/type": "mbql.stage/native", native });
+        expect(await findingsOn()).toEqual([
+          "empty-native-query: a native query of this transform is empty; Metabase accepts it, and every run fails",
+        ]);
+      }
+      withStage({
+        "lib/type": "mbql.stage/native",
+        native: "SELECT * FROM products",
+      });
+      expect(await findingsOn()).toEqual([]);
+    });
+  });
+
   // Metabase's import looks a table up by exact name (`table-id-by-name`), and
   // creates an inactive table on a miss; the transform-test validator and a
   // warehouse reading unquoted SQL compare ignoring case.

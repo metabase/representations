@@ -16,7 +16,8 @@ import {
   type TableKey,
   tableOfRef,
 } from "./tables.js";
-import { stringOrNull, templateTagsOf } from "./values.js";
+import type { DataSources } from "./query-sources.js";
+import { isJavaBlank, stringOrNull, templateTagsOf } from "./values.js";
 
 const TRANSFORMS_NAMESPACE = "transforms";
 const NATIVE_STAGE = "mbql.stage/native";
@@ -162,6 +163,29 @@ export function reportMissingTargetDatabases(
         "missing-target-database",
         transform,
         "the target names no database, which Metabase requires unless the source is a query",
+      );
+    }
+  }
+}
+
+/**
+ * Warns on each transform whose query has a native stage with empty SQL, or
+ * SQL of only whitespace: Metabase's API and its import accept such a
+ * transform, and every run fails. `findSources` gives the transform's native
+ * stages.
+ */
+export function reportEmptyNativeQueries(
+  docs: readonly Doc[],
+  findSources: (doc: unknown, model: string) => DataSources,
+  report: Report,
+): void {
+  for (const transform of validDocsOf(docs, "Transform")) {
+    const { natives } = findSources(transform.body, "Transform");
+    if (natives.some(({ sql }) => isJavaBlank(sql))) {
+      report(
+        "empty-native-query",
+        transform,
+        "a native query of this transform is empty; Metabase accepts it, and every run fails",
       );
     }
   }
