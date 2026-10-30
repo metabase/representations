@@ -145,6 +145,24 @@ describe("testVerdictDiffers", () => {
     ).toBe(
       'Metabase refuses it with transform-test.unremapped-reference ("people"), so it passed the checks before expectation-reads-other-table; the lint reports duplicate-input',
     );
+    // validator.clj checks unused inputs before duplicate ones.
+    expect(
+      testVerdictDiffers(refused("transform-test.duplicate-input-table"), [
+        finding("unused-input"),
+        finding("duplicate-input"),
+      ]),
+    ).toBe(
+      "Metabase refuses it with transform-test.duplicate-input-table, so it passed the checks before duplicate-input; the lint reports unused-input",
+    );
+    // runner.clj refuses a transform that is not a query before it validates inputs.
+    expect(
+      testVerdictDiffers(refused("transform-test.unused-inputs"), [
+        finding("untestable-transform"),
+        finding("unused-input"),
+      ]),
+    ).toBe(
+      "Metabase refuses it with transform-test.unused-inputs, so it passed the checks before unused-input; the lint reports untestable-transform",
+    );
   });
 
   it("differs when the lint misses the refusal's rule", () => {
