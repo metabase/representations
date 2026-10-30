@@ -82,10 +82,11 @@ export type ReplacedTableKey = { schema?: string; table: string };
 export type SqlParser = {
   /**
    * The tables `sql` names, by `sql_tools.referenced_tables` in `dialect`
-   * (SQLGlot's default when null): sorted, without the catalog, as Metabase
-   * reads them. Two tables that differ only in their catalog come twice. Unread when SQLGlot raises, as on a parse error, a
-   * statement nested deeper than Python's recursion limit, or an unknown
-   * dialect.
+   * (SQLGlot's default when null), as Metabase reads them: sorted by
+   * catalog, schema and name, then the catalog dropped. Two tables that differ
+   * only in their catalog come twice. Unread when SQLGlot raises, as on a
+   * parse error, a statement nested deeper than Python's recursion limit, or
+   * an unknown dialect.
    */
   referencedTables(sql: string, dialect: string | null): ParsedTables;
   /**

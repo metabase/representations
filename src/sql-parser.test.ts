@@ -257,6 +257,18 @@ describe("loadSqlParser", () => {
     ).toEqual({ status: "read", tables: [{ schema: "ds", name: "orders" }] });
   });
 
+  it("orders the tables by catalog, then schema, then name, before it drops the catalog", () => {
+    expect(
+      parser.referencedTables("SELECT * FROM b.a.x JOIN a.z.y ON 1=1", "trino"),
+    ).toEqual({
+      status: "read",
+      tables: [
+        { schema: "z", name: "y" },
+        { schema: "a", name: "x" },
+      ],
+    });
+  });
+
   it("reads a table whose name holds the mark or other non-ASCII characters", () => {
     expect(
       parser.referencedTables(
