@@ -180,7 +180,7 @@ exports[`lint output on a broken copy of the examples matches the recording: mis
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform.yaml",
-    "message": "the incremental native query has no table template tag for Metabase to put its range filter in",
+    "message": "the incremental native query has no table variable for Metabase to put its range filter in",
     "related": [],
     "rule": "missing-incremental-table-tag",
     "severity": "error",

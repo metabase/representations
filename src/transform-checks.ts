@@ -133,7 +133,7 @@ export function reportIncrementalTags(
       report(
         "missing-incremental-table-tag",
         transform,
-        "the incremental native query has no table template tag for Metabase to put its range filter in",
+        "the incremental native query has no table variable for Metabase to put its range filter in",
       );
     } else if (
       checkpointTable !== null &&
@@ -145,7 +145,7 @@ export function reportIncrementalTags(
       report(
         "missing-incremental-table-tag",
         transform,
-        `no table template tag names ${tableLabel(checkpointTable)}, the table of the checkpoint field, for Metabase to put the incremental range filter in`,
+        `no table variable names ${tableLabel(checkpointTable)}, the table of the checkpoint field, for Metabase to put the incremental range filter in`,
       );
     }
   }
