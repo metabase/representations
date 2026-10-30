@@ -60,7 +60,9 @@ afterEach(() => {
 async function runCheck(
   files: Record<string, Uint8Array | string>,
   pypi: unknown = PYPI_RECORD,
+  flags: readonly string[] = [],
 ): Promise<{ exitCode: number; output: string }> {
+  server?.stop(true);
   server = Bun.serve({
     port: 0,
     fetch: (request) => {
@@ -86,6 +88,7 @@ async function runCheck(
       `http://localhost:${server.port}`,
       "--pypi-url",
       `http://localhost:${server.port}`,
+      ...flags,
     ],
     { stdout: "pipe", stderr: "pipe" },
   );
@@ -117,8 +120,33 @@ describe("check-metabase-sources", () => {
     expect(output).toContain(
       "FAIL  vendor/sql_tools.py differs from Metabase's",
     );
+    expect(output).toContain(
+      'The "Metabase versions" section of docs/lint.md says which Metabase versions the copy matches.',
+    );
     expect(output).toContain(DOCS_STEP);
     expect(exitCode).toBe(1);
+  });
+
+  it("with --skip-sql-tools, passes over a different sql_tools.py and still checks the rest", async () => {
+    const files = {
+      [sqlTools.path]: new Uint8Array([...SQL_TOOLS, 0x0a]),
+      [sqlglot.pin]: pyproject(sqlglot.version),
+      [importedModels.path]: MODELS_CLJ,
+    };
+    const skipped = await runCheck(files, PYPI_RECORD, ["--skip-sql-tools"]);
+    expect(skipped.output).toContain(
+      "SKIP  vendor/sql_tools.py is not compared with Metabase's",
+    );
+    expect(skipped.output).not.toContain("FAIL");
+    expect(skipped.exitCode).toBe(0);
+
+    const pinned = await runCheck(
+      { ...files, [sqlglot.pin]: pyproject("99.0.0") },
+      PYPI_RECORD,
+      ["--skip-sql-tools"],
+    );
+    expect(pinned.output).toContain("FAIL  Metabase pins sqlglot 99.0.0");
+    expect(pinned.exitCode).toBe(1);
   });
 
   it("fails when Metabase pins another SQLGlot", async () => {

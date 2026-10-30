@@ -4,7 +4,10 @@
 // it, and IMPORTED_MODELS equal to Metabase's exported-models without Setting.
 // Reads Metabase's files from GitHub and the wheel's record from PyPI.
 //
-//   bun run scripts/check-metabase-sources.ts [--base-url URL] [--pypi-url URL]
+//   bun run scripts/check-metabase-sources.ts [--skip-sql-tools] [--base-url URL] [--pypi-url URL]
+//
+// --skip-sql-tools leaves out the byte comparison of sql_tools.py, which fails
+// on any change to Metabase's file, including functions the lint never calls.
 //
 // Exits 1 on any difference, and when a file cannot be read.
 import { createHash } from "crypto";
@@ -20,6 +23,7 @@ const { values } = parseArgs({
   options: {
     "base-url": { type: "string" },
     "pypi-url": { type: "string" },
+    "skip-sql-tools": { type: "boolean" },
   },
 });
 const baseUrl = values["base-url"] ?? "https://raw.githubusercontent.com";
@@ -127,21 +131,26 @@ function modelDifferences(exported: readonly string[]): string[] {
   ];
 }
 
+const skipSqlTools = values["skip-sql-tools"] === true;
+
 const [metabaseSqlTools, pyproject, modelsClj, pypi] = await Promise.all([
-  metabaseFile(sqlTools.path),
+  skipSqlTools ? null : metabaseFile(sqlTools.path),
   metabaseFile(sqlglot.pin),
   metabaseFile(importedModels.path),
   pypiRecord(),
 ]);
 
-if (metabaseSqlTools !== null) {
+if (skipSqlTools) {
+  console.log("SKIP  vendor/sql_tools.py is not compared with Metabase's");
+} else if (metabaseSqlTools !== null) {
   const vendored = readFileSync(resolve(VENDOR_DIR, "sql_tools.py"));
   if (Buffer.compare(vendored, metabaseSqlTools) === 0) {
     console.log(`OK    vendor/sql_tools.py is Metabase's ${sqlTools.path}`);
   } else {
     fail(
       `vendor/sql_tools.py differs from Metabase's ${sqlTools.path} on master. ` +
-        "Copy it unchanged, and record the Metabase commit in vendor/sources.json. " +
+        'The "Metabase versions" section of docs/lint.md says which Metabase versions the copy matches. ' +
+        "Copy the file unchanged, and record the Metabase commit in vendor/sources.json. " +
         DOCS_STEP,
     );
   }
