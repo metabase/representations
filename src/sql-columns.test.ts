@@ -1,0 +1,307 @@
+import { beforeAll, describe, expect, it } from "bun:test";
+
+import type { EngineOf } from "./databases.js";
+import {
+  type ColumnQuoting,
+  createSqlColumnReader,
+  type SqlColumnReader,
+} from "./sql-columns.js";
+import {
+  loadSqlParser,
+  type SqlParser,
+  type TableReplacement,
+  type Unread,
+} from "./sql-parser.js";
+
+const engineOf: EngineOf = (database) =>
+  database === "Warehouse" ? "postgres" : database === "Docs" ? "mongo" : null;
+
+let columns: SqlColumnReader;
+let sharedParser: SqlParser;
+
+beforeAll(async () => {
+  sharedParser = await loadSqlParser();
+  columns = createSqlColumnReader(sharedParser, engineOf);
+}, 60_000);
+
+const column = (
+  schema: string | null,
+  table: string,
+  name: string,
+  quoting: ColumnQuoting = "unquoted",
+) => ({
+  table: {
+    database: "Warehouse",
+    schema,
+    name: table,
+    nullSchema: "default" as const,
+    caseMatters: false,
+  },
+  column: name,
+  quoting,
+});
+
+describe("readColumns", () => {
+  it.each([
+    [
+      "a column qualified by its table's alias, in every clause",
+      "SELECT o.id, sum(o.total - o.discount) AS net FROM public.orders o WHERE o.status = 'paid' GROUP BY o.id",
+      [
+        column("public", "orders", "discount"),
+        column("public", "orders", "id"),
+        column("public", "orders", "status"),
+        column("public", "orders", "total"),
+      ],
+    ],
+    [
+      "an unqualified column of the only table its scope reads",
+      "SELECT id FROM orders",
+      [column(null, "orders", "id")],
+    ],
+    [
+      "the column of a real table a CTE passes on, under the CTE's alias",
+      "WITH c AS (SELECT total AS t FROM orders) SELECT c.t FROM c",
+      [column(null, "orders", "total")],
+    ],
+    [
+      "no unqualified column of a scope that reads two tables",
+      "SELECT id FROM orders o JOIN people p ON o.user_id = p.id",
+      [column(null, "orders", "user_id"), column(null, "people", "id")],
+    ],
+    [
+      "no unqualified column a correlated subquery may take from either scope",
+      "SELECT id FROM people WHERE EXISTS (SELECT 1 FROM orders WHERE user_id = id)",
+      [column(null, "people", "id")],
+    ],
+    [
+      "no select alias that an ORDER BY names",
+      "SELECT x AS y FROM t ORDER BY y",
+      [column(null, "t", "x")],
+    ],
+    ["no column of SELECT *", "SELECT * FROM orders", []],
+    [
+      "no column of a table whose alias names its columns",
+      "SELECT s.x, u.id FROM t AS s(x, y) JOIN u ON u.id = s.y",
+      [column(null, "u", "id")],
+    ],
+    [
+      "the columns a CTE with named columns reads, not its names",
+      "WITH c(x, y) AS (SELECT a, b FROM t) SELECT x FROM c",
+      [column(null, "t", "a"), column(null, "t", "b")],
+    ],
+    [
+      "no system column or niladic keyword of Postgres",
+      "SELECT id, ctid, xmin, xmax, cmin, cmax, tableoid, current_user, session_user, current_role, user FROM orders",
+      [column(null, "orders", "id")],
+    ],
+    [
+      "a quoted column that shares a niladic keyword's name",
+      'SELECT o.id, o."user" FROM orders o',
+      [column(null, "orders", "id"), column(null, "orders", "user", "quoted")],
+    ],
+    [
+      "a quoted column as quoted, and one named both ways as unknown",
+      'SELECT "Total", o.id, "id" FROM orders o',
+      [
+        column(null, "orders", "id", "unknown"),
+        column(null, "orders", "Total", "quoted"),
+      ],
+    ],
+    [
+      "a column whose alias repeats its name",
+      "SELECT total AS total FROM orders",
+      [column(null, "orders", "total")],
+    ],
+  ])("reads %s", (_, sql, expected) => {
+    const result = columns.readColumns(sql, "Warehouse");
+    expect(
+      result.status === "read"
+        ? [...result.columns].sort((a, b) =>
+            `${a.table.name}.${a.column}`.localeCompare(
+              `${b.table.name}.${b.column}`,
+            ),
+          )
+        : result,
+    ).toEqual(expected);
+  });
+
+  it("reads no column a template tag became", () => {
+    expect(
+      columns.readColumns("SELECT {{x}} FROM orders", "Warehouse", new Set()),
+    ).toEqual({ status: "read", columns: [] });
+  });
+
+  it("refuses SQL it cannot parse, and a snippet left in it", () => {
+    expect(columns.readColumns("SELECT FROM WHERE", "Warehouse").status).toBe(
+      "unread",
+    );
+    expect(
+      columns.readColumns(
+        "SELECT * FROM a WHERE {{snippet: f}}",
+        "Warehouse",
+        new Set(),
+      ),
+    ).toEqual({ status: "unread", reason: "the query has a snippet" });
+  });
+});
+
+describe("readColumns on other engines", () => {
+  const onEngine = (engine: string) =>
+    createSqlColumnReader(sharedParser, () => engine);
+
+  it("reads no lateral alias on Redshift, and no SYSDATE", () => {
+    expect(
+      onEngine("redshift").readColumns(
+        "SELECT price * 2 AS doubled, doubled + 1 AS d2, sysdate FROM orders",
+        "Warehouse",
+      ),
+    ).toEqual({
+      status: "read",
+      columns: [column(null, "orders", "price")],
+    });
+  });
+
+  it("reads a qualified column that a CTE's alias shares a name with", () => {
+    for (const engine of ["postgres", "redshift", "clickhouse"]) {
+      expect(
+        onEngine(engine).readColumns(
+          "WITH c AS (SELECT id AS customer_id FROM people) SELECT o.customer_id FROM orders o JOIN c ON c.customer_id = o.customer_id",
+          "Warehouse",
+        ),
+      ).toEqual({
+        status: "read",
+        columns: [
+          column(null, "orders", "customer_id"),
+          column(null, "people", "id"),
+        ],
+      });
+    }
+  });
+
+  it("reads a select-list alias as a column only where the engine has no lateral aliases", () => {
+    const sql =
+      "SELECT price * 2 AS doubled, doubled + 1 AS d2 FROM orders WHERE doubled > 0";
+    const names = (engine: string) => {
+      const result = onEngine(engine).readColumns(sql, "Warehouse");
+      return result.status === "read"
+        ? result.columns.map((c) => c.column).sort()
+        : result;
+    };
+    expect(names("postgres")).toEqual(["doubled", "price"]);
+    expect(names("redshift")).toEqual(["doubled", "price"]);
+    expect(names("clickhouse")).toEqual(["price"]);
+    expect(
+      onEngine("redshift").readColumns(
+        "SELECT price * 2 AS doubled, doubled + 1 AS d2 FROM orders",
+        "Warehouse",
+      ),
+    ).toEqual({ status: "read", columns: [column(null, "orders", "price")] });
+  });
+
+  it("reads no alias that a GROUP BY names where the engine allows it", () => {
+    const names = (engine: string, sql: string) => {
+      const result = onEngine(engine).readColumns(sql, "Warehouse");
+      return result.status === "read"
+        ? result.columns.map((c) => c.column).sort()
+        : result;
+    };
+    const grouped = "SELECT lower(name) AS n FROM people GROUP BY n";
+    expect(names("postgres", grouped)).toEqual(["name"]);
+  });
+
+  it("reads no ClickHouse ARRAY JOIN alias", () => {
+    expect(
+      onEngine("clickhouse").readColumns(
+        "SELECT tag FROM t ARRAY JOIN tags AS tag",
+        "Warehouse",
+      ),
+    ).toEqual({ status: "read", columns: [] });
+  });
+});
+
+describe("returnedNames", () => {
+  it.each([
+    [
+      "each column's alias, or its name",
+      "SELECT p.category, count(*) AS n, sum(o.total) AS revenue FROM orders o JOIN products p ON o.product_id = p.id GROUP BY p.category",
+      ["category", "n", "revenue"],
+    ],
+    [
+      "a union's columns by its first query's names",
+      "SELECT a FROM t UNION ALL SELECT b AS c FROM u",
+      ["a"],
+    ],
+    ["no names for SELECT *", "SELECT *, 1 AS one FROM orders", null],
+    [
+      "no names for SELECT * over a CTE whose alias names its columns",
+      "WITH c(x, y) AS (SELECT a, b FROM t) SELECT * FROM c",
+      null,
+    ],
+    [
+      "no names for a table's columns by table.*",
+      "SELECT o.*, p.name FROM orders o JOIN people p ON o.uid = p.id",
+      null,
+    ],
+    [
+      "no names for an expression with no alias",
+      "SELECT id + 1 FROM orders",
+      null,
+    ],
+    [
+      "no names for a template tag with no alias",
+      "SELECT {{x}} FROM orders",
+      null,
+    ],
+  ])("gives %s", (_, sql, names) => {
+    expect(columns.returnedNames(sql, "Warehouse")).toEqual({
+      status: "read",
+      names,
+    });
+  });
+});
+
+describe("danglingQualifiers", () => {
+  const replacing = (schema: string | null, table: string): TableReplacement =>
+    [
+      schema === null ? { table } : { schema, table },
+      { db: null, schema: null, table: "mb_test_1" },
+    ] as const;
+
+  it("names a qualifier that names no table once its table is replaced", () => {
+    expect(
+      columns.danglingQualifiers(
+        "SELECT orders.id FROM analytics.orders",
+        "Warehouse",
+        [replacing("analytics", "orders")],
+      ),
+    ).toEqual({ status: "read", names: ["orders"] });
+  });
+
+  it("names none when replace_names follows the qualifier, or an alias qualifies the column", () => {
+    for (const sql of [
+      "SELECT orders.id FROM orders",
+      "SELECT o.id FROM analytics.orders o",
+    ]) {
+      expect(
+        columns.danglingQualifiers(sql, "Warehouse", [
+          replacing("analytics", "orders"),
+          replacing(null, "orders"),
+        ]),
+      ).toEqual({ status: "read", names: [] });
+    }
+  });
+});
+
+describe("an engine whose native queries are not SQL", () => {
+  it("is read by no function", () => {
+    const unread: Unread = {
+      status: "unread",
+      reason:
+        "native queries on mongo are not SQL; the lint does not read them",
+    };
+    const query = '[{"$match": {}}]';
+    expect(columns.readColumns(query, "Docs")).toEqual(unread);
+    expect(columns.returnedNames(query, "Docs")).toEqual(unread);
+    expect(columns.danglingQualifiers(query, "Docs", [])).toEqual(unread);
+  });
+});

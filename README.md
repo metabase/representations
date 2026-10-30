@@ -122,6 +122,10 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
 | `null-schema-reference` | error | An MBQL reference in a transform or a card with a `null` schema, on a database whose engine has schemas. Metabase imports it as a table with no schema, which such a database lacks, and every run fails. An unknown engine gives no finding, and so does a `null` default schema given for the database, which says it has no schemas. |
 | `no-expectations` | warning | A test with no expectations. |
+| `input-missing-read-column` | warning | A test input without a column its transform reads. |
+| `upstream-column-mismatch` | warning | A test input for another transform's target, with a column that transform does not return. |
+| `table-qualified-column` | warning | A SQL column qualifier that names no table or alias once a transform test replaces the tables. |
+| `live-sql-input` | warning | A test's SQL input that reads a real table, so the test depends on live data. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
 ## Other commands
