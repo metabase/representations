@@ -62,6 +62,8 @@ type Fake = {
   testProbe?: (transform: Transform, expectations: unknown) => Reply;
   /** The folder Metabase imported. */
   folder?: string;
+  /** The answer to deleting a test. */
+  deleted?: Reply;
 };
 
 let server: ReturnType<typeof Bun.serve> | undefined;
@@ -95,6 +97,16 @@ const readsTable = (expectations: unknown, table: string) =>
   );
 
 /**
+ * Whether `expectations` is the probe that locates an unremapped-reference
+ * refusal: one expectation that reads no table.
+ */
+const isLocateProbe = (expectations: unknown) =>
+  Array.isArray(expectations) &&
+  expectations.length === 1 &&
+  isRecord(expectations[0]) &&
+  expectations[0].sql === "SELECT 1 WHERE 1 = 0";
+
+/**
  * Metabase's unremapped-reference refusal. Its body carries the code and the
  * message only: Metabase keeps the rest of the refusal's data on the server.
  */
@@ -106,6 +118,7 @@ async function runParity({
   readsProbe = missingInputs,
   testProbe = () => ({ status: 200, body: { id: 999 } }),
   folder = EXAMPLES,
+  deleted = { status: 204, body: null },
 }: Fake): Promise<{ exitCode: number; output: string }> {
   server = Bun.serve({
     port: 0,
@@ -121,7 +134,9 @@ async function runParity({
         return Response.json(testsOf(folder));
       }
       if (request.method === "DELETE") {
-        return new Response(null, { status: 204 });
+        return deleted.body === null
+          ? new Response(null, { status: deleted.status })
+          : reply(deleted);
       }
       if (request.method === "POST" && path === "/api/ee/transform-test") {
         const body: unknown = await request.json();
@@ -317,6 +332,100 @@ describe("lint-parity", () => {
       });
       expect(output).toContain(
         `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}), which no lint rule predicts\n`,
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails when Metabase cannot test a transform the lint takes for a query transform",
+    async () => {
+      const { exitCode, output } = await runParity({
+        readsProbe: (t) =>
+          t.name === "Product Summary"
+            ? refusal(422, "transform-test.unsupported-transform")
+            : missingInputs(t),
+      });
+      expect(output).toContain(
+        "Product Summary (collections/transforms/product_summary.yaml): Metabase cannot test it; the lint takes it for a query transform\n",
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails when Metabase tests a transform the lint takes for one it cannot test",
+    async () => {
+      const { exitCode, output } = await runParity({
+        readsProbe: (t) =>
+          t.queryTransform
+            ? missingInputs(t)
+            : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        "Python Hello World (collections/transforms/python_hello_world.yaml): Metabase tests it; the lint takes it for a transform Metabase cannot test\n",
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails when the probe that locates an unremapped reference does not run",
+    async () => {
+      const message = "reference(s) remain: orders.";
+      const { exitCode, output } = await runParity({
+        testProbe: (t, expectations) =>
+          t.name !== "Daily Order Summary"
+            ? { status: 200, body: { id: 999 } }
+            : isLocateProbe(expectations)
+              ? { status: 500, body: { message: "Server error" } }
+              : unremapped(message),
+      });
+      expect(output).toContain(
+        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refused it with transform-test.unremapped-reference (${JSON.stringify(message)}), and answered the probe that locates the refusal 500 {"message":"Server error"}\n`,
+      );
+      expect(output).not.toContain(
+        "OK    test collections/transforms/daily_order_summary/",
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails when the probe that locates an unremapped reference is refused with another code",
+    async () => {
+      const { exitCode, output } = await runParity({
+        folder: mutated("expectation-reads-other-table"),
+        testProbe: (_t, expectations) =>
+          isLocateProbe(expectations)
+            ? refusal(400, "transform-test.missing-inputs")
+            : readsTable(expectations, "people")
+              ? unremapped("people")
+              : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        'FAIL  test collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: Metabase refused it with transform-test.unremapped-reference ("people"), and answered the probe that locates the refusal a refusal with transform-test.missing-inputs ("transform-test.missing-inputs")\n',
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails when Metabase does not delete a test it created",
+    async () => {
+      const { exitCode, output } = await runParity({
+        deleted: {
+          status: 403,
+          body: "You don't have permissions to do that.",
+        },
+      });
+      expect(output).toContain(
+        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase answered the probe 200, but the created test was not deleted: DELETE /api/ee/transform-test/999 answered 403 "You don't have permissions to do that."\n`,
       );
       expect(exitCode).toBe(1);
     },

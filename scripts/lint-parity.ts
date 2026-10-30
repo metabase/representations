@@ -9,7 +9,8 @@
 // Metabase's answer, accepted or refused with an error code, must match the
 // lint's errors on that test's file.
 //
-// Nothing is saved on a refusal; a test that is created is deleted again.
+// Nothing is saved on a refusal; a test that is created is deleted again, and
+// a deletion Metabase refuses fails the run.
 //
 //   bun run scripts/lint-parity.ts --url URL --api-key KEY --folder DIR \
 //     [--default-schema DATABASE=SCHEMA ...]
@@ -100,12 +101,21 @@ type Probe =
   | { kind: "accepted" }
   /**
    * Refused with a transform-test error code; `tables` when the refusal lists
-   * them. Metabase's answer does not say whether the refusal is about the
-   * transform, so `refusal.onTransform` is false.
+   * them. Metabase names the query an unremapped-reference refusal is about
+   * only in its localized message, so `refusal.onTransform` is false until
+   * locateRefusal sets it.
    */
   | { kind: "refused"; refusal: TestRefusal; tables: string[] | null }
   /** Anything else, such as a 403: the probe did not run. */
   | { kind: "failed"; answer: string };
+
+/** Metabase's answer to deleting a test, or null when it deleted it. */
+async function deleteTest(id: number): Promise<string | null> {
+  const answer = await api("DELETE", `/api/ee/transform-test/${id}`);
+  return answer.status >= 200 && answer.status < 300
+    ? null
+    : `DELETE /api/ee/transform-test/${id} answered ${describe(answer)}`;
+}
 
 async function probe(test: {
   transform_id: number;
@@ -118,8 +128,13 @@ async function probe(test: {
   });
   const json = isRecord(answer.json) ? answer.json : {};
   if (answer.status === 200 && typeof json.id === "number") {
-    await api("DELETE", `/api/ee/transform-test/${json.id}`);
-    return { kind: "accepted" };
+    const refused = await deleteTest(json.id);
+    return refused === null
+      ? { kind: "accepted" }
+      : {
+          kind: "failed",
+          answer: `200, but the created test was not deleted: ${refused}`,
+        };
   }
   const code = json["error-code"] ?? json.error_code;
   if (typeof code === "string" && code.startsWith("transform-test.")) {
@@ -143,25 +158,39 @@ const NO_TABLE_EXPECTATION = {
   sql: "SELECT 1 WHERE 1 = 0",
 };
 
+/** `refusal` with `onTransform` set, or the answer of a locate probe that did not run. */
+type Located =
+  | { kind: "located"; refusal: TestRefusal }
+  | { kind: "failed"; answer: string };
+
 /**
- * `refusal` of `test`, with `onTransform` set. Metabase checks the transform's
- * SQL before the expectations', and its unremapped-reference refusal does not
- * say which one it is about. The test with only an expectation that reads no
- * table tells: Metabase refuses it the same way only when the transform's
- * SQL is at fault.
+ * `refusal` of `test`, located on the transform or on an expectation. Metabase
+ * checks the transform's SQL before the expectations', and names the query an
+ * unremapped-reference refusal is about only in its localized message. The
+ * test with only an expectation that reads no table tells: Metabase refuses it
+ * with the same code when the transform's SQL is at fault, and accepts it when
+ * an expectation is. Any other answer is a failure.
  */
 async function locateRefusal(
   refusal: TestRefusal,
   test: { transform_id: number; inputs: unknown },
-): Promise<TestRefusal> {
+): Promise<Located> {
   if (refusal.code !== "transform-test.unremapped-reference") {
-    return refusal;
+    return { kind: "located", refusal };
   }
   const answer = await probe({ ...test, expectations: [NO_TABLE_EXPECTATION] });
+  if (answer.kind === "accepted") {
+    return { kind: "located", refusal };
+  }
+  if (answer.kind === "refused" && answer.refusal.code === refusal.code) {
+    return { kind: "located", refusal: { ...refusal, onTransform: true } };
+  }
   return {
-    ...refusal,
-    onTransform:
-      answer.kind === "refused" && answer.refusal.code === refusal.code,
+    kind: "failed",
+    answer:
+      answer.kind === "failed"
+        ? answer.answer
+        : `a refusal with ${describeRefusal(answer.refusal)}`,
   };
 }
 
@@ -315,11 +344,18 @@ for (const [entityId, file] of testFiles) {
     );
     continue;
   }
+  let refusal: TestRefusal | null = null;
+  if (answer.kind === "refused") {
+    const located = await locateRefusal(answer.refusal, test);
+    if (located.kind === "failed") {
+      fail(
+        `${label}: Metabase refused it with ${describeRefusal(answer.refusal)}, and answered the probe that locates the refusal ${located.answer}`,
+      );
+      continue;
+    }
+    refusal = located.refusal;
+  }
   testsCompared++;
-  const refusal =
-    answer.kind === "accepted"
-      ? null
-      : await locateRefusal(answer.refusal, test);
   const difference = testVerdictDiffers(
     refusal,
     findings.filter((f) => f.entity.entity_id === entityId),
