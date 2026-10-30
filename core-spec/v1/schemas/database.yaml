@@ -14,6 +14,15 @@ properties:
   engine:
     type: string
     description: Database engine type (e.g., postgres, mysql, h2, bigquery-cloud-sdk)
+  default_schema:
+    type:
+      - string
+      - "null"
+    description: >
+      Schema an unqualified table name resolves to, as Metabase's sync last
+      found it; null when it resolves to no schema. On an engine with schemas,
+      such as Postgres, null can also mean that Metabase has not synced the
+      database since it began storing the value.
   description:
     type:
       - string
