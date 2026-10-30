@@ -1,11 +1,11 @@
 name: Metabase sources
 
-# The lint parses SQL with Metabase's own code: the vendored SQLGlot wheel must
-# stay at Metabase's pin, with PyPI's SHA-256, and IMPORTED_MODELS must stay
-# Metabase's exported-models; every pull request checks these. vendor/sql_tools.py
-# must stay byte-identical to Metabase's on master. Metabase changes that file
-# on its own schedule, often in functions the lint does not call, so the byte
-# comparison runs daily and on push to main, never on a pull request.
+# The lint parses SQL with Metabase's own code: vendor/sql_tools.py must stay
+# byte-identical to Metabase's on master, the vendored SQLGlot wheel at
+# Metabase's pin, with PyPI's SHA-256, and IMPORTED_MODELS Metabase's
+# exported-models. Every pull request and push to main checks them; the daily
+# run finds a change Metabase makes between pull requests. When sql_tools.py
+# differs, `bun run scripts/update-metabase-sources.ts` copies it.
 on:
   push:
     branches: [main]
@@ -25,9 +25,5 @@ jobs:
         with:
           bun-version: "1.3.9"
       - run: bun install --frozen-lockfile
-      - name: Check the SQLGlot pin and wheel, and the model list
-        if: github.event_name == 'pull_request'
-        run: bun run scripts/check-metabase-sources.ts --skip-sql-tools
       - name: Check every copied source, sql_tools.py byte for byte
-        if: github.event_name != 'pull_request'
         run: bun run scripts/check-metabase-sources.ts

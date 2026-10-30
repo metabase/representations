@@ -60,7 +60,6 @@ afterEach(() => {
 async function runCheck(
   files: Record<string, Uint8Array | string>,
   pypi: unknown = PYPI_RECORD,
-  flags: readonly string[] = [],
 ): Promise<{ exitCode: number; output: string }> {
   server?.stop(true);
   server = Bun.serve({
@@ -88,7 +87,6 @@ async function runCheck(
       `http://localhost:${server.port}`,
       "--pypi-url",
       `http://localhost:${server.port}`,
-      ...flags,
     ],
     { stdout: "pipe", stderr: "pipe" },
   );
@@ -121,32 +119,10 @@ describe("check-metabase-sources", () => {
       "FAIL  vendor/sql_tools.py differs from Metabase's",
     );
     expect(output).toContain(
-      'The "Metabase versions" section of docs/lint.md says which Metabase versions the copy matches.',
+      'Run "bun run scripts/update-metabase-sources.ts", which copies the file and records the Metabase commit in vendor/sources.json.',
     );
     expect(output).toContain(DOCS_STEP);
     expect(exitCode).toBe(1);
-  });
-
-  it("with --skip-sql-tools, passes over a different sql_tools.py and still checks the rest", async () => {
-    const files = {
-      [sqlTools.path]: new Uint8Array([...SQL_TOOLS, 0x0a]),
-      [sqlglot.pin]: pyproject(sqlglot.version),
-      [importedModels.path]: MODELS_CLJ,
-    };
-    const skipped = await runCheck(files, PYPI_RECORD, ["--skip-sql-tools"]);
-    expect(skipped.output).toContain(
-      "SKIP  vendor/sql_tools.py is not compared with Metabase's",
-    );
-    expect(skipped.output).not.toContain("FAIL");
-    expect(skipped.exitCode).toBe(0);
-
-    const pinned = await runCheck(
-      { ...files, [sqlglot.pin]: pyproject("99.0.0") },
-      PYPI_RECORD,
-      ["--skip-sql-tools"],
-    );
-    expect(pinned.output).toContain("FAIL  Metabase pins sqlglot 99.0.0");
-    expect(pinned.exitCode).toBe(1);
   });
 
   it("fails when Metabase pins another SQLGlot", async () => {
@@ -240,5 +216,19 @@ describe("check-metabase-sources", () => {
       `FAIL  ${importedModels.path} defines no exported-models the check can read`,
     );
     expect(exitCode).toBe(1);
+  });
+
+  // Byte for byte on every run: a pull request that edits sql_tools.py fails.
+  it("runs, with no condition, on pull requests, pushes to main and daily", () => {
+    const workflow = readFileSync(
+      resolve(ROOT, ".github/workflows/metabase-sources.yml"),
+      "utf8",
+    );
+    expect(workflow).toContain("  pull_request:\n");
+    expect(workflow).toContain("  schedule:\n");
+    expect(workflow).not.toMatch(/^\s+if:/m);
+    expect(workflow).toContain(
+      "        run: bun run scripts/check-metabase-sources.ts\n",
+    );
   });
 });

@@ -84,7 +84,7 @@ An engine missing from the table gives no finding, nor does a database whose eng
 
 ## How the lint reads SQL
 
-The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at the version Metabase pins, and Metabase's `sql_tools.py`, run in WebAssembly by [Pyodide](https://pyodide.org). Nothing is fetched at run time. A CI job fails when either differs from Metabase's `master`.
+The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at the version Metabase pins, and Metabase's `sql_tools.py`, run in WebAssembly by [Pyodide](https://pyodide.org). Nothing is fetched at run time. A CI job, on every pull request, every push to `main` and daily, fails when either differs from Metabase's `master`. When `sql_tools.py` differs, `bun run scripts/update-metabase-sources.ts` copies Metabase's file into `vendor/` and records its commit in `vendor/sources.json`.
 
 - The SQL dialect follows the database's engine, as Metabase maps drivers to dialects.
 - Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag. It finds snippets, tags and clauses as Metabase's parser does: inside a `--` or `/* */` comment they are text. A transform test's own SQL, in an input or an expectation, is read as written, as Metabase runs it: a `[[`, a template tag or a snippet there does not parse, and is reported as `reads-not-checked`.
