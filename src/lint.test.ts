@@ -2011,6 +2011,24 @@ describe("lint", () => {
       writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("y"), "Out");
       expect(await lintRules()).toEqual(["duplicate-target"]);
     });
+
+    it("finds a duplicate target in any case on Redshift, which folds every name", async () => {
+      const database = join(
+        workdir,
+        "databases/sample_postgres/sample_postgres.yaml",
+      );
+      const text = readFileSync(database, "utf8");
+      expect(text).toContain("engine: postgres\n");
+      writeFileSync(
+        database,
+        text.replace("engine: postgres\n", "engine: redshift\n"),
+      );
+      writeTransform("a.yaml", "CaseTransformA0000001", mbqlRead("x"), "Out");
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("y"), "out");
+      expect(await lintRules()).toEqual(["duplicate-target"]);
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("y"), "out2");
+      expect(await lintRules()).toEqual([]);
+    });
   });
 
   // Metabase imports `[database, null, table]` as the table with no schema; on

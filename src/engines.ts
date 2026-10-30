@@ -22,6 +22,14 @@ export type EngineFacts = {
   "transforms/testing": boolean;
 };
 
+/**
+ * The engines whose warehouse folds every identifier to lower case, quoted or
+ * not: Redshift, while its `enable_case_sensitive_identifier` setting is off,
+ * its default (Redshift's "Names and identifiers"); Metabase never turns it
+ * on.
+ */
+export const FOLDS_ALL_IDENTIFIERS: ReadonlySet<string> = new Set(["redshift"]);
+
 /** A driver that declares no transform feature: all are false. */
 const NO_TRANSFORMS = {
   "transforms/table": false,

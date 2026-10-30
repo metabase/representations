@@ -103,7 +103,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `duplicate-entity-id` | warning | Two files of one model that hold the same `entity_id`. Metabase keeps the last in path order and drops the others without a message. Files of different models may share an `entity_id`. |
 | `dangling-transform-id` | error | A test whose `transform_id` matches no entity. |
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
-| `duplicate-target` | warning | Two transforms that write the same table. |
+| `duplicate-target` | warning | Two transforms that write the same table. On Redshift, which folds every name to lower case, targets that differ only in case are the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
 | `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |
 | `missing-incremental-table-tag` | error | An incremental native transform with no table variable (a `{{table}}` template tag) for Metabase to filter new rows into, or none for the checkpoint field's table. |

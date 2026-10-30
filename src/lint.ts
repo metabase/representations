@@ -40,7 +40,7 @@ import {
 } from "./findings.js";
 import { cyclePath, cycles } from "./graph.js";
 import { createSourceFinder, type SourceFinder } from "./query-sources.js";
-import { engineFacts } from "./engines.js";
+import { engineFacts, FOLDS_ALL_IDENTIFIERS } from "./engines.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas, type Schemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
@@ -167,21 +167,30 @@ function reportUnreadSources(
   }
 }
 
-/** A warning for each transform whose target another transform also writes (`sameTable`). */
+/**
+ * A warning for each transform whose target another transform also writes
+ * (`sameTable`), ignoring case on an engine that folds every name.
+ */
 function reportDuplicateTargets(
   transforms: readonly Transform[],
   defaultSchemaOf: DefaultSchemaOf,
+  engineOf: EngineOf,
   report: Report,
 ): void {
   for (const { doc, target } of transforms) {
     if (target === null) {
       continue;
     }
+    // Metabase creates the target in quotes, as named; an engine that folds
+    // every name puts two names that differ in case in one table.
+    const folds = FOLDS_ALL_IDENTIFIERS.has(engineOf(target.database) ?? "");
+    const asCreated = (table: TableKey): TableKey =>
+      folds ? { ...table, caseMatters: false } : table;
     const clashes = transforms.filter(
       (other) =>
         other.doc !== doc &&
         other.target !== null &&
-        sameTable(target, other.target, defaultSchemaOf),
+        sameTable(asCreated(target), asCreated(other.target), defaultSchemaOf),
     );
     if (clashes.length > 0) {
       report(
@@ -616,7 +625,7 @@ export async function lint({
     reportDuplicateEntityIds(byEntityId, report);
 
     reportUnreadSources(transforms, report);
-    reportDuplicateTargets(transforms, defaultSchemaOf, report);
+    reportDuplicateTargets(transforms, defaultSchemaOf, engineOf, report);
 
     reportCycles(transforms, defaultSchemaOf, report);
     reportCollectionNamespaces(docs, byEntityId, report);

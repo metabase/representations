@@ -5,6 +5,7 @@ import {
   isQuerySource,
   queryDatabaseOf,
 } from "./documents.js";
+import { FOLDS_ALL_IDENTIFIERS } from "./engines.js";
 import type { Report } from "./findings.js";
 import { inputCovers, standInReplacements } from "./input-match.js";
 import { createSourceFinder } from "./query-sources.js";
@@ -227,11 +228,6 @@ const UNQUOTED_CASE: Readonly<Record<string, (name: string) => string>> = {
   h2: (name) => name.toUpperCase(),
 };
 
-// Redshift folds a quoted identifier as it folds an unquoted one while
-// `enable_case_sensitive_identifier` is off, its default; Metabase never
-// turns it on.
-const FOLDS_QUOTED = new Set(["redshift"]);
-
 /**
  * Returns the name the warehouse of `engine` gives a column, or null when
  * the lint cannot tell. Metabase creates a `rows` input's columns, and
@@ -246,7 +242,7 @@ function createWarehouseName(
     return null;
   }
   const unquoted = UNQUOTED_CASE[engine];
-  if (FOLDS_QUOTED.has(engine)) {
+  if (FOLDS_ALL_IDENTIFIERS.has(engine)) {
     return (name) => unquoted(name);
   }
   return (name, quoting) => {
