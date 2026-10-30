@@ -482,6 +482,24 @@ describe("lint", () => {
       );
     });
 
+    it("gives no finding for a table that no table file or transform target defines", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      // Remote sync writes a Table file only for some tables; a transform
+      // may read any table of the warehouse.
+      const dir = join(workdir, "databases/sample_postgres/tables/orders");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "orders.yaml"),
+        yaml.dump({
+          name: "orders",
+          db_id: POSTGRES_DB,
+          schema: "public",
+          "serdes/meta": [{ model: "Table" }],
+        }),
+      );
+      expect(await findings(workdir)).toEqual([]);
+    });
+
     it("reports a schema mismatch only on the models the lint reads, not on a Card", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const card = "collections/main/queries/basic_aggregations.yaml";
@@ -1713,107 +1731,6 @@ describe("lint", () => {
         "missing-target-schema",
       ]);
     });
-
-    it("counts a table file as the table read unqualified only in the default schema, and never as an MBQL reference with no schema", async () => {
-      cpSync(EXAMPLES, workdir, { recursive: true });
-      nullSchemaReferences(workdir);
-      const dir = join(workdir, "databases/sample_postgres/tables/orders");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(
-        join(dir, "orders.yaml"),
-        yaml.dump({
-          name: "orders",
-          db_id: POSTGRES_DB,
-          schema: "public",
-          "serdes/meta": [{ model: "Table" }],
-        }),
-      );
-      const sqlRead = "collections/transforms/daily_order_summary.yaml";
-      const mbqlRead = MBQL_TRANSFORM;
-      const ordersUnknown = async (schema: string) =>
-        (
-          await lint({
-            folder: workdir,
-            defaultSchemas: { [POSTGRES_DB]: schema },
-          })
-        ).findings
-          .filter(
-            (f) =>
-              f.rule === "unknown-table" &&
-              f.message.startsWith("table orders ") &&
-              (f.file === sqlRead || f.file === mbqlRead),
-          )
-          .map((f) => `${f.file}: ${f.message}`);
-      const sqlUnknown = `${sqlRead}: table orders is defined by no table file or transform target`;
-      const mbqlUnknown = `${mbqlRead}: table orders (no schema) is defined by no table file or transform target`;
-      expect(await ordersUnknown("public")).toEqual([mbqlUnknown]);
-      expect(await ordersUnknown("OTHER")).toEqual([sqlUnknown, mbqlUnknown]);
-    });
-
-    it("counts a table file with no schema as the table with no schema, not the default schema's", async () => {
-      cpSync(EXAMPLES, workdir, { recursive: true });
-      const dir = join(workdir, "databases/sample_postgres/tables/orders");
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(
-        join(dir, "orders.yaml"),
-        yaml.dump({
-          name: "orders",
-          db_id: POSTGRES_DB,
-          schema: null,
-          "serdes/meta": [{ model: "Table" }],
-        }),
-      );
-      const sqlRead = "collections/transforms/daily_order_summary.yaml";
-      expect(
-        (
-          await lint({
-            folder: workdir,
-            defaultSchemas: { [POSTGRES_DB]: "public" },
-          })
-        ).findings
-          .filter((f) => f.file === sqlRead && f.rule === "unknown-table")
-          .map((f) => f.message),
-      ).toContain(
-        "table orders is defined by no table file or transform target",
-      );
-    });
-
-    it("reads a table file and a transform by their model, wherever they sit under an imported folder", async () => {
-      cpSync(EXAMPLES, workdir, { recursive: true });
-      const transform = "snippets/elsewhere/daily_order_summary.yaml";
-      mkdirSync(join(workdir, "snippets/elsewhere"), { recursive: true });
-      fs.renameSync(
-        join(workdir, "collections/transforms/daily_order_summary.yaml"),
-        join(workdir, transform),
-      );
-      mkdirSync(join(workdir, "collections/odd"), { recursive: true });
-      writeFileSync(
-        join(workdir, "collections/odd/orders.yaml"),
-        yaml.dump({
-          name: "orders",
-          db_id: POSTGRES_DB,
-          schema: "public",
-          "serdes/meta": [{ model: "Table" }],
-        }),
-      );
-      const ordersFindings = async (schema: string) =>
-        (
-          await lint({
-            folder: workdir,
-            defaultSchemas: { [POSTGRES_DB]: schema },
-          })
-        ).findings
-          .filter(
-            (f) =>
-              f.file === "collections/odd/orders.yaml" ||
-              (f.file === transform && f.message.includes("table orders ")),
-          )
-          .map((f) => `${f.file}: ${f.rule}: ${f.message}`);
-      expect(await ordersFindings("public")).toEqual([]);
-      expect(await ordersFindings("OTHER")).toEqual([
-        `${transform}: unknown-table: table orders is defined by no table file or transform target`,
-      ]);
-    });
   });
 
   describe("with an empty native query", () => {
@@ -1923,19 +1840,6 @@ describe("lint", () => {
       "lib/type": "mbql.stage/native",
       native: `SELECT * FROM public.${table}`,
     });
-    const writeTableFile = (name: string) => {
-      const dir = join(workdir, "databases/sample_postgres/tables", name);
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(
-        join(dir, `${name}.yaml`),
-        yaml.dump({
-          name,
-          db_id: POSTGRES_DB,
-          schema: "public",
-          "serdes/meta": [{ model: "Table" }],
-        }),
-      );
-    };
     const lintRules = async () =>
       rules((await lint({ folder: workdir })).findings);
 
@@ -1951,51 +1855,6 @@ describe("lint", () => {
       writeTransform("a.yaml", "CaseTransformA0000001", sqlRead("Foo"), "bar");
       writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("bar"), "foo");
       expect(await lintRules()).toEqual(["transform-cycle"]);
-    });
-
-    it("counts a table file as an MBQL reference's table only in the same case, and as a SQL read's in any case", async () => {
-      writeTableFile("products");
-      writeTransform(
-        "a.yaml",
-        "CaseTransformA0000001",
-        mbqlRead("Products"),
-        "a",
-      );
-      const messages = async () =>
-        (await lint({ folder: workdir })).findings.map(
-          (f) => `${f.rule}: ${f.message}`,
-        );
-      expect(await messages()).toEqual([
-        "unknown-table: table public.Products is defined by no table file or transform target",
-      ]);
-      writeTransform(
-        "a.yaml",
-        "CaseTransformA0000001",
-        mbqlRead("products"),
-        "a",
-      );
-      expect(await messages()).toEqual([]);
-      writeTransform(
-        "a.yaml",
-        "CaseTransformA0000001",
-        sqlRead("Products"),
-        "a",
-      );
-      expect(await messages()).toEqual([]);
-    });
-
-    it("counts a transform target as an MBQL reference's table only in the same case", async () => {
-      writeTableFile("products");
-      writeTransform(
-        "a.yaml",
-        "CaseTransformA0000001",
-        mbqlRead("products"),
-        "Made",
-      );
-      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("made"), "b");
-      expect(await lintRules()).toEqual(["unknown-table"]);
-      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("Made"), "b");
-      expect(await lintRules()).toEqual([]);
     });
 
     it("finds a duplicate target only in the same case", async () => {

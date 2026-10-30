@@ -118,7 +118,6 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
 | `row-columns-mismatch` | error | The first row of a `rows` input or `equals` expectation whose keys are not exactly the declared columns. A key YAML reads as no string, such as `yes:` or `1:`, counts as not declared; quote it as `'1':`. |
 | `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
-| `unknown-table` | warning | A table that no table file or transform target defines, in a database that has table files. |
 | `null-schema-reference` | warning | An MBQL reference with a `null` schema, on a database whose default schema is known and is not `null`. |
 | `no-expectations` | warning | A test with no expectations. |
 | `input-missing-read-column` | warning | A test input without a column its transform reads. |

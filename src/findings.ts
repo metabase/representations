@@ -28,7 +28,6 @@ export const LINT_RULE_SEVERITY = {
   "expectation-reads-other-table": "error",
   "row-columns-mismatch": "error",
   "duplicate-expectation-name": "error",
-  "unknown-table": "warning",
   "null-schema-reference": "warning",
   "no-expectations": "warning",
   "input-missing-read-column": "warning",

@@ -59,7 +59,6 @@ import {
 import {
   reportTestFindings,
   reportTransformIds,
-  type TableCheck,
   type TestedTransform,
   testedTransformsOf,
   testInputs,
@@ -178,20 +177,6 @@ function reportDuplicateTargets(
   }
 }
 
-/** Runs the unknown-table check on every table each transform reads. */
-function checkReadTablesKnown(
-  transforms: readonly Transform[],
-  checkKnown: TableCheck,
-): void {
-  for (const transform of transforms) {
-    if (transform.reads.status === "read") {
-      for (const table of transform.reads.tables) {
-        checkKnown(transform.doc, table);
-      }
-    }
-  }
-}
-
 /**
  * Warns on each table a transform reads by a reference with a null schema
  * (`nullSchema` `"none"`) in a database whose default schema is not null.
@@ -242,39 +227,6 @@ function tableOfFile(doc: ValidDoc<"Table">): TableKey {
     name: doc.body.name,
     nullSchema: "none",
     caseMatters: true,
-  };
-}
-
-/**
- * Returns a check that warns when a table, named by a document, is defined by
- * no table file and no transform target. It checks only tables of databases
- * that have at least one table file: a repo holds only some table files.
- */
-function createUnknownTableCheck(
-  docs: readonly Doc[],
-  transforms: readonly Transform[],
-  defaultSchemaOf: DefaultSchemaOf,
-  report: Report,
-): TableCheck {
-  const tableDocs = validDocsOf(docs, "Table");
-  const tableFileDatabases = new Set<string | null>(
-    tableDocs.map((d) => d.body.db_id),
-  );
-  const knownTables: TableKey[] = [
-    ...tableDocs.map(tableOfFile),
-    ...targetsOf(transforms),
-  ];
-  return (doc: Doc, table: TableKey) => {
-    if (
-      tableFileDatabases.has(table.database) &&
-      !knownTables.some((k) => sameTable(k, table, defaultSchemaOf))
-    ) {
-      report(
-        "unknown-table",
-        doc,
-        `table ${tableLabel(table)} is defined by no table file or transform target`,
-      );
-    }
   };
 }
 
@@ -630,19 +582,11 @@ export async function lint({
     reportUnsupportedTransformEngines(docs, engineOf, report);
     reportEmptyNativeQueries(docs, createSourceFinder(schemas), report);
 
-    const checkKnown = createUnknownTableCheck(
-      docs,
-      transforms,
-      defaultSchemaOf,
-      report,
-    );
-    checkReadTablesKnown(transforms, checkKnown);
     reportNullSchemaReferences(docs, transforms, defaultSchemaOf, report);
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
     reportTestFindings(
       tested,
-      checkKnown,
       defaultSchemaOf,
       createRewrittenTableReader(parser, engineOf),
       report,

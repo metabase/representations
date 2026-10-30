@@ -24,9 +24,6 @@ import {
 
 type TestDoc = ValidDoc<"TransformTest">;
 
-/** Reports on `doc` when `table`, which it names, is unknown. */
-export type TableCheck = (doc: Doc, table: TableKey) => void;
-
 /** The tables a test supplies inputs for, in the database its transform runs on. */
 export function testInputs(
   test: TestDoc,
@@ -145,7 +142,6 @@ export function reportTransformIds(
  */
 export function reportTestFindings(
   tested: readonly TestedTransform[],
-  checkKnown: TableCheck,
   defaultSchemaOf: DefaultSchemaOf,
   readRewritten: RewrittenTableReader,
   report: Report,
@@ -170,7 +166,6 @@ export function reportTestFindings(
       transform,
       inputs,
       transform.reads.tables,
-      checkKnown,
       defaultSchema,
       report,
     );
@@ -255,15 +250,14 @@ function reportExpectationReads(
 
 /**
  * Matches the test's inputs to the tables the transform reads by Metabase's
- * rule (`inputCovers`). Reports each read with no input, then, input by
- * input, an unknown table and an input that covers no read.
+ * rule (`inputCovers`). Reports each read with no input, then each input
+ * that covers no read.
  */
 function reportInputMismatches(
   test: TestDoc,
   transform: Transform,
   inputs: readonly TableKey[],
   reads: readonly TableKey[],
-  checkKnown: TableCheck,
   defaultSchema: string | null,
   report: Report,
 ): void {
@@ -281,7 +275,6 @@ function reportInputMismatches(
     }
   }
   for (const input of inputs) {
-    checkKnown(test, input);
     if (!reads.some((read) => covers(read, input))) {
       report(
         "unused-input",

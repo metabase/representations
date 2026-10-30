@@ -548,34 +548,37 @@ describe("cli", () => {
     it(
       "reads --default-schema DATABASE= as a database with no schemas",
       () => {
-        cpSync(EXAMPLES, workdir, { recursive: true });
-        const dir = join(workdir, "databases/sample_postgres/tables/orders");
-        mkdirSync(dir, { recursive: true });
-        writeFileSync(
-          join(dir, "orders.yaml"),
-          [
-            "name: orders",
-            "db_id: Sample Postgres",
-            "schema: null",
-            "serdes/meta:",
-            "- model: Table",
-            "",
-          ].join("\n"),
+        // Product Revenue Report reads public.top_categories; Top Categories,
+        // which reads it, writes top_categories with no schema: the
+        // database's default schema.
+        mutateExamples("transform-cycle", workdir);
+        const replaceIn = (file: string, from: string, to: string) => {
+          const path = join(workdir, file);
+          const text = readFileSync(path, "utf8");
+          expect(text).toContain(from);
+          writeFileSync(path, text.replace(from, to));
+        };
+        replaceIn(
+          "collections/transforms/native_transform.yaml",
+          "JOIN transforms.top_categories",
+          "JOIN public.top_categories",
         );
-        const { stdout } = runCli([
-          "lint",
-          "--experimental",
-          "--folder",
-          workdir,
-          "--default-schema",
-          "Sample Postgres=",
-        ]);
-        // The unqualified SQL read of orders is the table file's table with
-        // no schema.
-        expect(stdout).not.toContain(
-          "table orders is defined by no table file",
+        replaceIn(
+          "collections/transforms/top_categories.yaml",
+          "  schema: transforms\n",
+          "",
         );
-        expect(stdout).toContain("is defined by no table file");
+        const lintWith = (defaultSchema: string) =>
+          runCli([
+            "lint",
+            "--experimental",
+            "--folder",
+            workdir,
+            "--default-schema",
+            `Sample Postgres=${defaultSchema}`,
+          ]).stdout;
+        expect(lintWith("public")).toContain("transform-cycle");
+        expect(lintWith("")).not.toContain("transform-cycle");
       },
       LINT_PROCESS_TIMEOUT_MS,
     );
