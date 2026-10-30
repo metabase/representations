@@ -479,7 +479,7 @@ describe("cli", () => {
       expect(stderr).toContain("No YAML files found");
     });
 
-    it("refuses a --default-schema with no database, and reads DATABASE= as no schemas", () => {
+    it("refuses a --default-schema with no database name", () => {
       const refused = runCli([
         "lint",
         "--experimental",
@@ -492,6 +492,18 @@ describe("cli", () => {
         "Invalid --default-schema: bad (expected DATABASE=SCHEMA)",
       );
       expect(refused.exitCode).toBe(2);
+      const noDatabase = runCli([
+        "lint",
+        "--experimental",
+        "--folder",
+        workdir,
+        "--default-schema",
+        "=public",
+      ]);
+      expect(noDatabase.stderr).toContain(
+        "Invalid --default-schema: =public (expected DATABASE=SCHEMA)",
+      );
+      expect(noDatabase.exitCode).toBe(2);
     });
 
     it("refuses a database given twice by --default-schema", () => {
