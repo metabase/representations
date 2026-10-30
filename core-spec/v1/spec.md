@@ -6,6 +6,8 @@
 
 Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
+Metabase reads these files as YAML 1.1, with SnakeYAML. Some unquoted values read differently from YAML 1.2: `yes`, `no`, `on` and `off` (in lower case, capitalized or upper case) are booleans, so `country: NO` is `false`; a leading zero makes an octal number (`017` is 15); colons make a base-60 number (`1:30` is 90); and a date or date-time such as `2024-01-05` is a timestamp. Quote such a value to keep it a string. `<<` merge keys are supported.
+
 This specification covers user-created content entities. Database metadata entities (Database, Table, Field) are synced from connected databases and are outside the scope of this specification; they appear here only as foreign key references within user content.
 
 ## Table of Contents
@@ -94,7 +96,7 @@ serdes/meta:
 
 **Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
 
-Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (segments and measures, plus each Library-published table's metadata, which this spec doesn't cover), `python_libraries/` (also accepted as `python-libraries/`), `transforms/`, and `glossary/` (glossary terms, which this spec doesn't cover), plus each data app's `data_apps/<slug>/data_app.yaml`. Files outside these directories are ignored during import.
+Metabase imports every `.yaml` file, at any depth, under these top-level directories: `actions/`, `channels/`, `collections/`, `custom_viz_plugins/`, `databases/`, `embedding_themes/`, `glossary/`, `metabots/`, `osi_ai_context/`, `python_libraries/` (also `python-libraries/`), `snippets/` and `transforms/`; and every file named `data_app.yaml` under `data_apps/`, whose other files are the app's own. A file whose name starts with a dot is skipped. Each file's model comes from its `serdes/meta`, not from the directory it is in: the layout below is where Metabase writes files, and it moves a file there when it next exports. Files outside these directories, and files with another extension, are ignored. An empty file, or a file with no `serdes/meta`, is skipped without an error. Metabase follows a symbolic link to a directory, and imports the files inside it.
 
 Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, `transforms` holds transform entities, `data_actions` holds the `data-actions` namespace, its root and collections of query actions without a model (see Action), and `data_apps` holds the `data-apps` namespace, the collections of data apps (see Data App). Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
