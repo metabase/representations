@@ -90,16 +90,21 @@ describe("cli", () => {
       }
     });
 
-    it("prints the exit codes the README lists", () => {
+    it("prints the exit codes and meanings the README lists", () => {
       const { stdout } = runCli(["--help"]);
       const readme = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
-      const readmeCodes = [...readme.matchAll(/^\| (\d) \| /gm)].map(
-        (m) => m[1],
+      // Code formatting and line breaks aside, the two say the same.
+      const normalized = (text: string) =>
+        text.replace(/`/g, "").replace(/\s+/g, " ").trim();
+      const readmeCodes = [...readme.matchAll(/^\| (\d) \| (.*) \|$/gm)].map(
+        (m) => [m[1], normalized(m[2])],
       );
       const helpCodes = [
-        ...stdout.split("Exit codes:")[1].matchAll(/^ {2}(\d) {2}/gm),
-      ].map((m) => m[1]);
-      expect(helpCodes).toEqual(["0", "1", "2"]);
+        ...stdout
+          .split("Exit codes:")[1]
+          .matchAll(/^ {2}(\d) {2}([\s\S]*?)(?=^ {2}\d {2}|(?![\s\S]))/gm),
+      ].map((m) => [m[1], normalized(m[2])]);
+      expect(helpCodes.map(([code]) => code)).toEqual(["0", "1", "2"]);
       expect(readmeCodes).toEqual(helpCodes);
     });
   });
