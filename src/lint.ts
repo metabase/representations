@@ -633,7 +633,7 @@ export async function lint({
     reportMissingTargetDatabases(docs, report);
     reportMissingTargetSchemas(docs, engineOf, report);
     reportUnsupportedTransformEngines(docs, engineOf, report);
-    reportUnknownEngines(docs, engineOf, report);
+    reportUnknownEngines(docs, engineOf, findSources, report);
     reportEmptyNativeQueries(docs, findSources, report);
 
     reportNullSchemaReferences(docs, transforms, findSources, engineOf, report);

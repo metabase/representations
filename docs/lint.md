@@ -62,7 +62,7 @@ Remote sync does not export Database files. In a repository it writes, the lint 
 }
 ```
 
-Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema`, `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns on each transform and card whose database has no engine the lint knows, so this silence is visible. A transform's database is the one it writes its target to; a card's, its query's.
+Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema`, `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns once on each database a transform or card writes to or reads that has no engine the lint knows, so this silence is visible: a transform's target database and the databases of its Python source tables, a card's query's database, and the databases of the tables and native queries either names. An engine that the settings file names and the lint's table of Metabase's drivers lacks, such as a third-party driver, keeps the warning; check the driver name.
 
 ### Target database
 

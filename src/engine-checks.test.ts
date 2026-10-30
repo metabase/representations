@@ -10,7 +10,9 @@ import {
   reportUntestableEngines,
 } from "./engine-checks.js";
 import type { LintRule, Report } from "./findings.js";
+import { createSourceFinder } from "./query-sources.js";
 import { type Transform, transformOf } from "./reads.js";
+import { loadSchemas } from "./schemas.js";
 import { testedTransformsOf } from "./test-checks.js";
 
 type Recorded = {
@@ -406,7 +408,12 @@ describe("reportUnknownEngines", () => {
     engines: Readonly<Record<string, string>>,
   ): Recorded[] => {
     const recorded: Recorded[] = [];
-    reportUnknownEngines(docs, enginesOf(engines), recorder(recorded));
+    reportUnknownEngines(
+      docs,
+      enginesOf(engines),
+      createSourceFinder(loadSchemas()),
+      recorder(recorded),
+    );
     return recorded;
   };
 
@@ -426,14 +433,43 @@ describe("reportUnknownEngines", () => {
     );
   });
 
-  it("warns on an engine the lint does not know", () => {
+  it("warns on an engine the lint does not know, without advice to set it", () => {
     expect(
       unknownEngineFindings([transformDoc({})], { Warehouse: "duckdb" }).map(
         (r) => r.message,
       ),
     ).toEqual([
-      `the lint does not know the engine duckdb of database Warehouse, ${advice}`,
+      "the engine duckdb of database Warehouse is not in the lint's table of Metabase's drivers, as a third-party or newer driver is not, so the checks that depend on it do not run. Check the driver name",
     ]);
+  });
+
+  it("warns once on each database a transform reads whose engine is unknown", () => {
+    const python = transformDoc({
+      source: {
+        ...PYTHON_SOURCE,
+        "source-tables": [
+          { alias: "a", database_id: "Lake", table_id: ["Lake", null, "a"] },
+          { alias: "b", database_id: "Lake", schema: "s", table: "b" },
+          { alias: "c", database_id: "Pond", schema: "s", table: "c" },
+          {
+            alias: "d",
+            database_id: "Warehouse",
+            table_id: ["Warehouse", "s", "d"],
+          },
+        ],
+      },
+      target: { type: "table", schema: "s", name: "t", database: "Warehouse" },
+    });
+    expect(
+      unknownEngineFindings([python], { Warehouse: "postgres" }).map(
+        (r) => r.message,
+      ),
+    ).toEqual(
+      ["Lake", "Pond"].map(
+        (database) =>
+          `no Database file or .metabase-lint.json names the engine of database ${database}, ${advice}`,
+      ),
+    );
   });
 
   it("checks the database a Python transform's target names, and skips one that names none", () => {
