@@ -53,7 +53,7 @@ function transformDoc(body: Record<string, unknown>): Doc {
   return {
     file: TRANSFORM_FILE,
     model: "Transform",
-    schemaError: null,
+    schema: { status: "passed" },
     nonStringKeys: [],
     body: {
       name: "Orders by day",
@@ -80,7 +80,7 @@ function testDoc(transformId: string): Doc {
   return {
     file: TEST_FILE,
     model: "TransformTest",
-    schemaError: null,
+    schema: { status: "passed" },
     nonStringKeys: [],
     body: {
       name: "Orders by day: one day",
@@ -248,7 +248,10 @@ describe("reportMissingTargetSchemas", () => {
         [
           {
             ...withTarget({}),
-            schemaError: { path: "/name", message: "must be string" },
+            schema: {
+              status: "failed",
+              error: { path: "/name", message: "must be string" },
+            },
           },
         ],
         {

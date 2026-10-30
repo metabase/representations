@@ -24,7 +24,7 @@ function transformDoc(body: Record<string, unknown>): Doc {
   return {
     file: TRANSFORM_FILE,
     model: "Transform",
-    schemaError: null,
+    schema: { status: "passed" },
     nonStringKeys: [],
     body: {
       name: "Orders by day",
@@ -55,7 +55,7 @@ function collectionDoc(namespace: string | null | undefined): Doc {
   return {
     file: COLLECTION_FILE,
     model: "Collection",
-    schemaError: null,
+    schema: { status: "passed" },
     nonStringKeys: [],
     body: {
       name: "ETL",
@@ -121,7 +121,7 @@ describe("reportCollectionNamespaces", () => {
     const card: Doc = {
       file: "collections/main/card.yaml",
       model: "Card",
-      schemaError: null,
+      schema: { status: "passed" },
       nonStringKeys: [],
       body: { name: "A card", entity_id: COLLECTION_ID },
     };
@@ -374,7 +374,10 @@ describe("reportMissingTargetDatabases", () => {
     expect(
       targetDatabaseFindings({
         ...transformDoc({ source: PYTHON_SOURCE }),
-        schemaError: { path: "/name", message: "must be string" },
+        schema: {
+          status: "failed",
+          error: { path: "/name", message: "must be string" },
+        },
       }),
     ).toEqual([]);
   });

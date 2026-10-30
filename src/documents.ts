@@ -5,6 +5,7 @@ import type { Schemas } from "./schemas.js";
 import {
   checkSchema,
   entityFiles,
+  type SchemaCheck,
   type ValidationError,
 } from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
@@ -20,11 +21,20 @@ export type Doc = {
   file: string;
   model: string;
   body: Record<string, unknown>;
-  /** The first way the file fails its model's schema; null when it passes or no schema describes its model. */
-  schemaError: ValidationError | null;
+  /** How the file stands against its model's schema. */
+  schema: SchemaStatus;
   /** The keys of `body`'s maps that Metabase reads as something other than a string. */
   nonStringKeys: readonly NonStringKey[];
 };
+
+/**
+ * How a file stands against its model's schema: it passes, it fails (with
+ * the first way it does), or no schema describes its model.
+ */
+export type SchemaStatus =
+  | { status: "passed" }
+  | { status: "failed"; error: ValidationError }
+  | { status: "unchecked" };
 
 /** A Python source table, from `transform.yaml#/$defs/python_source`. */
 type PythonSourceTable = {
@@ -139,14 +149,17 @@ export type ValidDoc<M extends keyof ValidBodies> = Doc & {
   body: ValidBodies[M];
 };
 
-/** `doc` as a schema-valid document of `model`, or null when it is of another model or fails its schema. */
+/**
+ * `doc` as a schema-valid document of `model`, or null when it is of another
+ * model, or did not pass its schema: it failed, or no schema checked it.
+ */
 export function asValid<M extends keyof ValidBodies>(
   doc: Doc,
   model: M,
 ): ValidDoc<M> | null {
   // The body passed the schema of `model`, and ValidBodies declares only
   // fields that schema requires or types.
-  return doc.model === model && doc.schemaError === null
+  return doc.model === model && doc.schema.status === "passed"
     ? (doc as ValidDoc<M>)
     : null;
 }
@@ -214,6 +227,17 @@ export function displayName(doc: Doc): string {
   return stringOrNull(doc.body.name) ?? doc.file;
 }
 
+/** How a checked file stands against its schema. */
+function schemaStatusOf(check: SchemaCheck): SchemaStatus {
+  if (check.status !== "checked") {
+    return { status: "unchecked" };
+  }
+  const [error] = check.errors;
+  return error === undefined
+    ? { status: "passed" }
+    : { status: "failed", error };
+}
+
 /** A file `loadDocs` could not read as an entity, and why. */
 export type UnreadableFile = { file: string; reason: string };
 
@@ -264,8 +288,7 @@ export function loadDocs(
         file,
         model: check.model,
         body,
-        schemaError:
-          check.status === "checked" ? (check.errors[0] ?? null) : null,
+        schema: schemaStatusOf(check),
         nonStringKeys,
       });
     }

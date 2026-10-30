@@ -347,12 +347,12 @@ function reportSkippedFiles(skipped: readonly string[], report: Report): void {
 /** Reports each transform, transform test, table, Database or snippet file that fails its schema. */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
-    const { model, schemaError } = doc;
-    if (schemaError !== null && LINTED_MODELS.has(model)) {
+    const { model, schema } = doc;
+    if (schema.status === "failed" && LINTED_MODELS.has(model)) {
       report(
         "schema",
         doc,
-        `${model} does not match its schema: ${schemaError.path} ${schemaError.message}`,
+        `${model} does not match its schema: ${schema.error.path} ${schema.error.message}`,
       );
     }
   }

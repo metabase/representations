@@ -34,7 +34,7 @@ function testDoc(body: Record<string, unknown>): Doc {
   return {
     file: "collections/transforms/orders/orders__test.yaml",
     model: "TransformTest",
-    schemaError: null,
+    schema: { status: "passed" },
     nonStringKeys: [],
     body: {
       name: "orders test",
@@ -188,7 +188,10 @@ describe("reportRowsColumns", () => {
   it("does not check a test that fails its schema", () => {
     const doc: Doc = {
       ...testDoc({ inputs: [ordersInput([{ id: 1 }])] }),
-      schemaError: { path: "/name", message: "must be string" },
+      schema: {
+        status: "failed",
+        error: { path: "/name", message: "must be string" },
+      },
       nonStringKeys: [],
     };
     expect(run(reportRowsColumns, [doc])).toEqual([]);
