@@ -10,7 +10,7 @@ import {
   tableOfRef,
   uniqueTables,
 } from "./tables.js";
-import { isRecord, isUnknownArray, stringOrNull } from "./values.js";
+import { isRecord, isUnknownArray, stringOrNull, uniqueBy } from "./values.js";
 
 export type NativeSql = {
   sql: string;
@@ -21,13 +21,16 @@ export type NativeSql = {
   snippetIds: ReadonlyMap<string, string>;
 };
 
+/** An entity a query uses: its entity id and the model Metabase resolves it in. */
+export type EntityRef = { id: string; model: string };
+
 /** The data sources a document names, found where its schema types them. */
 export type DataSources = {
   tables: TableKey[];
   /** The column of each field id inside a query. */
   fields: ColumnKey[];
-  /** Entity ids of cards, metrics, measures, segments and snippets a query uses. */
-  entities: string[];
+  /** The cards, metrics, measures, segments and snippets a query uses, each once. */
+  entities: EntityRef[];
   natives: NativeSql[];
 };
 
@@ -40,10 +43,24 @@ const FIELD_ID = "common/id.yaml#/$defs/field_id";
 const ENTITY_ID = "common/id.yaml#/$defs/entity_id";
 const QUERY = "common/query.yaml#";
 const NATIVE_STAGE = "common/query.yaml#/$defs/native_stage";
-const ENTITY_REFS = new Set([
-  "common/ref.yaml#/$defs/metric_ref",
-  "common/ref.yaml#/$defs/measure_ref",
-  "common/ref.yaml#/$defs/segment_ref",
+/**
+ * The model of the entity each reference clause names, as Metabase imports
+ * it (`serialization.clj` `import-mbql-update-refs`): a metric is a Card.
+ */
+const ENTITY_REFS = new Map([
+  ["common/ref.yaml#/$defs/metric_ref", "Card"],
+  ["common/ref.yaml#/$defs/measure_ref", "Measure"],
+  ["common/ref.yaml#/$defs/segment_ref", "Segment"],
+]);
+
+/**
+ * The model of the entity each query key that holds an entity id names, as
+ * Metabase imports it (`serialization.clj` `import-mbql-map`).
+ */
+const ENTITY_KEYS = new Map([
+  ["source-card", "Card"],
+  ["card-id", "Card"],
+  ["snippet-id", "NativeQuerySnippet"],
 ]);
 
 const escapePointer = (key: string) =>
@@ -107,7 +124,12 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
       return sources;
     }
 
-    const collect = (key: string, value: unknown, context: Context) => {
+    const collect = (
+      key: string,
+      value: unknown,
+      context: Context,
+      node: Node,
+    ) => {
       const table =
         key === TABLE_ID || (context.inQuery && key === FIELD_ID)
           ? tableOfRef(value)
@@ -123,14 +145,22 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
       if (!context.inQuery) {
         return;
       }
-      if (key === ENTITY_ID && typeof value === "string") {
-        sources.entities.push(value);
+      const refModel = ENTITY_REFS.get(key);
+      const keyModel = ENTITY_KEYS.get(
+        unescapePointer(node.pointer.slice(node.pointer.lastIndexOf("/") + 1)),
+      );
+      if (
+        key === ENTITY_ID &&
+        typeof value === "string" &&
+        keyModel !== undefined
+      ) {
+        sources.entities.push({ id: value, model: keyModel });
       } else if (
-        ENTITY_REFS.has(key) &&
+        refModel !== undefined &&
         isUnknownArray(value) &&
         typeof value[2] === "string"
       ) {
-        sources.entities.push(value[2]);
+        sources.entities.push({ id: value[2], model: refModel });
       } else if (
         key === NATIVE_STAGE &&
         isRecord(value) &&
@@ -161,7 +191,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
       if (typeof schema.$ref === "string") {
         const target = resolveRef(schema.$ref, node.file);
         const key = keyOf(target);
-        collect(key, value, context);
+        collect(key, value, context, node);
         const inner =
           key === QUERY
             ? {
@@ -220,7 +250,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
     return {
       tables: uniqueTables(sources.tables),
       fields: sources.fields,
-      entities: [...new Set(sources.entities)],
+      entities: uniqueBy(sources.entities, (e) => `${e.model} ${e.id}`),
       natives: sources.natives,
     };
   };

@@ -3,6 +3,7 @@ import {
   type Doc,
   holderOf,
   isQuerySource,
+  otherHolderOf,
   type QuerySource,
   targetDatabaseOf,
   validDocsOf,
@@ -28,8 +29,9 @@ const NATIVE_STAGE = "mbql.stage/native";
  * collection with no namespace is in the default one. Also reports a
  * transform whose collection is not in the folder: every transform's
  * collection must be in the repository. A transform in the root collection
- * (collection_id null or absent) has nothing to check. Of several files with
- * the collection's entity id, the first in path order is the collection.
+ * (collection_id null or absent) has nothing to check. Of several Collection
+ * files with the collection's entity id, the last in path order is the
+ * collection (`holderOf`).
  */
 export function reportCollectionNamespaces(
   docs: readonly Doc[],
@@ -41,19 +43,20 @@ export function reportCollectionNamespaces(
     if (id === undefined || id === null) {
       continue;
     }
-    const collection = holderOf(byEntityId, id);
-    if (collection === null) {
+    const collection = holderOf(byEntityId, id, "Collection");
+    const other = otherHolderOf(byEntityId, id, "Collection");
+    if (collection === null && other !== null) {
+      report(
+        "transform-collection",
+        transform,
+        `collection_id ${id} names a ${other.model}, not a Collection`,
+        [other.file],
+      );
+    } else if (collection === null) {
       report(
         "transform-collection",
         transform,
         `collection ${id} is not in the folder; a transform's collection must be in the repository`,
-      );
-    } else if (collection.model !== "Collection") {
-      report(
-        "transform-collection",
-        transform,
-        `collection_id ${id} names a ${collection.model}, not a Collection`,
-        [collection.file],
       );
     } else {
       const namespace = stringOrNull(collection.body.namespace);

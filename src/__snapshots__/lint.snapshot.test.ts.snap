@@ -43,12 +43,12 @@ exports[`lint output on a broken copy of the examples matches the recording: dup
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform.yaml",
-    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other file(s)",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
     "related": [
       "collections/transforms/native_transform_copy.yaml",
     ],
     "rule": "duplicate-entity-id",
-    "severity": "error",
+    "severity": "warning",
   },
   {
     "entity": {
@@ -57,12 +57,12 @@ exports[`lint output on a broken copy of the examples matches the recording: dup
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform_copy.yaml",
-    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other file(s)",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
     "related": [
       "collections/transforms/native_transform.yaml",
     ],
     "rule": "duplicate-entity-id",
-    "severity": "error",
+    "severity": "warning",
   },
   {
     "entity": {
@@ -655,12 +655,12 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform.yaml",
-    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other file(s)",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
     "related": [
       "collections/transforms/native_transform_copy.yaml",
     ],
     "rule": "duplicate-entity-id",
-    "severity": "error",
+    "severity": "warning",
   },
   {
     "entity": {
@@ -669,12 +669,12 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform_copy.yaml",
-    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other file(s)",
+    "message": "entity_id 7JwIkkAG-06-nsl4jzsaq is also in 1 other Transform file(s); Metabase keeps only collections/transforms/native_transform_copy.yaml, the last in path order, and drops the others without a message",
     "related": [
       "collections/transforms/native_transform.yaml",
     ],
     "rule": "duplicate-entity-id",
-    "severity": "error",
+    "severity": "warning",
   },
   {
     "entity": {

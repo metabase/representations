@@ -700,27 +700,50 @@ describe("lint", () => {
       ]);
     });
 
-    it("takes a duplicated entity_id to name the first file in path order, for every check", async () => {
+    it("takes a duplicated entity_id to name the last file of the model in path order, for every check", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const transforms = join(workdir, "collections/transforms");
+      const python = readFileSync(
+        join(transforms, "python_hello_world.yaml"),
+        "utf8",
+      ).replace(/^entity_id: .*$/m, "entity_id: 7XqqzlsonSq4KFyOvtrAm");
+      // Daily Order Summary holds 7XqqzlsonSq4KFyOvtrAm; one copy sorts
+      // before it and one after.
       writeFileSync(
         join(transforms, "aaa_python_first.yaml"),
-        readFileSync(join(transforms, "python_hello_world.yaml"), "utf8")
-          .replace(/^entity_id: .*$/m, "entity_id: 7XqqzlsonSq4KFyOvtrAm")
-          .replace(/^name: .*$/m, "name: Python First"),
+        python.replace(/^name: .*$/m, "name: Python First"),
+      );
+      writeFileSync(
+        join(transforms, "zzz_python_last.yaml"),
+        python.replace(/^name: .*$/m, "name: Python Last"),
       );
       const test =
         "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+      const result = await findings(workdir);
       expect(
-        (await findings(workdir))
+        result
           .filter((f) => f.file === test)
           .map((f) => `${f.rule}: ${f.message}`),
       ).toEqual([
-        "untestable-transform: transform Python First is not a query transform; Metabase tests only query transforms",
+        "untestable-transform: transform Python Last is not a query transform; Metabase tests only query transforms",
       ]);
+      expect(
+        result
+          .filter((f) => f.rule === "duplicate-entity-id")
+          .map((f) => `${f.severity} ${f.file}: ${f.message}`),
+      ).toEqual(
+        [
+          "aaa_python_first.yaml",
+          "daily_order_summary.yaml",
+          "zzz_python_last.yaml",
+        ].map(
+          (file) =>
+            `warning collections/transforms/${file}: entity_id 7XqqzlsonSq4KFyOvtrAm is also in 2 other Transform file(s); Metabase keeps only collections/transforms/zzz_python_last.yaml, the last in path order, and drops the others without a message`,
+        ),
+      );
     });
 
-    it("takes a transform_id whose first holder is a Card to name the Card", async () => {
+    it("resolves a transform_id to the Transform that shares its entity_id with a Card, and reports neither", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const card = join(workdir, "collections/main/queries/nested_query.yaml");
       writeFileSync(
@@ -730,15 +753,77 @@ describe("lint", () => {
           "entity_id: 7XqqzlsonSq4KFyOvtrAm",
         ),
       );
+      expect(await findings(workdir)).toEqual([]);
+    });
+
+    it("takes a transform_id that only a Card holds to name the Card", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const card = join(workdir, "collections/main/queries/nested_query.yaml");
+      const cardId = /^entity_id: (.*)$/m.exec(readFileSync(card, "utf8"))?.[1];
       const test =
         "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+      const path = join(workdir, test);
+      writeFileSync(
+        path,
+        readFileSync(path, "utf8").replace(
+          /^transform_id: .*$/m,
+          `transform_id: ${cardId}`,
+        ),
+      );
       expect(
         (await findings(workdir))
           .filter((f) => f.file === test)
           .map((f) => `${f.rule}: ${f.message}`),
       ).toEqual([
-        "wrong-type-transform-id: transform_id 7XqqzlsonSq4KFyOvtrAm names a Card, not a Transform",
+        `wrong-type-transform-id: transform_id ${cardId} names a Card, not a Transform`,
       ]);
+    });
+
+    it("reads a source card by model where a file of another model, first in path order, shares its entity_id", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const transform = join(workdir, MBQL_TRANSFORM);
+      const doc: unknown = yaml.load(readFileSync(transform, "utf8"));
+      if (
+        !isRecord(doc) ||
+        !isRecord(doc.source) ||
+        !isRecord(doc.source.query) ||
+        !Array.isArray(doc.source.query.stages) ||
+        !isRecord(doc.source.query.stages[0])
+      ) {
+        throw new Error(`${MBQL_TRANSFORM} has no query stage`);
+      }
+      const ordersModelId = "4eroqa4ZYl4WkNjP8XTvu";
+      doc.source.query.stages[0] = {
+        "lib/type": "mbql.stage/mbql",
+        "source-card": ordersModelId,
+      };
+      writeFileSync(transform, yaml.dump(doc));
+      // Sorts before the orders model's file, and reads another table.
+      writeFileSync(
+        join(workdir, "collections/a_segment.yaml"),
+        yaml.dump({
+          name: "Decoy",
+          entity_id: ordersModelId,
+          creator_id: "admin@example.com",
+          table_id: [POSTGRES_DB, "public", "products"],
+          definition: {
+            "lib/type": "mbql/query",
+            database: POSTGRES_DB,
+            stages: [
+              {
+                "lib/type": "mbql.stage/mbql",
+                "source-table": [POSTGRES_DB, "public", "products"],
+              },
+            ],
+          },
+          "serdes/meta": [{ model: "Segment" }],
+        }),
+      );
+      expect(
+        (await transformReads({ folder: workdir })).find(
+          (t) => t.file === MBQL_TRANSFORM,
+        )?.tables,
+      ).toEqual([{ schema: null, name: "ORDERS" }]);
     });
 
     it("cannot read a Python source table with no name", async () => {

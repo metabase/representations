@@ -315,12 +315,30 @@ export function indexByEntityId(docs: readonly Doc[]): Map<string, Doc[]> {
 }
 
 /**
- * The document an entity_id names: of the files that hold it, the first in
- * path order. Null when no file holds it.
+ * The document of `model` that an entity_id names: of the files of that
+ * model that hold it, the last in path order. Metabase resolves a reference
+ * by its model and entity_id (`resolve/default.clj` `import-fk`), and loads a
+ * second file with one entity_id over the entity the first created
+ * (`serialization.clj` `load-find-local`), so the last file's content stands.
+ * Null when no file of `model` holds it.
  */
 export function holderOf(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   id: string,
+  model: string,
 ): Doc | null {
-  return byEntityId.get(id)?.[0] ?? null;
+  return (byEntityId.get(id) ?? []).findLast((d) => d.model === model) ?? null;
+}
+
+/**
+ * A file of another model than `model` that holds `id`, the first in path
+ * order: what a reference to a `model` likely meant to name when no file of
+ * `model` holds it. Null when there is none.
+ */
+export function otherHolderOf(
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  id: string,
+  model: string,
+): Doc | null {
+  return (byEntityId.get(id) ?? []).find((d) => d.model !== model) ?? null;
 }

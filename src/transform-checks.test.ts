@@ -135,6 +135,19 @@ describe("reportCollectionNamespaces", () => {
     ]);
   });
 
+  it("resolves collection_id to the Collection when a file of another model shares its entity_id", () => {
+    const card: Doc = {
+      file: "collections/a_card.yaml",
+      model: "Card",
+      schema: { status: "passed" },
+      nonStringKeys: [],
+      body: { name: "A card", entity_id: COLLECTION_ID },
+    };
+    expect(
+      collectionFindings([inCollection, card, collectionDoc("transforms")]),
+    ).toEqual([]);
+  });
+
   it("accepts a collection in the transforms namespace", () => {
     expect(
       collectionFindings([inCollection, collectionDoc("transforms")]),

@@ -314,19 +314,26 @@ function reportCycles(
   }
 }
 
-/** Reports each file whose entity_id another file also holds. */
+/**
+ * Warns on each file whose entity_id another file of its model also holds.
+ * Metabase loads both, the second over the first (`holderOf`): the last file
+ * in path order stands and the others are lost, with no message. Files of
+ * different models may share an entity_id: Metabase keeps each.
+ */
 function reportDuplicateEntityIds(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   report: Report,
 ): void {
   for (const [id, holders] of byEntityId) {
-    if (holders.length > 1) {
-      for (const doc of holders) {
+    for (const doc of holders) {
+      const same = holders.filter((h) => h.model === doc.model);
+      if (same.length > 1) {
+        const kept = same[same.length - 1];
         report(
           "duplicate-entity-id",
           doc,
-          `entity_id ${id} is also in ${holders.length - 1} other file(s)`,
-          holders.filter((h) => h !== doc).map((h) => h.file),
+          `entity_id ${id} is also in ${same.length - 1} other ${doc.model} file(s); Metabase keeps only ${kept.file}, the last in path order, and drops the others without a message`,
+          same.filter((h) => h !== doc).map((h) => h.file),
         );
       }
     }

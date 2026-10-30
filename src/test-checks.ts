@@ -2,6 +2,7 @@ import {
   displayName,
   type Doc,
   holderOf,
+  otherHolderOf,
   queryDatabaseOf,
   validDocsOf,
   type ValidDoc,
@@ -80,7 +81,7 @@ export function testedTransformsOf(
   transformOfDoc: ReadonlyMap<Doc, Transform>,
 ): TestedTransform[] {
   return validDocsOf(docs, "TransformTest").flatMap((test) => {
-    const holder = holderOf(byEntityId, test.body.transform_id);
+    const holder = holderOf(byEntityId, test.body.transform_id, "Transform");
     const transform = holder === null ? undefined : transformOfDoc.get(holder);
     return transform !== undefined && isQueryTransform(transform)
       ? [{ test, transform }]
@@ -89,10 +90,10 @@ export function testedTransformsOf(
 }
 
 /**
- * Reports each schema-valid test whose transform_id (`holderOf`) names
- * nothing, names a file that is not a Transform, or names a transform that is
- * not a query transform. A test of a Transform that fails its schema gets no
- * finding here.
+ * Reports each schema-valid test whose transform_id (`holderOf`) names no
+ * Transform, or a transform that is not a query transform. When a file of
+ * another model holds the id, the finding names that file. A test of a
+ * Transform that fails its schema gets no finding here.
  */
 export function reportTransformIds(
   docs: readonly Doc[],
@@ -102,8 +103,16 @@ export function reportTransformIds(
 ): void {
   for (const test of validDocsOf(docs, "TransformTest")) {
     const transformId = test.body.transform_id;
-    const holder = holderOf(byEntityId, transformId);
-    if (holder === null) {
+    const holder = holderOf(byEntityId, transformId, "Transform");
+    const other = otherHolderOf(byEntityId, transformId, "Transform");
+    if (holder === null && other !== null) {
+      report(
+        "wrong-type-transform-id",
+        test,
+        `transform_id ${transformId} names a ${other.model}, not a Transform`,
+        (byEntityId.get(transformId) ?? []).map((h) => h.file),
+      );
+    } else if (holder === null) {
       const likely = likelyTransformOf(test, docs);
       report(
         "dangling-transform-id",
@@ -114,13 +123,6 @@ export function reportTransformIds(
             : `; the test likely tests ${displayName(likely)}, whose entity_id is ${String(likely.body.entity_id)}`
         }`,
         likely === null ? [] : [likely.file],
-      );
-    } else if (holder.model !== "Transform") {
-      report(
-        "wrong-type-transform-id",
-        test,
-        `transform_id ${transformId} names a ${holder.model}, not a Transform`,
-        (byEntityId.get(transformId) ?? []).map((h) => h.file),
       );
     } else {
       const transform = transformOfDoc.get(holder);

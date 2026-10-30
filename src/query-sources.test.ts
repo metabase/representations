@@ -187,10 +187,12 @@ describe("createSourceFinder", () => {
       transform([mbql({ "source-card": "CCCCCCCCCCCCCCCCCCCCC" })]),
       "Transform",
     );
-    expect(sources.entities).toEqual(["CCCCCCCCCCCCCCCCCCCCC"]);
+    expect(sources.entities).toEqual([
+      { id: "CCCCCCCCCCCCCCCCCCCCC", model: "Card" },
+    ]);
   });
 
-  it("finds metric, measure and segment references", () => {
+  it("finds metric, measure and segment references, each with its model", () => {
     const sources = findSources(
       transform([
         mbql({
@@ -204,10 +206,10 @@ describe("createSourceFinder", () => {
       ]),
       "Transform",
     );
-    expect(sources.entities.sort()).toEqual([
-      "EEEEEEEEEEEEEEEEEEEEE",
-      "MMMMMMMMMMMMMMMMMMMMM",
-      "SSSSSSSSSSSSSSSSSSSSS",
+    expect(sources.entities).toEqual([
+      { id: "MMMMMMMMMMMMMMMMMMMMM", model: "Card" },
+      { id: "EEEEEEEEEEEEEEEEEEEEE", model: "Measure" },
+      { id: "SSSSSSSSSSSSSSSSSSSSS", model: "Segment" },
     ]);
   });
 
@@ -267,10 +269,12 @@ describe("createSourceFinder", () => {
       ]),
       "Transform",
     );
-    expect(sources.entities).toEqual(["CCCCCCCCCCCCCCCCCCCCC"]);
+    expect(sources.entities).toEqual([
+      { id: "CCCCCCCCCCCCCCCCCCCCC", model: "Card" },
+    ]);
   });
 
-  it("finds the card, snippet and table of a native stage's template tags", () => {
+  it("finds the card, snippet and table of a native stage's template tags, each entity with its model", () => {
     const tag = (type: string, extra: object) => ({
       type,
       name: type,
@@ -294,9 +298,9 @@ describe("createSourceFinder", () => {
       ]),
       "Transform",
     );
-    expect(sources.entities.sort()).toEqual([
-      "CCCCCCCCCCCCCCCCCCCCC",
-      "NNNNNNNNNNNNNNNNNNNNN",
+    expect(sources.entities).toEqual([
+      { id: "CCCCCCCCCCCCCCCCCCCCC", model: "Card" },
+      { id: "NNNNNNNNNNNNNNNNNNNNN", model: "NativeQuerySnippet" },
     ]);
     expect(sources.tables).toEqual([
       {

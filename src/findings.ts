@@ -2,14 +2,14 @@ export type LintSeverity = "error" | "warning";
 
 /**
  * Every rule, in the order the lint's output groups its findings, with the
- * severity of its findings. An error is something Metabase refuses, cannot
- * resolve, or silently drops. A warning is a check the lint could not decide, or a tree Metabase
+ * severity of its findings. An error is something Metabase refuses or cannot
+ * resolve. A warning is a check the lint could not decide, or a tree Metabase
  * accepts but that is likely a mistake.
  */
 export const LINT_RULE_SEVERITY = {
   schema: "error",
   "skipped-by-metabase": "warning",
-  "duplicate-entity-id": "error",
+  "duplicate-entity-id": "warning",
   "dangling-transform-id": "error",
   "wrong-type-transform-id": "error",
   "duplicate-target": "warning",

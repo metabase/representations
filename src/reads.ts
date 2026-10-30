@@ -3,6 +3,7 @@ import {
   type Doc,
   holderOf,
   isPythonSource,
+  otherHolderOf,
   isQueryTransformDoc,
   type PythonSource,
   type QueryTransformDoc,
@@ -147,7 +148,7 @@ function pythonReads(source: PythonSource): Reads {
 
 /**
  * Returns the lookup of the snippets a query uses among `docs`: a snippet
- * named by id is the first file holding that id (`holderOf`); one named by
+ * named by id is the snippet file holding that id (`holderOf`); one named by
  * name is the schema-valid snippet of that name. Says why a snippet cannot
  * be pasted: absent, failing its schema, or of another model.
  */
@@ -165,20 +166,20 @@ export function createSnippetFinder(
     `snippet ${name} is in ${doc.file}, which fails its schema`;
   return (name, id) => {
     if (id !== undefined) {
-      const doc = holderOf(byEntityId, id);
+      const doc = holderOf(byEntityId, id, SNIPPET_MODEL);
       if (doc === null) {
-        return { unusable: `snippet ${name} (${id}) is not in the folder` };
+        const other = otherHolderOf(byEntityId, id, SNIPPET_MODEL);
+        return {
+          unusable:
+            other === null
+              ? `snippet ${name} (${id}) is not in the folder`
+              : `snippet ${name} (${id}) names a ${other.model}, not a snippet`,
+        };
       }
       const valid = asValid(doc, SNIPPET_MODEL);
-      if (valid !== null) {
-        return { content: valid.body.content };
-      }
-      return {
-        unusable:
-          doc.model === SNIPPET_MODEL
-            ? failsSchema(name, doc)
-            : `snippet ${name} (${id}) names a ${doc.model}, not a snippet`,
-      };
+      return valid === null
+        ? { unusable: failsSchema(name, doc) }
+        : { content: valid.body.content };
     }
     const content = snippetByName.get(name);
     if (content !== undefined) {
@@ -226,16 +227,17 @@ export function createReader(
     }
     tables.push(...native.tables);
     const inner = new Set([...visiting, doc]);
-    for (const id of sources.entities) {
-      const sourceDoc = holderOf(byEntityId, id);
+    for (const { id, model } of sources.entities) {
+      // A snippet's SQL is pasted into the native query that uses it.
+      if (model === SNIPPET_MODEL) {
+        continue;
+      }
+      const sourceDoc = holderOf(byEntityId, id, model);
       if (sourceDoc === null) {
         return {
           status: "unread",
-          reason: `source ${id} is not in the folder`,
+          reason: `source ${model} ${id} is not in the folder`,
         };
-      }
-      if (sourceDoc.model === SNIPPET_MODEL) {
-        continue;
       }
       // Checked before the recursive call: there, the reason would gain a
       // "through" for a file the chain already names.
