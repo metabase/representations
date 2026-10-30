@@ -9,8 +9,12 @@ import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
 import { generateUuid } from "../src/generate-uuid.js";
-import { lint, type LintResult } from "../src/lint.js";
-import { CONFIG_FILE, LintSetupError } from "../src/settings.js";
+import { lint, type LintResult, namedDatabases } from "../src/lint.js";
+import {
+  CONFIG_FILE,
+  LintSetupError,
+  readSettingsFile,
+} from "../src/settings.js";
 import { validateSchema } from "../src/validate-schema.js";
 import { errorMessage } from "../src/values.js";
 
@@ -185,10 +189,45 @@ function parseDefaultSchemas(
         `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
       );
     }
+    const database = pair.slice(0, at);
+    if (Object.hasOwn(schemas, database)) {
+      usageError(`--default-schema names ${database} twice`);
+    }
     const schema = pair.slice(at + 1);
-    schemas[pair.slice(0, at)] = schema === "" ? null : schema;
+    schemas[database] = schema === "" ? null : schema;
   }
   return schemas;
+}
+
+/**
+ * Says on stderr which default schema each `--default-schema` sets, and
+ * which it overrides in the settings file; warns on a database no file in
+ * `folder` names, such as a misspelled one.
+ */
+function echoDefaultSchemas(
+  folder: string,
+  given: Readonly<Record<string, string | null>>,
+): void {
+  const databases = Object.keys(given);
+  if (databases.length === 0) {
+    return;
+  }
+  const settings = readSettingsFile(folder).defaultSchemas;
+  const named = new Set(namedDatabases({ folder }));
+  const show = (schema: string | null) => schema ?? "none (no schemas)";
+  for (const database of databases) {
+    const over = Object.hasOwn(settings, database)
+      ? `, over ${show(settings[database])} in ${CONFIG_FILE}`
+      : "";
+    console.error(
+      `--default-schema: ${database} has the default schema ${show(given[database])}${over}`,
+    );
+    if (!named.has(database)) {
+      console.error(
+        `Warning: --default-schema names ${database}, which no file in the folder names`,
+      );
+    }
+  }
 }
 
 async function handleLint(values: ParsedValues): Promise<void> {
@@ -201,6 +240,7 @@ async function handleLint(values: ParsedValues): Promise<void> {
   const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
   let result: LintResult;
   try {
+    echoDefaultSchemas(folder, defaultSchemas);
     result = await lint({ folder, defaultSchemas });
   } catch (e) {
     if (e instanceof MissingDefaultSchemasError) {

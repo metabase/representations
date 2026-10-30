@@ -494,6 +494,45 @@ describe("cli", () => {
       expect(refused.exitCode).toBe(2);
     });
 
+    it("refuses a database given twice by --default-schema", () => {
+      const { stderr, exitCode } = runCli([
+        "lint",
+        "--experimental",
+        "--folder",
+        EXAMPLES,
+        "--default-schema",
+        "Sample Postgres=public",
+        "--default-schema",
+        "Sample Postgres=other",
+      ]);
+      expect(stderr).toContain("--default-schema names Sample Postgres twice");
+      expect(exitCode).toBe(2);
+    });
+
+    it(
+      "echoes each --default-schema and what it overrides, and warns on a database no file names",
+      () => {
+        const { stderr, exitCode } = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          EXAMPLES,
+          "--default-schema",
+          "Sample Postgres=public",
+          "--default-schema",
+          "Sample postgres=",
+        ]);
+        expect(stderr.trimEnd().split("\n")).toEqual([
+          "--default-schema: Sample Postgres has the default schema public, over public in .metabase-lint.json",
+          "--default-schema: Sample postgres has the default schema none (no schemas)",
+          "Warning: --default-schema names Sample postgres, which no file in the folder names",
+          expect.stringMatching(/^\d+ files, 0 errors, 0 warnings$/),
+        ]);
+        expect(exitCode).toBe(0);
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+
     it(
       "reads --default-schema DATABASE= as a database with no schemas",
       () => {

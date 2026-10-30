@@ -12,6 +12,7 @@ import {
   isQuerySource,
   loadDocs,
   queryDatabaseOf,
+  targetDatabaseOf,
   type UnreadableFile,
   validDocsOf,
   type ValidDoc,
@@ -32,6 +33,7 @@ import {
   type Report,
 } from "./findings.js";
 import { cyclePath, cycles } from "./graph.js";
+import { createSourceFinder } from "./query-sources.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas, type Schemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
@@ -397,6 +399,38 @@ export async function transformReads({
         ? reads.tables.map(({ schema, name }) => ({ schema, name }))
         : null,
   }));
+}
+
+/**
+ * The names of the databases the files in the folder name, sorted: Database
+ * and table files, and the databases of queries, table references and
+ * transform targets. SQL is not read.
+ */
+export function namedDatabases({ folder }: LintOptions): string[] {
+  const schemas = loadSchemas();
+  const { docs } = loadDocs(folder, schemas);
+  const findSources = createSourceFinder(schemas);
+  const names = new Set<string>();
+  const add = (name: unknown) => {
+    if (typeof name === "string") {
+      names.add(name);
+    }
+  };
+  for (const doc of docs) {
+    const sources = findSources(doc.body, doc.model);
+    sources.tables.forEach((t) => add(t.database));
+    sources.natives.forEach((n) => add(n.database));
+    if (doc.model === "Database") {
+      add(doc.body.name);
+    }
+    if (doc.model === "Table") {
+      add(doc.body.db_id);
+    }
+  }
+  for (const transform of validDocsOf(docs, "Transform")) {
+    add(targetDatabaseOf(transform));
+  }
+  return [...names].sort();
 }
 
 /** The schema-valid transforms among `docs`, in order, with their targets and reads. */

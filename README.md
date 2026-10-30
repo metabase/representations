@@ -58,7 +58,7 @@ npm install pyodide@314.0.7
 
 Without it, a lint of a folder with SQL exits with code 2 and names that command.
 
-Omit `--folder` to lint the current directory. Give a database's default schema with `--default-schema "<database>=<schema>"`, or `"<database>="` for a database with no schemas. The option repeats, and overrides the settings file.
+Omit `--folder` to lint the current directory. Give a database's default schema with `--default-schema "<database>=<schema>"`, or `"<database>="` for a database with no schemas. The option repeats, once per database, and overrides the settings file. The lint says on stderr what each one sets, and warns on a database that no file in the folder names.
 
 The lint prints one JSON finding per line on stdout, grouped by rule, then by file, and a count on stderr. It exits 1 when a finding is an error, and 2 when it checks nothing ([exit codes](#exit-codes)). When a database needs a default schema the lint does not have, it names each such database and the first file that needs it, and runs no check.
 
