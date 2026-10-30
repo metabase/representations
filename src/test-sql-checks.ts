@@ -216,20 +216,28 @@ function readColumnsOf(
 // `compile-input :rows`, `rows-query`); its `:h2` dialect upper-cases each
 // quoted name (`src/metabase/util/honey_sql_2.clj`).
 
+const lowerAscii = (name: string) =>
+  name.replace(/[A-Z]+/g, (c) => c.toLowerCase());
+
 /** How each engine with a fixed rule names an unquoted identifier. */
 const UNQUOTED_CASE: Readonly<Record<string, (name: string) => string>> = {
-  postgres: (name) => name.replace(/[A-Z]+/g, (c) => c.toLowerCase()),
-  redshift: (name) => name.replace(/[A-Z]+/g, (c) => c.toLowerCase()),
+  postgres: lowerAscii,
+  redshift: lowerAscii,
   snowflake: (name) => name.toUpperCase(),
   h2: (name) => name.toUpperCase(),
 };
+
+// Redshift folds a quoted identifier as it folds an unquoted one while
+// `enable_case_sensitive_identifier` is off, its default; Metabase never
+// turns it on.
+const FOLDS_QUOTED = new Set(["redshift"]);
 
 /**
  * Returns the name the warehouse of `engine` gives a column, or null when
  * the lint cannot tell. Metabase creates a `rows` input's columns, and
  * compiles an MBQL field, in quotes, so as written; H2's quoting upper-cases
  * them. A quoted name in SQL is as written, and an unquoted one is in the
- * engine's case.
+ * engine's case. Redshift folds every name, quoted or not.
  */
 function createWarehouseName(
   engine: string | null,
@@ -238,6 +246,9 @@ function createWarehouseName(
     return null;
   }
   const unquoted = UNQUOTED_CASE[engine];
+  if (FOLDS_QUOTED.has(engine)) {
+    return (name) => unquoted(name);
+  }
   return (name, quoting) => {
     switch (quoting) {
       case "compiled":

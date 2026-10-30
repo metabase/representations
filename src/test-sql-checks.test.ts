@@ -301,18 +301,37 @@ describe("reportMissingReadColumns", () => {
     const message = (column: string, readAs: string, declared: string) =>
       `input public.orders has no column ${column}, which transform cased reads as ${readAs}; the input's column is ${declared}`;
 
-    it("reads an unquoted name in lower case on Postgres and Redshift", () => {
-      for (const engine of ["postgres", "redshift"]) {
-        expect(
-          missing("SELECT o.total FROM public.orders o", ["Total"], engine),
-        ).toEqual([message("total", "total", "Total")]);
-        expect(
-          missing("SELECT o.TOTAL FROM public.orders o", ["total"], engine),
-        ).toEqual([]);
-        expect(
-          missing('SELECT o."Total" FROM public.orders o', ["Total"], engine),
-        ).toEqual([]);
+    it("reads an unquoted name in lower case on Postgres", () => {
+      expect(
+        missing("SELECT o.total FROM public.orders o", ["Total"], "postgres"),
+      ).toEqual([message("total", "total", "Total")]);
+      expect(
+        missing("SELECT o.TOTAL FROM public.orders o", ["total"], "postgres"),
+      ).toEqual([]);
+      expect(
+        missing('SELECT o."Total" FROM public.orders o', ["Total"], "postgres"),
+      ).toEqual([]);
+    });
+
+    // Redshift folds quoted names too while enable_case_sensitive_identifier
+    // is off, its default; Metabase never sets it.
+    it("reads every name in lower case on Redshift", () => {
+      for (const [sql, declared] of [
+        ["SELECT o.total FROM public.orders o", "Total"],
+        ['SELECT o."Total" FROM public.orders o', "total"],
+        ['SELECT o."TOTAL", o.total FROM public.orders o', "Total"],
+      ]) {
+        expect(missing(sql, [declared], "redshift")).toEqual([]);
       }
+      expect(
+        missing(
+          'SELECT o."Totals" FROM public.orders o',
+          ["Total"],
+          "redshift",
+        ),
+      ).toEqual([
+        "input public.orders has no column Totals, which transform cased reads",
+      ]);
     });
 
     it("reads an unquoted name in upper case on Snowflake", () => {
