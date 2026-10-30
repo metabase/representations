@@ -64,7 +64,7 @@ An engine missing from the table gives no finding, nor does a database whose eng
 The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at the version Metabase pins, and Metabase's `sql_tools.py`, run in WebAssembly by [Pyodide](https://pyodide.org). Nothing is fetched at run time. A CI job fails when either differs from Metabase's `master`.
 
 - The SQL dialect follows the database's engine, as Metabase maps drivers to dialects.
-- Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag.
+- Before parsing, the lint pastes in each snippet, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag. It finds snippets, tags and clauses as Metabase's parser does: inside a `--` or `/* */` comment they are text.
 - The columns a query reads and returns come from Metabase's `field_references`. A test's tables are replaced with Metabase's `replace_names`, with the replacements a transform test makes.
 - Loading the parser takes a moment and some memory, once per process, and only when the lint reads SQL in the folder.
 - Pyodide is an optional peer dependency, which a plain install of the package leaves out. Install it with `npm install pyodide@314.0.7`, the version the package pins. Without it, a lint that reads SQL exits with code 2 and names that command.
@@ -106,6 +106,7 @@ A query near Metabase's limit of 10,000,000 characters takes the parser a long t
 - SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
 - An expression nested deeper than Python's recursion limit allows, such as a deeply nested expression in parentheses.
 - A snippet left in the query after pasting, such as one whose file is not in the folder.
+- Template tags Metabase cannot parse, such as an unmatched `[[`, an empty `{{}}`, or an optional clause with no tag. Metabase refuses to run such a query.
 - Snippets Metabase refuses to paste: a snippet that uses itself through any chain of snippets, more than 10,000 pastes in one query, or SQL longer than 10,000,000 characters after pasting.
 - A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
 - SQL whose tables the parser finds but whose columns it cannot, such as two statements, an `INSERT` or an `UPDATE`, when a column check reads it. The lint reports it once for each query.

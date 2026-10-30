@@ -31,6 +31,26 @@ describe("expandSnippets", () => {
     ).toEqual({ status: "expanded", sql: "WHERE x = 1 AND x = 1 AND x = 1" });
   });
 
+  it("leaves a snippet tag inside a SQL comment as text, as Metabase parses it", () => {
+    expect(
+      expandSnippets(
+        "SELECT * FROM t -- {{snippet: gone}}\nWHERE {{snippet: A}} /* {{snippet: B}} */",
+        lookupIn({ A: "x = 1" }),
+      ),
+    ).toEqual({
+      status: "expanded",
+      sql: "SELECT * FROM t -- {{snippet: gone}}\nWHERE x = 1 /* {{snippet: B}} */",
+    });
+  });
+
+  it("keeps the other tags and optional clauses as written", () => {
+    const sql = "SELECT * FROM t [[WHERE x = {{ x }} AND {{snippet: A}}]]";
+    expect(expandSnippets(sql, lookupIn({ A: "y = 1" }))).toEqual({
+      status: "expanded",
+      sql: "SELECT * FROM t [[WHERE x = {{ x }} AND y = 1]]",
+    });
+  });
+
   it("is unread at the first snippet it cannot paste, pasting depth first", () => {
     expect(
       expandSnippets(

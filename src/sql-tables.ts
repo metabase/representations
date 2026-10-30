@@ -1,6 +1,12 @@
 import type { EngineOf } from "./databases.js";
 import { nativeQueriesAreSql } from "./engines.js";
 import {
+  type NativePart,
+  parseNativeSql,
+  snippetNameOf,
+  tagNames,
+} from "./native-sql.js";
+import {
   cacheBySql,
   dialectOf,
   type ParsedTables,
@@ -46,25 +52,30 @@ export function valuedTagNames(templateTags: unknown): Set<string> {
   return names;
 }
 
-const TAG = /\{\{\s*([^}]*?)\s*\}\}/g;
-
 /**
- * The SQL with each template tag as one word. Each optional clause `[[ … ]]`
- * keeps its text, unless `valuedTags` is given and a tag in the clause is not
- * in it: Metabase leaves such a clause out.
+ * The SQL of `parts` with each template tag as one word. Each optional clause
+ * `[[ … ]]` keeps its text, unless `valuedTags` is given and a tag in the
+ * clause is not in it: Metabase leaves such a clause out.
  */
 function replaceTemplateTags(
-  sql: string,
+  parts: readonly NativePart[],
   valuedTags: ReadonlySet<string> | undefined,
 ): string {
-  return sql
-    .replace(/\[\[([\s\S]*?)\]\]/g, (_, clause: string) =>
-      valuedTags === undefined ||
-      [...clause.matchAll(TAG)].every(([, name]) => valuedTags.has(name))
-        ? ` ${clause} `
-        : " ",
-    )
-    .replace(TAG, (_, name: string) => ` ${tagPlaceholder(name)} `);
+  return parts
+    .map((part) => {
+      switch (part.type) {
+        case "text":
+          return part.text;
+        case "tag":
+          return ` ${tagPlaceholder(part.name.trim())} `;
+        case "optional":
+          return valuedTags === undefined ||
+            tagNames(part.parts).every((name) => valuedTags.has(name.trim()))
+            ? ` ${replaceTemplateTags(part.parts, valuedTags)} `
+            : " ";
+      }
+    })
+    .join("");
 }
 
 /** Whether `name`, a table or column SQLGlot read, is the word a template tag became. */
@@ -91,8 +102,10 @@ const notSql = (engine: string): Unread => ({
  * it: the SQLGlot dialect of the engine (`dialectOf`), and the SQL with each
  * optional clause Metabase keeps pasted in (`valuedTags`, as
  * `valuedTagNames` gives them; every clause without it) and each template
- * tag a placeholder word (`isTagPlaceholder`). Unread when the engine's
- * native queries are not SQL (`nativeQueriesAreSql`), or when a snippet is left in
+ * tag a placeholder word (`isTagPlaceholder`); tags and clauses as Metabase
+ * parses them (`parseNativeSql`), so those inside a SQL comment are text.
+ * Unread when the engine's native queries are not SQL (`nativeQueriesAreSql`),
+ * when Metabase cannot parse the template tags, or when a snippet is left in
  * the SQL: expand snippets first.
  */
 export function prepareSql(
@@ -103,12 +116,16 @@ export function prepareSql(
   if (engine !== null && !nativeQueriesAreSql(engine)) {
     return notSql(engine);
   }
-  if (/\{\{\s*snippet:/i.test(sql)) {
+  const parsed = parseNativeSql(sql);
+  if (parsed.status === "unread") {
+    return parsed;
+  }
+  if (tagNames(parsed.parts).some((name) => snippetNameOf(name) !== null)) {
     return { status: "unread", reason: "the query has a snippet" };
   }
   return {
     status: "prepared",
-    sql: replaceTemplateTags(sql, valuedTags),
+    sql: replaceTemplateTags(parsed.parts, valuedTags),
     dialect: dialectOf(engine),
   };
 }

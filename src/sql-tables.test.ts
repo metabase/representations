@@ -154,15 +154,6 @@ describe("a SQL table reader with the tags that have values", () => {
       ],
     ],
     [
-      "keeps an optional clause with no tag",
-      "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.ID = o.USER_ID]]",
-      [],
-      [
-        { schema: null, name: "ORDERS" },
-        { schema: null, name: "PEOPLE" },
-      ],
-    ],
-    [
       "drops an optional clause with one tag of two without a value",
       "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.STATE = {{ state }} AND p.CITY = {{city}}]]",
       ["state"],
@@ -172,6 +163,76 @@ describe("a SQL table reader with the tags that have values", () => {
     expect(readSql(sql, null, new Set(valued))).toEqual({
       status: "read",
       tables: [...tables],
+    });
+  });
+});
+
+// Metabase's parser (`metabase.lib.parse`) reads `[[`, `{{` and their ends
+// inside a SQL comment as text, and inside a string literal as a tag or a
+// clause only when one parses.
+describe("a SQL table reader of template tags in comments and strings", () => {
+  it("reads a FROM clause after a line comment that holds a lone [[", () => {
+    expect(
+      readSql(
+        "-- arrays look like a[[1]\nSELECT * FROM people p JOIN orders o ON o.user_id = p.id [[AND o.x = {{x}}]]",
+        null,
+        new Set(),
+      ),
+    ).toEqual({
+      status: "read",
+      tables: [
+        { schema: null, name: "orders" },
+        { schema: null, name: "people" },
+      ],
+    });
+  });
+
+  it("reads SQL whose block comment holds an unmatched [[ before an optional clause", () => {
+    expect(
+      readSql(
+        "SELECT * FROM people /* [[ old */ [[WHERE x = {{x}}]]",
+        null,
+        new Set(["x"]),
+      ),
+    ).toEqual({ status: "read", tables: [{ schema: null, name: "people" }] });
+  });
+
+  it("reads a snippet tag inside a comment as text", () => {
+    expect(readSql("SELECT * FROM t -- {{snippet: gone}}", null)).toEqual({
+      status: "read",
+      tables: [{ schema: null, name: "t" }],
+    });
+    expect(readSql("SELECT * FROM t /* {{snippet: gone}} */", null)).toEqual({
+      status: "read",
+      tables: [{ schema: null, name: "t" }],
+    });
+  });
+
+  it("reads an unmatched [[ in a string literal as text, and a tag there as a tag", () => {
+    expect(readSql("SELECT * FROM t WHERE x = 'a[[b'", null)).toEqual({
+      status: "read",
+      tables: [{ schema: null, name: "t" }],
+    });
+    expect(
+      readSql("SELECT * FROM t [[JOIN u ON u.x = '{{v}}']]", null, new Set()),
+    ).toEqual({ status: "read", tables: [{ schema: null, name: "t" }] });
+  });
+
+  it("refuses what Metabase refuses: an unmatched [[ and an optional clause with no tag", () => {
+    expect(readSql("SELECT * FROM t [[WHERE x = 1", null)).toEqual({
+      status: "unread",
+      reason:
+        "Metabase cannot parse its template tags: Invalid query: found '[[' or '{{' with no matching ']]' or '}}'",
+    });
+    expect(
+      readSql(
+        "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.ID = o.USER_ID]]",
+        null,
+      ),
+    ).toEqual({
+      status: "unread",
+      reason:
+        "Metabase cannot parse its template tags: [[...]] clauses must contain at least one '{{...}}' clause.",
     });
   });
 });
