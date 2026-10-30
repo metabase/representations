@@ -95,6 +95,11 @@ describe("readColumns", () => {
       [column(null, "orders", "id")],
     ],
     [
+      "a quoted column that shares a niladic keyword's name",
+      'SELECT o.id, o."user" FROM orders o',
+      [column(null, "orders", "id"), column(null, "orders", "user", "quoted")],
+    ],
+    [
       "a quoted column as quoted, and one named both ways as unknown",
       'SELECT "Total", o.id, "id" FROM orders o',
       [

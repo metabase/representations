@@ -102,7 +102,8 @@ const IMPLICIT_COLUMNS: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * Whether a column `field_references` reads from `table` names no column of
- * it, by `shape` and the engine's `implicit` names.
+ * it, by `shape` and the engine's `implicit` names, which only an unquoted
+ * name can be.
  */
 function isNotTableColumn(
   column: string,
@@ -112,7 +113,7 @@ function isNotTableColumn(
 ): boolean {
   const name = fold(column);
   return (
-    implicit.includes(name) ||
+    (implicit.includes(name) && quotingOf(column, shape) !== "quoted") ||
     [...shape.selectAliases, ...shape.arrayJoinAliases].some(
       (alias) => fold(alias) === name,
     ) ||
