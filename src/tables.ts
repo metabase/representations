@@ -1,4 +1,4 @@
-import { isUnknownArray, stringOrNull, uniqueBy } from "./values.js";
+import { isUnknownArray, stringOrNull } from "./values.js";
 
 /** A table as a query names it: its schema, if the name is qualified, and its name. */
 export type TableName = {
@@ -79,20 +79,24 @@ export function sameTable(
 
 /**
  * `tables` without repeats, keeping the first of each: two keys repeat when
- * their database is equal, their case matters for both or neither
- * (`caseMatters`), their schema and name are equal (ignoring case when it does
- * not matter), and, when their schema is null, so is what it means
- * (`nullSchema`).
+ * their database is equal and `sameTable` holds whatever the database's
+ * default schema is, so their schemas are both given, or both null with the
+ * same meaning (`nullSchema`).
  */
 export function uniqueTables(tables: readonly TableKey[]): TableKey[] {
-  return uniqueBy(tables, (t) =>
-    JSON.stringify([
-      t.database,
-      t.caseMatters,
-      ...[t.schema, t.name].map((part) => (t.caseMatters ? part : fold(part))),
-      t.schema === null ? t.nullSchema : null,
-    ]),
-  );
+  const repeats = (a: TableKey, b: TableKey) =>
+    a.database === b.database &&
+    (a.schema !== null
+      ? b.schema !== null
+      : b.schema === null && a.nullSchema === b.nullSchema) &&
+    sameTable(a, b, () => null);
+  const kept: TableKey[] = [];
+  for (const table of tables) {
+    if (!kept.some((k) => repeats(k, table))) {
+      kept.push(table);
+    }
+  }
+  return kept;
 }
 
 /**

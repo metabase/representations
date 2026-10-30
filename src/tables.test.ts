@@ -249,14 +249,13 @@ describe("uniqueTables", () => {
     ]);
   });
 
-  it("keeps apart references whose case or database differs, and a reference from a SQL name", () => {
+  it("keeps apart references whose case or database differs", () => {
     expect(
       uniqueTables([
         ref("db", "s", "t"),
         ref("db", "s", "T"),
         ref("db", "S", "t"),
         ref("DB", "s", "t"),
-        table("db", "s", "t"),
         ref("db", "s", "t"),
       ]),
     ).toEqual([
@@ -264,8 +263,22 @@ describe("uniqueTables", () => {
       ref("db", "s", "T"),
       ref("db", "S", "t"),
       ref("DB", "s", "t"),
+    ]);
+  });
+
+  it("drops a SQL name that names a table already kept, ignoring case", () => {
+    expect(uniqueTables([ref("db", "S", "T"), table("db", "s", "t")])).toEqual([
+      ref("db", "S", "T"),
+    ]);
+    expect(uniqueTables([table("db", "s", "t"), ref("db", "S", "T")])).toEqual([
       table("db", "s", "t"),
     ]);
+  });
+
+  it("keeps an unqualified SQL name apart from a reference with no schema", () => {
+    expect(
+      uniqueTables([ref("db", null, "t"), table("db", null, "t")]),
+    ).toEqual([ref("db", null, "t"), table("db", null, "t")]);
   });
 });
 

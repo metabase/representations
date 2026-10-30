@@ -335,6 +335,71 @@ describe("lint", () => {
       ]);
     });
 
+    it("reports a table read by MBQL and by SQL once", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      writeFileSync(
+        join(workdir, CONFIG_FILE),
+        JSON.stringify({
+          defaultSchemas: {
+            "Sample Database": "PUBLIC",
+            [POSTGRES_DB]: "public",
+          },
+          engines: { "Sample Database": "postgres" },
+        }),
+      );
+      const card = join(workdir, "collections/main/queries/orders_model.yaml");
+      writeFileSync(
+        card,
+        readFileSync(card, "utf8").replace(
+          /stages:[\s\S]*?ORDERS\n/,
+          'stages:\n    - "lib/type": mbql.stage/native\n      native: SELECT * FROM PUBLIC.ORDERS\n',
+        ),
+      );
+      const transform = join(workdir, MBQL_TRANSFORM);
+      const doc: unknown = yaml.load(readFileSync(transform, "utf8"));
+      if (!isRecord(doc) || !isRecord(doc.source)) {
+        throw new Error(`${transform} has no source`);
+      }
+      doc.source.query = {
+        "lib/type": "mbql/query",
+        database: "Sample Database",
+        stages: [
+          {
+            "lib/type": "mbql.stage/mbql",
+            "source-table": ["Sample Database", "PUBLIC", "ORDERS"],
+            aggregation: [
+              [
+                "metric",
+                { "lib/uuid": "6f1c2a43-8f0e-4c4e-9b8a-0d5f1e2a3b4c" },
+                "4eroqa4ZYl4WkNjP8XTvu",
+              ],
+            ],
+          },
+        ],
+      };
+      writeFileSync(transform, yaml.dump(doc));
+      const test = join(
+        workdir,
+        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+      );
+      const input = "    schema: public\n    name: orders\n";
+      expect(readFileSync(test, "utf8")).toContain(input);
+      writeFileSync(
+        test,
+        readFileSync(test, "utf8").replace(
+          input,
+          "    schema: PUBLIC\n    name: PRODUCTS\n",
+        ),
+      );
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.rule === "missing-input")
+          .map((f) => f.message),
+      ).toEqual([
+        "no input for PUBLIC.ORDERS, which transform Monthly Order Summary reads",
+      ]);
+    });
+
     it("matches a qualified input to an unqualified read in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       expect(
