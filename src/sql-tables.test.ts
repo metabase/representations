@@ -87,6 +87,14 @@ describe("a SQL table reader", () => {
     });
   });
 
+  it("strips a large literal list before parsing, as Metabase does", () => {
+    const list = Array.from({ length: 150 }, (_, i) => String(i)).join(", ");
+    // `1 2` does not parse, but Metabase strips the whole list first.
+    expect(
+      readSql(`SELECT * FROM t WHERE id IN (${list}, 1 2)`, "Warehouse"),
+    ).toEqual({ status: "read", tables: [{ schema: null, name: "t" }] });
+  });
+
   it("reads SQL that is not a native query as written, with no template tags", () => {
     expect(readSql("SELECT * FROM t WHERE x = '{{snippet: s}}'", null)).toEqual(
       { status: "read", tables: [{ schema: null, name: "t" }] },

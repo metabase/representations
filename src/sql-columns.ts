@@ -8,6 +8,7 @@ import {
   type TableReplacement,
   type Unread,
 } from "./sql-parser.js";
+import { stripLargeLiteralLists } from "./literal-lists.js";
 import { isTagPlaceholder, prepareSql } from "./sql-tables.js";
 import { type ColumnKey, fold, type TableName } from "./tables.js";
 
@@ -151,11 +152,12 @@ export function createSqlColumnReader(
   parser: SqlParser,
   engineOf: EngineOf,
 ): SqlColumnReader {
+  // Metabase strips large literal lists before field_references.
   const fieldReferences = cacheBySql((sql, dialect) =>
-    parser.fieldReferences(sql, dialect),
+    parser.fieldReferences(stripLargeLiteralLists(sql), dialect),
   );
   const queryShape = cacheBySql((sql, dialect) =>
-    parser.queryShape(sql, dialect),
+    parser.queryShape(stripLargeLiteralLists(sql), dialect),
   );
 
   const referencesOf = <T>(

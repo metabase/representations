@@ -1,5 +1,6 @@
 import type { EngineOf } from "./databases.js";
 import { nativeQueriesAreSql } from "./engines.js";
+import { stripLargeLiteralLists } from "./literal-lists.js";
 import {
   type NativePart,
   parseNativeSql,
@@ -151,7 +152,8 @@ export type SqlTableReader = (
 /**
  * Returns a reader of the tables native SQL reads, as Metabase reads them
  * with `parser`: each table once, sorted. It parses the SQL as `prepareSql`
- * gives it for the database's engine. An unqualified placeholder read as a
+ * gives it for the database's engine, with its large literal lists stripped
+ * (`stripLargeLiteralLists`). An unqualified placeholder read as a
  * table reads nothing, since the tag's own definition names its card or
  * table. A placeholder after a schema is a table named as the tag is
  * written, `schema.{{name}}`, which matches no input or table file. Refuses
@@ -163,7 +165,7 @@ export function createSqlTableReader(
   engineOf: EngineOf,
 ): SqlTableReader {
   const parse = cacheBySql((sql, dialect) =>
-    parser.referencedTables(sql, dialect),
+    parser.referencedTables(stripLargeLiteralLists(sql), dialect),
   );
   return (sql, database, valuedTags) => {
     const prepared = prepareSql(sql, engineOf(database), valuedTags);
@@ -195,9 +197,9 @@ export function createSqlTableReader(
 
 /**
  * The tables SQL reads once `replacements` replace the tables they name, in
- * the database `database`: Metabase's `replace_names`, then
- * `referenced_tables`, on the SQL as written, in the dialect of the
- * database's engine. A quoted name matches a replacement only in its own
+ * the database `database`: Metabase's `replace_names` on the SQL as written,
+ * then `referenced_tables` with large literal lists stripped
+ * (`stripLargeLiteralLists`), in the dialect of the database's engine. A quoted name matches a replacement only in its own
  * case. Unread when the engine's native queries are not SQL, or SQLGlot
  * cannot parse the SQL.
  */
@@ -221,7 +223,7 @@ export function createRewrittenTableReader(
     const replaced = parser.replaceNames(sql, replacements, dialect);
     const result =
       replaced.status === "read"
-        ? parser.referencedTables(replaced.sql, dialect)
+        ? parser.referencedTables(stripLargeLiteralLists(replaced.sql), dialect)
         : replaced;
     return result.status === "read"
       ? result
