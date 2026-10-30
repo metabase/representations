@@ -7,6 +7,7 @@ import type { LintRule } from "../findings.js";
 const EXAMPLES = resolve(import.meta.dirname, "..", "..", "examples", "v1");
 
 const PRODUCT_REVENUE_REPORT = "collections/transforms/native_transform.yaml";
+const TOP_CATEGORIES = "collections/transforms/top_categories.yaml";
 const CATEGORY_TOTALS_TEST =
   "collections/transforms/native_transform/product_revenue_report__category_totals.yaml";
 const TOP_CATEGORIES_TEST =
@@ -447,8 +448,8 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "untestable-engine",
     description:
-      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test.",
-    rules: ["untestable-engine"],
+      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test. Snowflake reads its unquoted columns in upper case, so its test's lower-case columns miss them.",
+    rules: ["input-missing-read-column", "untestable-engine"],
     apply: (folder) => {
       writeDatabase(folder, "Warehouse", "snowflake", {
         default_schema: "PUBLIC",
@@ -517,6 +518,55 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       edit(folder, TOP_CATEGORIES_TEST, (doc) => {
         doc.expectations = [];
+      }),
+  },
+  {
+    name: "input-missing-read-column",
+    description:
+      "A test's orders input drops product_id, a column its transform joins on.",
+    rules: ["input-missing-read-column"],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        const orders = doc.inputs[0];
+        orders.columns = orders.columns.filter(
+          (column: Record<string, any>) => column.name !== "product_id",
+        );
+        for (const row of orders.rows) {
+          delete row.product_id;
+        }
+      }),
+  },
+  {
+    name: "upstream-column-mismatch",
+    description:
+      "Product Revenue Report renames its total_revenue column; the test of Top Categories, which reads it, keeps the old name.",
+    rules: ["upstream-column-mismatch"],
+    apply: (folder) =>
+      editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
+        sql.replace("AS total_revenue", "AS revenue"),
+      ),
+  },
+  {
+    name: "table-qualified-column",
+    description:
+      "Top Categories qualifies a column by the name of the table it reads, outside the default schema, with no alias; Metabase's test rewrite leaves the qualifier naming no table.",
+    rules: ["table-qualified-column"],
+    apply: (folder) =>
+      editNativeSql(folder, TOP_CATEGORIES, (sql) =>
+        sql.replace(
+          "SELECT\n  category,",
+          "SELECT\n  product_revenue_report.category,",
+        ),
+      ),
+  },
+  {
+    name: "live-sql-input",
+    description:
+      "A test's SQL input reads the real products table, so the test depends on live data.",
+    rules: ["live-sql-input"],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        doc.inputs[1].sql = "SELECT id, category FROM products";
       }),
   },
   {
