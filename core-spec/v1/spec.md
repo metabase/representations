@@ -2942,12 +2942,33 @@ The `source` defines how data is produced — either an MBQL/native query (`type
 | `creator_id` | string | Yes | User FK (email) |
 | `source_database_id` | string | Yes | Database FK (database name) |
 | `source` | object | Yes | Source definition — query or Python (see below) |
-| `target` | object | Yes | Target table: `database` (Database FK), `type` (`"table"`), `schema`, `name` |
+| `target` | object | Yes | Target table: `database` (Database FK), `type` (`"table"` or `"table-incremental"`), `schema`, `name`, and `target-incremental-strategy` (required when `type` is `"table-incremental"`; see [Incremental Target](#incremental-target)) |
 | `serdes/meta` | array | Yes | Identity path with `model: Transform` |
 | `description` | string | No | Description |
 | `collection_id` | string | No | Collection FK (entity_id). **Set this to place the transform in a collection**; `null`/omitted = root collection |
 | `tags` | array | No | Transform tags (see below) |
 | `created_at` | string | No | ISO 8601 timestamp |
+
+### Incremental Target
+
+A `table-incremental` target keeps its table between runs and writes each run's new rows into it. `target-incremental-strategy` says how:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | `"append"` inserts the new rows; `"merge"` updates rows whose unique key matches and inserts the rest |
+| `unique-key` | array | With `merge` | The target columns that identify a row. Each entry has `name` (column name) and, once the target table exists in Metabase, `field-id` (Metabase field ID). Not allowed with `append` |
+
+```yaml
+target:
+  database: Sample Database
+  type: table-incremental
+  schema: TRANSFORMS
+  name: order_totals
+  target-incremental-strategy:
+    type: merge
+    unique-key:
+    - name: ID
+```
 
 ### Query Source
 

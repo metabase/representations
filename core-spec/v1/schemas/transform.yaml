@@ -58,6 +58,14 @@ properties:
       name:
         type: string
         description: Target table name
+      target-incremental-strategy:
+        $ref: "#/$defs/target_incremental_strategy"
+    if:
+      properties:
+        type: { const: table-incremental }
+    then:
+      required:
+        - target-incremental-strategy
   creator_id:
     $ref: "common/id.yaml#/$defs/user_id"
   description:
@@ -180,3 +188,57 @@ $defs:
       source-incremental-strategy:
         type: object
         description: Incremental execution strategy
+
+  target_incremental_strategy:
+    type: object
+    description: >
+      How a table-incremental target takes each run's new rows: append them
+      (type: append), or merge them on a unique key (type: merge), updating
+      rows whose key matches and inserting the rest.
+    required:
+      - type
+    properties:
+      type:
+        type: string
+        enum:
+          - append
+          - merge
+    allOf:
+      - if:
+          properties:
+            type: { const: append }
+        then:
+          additionalProperties: false
+          properties:
+            type: true
+      - if:
+          properties:
+            type: { const: merge }
+        then:
+          additionalProperties: false
+          required:
+            - unique-key
+          properties:
+            type: true
+            unique-key:
+              type: array
+              description: The target columns that identify a row
+              items:
+                $ref: "#/$defs/merge_key_column"
+
+  merge_key_column:
+    type: object
+    description: >
+      One column of a merge unique key. Carries field-id once the target
+      table exists in Metabase; name alone otherwise.
+    additionalProperties: false
+    properties:
+      name:
+        type: string
+        pattern: "\\S"
+        description: Column name in the target table
+      field-id:
+        type:
+          - integer
+          - "null"
+        description: Metabase field ID of the column
