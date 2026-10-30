@@ -2042,7 +2042,7 @@ On **cards**, parameters are typically empty `[]` for MBQL queries. For native q
 | `default` | any | No | Default value |
 | `required` | boolean | No | Whether a value is required |
 | `sectionId` | string | No | Parameter section grouping |
-| `temporal_units` | array | No | Allowed temporal units (for `temporal-unit` type) |
+| `temporal_units` | array | No | Allowed temporal units (for `temporal-unit` type): `default`, a truncation unit (`millisecond`, `second`, `minute`, `hour`, `day`, `week`, `month`, `quarter`, `year`), or an extraction unit (`second-of-minute`, `minute-of-hour`, `hour-of-day`, `day-of-week`, `day-of-month`, `day-of-year`, `week-of-year`, `month-of-year`, `quarter-of-year`, `year-of-era`) |
 | `values_query_type` | string | No | `"list"`, `"search"`, or `"none"` — controls how values are fetched |
 | `values_source_type` | string | No | `null`, `"card"`, or `"static-list"` — where values come from |
 | `values_source_config` | map | No | Source configuration (see below) |
@@ -2305,7 +2305,7 @@ A card represents a Question, Model, or Metric in Metabase. Cards are the primar
 
 ### Display Types
 
-`table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `list`, `heading`, `text`, `link`, `iframe`, `action`, `sankey`, `boxplot`, `number`.
+`table`, `bar`, `line`, `area`, `row`, `pie`, `scalar`, `smartscalar`, `combo`, `pivot`, `funnel`, `map`, `scatter`, `waterfall`, `progress`, `gauge`, `object`, `list`, `heading`, `text`, `link`, `iframe`, `action`, `sankey`, `boxplot`, `treemap`, `number`.
 
 ### Card Parameters
 
@@ -2569,7 +2569,7 @@ A dashboard card places a card (question) on the dashboard grid. Most dashboard 
 | `size_y` | integer | Yes | Height in grid units (1+) |
 | `serdes/meta` | array | Yes | Identity path: Dashboard → DashboardCard |
 | `dashboard_tab_id` | string | No | Tab entity_id, `null` for untabbed |
-| `inline_parameters` | array | No | List of parameter UUIDs to display directly on this dashcard |
+| `inline_parameters` | array | No | List of parameter UUIDs to display directly on this dashcard. `null` on dashcards created before inline parameters existed |
 | `parameter_mappings` | array | No | Parameter-to-card mappings (see below) |
 | `series` | array | No | Overlay series (see below) |
 | `visualization_settings` | map | No | Display settings |

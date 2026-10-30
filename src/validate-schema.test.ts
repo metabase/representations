@@ -247,6 +247,89 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("cards and dashboards", () => {
+      const example = (...path: string[]): Record<string, any> =>
+        yaml.load(
+          readFileSync(join(EXAMPLES, "collections", "main", ...path), "utf8"),
+        ) as Record<string, any>; // Example cards and dashboards are YAML maps.
+
+      const validateEntity = (entity: Record<string, any>) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "entity.yaml"),
+          yaml.dump(entity),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      const card = example(
+        "dashboards",
+        "series_and_mappings",
+        "monthly_orders.yaml",
+      );
+
+      it("accepts a card displayed as a treemap", () => {
+        expect(validateEntity({ ...card, display: "treemap" }).failed).toBe(0);
+      });
+
+      it("rejects a card with an unknown display", () => {
+        expect(validateEntity({ ...card, display: "venn" }).failed).toBe(1);
+      });
+
+      const withTemporalUnits = (temporalUnits: string[]) => {
+        const dashboard = example("dashboards", "all_parameter_types.yaml");
+        return {
+          ...dashboard,
+          parameters: dashboard.parameters.map(
+            (parameter: Record<string, any>) =>
+              parameter.type === "temporal-unit"
+                ? { ...parameter, temporal_units: temporalUnits }
+                : parameter,
+          ),
+        };
+      };
+
+      it("accepts a temporal-unit parameter offering extraction units", () => {
+        expect(
+          validateEntity(
+            withTemporalUnits([
+              "month",
+              "day-of-week",
+              "month-of-year",
+              "year-of-era",
+            ]),
+          ).failed,
+        ).toBe(0);
+      });
+
+      it("rejects a temporal-unit parameter offering an extraction mode", () => {
+        expect(
+          validateEntity(withTemporalUnits(["day-of-week-iso"])).failed,
+        ).toBe(1);
+      });
+
+      const withInlineParameters = (inlineParameters: unknown) => {
+        const dashboard = example("dashboards", "inline_parameters.yaml");
+        return {
+          ...dashboard,
+          dashcards: dashboard.dashcards.map(
+            (dashcard: Record<string, any>) => ({
+              ...dashcard,
+              inline_parameters: inlineParameters,
+            }),
+          ),
+        };
+      };
+
+      it("accepts a dashcard whose inline parameters are null", () => {
+        expect(validateEntity(withInlineParameters(null)).failed).toBe(0);
+      });
+
+      it("rejects a dashcard whose inline parameters are not a list", () => {
+        expect(validateEntity(withInlineParameters("d0000001")).failed).toBe(1);
+      });
+    });
+
     describe("serdes/meta", () => {
       const collection = {
         name: "Reports",

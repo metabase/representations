@@ -48,6 +48,7 @@ properties:
       - action
       - sankey
       - boxplot
+      - treemap
   creator_id:
     $ref: "common/id.yaml#/$defs/user_id"
   database_id:

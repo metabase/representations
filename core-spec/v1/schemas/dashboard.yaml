@@ -208,10 +208,11 @@ $defs:
           minItems: 2
           maxItems: 2
       inline_parameters:
-        type: array
+        type: [array, "null"]
         description: >
           List of parameter IDs to display directly on this
-          dashcard instead of at the top of the dashboard.
+          dashcard instead of at the top of the dashboard. Null on
+          dashcards created before inline parameters existed.
         items:
           type: string
       parameter_mappings:
