@@ -148,7 +148,7 @@ describe("a SQL table reader", () => {
     expect(result).toEqual({
       status: "unread",
       reason:
-        "SQLGlot could not parse it: ParseError: Invalid expression / Unexpected token. Line 1, Col: 19.",
+        "SQLGlot could not parse it: ParseError: Invalid expression / Unexpected token. Line 1, Col: 19. Line 1: SELECT * FROM a b c",
     });
   });
 });

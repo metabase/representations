@@ -225,7 +225,7 @@ describe("reportLiveSqlInputs", () => {
         rule: "reads-not-checked",
         file: test.file,
         message:
-          "could not find the tables input public.customers reads: SQLGlot could not parse it: ParseError: Invalid expression / Unexpected token. Line 1, Col: 19.",
+          "could not find the tables input public.customers reads: SQLGlot could not parse it: ParseError: Invalid expression / Unexpected token. Line 1, Col: 19. Line 1: SELECT * FROM a b c",
         related: [],
       },
     ]);

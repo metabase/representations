@@ -336,11 +336,13 @@ describe("loadSqlParser", () => {
     );
   });
 
-  it("gives the first line of SQLGlot's error, not the SQL it quotes with terminal escapes", () => {
-    expect(parser.referencedTables("SELECT * FROM a b c", "postgres")).toEqual({
+  it("gives the first line of SQLGlot's error, not the SQL it quotes with terminal escapes, and the line of SQL a ParseError names", () => {
+    expect(
+      parser.referencedTables("SELECT *\n  FROM a b c\nLIMIT 1", "postgres"),
+    ).toEqual({
       status: "unread",
       reason:
-        "ParseError: Invalid expression / Unexpected token. Line 1, Col: 19.",
+        "ParseError: Invalid expression / Unexpected token. Line 2, Col: 12. Line 2: FROM a b c",
     });
   });
 });

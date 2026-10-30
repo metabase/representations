@@ -171,7 +171,7 @@ const ANSWER_MARK = "\u00b6";
 // Calls one of Metabase's functions and answers in JSON after ANSWER_MARK, so
 // that no Python object crosses into JavaScript. An error keeps its first
 // line: SQLGlot's next lines quote the SQL, with terminal escapes underlining
-// where it stopped.
+// where it stopped. A ParseError adds the line of SQL it names instead.
 const CALL_SQL_TOOLS_PY = `
 import json
 
@@ -212,12 +212,23 @@ def lint_query_shape(sql, dialect):
     })
 
 
+def offending_line(e, sql):
+    errors = getattr(e, "errors", None)
+    line = errors[0].get("line") if errors and isinstance(errors[0], dict) else None
+    sql_lines = sql.splitlines() if isinstance(sql, str) else []
+    if not isinstance(line, int) or not 1 <= line <= len(sql_lines):
+        return ""
+    text = sql_lines[line - 1].strip()
+    return f" Line {line}: {text[:200]}{'...' if len(text) > 200 else ''}"
+
+
 def lint_call_sql_tools(function, *args):
     try:
         answer = (lint_query_shape if function == "lint_query_shape" else getattr(sql_tools, function))(*args)
     except Exception as e:
         lines = str(e).splitlines()
-        return ANSWER_MARK + json.dumps({"error": type(e).__name__, "message": lines[0] if lines else ""})
+        message = (lines[0] if lines else "") + offending_line(e, args[0] if args else None)
+        return ANSWER_MARK + json.dumps({"error": type(e).__name__, "message": message})
     return ANSWER_MARK + json.dumps({"answer": answer})
 `;
 
