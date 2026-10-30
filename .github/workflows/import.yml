@@ -1,9 +1,13 @@
 name: Import
 
+# Imports the examples into the latest Metabase build and compares the lint
+# with Metabase. Metabase changes on its own schedule, so this also runs daily.
 on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "30 6 * * *"
 
 jobs:
   import-test:
