@@ -335,7 +335,9 @@ const PYODIDE_VERSION = "314.0.7";
 
 /** Whether `error`, from importing `pyodide`, says the package is not installed. */
 const isPyodideMissing = (error: unknown): boolean =>
-  isRecord(error) &&
+  typeof error === "object" &&
+  error !== null &&
+  "code" in error &&
   error.code === "ERR_MODULE_NOT_FOUND" &&
   errorMessage(error).includes("'pyodide'");
 
