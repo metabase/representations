@@ -14,6 +14,7 @@ import { join, resolve } from "path";
 import { loadSchemas } from "./schemas.js";
 import {
   checkSchema,
+  entityFiles,
   IMPORTED_MODELS,
   validateSchema,
 } from "./validate-schema.js";
@@ -830,5 +831,40 @@ describe("time text", () => {
     "10:00+05:3015",
   ])("refuses %p, as Metabase does", (text) => {
     expect(status(text)).toBe("bad-timestamp");
+  });
+});
+
+// Remote sync's git source sorts the repository's file paths as strings
+// (`remote_sync/source/git.clj` `list-files`): Java's String.compareTo, by
+// UTF-16 code unit over the whole path, not folder by folder or by locale.
+describe("entityFiles", () => {
+  it("lists files in the order of their whole paths' UTF-16 code units", () => {
+    const folder = mkdtempSync(join(tmpdir(), "representations-order-"));
+    try {
+      const files = [
+        "transforms/transform_tags/mid.yaml",
+        "transforms/transform_tags/a-b.yaml",
+        "collections/a/b.yaml",
+        "collections/a-b.yaml",
+        "collections/a.yaml",
+        "collections/B.yaml",
+      ];
+      for (const file of files) {
+        mkdirSync(join(folder, file, ".."), { recursive: true });
+        writeFileSync(join(folder, file), "");
+      }
+      // Folder by folder, a/b.yaml would come before a-b.yaml and a.yaml;
+      // by locale, a.yaml would come before B.yaml.
+      expect(entityFiles(folder)).toEqual([
+        "collections/B.yaml",
+        "collections/a-b.yaml",
+        "collections/a.yaml",
+        "collections/a/b.yaml",
+        "transforms/transform_tags/a-b.yaml",
+        "transforms/transform_tags/mid.yaml",
+      ]);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 });

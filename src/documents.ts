@@ -327,11 +327,11 @@ export function indexByEntityId(docs: readonly Doc[]): Map<string, Doc[]> {
 
 /**
  * The document of `model` that an entity_id names: of the files of that
- * model that hold it, the last in path order. Metabase resolves a reference
- * by its model and entity_id (`resolve/default.clj` `import-fk`), and loads a
- * second file with one entity_id over the entity the first created
- * (`serialization.clj` `load-find-local`), so the last file's content stands.
- * Null when no file of `model` holds it.
+ * model that hold it, the last in path order. Remote sync lists a
+ * repository's files sorted by path (`remote_sync/source/git.clj`
+ * `list-files`) and keeps the last file read for each entity
+ * (`remote_sync/source/ingestable.clj` `ingest-all`), so the last file's
+ * content stands. Null when no file of `model` holds it.
  */
 export function holderOf(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,

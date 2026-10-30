@@ -69,7 +69,9 @@ export const IMPORTED_MODELS = [
 const IMPORTED = new Set<string>(IMPORTED_MODELS);
 
 /**
- * The files of `folder` that Metabase imports, in path order: each `.yaml`
+ * The files of `folder` that Metabase imports, in path order (their paths
+ * relative to `folder`, by UTF-16 code unit, as remote sync's git source sorts
+ * them): each `.yaml`
  * file at any depth under an `ENTITY_FOLDERS` folder, and each
  * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
  * Names match in their exact case, on any platform. A file whose name starts

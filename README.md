@@ -100,7 +100,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `schema` | error | A card, dashboard, document, transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map or not valid UTF-8, or a file whose `serdes/meta` names no model or a model Metabase does not import. |
 | `skipped-by-metabase` | warning | A file with no `serdes/meta`, or an empty file, which Metabase skips. |
 | `duplicate-yaml-key` | warning | A key written twice in one map of a file. Metabase keeps the last value without a message. |
-| `duplicate-entity-id` | warning | Two files of one model that hold the same `entity_id`. Metabase keeps the last in path order and drops the others without a message. Files of different models may share an `entity_id`. |
+| `duplicate-entity-id` | warning | Two files of one model that hold the same `entity_id`. Remote sync keeps the last in path order (the paths sorted as strings, by UTF-16 code unit) and drops the others without a message. Files of different models may share an `entity_id`. |
 | `dangling-transform-id` | error | A test whose `transform_id` matches no entity. |
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
 | `duplicate-target` | warning | Two transforms that write the same table. On Redshift, which folds every name to lower case, targets that differ only in case are the same table. |
