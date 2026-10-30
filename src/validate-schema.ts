@@ -193,12 +193,19 @@ function skippedByMetabase(doc: unknown): boolean {
 // The text Metabase's `u.date/parse` reads (`src/metabase/util/date_2/parse.clj`
 // `formatter`), approximately: an optional date, `T` or a space, an optional
 // time, and an optional offset and zone. Field ranges are checked, but not a
-// day past its month's end; a zone must be one JavaScript knows.
+// day past its month's end. A zone must be one JavaScript knows, which differs
+// from Java's list: `EST` passes here and fails in Metabase; `UT` and
+// `UTC+01:00` fail here and pass in Metabase.
+// A year of more than four digits needs a sign.
 const DATE =
-  "[+-]?\\d{4,10}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\\d|3[01]))?)?";
-const TIME = "(?:[01]\\d|2[0-3])(?::[0-5]\\d(?::[0-5]\\d(?:\\.\\d{0,9})?)?)?";
-const OFFSET =
-  " ?(?:Z|[+-](?:[01]\\d|2[0-3])(?::?[0-5]\\d(?::?[0-5]\\d)?)?)?(?:\\[?(?<zone>[A-Za-z][A-Za-z0-9~/._+-]*)\\]?)?";
+  "(?:\\d{4}|\\+\\d{5,9}|-\\d{4,9})(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\\d|3[01]))?)?";
+// 24:00 is midnight at the day's end.
+const TIME =
+  "(?:(?:[01]\\d|2[0-3])(?::[0-5]\\d(?::[0-5]\\d(?:\\.\\d{0,9})?)?)?|24(?::00(?::00(?:\\.0{0,9})?)?)?)";
+// Java's offsets run from -18:00 to +18:00.
+const OFFSET_HOURS =
+  "(?:(?:0\\d|1[0-7])(?::[0-5]\\d(?::[0-5]\\d)?|[0-5]\\d)?|18(?::00(?::00)?|00)?)";
+const OFFSET = ` ?(?:Z|[+-]${OFFSET_HOURS})?(?:\\[?(?<zone>[A-Za-z][A-Za-z0-9~/._+-]*)\\]?)?`;
 const TIMESTAMP_TEXT = new RegExp(
   `^(?:${DATE}T? ?(?:${TIME})?|T? ?${TIME})${OFFSET}$`,
   "i",

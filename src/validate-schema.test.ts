@@ -12,7 +12,11 @@ import { tmpdir } from "os";
 import { join, resolve } from "path";
 
 import { loadSchemas } from "./schemas.js";
-import { IMPORTED_MODELS, validateSchema } from "./validate-schema.js";
+import {
+  checkSchema,
+  IMPORTED_MODELS,
+  validateSchema,
+} from "./validate-schema.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
@@ -702,5 +706,51 @@ describe("validateSchema", () => {
         },
       ]);
     });
+  });
+});
+
+// Each verdict is that of Java's DateTimeFormatter built as Metabase's
+// `u.date/parse` builds it (`src/metabase/util/date_2/parse.clj`).
+describe("time text", () => {
+  const schemas = loadSchemas();
+  const status = (text: string) =>
+    checkSchema({ value: { created_at: text }, nonStringKeys: [] }, schemas)
+      .status;
+
+  it.each([
+    "24:00",
+    "24:00:00",
+    "2024-01-05T24:00",
+    "2024-01-05 24:00:00.000",
+    "+12024-01-05",
+    "-2024-01-05",
+    "+999999999-01-01",
+    "10:00+18:00",
+    "10:00-18:00",
+    "10:00+17:59:59",
+    "10:00+18",
+    "10:00+0530",
+    "10:00+05:30:15",
+  ])("reads %p, as Metabase does", (text) => {
+    expect(status(text)).toBe("skipped");
+  });
+
+  it.each([
+    "24:30",
+    "24:00:01",
+    "24:00:00.5",
+    "+2024-01-05",
+    "12024-01-05",
+    "1000000-01-01",
+    "-024-01-05",
+    "+1000000000-01-01",
+    "10:00+18:30",
+    "10:00+19:00",
+    "10:00-18:01",
+    "10:00+19",
+    "10:00+053015",
+    "10:00+05:3015",
+  ])("refuses %p, as Metabase does", (text) => {
+    expect(status(text)).toBe("bad-timestamp");
   });
 });
