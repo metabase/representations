@@ -3,7 +3,7 @@ import { resolve } from "path";
 
 import { LintSetupError } from "./settings.js";
 import type { TableName } from "./tables.js";
-import { errorMessage, isRecord } from "./values.js";
+import { errorMessage, isRecord, isUnknownArray } from "./values.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
 /** Why SQLGlot could not read a SQL text. */
@@ -273,69 +273,121 @@ export function answerOf(
   };
 }
 
-/** A field spec as `sql_tools.field_references` writes it. */
-type FieldSpecJson =
-  | {
-      type: "single_column";
-      column: string;
-      alias: string | null;
-      source_columns: FieldSpecJson[][];
-    }
-  | { type: "all_columns"; table: { schema?: string; table: string } }
-  | { type: "custom_field" | "composite_field"; alias: string | null }
-  | { type: "unknown_columns" };
+/** Unread: an answer whose shape the lint does not know. */
+const UNEXPECTED_SHAPE: Unread = {
+  status: "unread",
+  reason: "the SQL parser answered in a shape the lint does not know",
+};
 
-/** An error as `sql_tools.field_references` writes it. */
-type FieldError = { type: string; table?: string };
-
-/** A field spec of `field_references`' JSON as a `FieldSpec`. */
-function fieldSpecOf(spec: FieldSpecJson): FieldSpec {
-  switch (spec.type) {
-    case "single_column":
-      return {
-        type: spec.type,
-        column: spec.column,
-        alias: spec.alias,
-        sourceColumns: spec.source_columns.map((scope) =>
-          scope.map(fieldSpecOf),
-        ),
-      };
-    case "all_columns":
-      return {
-        type: spec.type,
-        table: { schema: spec.table.schema ?? null, name: spec.table.table },
-      };
-    case "custom_field":
-    case "composite_field":
-      return { type: spec.type, alias: spec.alias };
-    case "unknown_columns":
-      return { type: spec.type };
-    default: {
-      // A type a later sql_tools adds reads as columns the lint cannot place.
-      const unknownType: never = spec;
-      void unknownType;
-      return { type: "unknown_columns" };
-    }
+/** The JSON that `answer`, a `sql_tools` answer, holds; undefined when it holds none. */
+function jsonOf(answer: unknown): unknown {
+  if (typeof answer !== "string") {
+    return undefined;
+  }
+  try {
+    return JSON.parse(answer);
+    // eslint-disable-next-line no-restricted-syntax -- wraps JSON.parse only
+  } catch {
+    return undefined;
   }
 }
 
-/** `field_references`' answer, or unread when it reports a syntax error. */
-function fieldReferencesOf(
-  answer: string,
-): { status: "read"; references: FieldReferences } | Unread {
-  const json = JSON.parse(answer) as {
-    used_fields: FieldSpecJson[];
-    returned_fields: FieldSpecJson[];
-    errors: (FieldError | [string, string][])[];
-  };
+const isStringOrNull = (value: unknown): value is string | null =>
+  value === null || typeof value === "string";
+
+const isStringArray = (value: unknown): value is string[] =>
+  isUnknownArray(value) && value.every((v) => typeof v === "string");
+
+/**
+ * A field spec of `field_references`' JSON as a `FieldSpec`; null when it is
+ * not one. A type the lint does not know reads as columns it cannot place.
+ */
+function fieldSpecOf(spec: unknown): FieldSpec | null {
+  if (!isRecord(spec) || typeof spec.type !== "string") {
+    return null;
+  }
+  switch (spec.type) {
+    case "single_column": {
+      const { column, alias, source_columns: scopes } = spec;
+      if (
+        typeof column !== "string" ||
+        !isStringOrNull(alias) ||
+        !isUnknownArray(scopes)
+      ) {
+        return null;
+      }
+      const sourceColumns: FieldSpec[][] = [];
+      for (const scope of scopes) {
+        const specs = isUnknownArray(scope) ? scope.map(fieldSpecOf) : [null];
+        if (specs.includes(null)) {
+          return null;
+        }
+        sourceColumns.push(specs.filter((s) => s !== null));
+      }
+      return { type: spec.type, column, alias, sourceColumns };
+    }
+    case "all_columns": {
+      const { table } = spec;
+      return isRecord(table) &&
+        typeof table.table === "string" &&
+        (table.schema === undefined || typeof table.schema === "string")
+        ? {
+            type: spec.type,
+            table: { schema: table.schema ?? null, name: table.table },
+          }
+        : null;
+    }
+    case "custom_field":
+    case "composite_field":
+      return isStringOrNull(spec.alias)
+        ? { type: spec.type, alias: spec.alias }
+        : null;
+    default:
+      return { type: "unknown_columns" };
+  }
+}
+
+/** Each of `specs` as a `FieldSpec`; null when one is not a field spec. */
+function fieldSpecsOf(specs: unknown): FieldSpec[] | null {
+  if (!isUnknownArray(specs)) {
+    return null;
+  }
+  const read = specs.map(fieldSpecOf);
+  return read.includes(null) ? null : read.filter((s) => s !== null);
+}
+
+/** An error of `field_references`' JSON as a map; null when it is not one. */
+function fieldErrorOf(error: unknown): Record<string, unknown> | null {
   // The syntax error of a query that is neither a SELECT nor a UNION, such
   // as an INTERSECT, comes as a list of [key, value] pairs.
-  const errors = json.errors.map((e) =>
-    Array.isArray(e) ? (Object.fromEntries(e) as FieldError) : e,
-  );
+  if (isUnknownArray(error)) {
+    return error.every((pair) => isStringArray(pair) && pair.length === 2)
+      ? Object.fromEntries(error.filter(isStringArray))
+      : null;
+  }
+  return isRecord(error) && typeof error.type === "string" ? error : null;
+}
+
+/**
+ * `field_references`' answer; unread when it reports a syntax error, or is
+ * not in the shape `sql_tools` writes.
+ */
+export function fieldReferencesOf(
+  answer: unknown,
+): { status: "read"; references: FieldReferences } | Unread {
+  const json = jsonOf(answer);
+  if (!isRecord(json) || !isUnknownArray(json.errors)) {
+    return UNEXPECTED_SHAPE;
+  }
+  const usedFields = fieldSpecsOf(json.used_fields);
+  const returnedFields = fieldSpecsOf(json.returned_fields);
+  const errors = json.errors.map(fieldErrorOf);
+  if (usedFields === null || returnedFields === null || errors.includes(null)) {
+    return UNEXPECTED_SHAPE;
+  }
   // A missing_column error, an unqualified column that no table in its scope
   // can give, names no table's column; the column checks need none.
-  if (errors.some((e) => e.type === "syntax_error")) {
+  if (errors.some((e) => e?.type === "syntax_error")) {
     return { status: "unread", reason: "field_references could not parse it" };
   }
   return {
@@ -343,19 +395,84 @@ function fieldReferencesOf(
     references: {
       // Python builds these two from sets, whose order changes from one
       // process to the next.
-      usedFields: json.used_fields
-        .map(fieldSpecOf)
+      usedFields: usedFields
         .map((spec) => ({ spec, key: JSON.stringify(spec) }))
         .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
         .map(({ spec }) => spec),
-      returnedFields: json.returned_fields.map(fieldSpecOf),
+      returnedFields,
       missingTableAliases: errors
         .flatMap((e) =>
-          e.type === "missing_table_alias" && e.table !== undefined
+          e?.type === "missing_table_alias" && typeof e.table === "string"
             ? [e.table]
             : [],
         )
         .sort(),
+    },
+  };
+}
+
+/**
+ * `referenced_tables`' answer, a list of [catalog, schema, table]; unread
+ * when it is not in that shape.
+ */
+export function referencedTablesOf(answer: unknown): ParsedTables {
+  const json = jsonOf(answer);
+  const tables: TableName[] = [];
+  if (!isUnknownArray(json)) {
+    return UNEXPECTED_SHAPE;
+  }
+  for (const entry of json) {
+    if (
+      !isUnknownArray(entry) ||
+      entry.length !== 3 ||
+      !isStringOrNull(entry[0]) ||
+      !isStringOrNull(entry[1]) ||
+      typeof entry[2] !== "string"
+    ) {
+      return UNEXPECTED_SHAPE;
+    }
+    tables.push({ schema: entry[1], name: entry[2] });
+  }
+  return { status: "read", tables };
+}
+
+/** `lint_query_shape`'s answer; unread when it is not in the shape it writes. */
+export function queryShapeOf(
+  answer: unknown,
+): { status: "read"; shape: QueryShape } | Unread {
+  const json = jsonOf(answer);
+  if (
+    !isRecord(json) ||
+    typeof json.returns_star !== "boolean" ||
+    !isStringArray(json.select_aliases) ||
+    !isStringArray(json.array_join_aliases) ||
+    !isUnknownArray(json.column_aliased_tables) ||
+    !isStringArray(json.quoted_columns) ||
+    !isStringArray(json.unquoted_columns)
+  ) {
+    return UNEXPECTED_SHAPE;
+  }
+  const columnAliasedTables: TableName[] = [];
+  for (const table of json.column_aliased_tables) {
+    if (
+      !isUnknownArray(table) ||
+      table.length !== 2 ||
+      !isStringOrNull(table[0]) ||
+      typeof table[1] !== "string"
+    ) {
+      return UNEXPECTED_SHAPE;
+    }
+    columnAliasedTables.push({ schema: table[0], name: table[1] });
+  }
+  return {
+    status: "read",
+    shape: {
+      returnsStar: json.returns_star,
+      selectAliases: json.select_aliases,
+      arrayJoinAliases: json.array_join_aliases,
+      columnAliasedTables,
+      quotedColumns: json.quoted_columns,
+      unquotedColumns: json.unquoted_columns,
     },
   };
 }
@@ -410,24 +527,13 @@ async function startSqlParser(): Promise<SqlParser> {
     if (typeof json !== "string") {
       throw new Error("lint_call_sql_tools did not answer a string");
     }
-    // Each function of sql_tools the lint calls answers a string.
-    return answerOf(json) as { status: "read"; answer: string } | Unread;
+    return answerOf(json);
   };
   return {
     referencedTables: (sql, dialect) => {
       const result = call("referenced_tables", sql, dialect);
       return result.status === "read"
-        ? {
-            status: "read",
-            // A list of [catalog, schema, table].
-            tables: (
-              JSON.parse(result.answer) as [
-                string | null,
-                string | null,
-                string,
-              ][]
-            ).map(([, schema, name]) => ({ schema, name })),
-          }
+        ? referencedTablesOf(result.answer)
         : result;
     },
     fieldReferences: (sql, dialect) => {
@@ -444,37 +550,16 @@ async function startSqlParser(): Promise<SqlParser> {
         JSON.stringify({ tables: replacements, columns: null }),
         dialect,
       );
-      return result.status === "read"
-        ? { status: "read", sql: result.answer }
-        : result;
-    },
-    queryShape: (sql, dialect) => {
-      const result = call("lint_query_shape", sql, dialect);
       if (result.status !== "read") {
         return result;
       }
-      // lint_query_shape writes this shape.
-      const json = JSON.parse(result.answer) as {
-        returns_star: boolean;
-        select_aliases: string[];
-        array_join_aliases: string[];
-        column_aliased_tables: [string | null, string][];
-        quoted_columns: string[];
-        unquoted_columns: string[];
-      };
-      return {
-        status: "read",
-        shape: {
-          returnsStar: json.returns_star,
-          selectAliases: json.select_aliases,
-          arrayJoinAliases: json.array_join_aliases,
-          columnAliasedTables: json.column_aliased_tables.map(
-            ([schema, name]) => ({ schema, name }),
-          ),
-          quotedColumns: json.quoted_columns,
-          unquotedColumns: json.unquoted_columns,
-        },
-      };
+      return typeof result.answer === "string"
+        ? { status: "read", sql: result.answer }
+        : UNEXPECTED_SHAPE;
+    },
+    queryShape: (sql, dialect) => {
+      const result = call("lint_query_shape", sql, dialect);
+      return result.status === "read" ? queryShapeOf(result.answer) : result;
     },
   };
 }

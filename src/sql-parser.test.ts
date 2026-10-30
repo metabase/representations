@@ -7,7 +7,10 @@ import {
   answerOf,
   cacheBySql,
   dialectOf,
+  fieldReferencesOf,
   loadSqlParser,
+  queryShapeOf,
+  referencedTablesOf,
   type SqlParser,
   type Unread,
   withSqlParser,
@@ -97,6 +100,115 @@ describe("answerOf", () => {
       status: "unread",
       reason: "the SQL parser answered with JSON that is not an answer",
     });
+  });
+});
+
+describe("reading sql_tools' answers", () => {
+  const unexpected: Unread = {
+    status: "unread",
+    reason: "the SQL parser answered in a shape the lint does not know",
+  };
+  const fields = (fields: unknown, errors: unknown = []) =>
+    JSON.stringify({ used_fields: fields, returned_fields: [], errors });
+
+  it("reads a field spec of a type the lint does not know as unknown columns", () => {
+    expect(fieldReferencesOf(fields([{ type: "window_field" }]))).toEqual({
+      status: "read",
+      references: {
+        usedFields: [{ type: "unknown_columns" }],
+        returnedFields: [],
+        missingTableAliases: [],
+      },
+    });
+  });
+
+  it("reads an error as a map or as [key, value] pairs", () => {
+    expect(
+      fieldReferencesOf(
+        fields(
+          [],
+          [
+            [
+              ["type", "missing_table_alias"],
+              ["table", "b"],
+            ],
+            { type: "missing_table_alias", table: "a" },
+          ],
+        ),
+      ),
+    ).toMatchObject({
+      status: "read",
+      references: { missingTableAliases: ["a", "b"] },
+    });
+  });
+
+  it.each([
+    ["not text", 5],
+    ["not JSON", "{"],
+    ["not a map", "[]"],
+    ["fields that are not a list", fields({})],
+    ["a field spec with no type", fields([{ column: "a" }])],
+    [
+      "a single column with no column",
+      fields([{ type: "single_column", alias: null, source_columns: [] }]),
+    ],
+    [
+      "a source scope that is not a list",
+      fields([
+        {
+          type: "single_column",
+          column: "a",
+          alias: null,
+          source_columns: [{}],
+        },
+      ]),
+    ],
+    [
+      "all columns of a table with no name",
+      fields([{ type: "all_columns", table: { schema: "s" } }]),
+    ],
+    ["an error that is not a map", fields([], [5])],
+  ])("reads no field references from an answer that is %s", (_, answer) => {
+    expect(fieldReferencesOf(answer)).toEqual(unexpected);
+  });
+
+  it("reads tables only from [catalog, schema, table] lists", () => {
+    expect(referencedTablesOf('[[null, "s", "t"]]')).toEqual({
+      status: "read",
+      tables: [{ schema: "s", name: "t" }],
+    });
+    expect(referencedTablesOf('[["s", "t"]]')).toEqual(unexpected);
+    expect(referencedTablesOf('[[null, "s", null]]')).toEqual(unexpected);
+    expect(referencedTablesOf('{"t": 1}')).toEqual(unexpected);
+  });
+
+  it("reads a query shape only in the shape lint_query_shape writes", () => {
+    const shape = {
+      returns_star: false,
+      select_aliases: ["a"],
+      array_join_aliases: [],
+      column_aliased_tables: [[null, "t"]],
+      quoted_columns: [],
+      unquoted_columns: ["x"],
+    };
+    expect(queryShapeOf(JSON.stringify(shape))).toEqual({
+      status: "read",
+      shape: {
+        returnsStar: false,
+        selectAliases: ["a"],
+        arrayJoinAliases: [],
+        columnAliasedTables: [{ schema: null, name: "t" }],
+        quotedColumns: [],
+        unquotedColumns: ["x"],
+      },
+    });
+    for (const broken of [
+      { ...shape, returns_star: "no" },
+      { ...shape, select_aliases: [1] },
+      { ...shape, column_aliased_tables: [["t"]] },
+    ]) {
+      expect(queryShapeOf(JSON.stringify(broken))).toEqual(unexpected);
+    }
   });
 });
 
