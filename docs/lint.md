@@ -2,6 +2,10 @@
 
 How the `lint` command resolves tables, reads SQL and YAML, and where it can be wrong. The [README](../README.md) shows how to run it and lists its rules.
 
+## The folder it expects
+
+The lint expects the whole repository as Metabase's remote sync writes it: every collection, transform, transform test, snippet and table file of the content it lints. It reports what a file names and the folder lacks. For example, `transform-collection` reports a transform whose collection is not in the folder, though an import into a Metabase that already holds the collection accepts it. Lint a part of a repository, and such findings follow from the missing files.
+
 ## Default schemas
 
 An unqualified table name, such as `orders` in SQL, a transform's target or a test's input, resolves to its database's default schema.
@@ -10,11 +14,11 @@ An unqualified table name, such as `orders` in SQL, a transform's target or a te
 
 The lint needs the default schema of a database when an unqualified name is in it, or when one transform test's tables name one table in two schemas. Without it, the lint stops before any check, and runs none. For each such database it names the first file that needs the default schema, and why.
 
-Two qualified names, such as `a.account` and `b.account`, denote the same table or not whatever the default schema is. They depend on it only in a transform test: Metabase rewrites a test's SQL to stand-in tables, and it rewrites a qualified name it has no key for to a table of the same name in the default schema. A test's tables are its inputs, its transform's target, the tables its expectations read, and the tables its transform reads by SQL. So `a.account` read by one transform and `b.account` by another need no default schema, but a test with an input `a.account` and an expectation that reads `b.account` does.
+Two qualified names, such as `a.account` and `b.account`, name different tables in every database, so they need no default schema. They depend on it only in a transform test: Metabase rewrites a test's SQL to stand-in tables, and it rewrites a qualified name that matches no input or target to a stand-in of the same name in the default schema. A test's tables are its inputs, its transform's target, the tables its expectations read, and the tables its transform reads by SQL. So `a.account` read by one transform and `b.account` by another need no default schema, but a test with an input `a.account` and an expectation that reads `b.account` does.
 
 It takes a database's default schema from the first of these that gives one:
 
-1. `--default-schema "<database>=<schema>"` on the command line; `"<database>="` for no schemas.
+1. `--default-schema "<database>=<schema>"` on the command line, or the `defaultSchemas` option of the `lint` function; `"<database>="` or `null` for no schemas.
 2. The settings file's `defaultSchemas`; `null` for no schemas.
 3. The Database file's `default_schema`, which a full serdes export writes. A file without the field, as Metabase wrote before it stored the value, gives none.
 4. The engine: `mysql`, `bigquery-cloud-sdk`, `sqlite` and `mongo` have `null`, which Metabase hard-codes.
@@ -55,7 +59,7 @@ Three rules compare a transform with what its database's engine can do, from a t
 
 - `missing-target-schema`, an error: a transform's target names no schema, on an engine with schemas. Metabase's API refuses such a transform; an import accepts it.
 - `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
-- `untestable-engine`, a warning: a test of a transform whose source database's engine cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
+- `untestable-engine`, a warning: a test of a query transform whose query's database (`source.query.database`, not `source_database_id`) has an engine that cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
 
 An engine missing from the table gives no finding, nor does a database whose engine the lint does not know. A driver can gain a feature in a later Metabase version than the table records, so the last two rules only warn.
 
@@ -98,7 +102,7 @@ Metabase 0.64 and earlier pin SQLGlot 28.6.0 and an older `referenced_tables` an
 
 ## Known limits
 
-Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input.
+Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input. Metabase refuses a transform test whose transform or expectation SQL it cannot parse, so such a warning on a test's SQL means Metabase refuses the test.
 
 When neither a Database file nor the settings file gives a database's engine, the lint parses its SQL in SQLGlot's default dialect, where Metabase uses the engine's. Engine-specific syntax then fails to parse, for example backticked names in MySQL and BigQuery or bracketed names in SQL Server, and the query is reported as `reads-not-checked`.
 

@@ -104,7 +104,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `duplicate-target` | warning | Two transforms that write the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
 | `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |
-| `missing-incremental-table-tag` | error | An incremental native transform with no table template tag for the range filter, or none for the checkpoint field's table. |
+| `missing-incremental-table-tag` | error | An incremental native transform with no table variable (a `{{table}}` template tag) for Metabase to filter new rows into, or none for the checkpoint field's table. |
 | `missing-target-database` | error | A transform that is not a query transform and names no target database. |
 | `missing-target-schema` | error | A transform whose target names no schema, on an engine with schemas. |
 | `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
@@ -115,10 +115,10 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |
 | `duplicate-input` | error | Two inputs of one test for the same table. |
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
-| `row-columns-mismatch` | error | A row of an input or expectation that does not carry exactly the declared columns. |
+| `row-columns-mismatch` | error | The first row of a `rows` input or `equals` expectation whose keys are not exactly the declared columns. A key YAML reads as no string, such as `yes:` or `1:`, counts as not declared; quote it as `'1':`. |
 | `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
 | `unknown-table` | warning | A table that no table file or transform target defines, in a database that has table files. |
-| `null-schema-reference` | warning | An MBQL reference with a `null` schema, on a database whose default schema is not `null`. |
+| `null-schema-reference` | warning | An MBQL reference with a `null` schema, on a database whose default schema is known and is not `null`. |
 | `no-expectations` | warning | A test with no expectations. |
 | `input-missing-read-column` | warning | A test input without a column its transform reads. |
 | `upstream-column-mismatch` | warning | A test input for another transform's target, with a column that transform does not return. |
@@ -180,7 +180,7 @@ for (const result of results) {
 }
 
 // lint is experimental and asynchronous, and rejects with a LintSetupError
-// when it cannot run.
+// when it cannot run. MissingDefaultSchemasError is a LintSetupError.
 try {
   const { files, findings } = await lint({
     folder: "./my-export",
@@ -188,8 +188,9 @@ try {
   });
 } catch (e) {
   if (e instanceof MissingDefaultSchemasError) {
-    console.log(e.databases); // [{ database, reason }, …]
+    console.log(e.databases); // [{ database, file, reason }, …]
   }
+  throw e;
 }
 
 const entityId = generateEntityId(); // "LZfXLFzPPR4NNrgjlWDxn"

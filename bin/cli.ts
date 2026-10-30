@@ -133,7 +133,9 @@ function folderToCheck(values: ParsedValues): string {
 /** Exits with code 2, saying so, when a command found no files in `folder`. */
 function exitIfNoFiles(files: number, folder: string): void {
   if (files === 0) {
-    console.error(`No YAML files found in ${folder}`);
+    console.error(
+      `No YAML files found in ${folder}: Metabase imports only the .yaml files under collections/, databases/, transforms/ and its other top-level folders`,
+    );
     process.exit(NOTHING_CHECKED);
   }
 }
