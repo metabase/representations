@@ -1,5 +1,7 @@
 // The comparisons lint-parity.ts makes, apart from its calls to Metabase.
+import { loadDocs, validDocsOf, type ValidDoc } from "../src/documents.js";
 import type { LintFinding, LintRule } from "../src/findings.js";
+import { loadSchemas } from "../src/schemas.js";
 import { tableLabel, type TableName } from "../src/tables.js";
 
 /**
@@ -142,4 +144,125 @@ export function testVerdictDiffers(
   return errorRules.has(rule)
     ? null
     : `Metabase refuses it with ${describeRefusal(refusal)}; the lint reports no ${rule}`;
+}
+
+/**
+ * For each of Metabase's refusals of a transform it is asked to save, by the
+ * message it answers with, the lint rule that predicts it. The messages are
+ * Metabase's English ones; Metabase translates them into the user's locale,
+ * so on another locale every refusal reads as one no rule predicts.
+ */
+export const RULE_OF_TRANSFORM_REFUSAL: ReadonlyMap<string, LintRule> = new Map(
+  [
+    ["A target schema is required for this database.", "missing-target-schema"],
+    [
+      "Incremental transform with a native query requires a table variable. Please add a table variable to the query and update the checkpoint field.",
+      "missing-incremental-table-tag",
+    ],
+    ["The target database cannot be found.", "missing-target-database"],
+  ],
+);
+
+/**
+ * The rules of RULE_OF_TRANSFORM_REFUSAL in the order Metabase checks a
+ * transform it is asked to save, stopping at the first refusal: that the
+ * target database exists, then that the target names a schema where the
+ * database has schemas, then that an incremental native query has a table
+ * variable.
+ */
+export const TRANSFORM_RULE_ORDER: readonly LintRule[] = [
+  "missing-target-database",
+  "missing-target-schema",
+  "missing-incremental-table-tag",
+];
+
+const TRANSFORM_RULES = new Set(TRANSFORM_RULE_ORDER);
+
+/**
+ * Compares Metabase's answer to saving a transform with the lint's errors on
+ * it. `refusal` is the message Metabase refuses it with, or null when
+ * Metabase accepts it. Metabase stops at its first refusal
+ * (TRANSFORM_RULE_ORDER), so a refusal proves that the checks before it
+ * passed, and says nothing of the checks after it. A refusal agrees when the
+ * lint reports that refusal's rule and no rule Metabase checks earlier.
+ * Returns null when the two agree, else the difference.
+ */
+export function transformVerdictDiffers(
+  refusal: string | null,
+  findings: readonly LintFinding[],
+): string | null {
+  const errorRules = new Set(
+    findings
+      .filter((f) => f.severity === "error" && TRANSFORM_RULES.has(f.rule))
+      .map((f) => f.rule),
+  );
+  if (refusal === null) {
+    return errorRules.size === 0
+      ? null
+      : `Metabase accepts it; the lint reports ${[...errorRules].join(", ")}`;
+  }
+  const rule = RULE_OF_TRANSFORM_REFUSAL.get(refusal);
+  if (rule === undefined) {
+    return `Metabase refuses it with ${JSON.stringify(refusal)}, which no lint rule predicts`;
+  }
+  const earlier = TRANSFORM_RULE_ORDER.slice(
+    0,
+    TRANSFORM_RULE_ORDER.indexOf(rule),
+  ).filter((r) => errorRules.has(r));
+  if (earlier.length > 0) {
+    return `Metabase refuses it with ${JSON.stringify(refusal)}, so it passed the checks before ${rule}; the lint reports ${earlier.join(", ")}`;
+  }
+  return errorRules.has(rule)
+    ? null
+    : `Metabase refuses it with ${JSON.stringify(refusal)}; the lint reports no ${rule}`;
+}
+
+/**
+ * Each transform of `folder` that `mutated` changes, as both folders hold it,
+ * matched by entity id, and whether the change is only to what a probe
+ * carries: the target's type, schema and database, and the source's
+ * incremental strategy.
+ */
+export function changedTransforms(
+  folder: string,
+  mutated: string,
+): {
+  clean: ValidDoc<"Transform">;
+  mutated: ValidDoc<"Transform">;
+  carried: boolean;
+}[] {
+  const transformsOf = (dir: string) =>
+    validDocsOf(loadDocs(dir, loadSchemas()).docs, "Transform");
+  const clean = new Map(transformsOf(folder).map((d) => [d.body.entity_id, d]));
+  return transformsOf(mutated).flatMap((doc) => {
+    const before = clean.get(doc.body.entity_id);
+    return before !== undefined &&
+      JSON.stringify(before.body) !== JSON.stringify(doc.body)
+      ? [
+          {
+            clean: before,
+            mutated: doc,
+            carried:
+              JSON.stringify(uncarried(before)) ===
+              JSON.stringify(uncarried(doc)),
+          },
+        ]
+      : [];
+  });
+}
+
+/**
+ * The transform's body without what a probe carries from its file: the
+ * target's type, schema and database, and the source's incremental strategy.
+ */
+function uncarried(doc: ValidDoc<"Transform">): Record<string, unknown> {
+  const {
+    type: _type,
+    schema: _schema,
+    database: _database,
+    ...target
+  } = doc.body.target;
+  const source: Record<string, unknown> = { ...doc.body.source };
+  delete source["source-incremental-strategy"];
+  return { ...doc.body, target, source };
 }

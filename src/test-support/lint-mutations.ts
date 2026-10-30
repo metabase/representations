@@ -634,10 +634,18 @@ function findMutation(name: string): Mutation {
   return mutation;
 }
 
-/** Copies `examples/v1` to `folder` and applies the named mutation. */
-export function mutateExamples(name: string, folder: string): Mutation {
+/**
+ * Copies `source`, `examples/v1` unless given, to `folder` and applies the
+ * named mutation. A mutation edits files of `examples/v1` by path, so `source`
+ * must hold them.
+ */
+export function mutateExamples(
+  name: string,
+  folder: string,
+  source: string = EXAMPLES,
+): Mutation {
   const mutation = findMutation(name);
-  cpSync(EXAMPLES, folder, { recursive: true });
+  cpSync(source, folder, { recursive: true });
   mutation.apply(folder);
   return mutation;
 }

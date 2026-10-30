@@ -242,8 +242,11 @@ jobs:
 
       # The lint reads the files alone; Metabase is the reference. The step
       # compares the tables each transform reads, and Metabase's verdict on
-      # each transform test with the lint's errors on it. Any difference is a
-      # lint bug, and a run that compares nothing fails.
+      # each transform test with the lint's errors on it. Then it creates
+      # transforms shaped as the mutations of the rules Metabase's transform
+      # API enforces, and compares Metabase's verdict on each with the lint's
+      # errors on it. Any difference is a lint bug, and a run that compares
+      # nothing fails.
       - name: Compare the lint with Metabase
         run: |
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \
@@ -287,10 +290,11 @@ jobs:
           echo "Image created: $(docker image inspect --format '{{.Created}}' metabase/metabase-enterprise-head:latest)"
 
           # The lint reads each database's default schema from the folder's
-          # .metabase-lint.json.
+          # .metabase-lint.json. The transform probes match Metabase's English
+          # refusal messages, which the site locale "en" set at setup keeps.
           STATUS=0
           bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder examples/v1 \
-            || STATUS=$?
+            --probe-transforms || STATUS=$?
           if [ "$STATUS" != "0" ]; then
             # When a driver's feature check throws, Metabase logs this message
             # and answers that the feature is unsupported.
