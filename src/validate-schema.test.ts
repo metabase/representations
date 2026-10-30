@@ -586,6 +586,33 @@ describe("validateSchema", () => {
       });
     });
 
+    it("says what an entity id needs, and how to make one", () => {
+      mkdirSync(join(workdir, "collections"), { recursive: true });
+      const write = (entityId: string) =>
+        writeFileSync(
+          join(workdir, "collections", "c.yaml"),
+          yaml.dump({
+            name: "C",
+            entity_id: entityId,
+            "serdes/meta": [{ model: "Collection" }],
+          }),
+        );
+      const errorsOf = () => {
+        const [result] = validateSchema({ folder: workdir }).results;
+        return result.status === "fail" ? result.errors : [];
+      };
+      write("abc");
+      expect(errorsOf()).toEqual([
+        {
+          path: "/entity_id",
+          message:
+            'must be an entity id: 21 characters of A-Z, a-z, 0-9, _ and -; got 3 characters. Run "representations generate-entity-id" for a new one',
+        },
+      ]);
+      write("abc.efghijklmnopqrstu");
+      expect(errorsOf()[0].message).toContain("got a character outside them");
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
