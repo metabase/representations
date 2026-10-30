@@ -246,7 +246,9 @@ export function loadDocs(
     }
     const { value: body, nonStringKeys } = read;
     const check = checkSchema(body, schemas);
-    if (check.status === "skipped") {
+    if (check.status === "bad-timestamp") {
+      unreadable.push({ file, reason: `fails to load: ${check.message}` });
+    } else if (check.status === "skipped") {
       skipped.push(file);
     } else if (!isRecord(body)) {
       unreadable.push({ file, reason: "is not a YAML map" });

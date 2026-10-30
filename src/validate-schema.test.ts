@@ -175,6 +175,25 @@ describe("validateSchema", () => {
         }
       });
 
+      it("matches folder and file names in their exact case, as Metabase does", () => {
+        write("collections/Upper.YAML", collection);
+        write("TRANSFORMS/t.yaml", collection);
+        write("data_apps/shop/DATA_APP.yaml", collection);
+        write("collections/lower.yaml", collection);
+
+        expect(statuses()).toEqual(["collections/lower.yaml Collection ok"]);
+      });
+
+      it("skips a symbolic link to nothing, which is not a regular file", () => {
+        write("collections/real.yaml", collection);
+        symlinkSync(
+          join(workdir, "nonexistent.yaml"),
+          join(workdir, "collections", "broken.yaml"),
+        );
+
+        expect(statuses()).toEqual(["collections/real.yaml Collection ok"]);
+      });
+
       it("skips the files Metabase does not import", () => {
         write("collection.yaml", collection);
         write("notes/collection.yaml", collection);
@@ -493,6 +512,79 @@ describe("validateSchema", () => {
         ]);
       },
     );
+
+    describe("times", () => {
+      const resultOf = (lines: string[]) => {
+        mkdirSync(join(workdir, "collections"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "entity.yaml"),
+          [...lines, ""].join("\n"),
+        );
+        return validateSchema({ folder: workdir }).results[0];
+      };
+
+      it("fails a file whose time Metabase cannot read, with or without serdes/meta", () => {
+        expect(resultOf(["name: Notes", "created_at: nope"])).toEqual({
+          file: join("collections", "entity.yaml"),
+          status: "fail",
+          errors: [
+            {
+              path: "/created_at",
+              message: 'Metabase cannot read created_at as a time: "nope"',
+            },
+          ],
+        });
+        expect(
+          resultOf([
+            "name: Archive",
+            "entity_id: cOlArChIvE000ExAmPlx2",
+            "last_analyzed: 2024-13-01",
+            "serdes/meta:",
+            "- model: Collection",
+          ]).status,
+        ).toBe("fail");
+      });
+
+      it("fails a time that YAML reads as no text, such as an unquoted timestamp", () => {
+        for (const value of ["2024-01-05T10:00:00Z", "5", "true"]) {
+          expect(
+            resultOf(["name: Notes", `updated_at: ${value}`]),
+          ).toMatchObject({
+            status: "fail",
+            errors: [
+              {
+                path: "/updated_at",
+                message:
+                  "updated_at is not text, which Metabase reads as a time; quote it",
+              },
+            ],
+          });
+        }
+      });
+
+      it("reads a time Metabase reads, null, and a blank one", () => {
+        for (const value of [
+          "'2025-05-28T17:49:20.649159Z'",
+          "'2024-01-05'",
+          "'2024-01-05 10:00:00+0200'",
+          "'2024-01-05T10:00:00 America/New_York'",
+          "'10:30'",
+          "null",
+          "''",
+        ]) {
+          expect(resultOf(["name: Notes", `created_at: ${value}`]).status).toBe(
+            "skipped",
+          );
+        }
+      });
+
+      it("fails a time in a zone that does not exist", () => {
+        expect(
+          resultOf(["name: Notes", "created_at: '2024-01-05 Nowhere/Land'"])
+            .status,
+        ).toBe("fail");
+      });
+    });
 
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });

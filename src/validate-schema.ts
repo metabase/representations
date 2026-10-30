@@ -1,5 +1,5 @@
 import type { ValidateFunction } from "ajv/dist/2020.js";
-import { lstatSync, readFileSync } from "fs";
+import { lstatSync, readdirSync, readFileSync, statSync } from "fs";
 import { globSync } from "glob";
 import { dirname, resolve } from "path";
 
@@ -66,20 +66,35 @@ const IMPORTED = new Set<string>(IMPORTED_MODELS);
  * The files of `folder` that Metabase imports, in path order: each `.yaml`
  * file at any depth under an `ENTITY_FOLDERS` folder, and each
  * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
- * A file whose name starts with a dot is skipped; a folder whose name does is
- * not. A file inside a folder that is a symbolic link is skipped, though
- * Metabase follows such a folder; a symbolic link to a file is followed.
+ * Names match in their exact case, on any platform. A file whose name starts
+ * with a dot is skipped; a folder whose name does is not. A file inside a
+ * folder that is a symbolic link is skipped, though Metabase follows such a
+ * folder; a symbolic link to a file is followed, and one to nothing is
+ * skipped, as Metabase skips what is not a regular file.
  */
 export function entityFiles(folder: string): string[] {
   const linked = createLinkedFolderCheck(folder);
+  // Listed, not globbed by name: on a file system that ignores case, a glob
+  // of `transforms/` also finds `TRANSFORMS/`.
+  const tops =
+    statSync(folder, { throwIfNoEntry: false })?.isDirectory() === true
+      ? readdirSync(folder)
+      : [];
   return globSync(
     [
-      ...ENTITY_FOLDERS.map((top) => `${top}/**/[!.]*.yaml`),
-      "data_apps/**/data_app.yaml",
+      ...tops
+        .filter((top) => ENTITY_FOLDERS.includes(top))
+        .map((top) => `${top}/**/[!.]*.yaml`),
+      ...(tops.includes("data_apps") ? ["data_apps/**/data_app.yaml"] : []),
     ],
-    { cwd: folder, dot: true, nodir: true },
+    { cwd: folder, dot: true, nodir: true, nocase: false },
   )
-    .filter((file) => !linked(dirname(file)))
+    .filter(
+      (file) =>
+        !linked(dirname(file)) &&
+        statSync(resolve(folder, file), { throwIfNoEntry: false })?.isFile() ===
+          true,
+    )
     .sort();
 }
 
@@ -134,6 +149,8 @@ export type ValidateSchemaResult = {
 
 /** How a parsed file stands as Metabase imports it, and against the schema of its model. */
 export type SchemaCheck =
+  // Metabase cannot read the file: it cannot parse a time the file holds.
+  | { status: "bad-timestamp"; key: string; message: string }
   // Metabase skips the file without an error: it has no `serdes/meta`.
   | { status: "skipped" }
   // Metabase reads the file and cannot load it: its `serdes/meta` names no model.
@@ -165,6 +182,66 @@ function skippedByMetabase(doc: unknown): boolean {
   return (
     doc === null || (isRecord(doc) && (doc["serdes/meta"] ?? null) === null)
   );
+}
+
+// The text Metabase's `u.date/parse` reads (`src/metabase/util/date_2/parse.clj`
+// `formatter`), approximately: an optional date, `T` or a space, an optional
+// time, and an optional offset and zone. Field ranges are checked, but not a
+// day past its month's end; a zone must be one JavaScript knows.
+const DATE =
+  "[+-]?\\d{4,10}(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\\d|3[01]))?)?";
+const TIME = "(?:[01]\\d|2[0-3])(?::[0-5]\\d(?::[0-5]\\d(?:\\.\\d{0,9})?)?)?";
+const OFFSET =
+  " ?(?:Z|[+-](?:[01]\\d|2[0-3])(?::?[0-5]\\d(?::?[0-5]\\d)?)?)?(?:\\[?(?<zone>[A-Za-z][A-Za-z0-9~/._+-]*)\\]?)?";
+const TIMESTAMP_TEXT = new RegExp(
+  `^(?:${DATE}T? ?(?:${TIME})?|T? ?${TIME})${OFFSET}$`,
+  "i",
+);
+
+/** Whether `zone` names a time zone. */
+function isTimeZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: zone });
+    return true;
+    // eslint-disable-next-line no-restricted-syntax -- reads no SQL
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The first top-level key of `doc` whose value Metabase's import cannot read
+ * as a time, with why; null when there is none. Metabase reads each key that
+ * ends in `_at`, and `last_analyzed`, with `u.date/parse`, which takes null,
+ * a blank string, or a date or time in text; on anything else, such as an
+ * unquoted YAML timestamp or a number, the file fails to load.
+ */
+function badTimestamp(doc: unknown): { key: string; message: string } | null {
+  if (!isRecord(doc)) {
+    return null;
+  }
+  for (const [key, value] of Object.entries(doc)) {
+    if (!key.endsWith("_at") && key !== "last_analyzed") {
+      continue;
+    }
+    if (value === null || (typeof value === "string" && value.trim() === "")) {
+      continue;
+    }
+    if (typeof value !== "string") {
+      return {
+        key,
+        message: `${key} is not text, which Metabase reads as a time; quote it`,
+      };
+    }
+    const zone = TIMESTAMP_TEXT.exec(value)?.groups?.zone;
+    if (zone === undefined ? !TIMESTAMP_TEXT.test(value) : !isTimeZone(zone)) {
+      return {
+        key,
+        message: `Metabase cannot read ${key} as a time: ${JSON.stringify(value)}`,
+      };
+    }
+  }
+  return null;
 }
 
 /** One error at the root of the file. */
@@ -215,6 +292,12 @@ function validateFile(
   }
   const check = checkSchema(doc, schemas);
   switch (check.status) {
+    case "bad-timestamp":
+      return {
+        file,
+        status: "fail",
+        errors: [{ path: `/${check.key}`, message: check.message }],
+      };
     case "skipped":
       return {
         file,
@@ -266,6 +349,10 @@ export function checkSchema(
   doc: unknown,
   { ajv, models }: Schemas,
 ): SchemaCheck {
+  const timestamp = badTimestamp(doc);
+  if (timestamp !== null) {
+    return { status: "bad-timestamp", ...timestamp };
+  }
   if (skippedByMetabase(doc)) {
     return { status: "skipped" };
   }
