@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+  chmodSync,
   cpSync,
   existsSync,
   mkdirSync,
@@ -229,6 +230,29 @@ describe("cli", () => {
       ]);
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/\d+ passed, 0 failed/);
+    });
+
+    it("exits 2, with the error, when it cannot read a file", () => {
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-unread-"));
+      try {
+        mkdirSync(join(folder, "collections"));
+        const file = join(folder, "collections", "notes.yaml");
+        writeFileSync(file, "name: Notes\n");
+        chmodSync(file, 0o000);
+        for (const command of ["validate-schema", "lint"]) {
+          const { stdout, stderr, exitCode } = runCli([
+            command,
+            ...(command === "lint" ? ["--experimental"] : []),
+            "--folder",
+            folder,
+          ]);
+          expect(stdout).toBe("");
+          expect(stderr).toContain("EACCES");
+          expect(exitCode).toBe(2);
+        }
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
     });
 
     it("passes a file Metabase skips, with a warning that names it", () => {

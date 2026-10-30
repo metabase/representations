@@ -159,7 +159,7 @@ Every command exits with one of these codes; `representations --help` prints the
 |------|---------|
 | 0 | The command ran. `validate-schema`: no file failed; `lint`: no finding is an error. |
 | 1 | `validate-schema`: a file failed; `lint`: a finding is an error. |
-| 2 | Nothing was checked: a usage error (an unknown command or option, an option with no value or an invalid one, `lint` without `--experimental`), a folder that is missing, is not a folder or holds no YAML files, or a lint that cannot run (an invalid settings file, an unknown default schema, a SQL parser that cannot start). |
+| 2 | Nothing was checked: a usage error (an unknown command or option, an option with no value or an invalid one, `lint` without `--experimental`), a folder that is missing, is not a folder or holds no YAML files, a lint that cannot run (an invalid settings file, an unknown default schema, a SQL parser that cannot start), or an unexpected error, such as a file the command cannot read. |
 
 ## Programmatic use
 

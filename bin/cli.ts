@@ -71,10 +71,11 @@ Exit codes:
   2  Nothing was checked: a usage error (an unknown command or option, an
      option with no value or an invalid one, lint without
      --experimental), a folder that is missing, is not a folder or holds
-     no YAML files, or a lint that cannot run (an invalid settings file,
-     an unknown default schema, a SQL parser that cannot start).`;
+     no YAML files, a lint that cannot run (an invalid settings file, an
+     unknown default schema, a SQL parser that cannot start), or an
+     unexpected error, such as a file the command cannot read.`;
 
-/** The exit code when nothing was checked: a usage error, no files, or a lint that cannot run. */
+/** The exit code when nothing was checked: a usage error, no files, a lint that cannot run, or an unexpected error. */
 const NOTHING_CHECKED = 2;
 
 /** Exits with code 2 after `message` and a pointer to the help. */
@@ -334,4 +335,8 @@ async function main(): Promise<void> {
   }
 }
 
-await main();
+// Any other error stops the command before it checked everything.
+await main().catch((e: unknown) => {
+  console.error(e instanceof Error && e.stack ? e.stack : errorMessage(e));
+  process.exit(NOTHING_CHECKED);
+});
