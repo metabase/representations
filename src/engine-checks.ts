@@ -49,14 +49,18 @@ export function reportMissingTargetSchemas(
   }
 }
 
+/** The driver feature Metabase requires to run a kind of transform. */
+export type RequiredFeature =
+  | { kind: "query"; feature: "transforms/table" }
+  | { kind: "Python"; feature: "transforms/python" };
+
 /**
- * The driver feature Metabase requires to run `transform`, with the name of
- * its kind; null for a source that is neither a query nor Python.
+ * The driver feature Metabase requires to run `transform`; null for a source
+ * that is neither a query nor Python.
  */
-function requiredFeature(transform: ValidDoc<"Transform">): {
-  kind: "query" | "Python";
-  feature: "transforms/table" | "transforms/python";
-} | null {
+function requiredFeature(
+  transform: ValidDoc<"Transform">,
+): RequiredFeature | null {
   const { source } = transform.body;
   if (isPythonSource(source)) {
     return { kind: "Python", feature: "transforms/python" };

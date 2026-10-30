@@ -4,6 +4,7 @@ import type { EngineOf } from "./databases.js";
 import { type Doc, indexByEntityId, validDocsOf } from "./documents.js";
 import {
   reportMissingTargetSchemas,
+  type RequiredFeature,
   reportUnknownEngines,
   reportUnsupportedTransformEngines,
   reportUntestableEngines,
@@ -455,5 +456,21 @@ describe("reportUnknownEngines", () => {
       }),
     ).toEqual([]);
     expect(unknownEngineFindings([cardOn(undefined)], {})).toEqual([]);
+  });
+});
+
+describe("RequiredFeature", () => {
+  // The type check is the test.
+  it("pairs each kind of transform with its own feature", () => {
+    const query: RequiredFeature = {
+      kind: "query",
+      feature: "transforms/table",
+    };
+    // @ts-expect-error A query transform needs transforms/table.
+    const mismatched: RequiredFeature = {
+      ...query,
+      feature: "transforms/python",
+    };
+    void mismatched;
   });
 });
