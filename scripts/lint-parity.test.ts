@@ -43,14 +43,14 @@ const refusal = (status: number, code: string, extra: object = {}): Reply => ({
   body: { "error-code": code, message: code, ...extra },
 });
 
-/** Metabase's answer to a test of `transform`: the tables the lint reads, qualified as compiled SQL names them. */
+/** Metabase's answer to a test of `transform`: the tables the lint reads, labelled as the SQL names them. */
 const missingInputs = (transform: Transform): Reply =>
   transform.queryTransform
     ? (transform.tables ?? []).length === 0
       ? { status: 200, body: { id: 999 } }
       : refusal(400, "transform-test.missing-inputs", {
           tables: (transform.tables ?? []).map((t) =>
-            t.schema === null ? `public.${t.name}` : `${t.schema}.${t.name}`,
+            t.schema === null ? t.name : `${t.schema}.${t.name}`,
           ),
         })
     : refusal(422, "transform-test.unsupported-transform");

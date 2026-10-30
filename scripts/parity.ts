@@ -3,21 +3,18 @@ import type { LintFinding, LintRule } from "../src/findings.js";
 import { tableLabel, type TableName } from "../src/tables.js";
 
 /**
- * Whether `label`, a table as Metabase's refusals name it (`schema.name`, or
- * `name` with no schema), and `table`, as the lint reads it, are one table.
- * Names compare ignoring case, and schemas too where both sides have one. A
- * dot in the label is not split, so a schema or name holding a dot compares
- * whole.
+ * Whether `label`, a table as Metabase's refusals name it, and `table`, as the
+ * lint reads it, are one table. Metabase labels a table as its SQL names it:
+ * `schema.name`, or `name` alone when the SQL gives no schema. The lint keeps a
+ * table as the SQL names it too, so the two compare exactly, ignoring case: a
+ * table with no schema matches only a bare label, and a qualified table only
+ * the label with its schema. A dot in the label is not split, so a schema or
+ * name holding a dot compares whole.
  */
 export function sameTableLabel(label: string, table: TableName): boolean {
-  const folded = label.toLowerCase();
-  const name = table.name.toLowerCase();
-  if (folded === name) {
-    return true;
-  }
-  return table.schema === null
-    ? folded.endsWith(`.${name}`)
-    : folded === `${table.schema.toLowerCase()}.${name}`;
+  const written =
+    table.schema === null ? table.name : `${table.schema}.${table.name}`;
+  return label.toLowerCase() === written.toLowerCase();
 }
 
 /**
@@ -66,7 +63,23 @@ export const RULE_OF_REFUSAL: ReadonlyMap<string, LintRule> = new Map([
   ["transform-test.unsupported-transform", "untestable-transform"],
 ]);
 
-const TEST_RULES = new Set(RULE_OF_REFUSAL.values());
+/**
+ * The rules of RULE_OF_REFUSAL in the order Metabase checks a transform test,
+ * and stops at the first refusal: whether the transform is a query transform,
+ * then missing, unused and duplicate inputs, then whether the transform's SQL,
+ * and then each expectation's, reads only the test's tables. The transform's
+ * own unremapped reference has no rule; it sits between duplicate-input and
+ * expectation-reads-other-table.
+ */
+export const TEST_RULE_ORDER: readonly LintRule[] = [
+  "untestable-transform",
+  "missing-input",
+  "unused-input",
+  "duplicate-input",
+  "expectation-reads-other-table",
+];
+
+const TEST_RULES = new Set(TEST_RULE_ORDER);
 
 /** Metabase's refusal of a transform test. */
 export type TestRefusal = {
@@ -92,23 +105,26 @@ export function describeRefusal(refusal: TestRefusal): string {
 /**
  * Compares Metabase's answer to a transform test with the lint's errors on it.
  * `refusal` is Metabase's refusal, or null when Metabase accepts the test.
- * Metabase stops at its first refusal, so a refusal agrees when the lint
- * reports that refusal's rule, whatever else it reports. A refusal about the
- * transform's own SQL has no rule: the lint's rules on it are warnings, which
- * the comparison ignores. Returns null when the two agree, else the
- * difference.
+ * Metabase stops at its first refusal (TEST_RULE_ORDER), so a refusal proves
+ * that the checks before it passed, and says nothing of the checks after it. A
+ * refusal agrees when the lint reports that refusal's rule and no rule Metabase
+ * checks earlier; the lint's errors on later rules are ignored. A refusal with
+ * no rule, such as an unremapped reference in the transform's own SQL, is a
+ * difference. Returns null when the two agree, else the difference.
  */
 export function testVerdictDiffers(
   refusal: TestRefusal | null,
   findings: readonly LintFinding[],
 ): string | null {
-  const errors = findings.filter(
-    (f) => f.severity === "error" && TEST_RULES.has(f.rule),
+  const errorRules = new Set(
+    findings
+      .filter((f) => f.severity === "error" && TEST_RULES.has(f.rule))
+      .map((f) => f.rule),
   );
   if (refusal === null) {
-    return errors.length === 0
+    return errorRules.size === 0
       ? null
-      : `Metabase accepts it; the lint reports ${[...new Set(errors.map((f) => f.rule))].join(", ")}`;
+      : `Metabase accepts it; the lint reports ${[...errorRules].join(", ")}`;
   }
   const rule = refusal.onTransform
     ? undefined
@@ -116,7 +132,14 @@ export function testVerdictDiffers(
   if (rule === undefined) {
     return `Metabase refuses it with ${describeRefusal(refusal)}, which no lint rule predicts`;
   }
-  return errors.some((f) => f.rule === rule)
+  const earlier = TEST_RULE_ORDER.slice(
+    0,
+    TEST_RULE_ORDER.indexOf(rule),
+  ).filter((r) => errorRules.has(r));
+  if (earlier.length > 0) {
+    return `Metabase refuses it with ${describeRefusal(refusal)}, so it passed the checks before ${rule}; the lint reports ${earlier.join(", ")}`;
+  }
+  return errorRules.has(rule)
     ? null
     : `Metabase refuses it with ${describeRefusal(refusal)}; the lint reports no ${rule}`;
 }
