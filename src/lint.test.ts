@@ -1830,6 +1830,27 @@ describe("lint", () => {
       expect(await nullSchemaFindings()).toEqual([]);
     });
 
+    it("does not warn on a table that a table file with no schema defines", async () => {
+      const dir = join(workdir, "databases/sample_postgres/tables/orders");
+      mkdirSync(dir, { recursive: true });
+      const tableFile = (name: string) =>
+        writeFileSync(
+          join(dir, "orders.yaml"),
+          yaml.dump({
+            name,
+            db_id: POSTGRES_DB,
+            schema: null,
+            "serdes/meta": [{ model: "Table" }],
+          }),
+        );
+      tableFile("Orders");
+      expect(await nullSchemaFindings({ [POSTGRES_DB]: "public" })).toEqual([
+        ordersWarning,
+      ]);
+      tableFile("orders");
+      expect(await nullSchemaFindings({ [POSTGRES_DB]: "public" })).toEqual([]);
+    });
+
     it("does not warn when the default schema is unknown", async () => {
       rmSync(join(workdir, SQL));
       expect(await nullSchemaFindings()).toEqual([]);

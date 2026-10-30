@@ -31,7 +31,7 @@ On an engine without schemas, an engine whose schemas depend on the connection (
 
 An MBQL reference, `[database, schema, table]` or `[database, schema, table, field]`, names its schema as written, as Metabase's serdes import reads it: a `null` schema is the table with no schema, never the default schema. On a database whose default schema is `PUBLIC`, `["Sample Database", null, "ORDERS"]` is not `PUBLIC.ORDERS`, and an input for `PUBLIC.ORDERS` does not stand in for it. A Python transform's source table and a table file read a `null` schema the same way. Findings name such a table `ORDERS (no schema)`, and an unqualified name `ORDERS`.
 
-`null-schema-reference` warns when a transform reads a table by a reference with a `null` schema, on a database whose default schema is known and is not `null`. Such a database rarely has a table with no schema. Where none exists, Metabase's import creates an inactive one, and every query on it fails: for example `["Sample Database", null, "ORDERS"]` on the H2 Sample Database, whose default schema is `PUBLIC`. The rule needs no table files. A database whose default schema is unknown gives no finding.
+`null-schema-reference` warns when a transform reads a table by a reference with a `null` schema, on a database whose default schema is known and is not `null`. Such a database rarely has a table with no schema. Where none exists, Metabase's import creates an inactive one, and every query on it fails: for example `["Sample Database", null, "ORDERS"]` on the H2 Sample Database, whose default schema is `PUBLIC`. The rule needs no table files. A database whose default schema is unknown gives no finding, nor does a table that a table file or a transform target with no schema names.
 
 ### Case in table names
 
