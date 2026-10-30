@@ -104,6 +104,9 @@ describe("a SQL table reader", () => {
       replaceNames: () => {
         throw new Error("parsed");
       },
+      queryShape: () => {
+        throw new Error("parsed");
+      },
     };
     expect(
       createSqlTableReader(parser, engineOf)('[{"$match": {}}]', "Docs"),

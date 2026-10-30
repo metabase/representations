@@ -261,6 +261,33 @@ describe("reportMissingReadColumns", () => {
     ]);
   });
 
+  it("warns only on a field of the test's database, by its exact name", () => {
+    const field = (database: string, name: string) => [
+      "field",
+      {},
+      [database, "public", "orders", name],
+    ];
+    const mbqlTransform = transformDoc("orders_total", [
+      {
+        "lib/type": "mbql.stage/mbql",
+        "source-table": [DB, "public", "orders"],
+        aggregation: [
+          ["sum", {}, field("Other", "total")],
+          ["sum", {}, field(DB.toLowerCase(), "tax")],
+          ["sum", {}, field(DB, "discount")],
+        ],
+      },
+    ]);
+    const test = testDoc(mbqlTransform, [rowsInput("public", "orders", [])]);
+    expect(
+      run(reportMissingReadColumns, [mbqlTransform, test]).map(
+        (f) => f.message,
+      ),
+    ).toEqual([
+      "input public.orders has no column discount, which transform orders_total reads",
+    ]);
+  });
+
   it("finds nothing for a column it cannot place in one table, or a SQL input", () => {
     const transform = transformDoc("orders_people", [
       nativeStage(

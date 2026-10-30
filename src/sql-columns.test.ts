@@ -4,6 +4,7 @@ import type { EngineOf } from "./databases.js";
 import { createSqlColumnReader, type SqlColumnReader } from "./sql-columns.js";
 import {
   loadSqlParser,
+  type SqlParser,
   type TableReplacement,
   type Unread,
 } from "./sql-parser.js";
@@ -12,9 +13,11 @@ const engineOf: EngineOf = (database) =>
   database === "Warehouse" ? "postgres" : database === "Docs" ? "mongo" : null;
 
 let columns: SqlColumnReader;
+let sharedParser: SqlParser;
 
 beforeAll(async () => {
-  columns = createSqlColumnReader(await loadSqlParser(), engineOf);
+  sharedParser = await loadSqlParser();
+  columns = createSqlColumnReader(sharedParser, engineOf);
 }, 60_000);
 
 const column = (schema: string | null, table: string, name: string) => ({
@@ -66,6 +69,26 @@ describe("readColumns", () => {
       [column(null, "t", "x")],
     ],
     ["no column of SELECT *", "SELECT * FROM orders", []],
+    [
+      "no column of a table whose alias names its columns",
+      "SELECT s.x, u.id FROM t AS s(x, y) JOIN u ON u.id = s.y",
+      [column(null, "u", "id")],
+    ],
+    [
+      "the columns a CTE with named columns reads, not its names",
+      "WITH c(x, y) AS (SELECT a, b FROM t) SELECT x FROM c",
+      [column(null, "t", "a"), column(null, "t", "b")],
+    ],
+    [
+      "no system column or niladic keyword of Postgres",
+      "SELECT id, ctid, xmin, xmax, cmin, cmax, tableoid, current_user, session_user, current_role, user FROM orders",
+      [column(null, "orders", "id")],
+    ],
+    [
+      "a column whose alias repeats its name",
+      "SELECT total AS total FROM orders",
+      [column(null, "orders", "total")],
+    ],
   ])("reads %s", (_, sql, expected) => {
     const result = columns.readColumns(sql, "Warehouse");
     expect(
@@ -95,6 +118,32 @@ describe("readColumns", () => {
   });
 });
 
+describe("readColumns on other engines", () => {
+  const onEngine = (engine: string) =>
+    createSqlColumnReader(sharedParser, () => engine);
+
+  it("reads no lateral alias on Redshift, and no SYSDATE", () => {
+    expect(
+      onEngine("redshift").readColumns(
+        "SELECT price * 2 AS doubled, doubled + 1 AS d2, sysdate FROM orders",
+        "Warehouse",
+      ),
+    ).toEqual({
+      status: "read",
+      columns: [column(null, "orders", "price")],
+    });
+  });
+
+  it("reads no ClickHouse ARRAY JOIN alias", () => {
+    expect(
+      onEngine("clickhouse").readColumns(
+        "SELECT tag FROM t ARRAY JOIN tags AS tag",
+        "Warehouse",
+      ),
+    ).toEqual({ status: "read", columns: [] });
+  });
+});
+
 describe("returnedNames", () => {
   it.each([
     [
@@ -108,6 +157,16 @@ describe("returnedNames", () => {
       ["a"],
     ],
     ["no names for SELECT *", "SELECT *, 1 AS one FROM orders", null],
+    [
+      "no names for SELECT * over a CTE whose alias names its columns",
+      "WITH c(x, y) AS (SELECT a, b FROM t) SELECT * FROM c",
+      null,
+    ],
+    [
+      "no names for a table's columns by table.*",
+      "SELECT o.*, p.name FROM orders o JOIN people p ON o.uid = p.id",
+      null,
+    ],
     [
       "no names for an expression with no alias",
       "SELECT id + 1 FROM orders",

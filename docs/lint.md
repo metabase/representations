@@ -123,8 +123,9 @@ A query near Metabase's limit of 10,000,000 characters takes the parser a long t
 The column checks (`input-missing-read-column`, `upstream-column-mismatch`, `table-qualified-column`) are warnings, and give no finding where they cannot decide:
 
 - A column counts as read from a table only when it is qualified by the table or its alias, or its scope reads that one table. `SELECT *` reads no named column.
+- A name that is not a column of the table reads none: a column of a table whose alias names its columns (`t AS s(x, y)`), a name that is also an alias in a SELECT list (a lateral alias, as on Redshift) or of a ClickHouse `ARRAY JOIN`, and a system column or niladic keyword on Postgres or Redshift, such as `xmin`, `current_user` or `sysdate`.
 - Columns compare ignoring case. A quoted name that differs from an input's column only in case is not reported, though Postgres or Snowflake would not match the two.
-- A transform's output columns are known only when its query is one native stage with a name for each column: no `*`, and an alias for each expression.
+- A transform's output columns are known only when its query is one native stage with a name for each column: no `*` or `table.*`, and an alias for each expression.
 - SQL whose columns the parser cannot read gives no column finding, and is reported as `reads-not-checked`.
 
 `table-qualified-column` reports what a Metabase transform test refuses once it replaces the test's tables with temporary ones: a column qualifier that then names no table or alias. Metabase's rewrite also renames a qualifier that is the bare name of a replaced table, so most table-name qualifiers pass.

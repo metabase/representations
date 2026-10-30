@@ -41,6 +41,24 @@ export type FieldReferences = {
 };
 
 /**
+ * What SQLGlot's tree of a statement shows and `field_references` does not
+ * say, as the lint reads it.
+ */
+export type QueryShape = {
+  /** Whether an outermost SELECT returns `*` or `table.*`. */
+  returnsStar: boolean;
+  /**
+   * The alias of each expression in any SELECT list, except an alias that
+   * repeats its column's name (`total AS total`).
+   */
+  selectAliases: string[];
+  /** The alias of each ClickHouse `ARRAY JOIN` expression, by the same rule. */
+  arrayJoinAliases: string[];
+  /** Each table whose alias names its columns, as in `t AS s(x, y)`. */
+  columnAliasedTables: TableName[];
+};
+
+/**
  * A `replace_names` table replacement, as Metabase's transform tests give
  * it: a way a query names a table, and the table to name instead.
  */
@@ -82,6 +100,14 @@ export type SqlParser = {
     replacements: readonly TableReplacement[],
     dialect: string | null,
   ): { status: "read"; sql: string } | Unread;
+  /**
+   * The shape of `sql`'s one statement, parsed by SQLGlot in `dialect`.
+   * Unread when SQLGlot raises.
+   */
+  queryShape(
+    sql: string,
+    dialect: string | null,
+  ): { status: "read"; shape: QueryShape } | Unread;
 };
 
 /** `parse`, which answers each distinct SQL, in each dialect, once. */
@@ -143,14 +169,42 @@ const ANSWER_MARK = "\u00b6";
 const CALL_SQL_TOOLS_PY = `
 import json
 
+import sqlglot
 import sql_tools
+from sqlglot import exp
 
 ANSWER_MARK = ${JSON.stringify(ANSWER_MARK)}
 
 
+def lint_query_shape(sql, dialect):
+    ast = sqlglot.parse_one(sql, read=dialect)
+
+    def outermost(node):
+        if isinstance(node, exp.SetOperation):
+            return outermost(node.this) + outermost(node.expression)
+        if isinstance(node, exp.Subquery):
+            return outermost(node.this)
+        return [node] if isinstance(node, exp.Select) else []
+
+    def is_star(e):
+        return isinstance(e, exp.Star) or (isinstance(e, exp.Column) and isinstance(e.this, exp.Star))
+
+    def renames(e):
+        return isinstance(e, exp.Alias) and not (isinstance(e.this, exp.Column) and e.this.name.lower() == e.alias.lower())
+
+    return json.dumps({
+        "returns_star": any(is_star(e) for s in outermost(ast) for e in s.expressions),
+        "select_aliases": sorted({e.alias for s in ast.find_all(exp.Select) for e in s.expressions if renames(e)}),
+        "array_join_aliases": sorted({j.this.alias for j in ast.find_all(exp.Join)
+                                      if j.args.get("kind") == "ARRAY" and renames(j.this)}),
+        "column_aliased_tables": [[t.db or None, t.name] for t in ast.find_all(exp.Table)
+                                  if isinstance(t.args.get("alias"), exp.TableAlias) and t.args["alias"].columns],
+    })
+
+
 def lint_call_sql_tools(function, *args):
     try:
-        answer = getattr(sql_tools, function)(*args)
+        answer = (lint_query_shape if function == "lint_query_shape" else getattr(sql_tools, function))(*args)
     except Exception as e:
         lines = str(e).splitlines()
         return ANSWER_MARK + json.dumps({"error": type(e).__name__, "message": lines[0] if lines else ""})
@@ -354,6 +408,30 @@ async function startSqlParser(): Promise<SqlParser> {
         ? { status: "read", sql: result.answer }
         : result;
     },
+    queryShape: (sql, dialect) => {
+      const result = call("lint_query_shape", sql, dialect);
+      if (result.status !== "read") {
+        return result;
+      }
+      // lint_query_shape writes this shape.
+      const json = JSON.parse(result.answer) as {
+        returns_star: boolean;
+        select_aliases: string[];
+        array_join_aliases: string[];
+        column_aliased_tables: [string | null, string][];
+      };
+      return {
+        status: "read",
+        shape: {
+          returnsStar: json.returns_star,
+          selectAliases: json.select_aliases,
+          arrayJoinAliases: json.array_join_aliases,
+          columnAliasedTables: json.column_aliased_tables.map(
+            ([schema, name]) => ({ schema, name }),
+          ),
+        },
+      };
+    },
   };
 }
 
@@ -394,6 +472,7 @@ const UNLOADED_SQL_PARSER: SqlParser = {
   referencedTables: unloaded,
   fieldReferences: unloaded,
   replaceNames: unloaded,
+  queryShape: unloaded,
 };
 
 /**
