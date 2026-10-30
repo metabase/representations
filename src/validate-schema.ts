@@ -371,13 +371,20 @@ function valueAt(doc: unknown, pointer: string): unknown {
   return value;
 }
 
-/** Why `value` is not an entity id, and how to make one. */
-function entityIdMessage(value: unknown): string {
+/**
+ * Why `value`, at `pointer`, is not an entity id; for the file's own
+ * `entity_id`, also how to make one.
+ */
+function entityIdMessage(value: unknown, pointer: string): string {
   const got =
     typeof value === "string" && value.length !== 21
       ? `got ${value.length} characters`
       : "got a character outside them";
-  return `must be an entity id: 21 characters of A-Z, a-z, 0-9, _ and -; ${got}. Run "representations generate-entity-id" for a new one`;
+  const message = `must be an entity id: 21 characters of A-Z, a-z, 0-9, _ and -; ${got}`;
+  // A fresh id cannot repair a reference to another entity.
+  return pointer === "/entity_id"
+    ? `${message}. Run "representations generate-entity-id" for a new one`
+    : message;
 }
 
 /** The ways `doc` fails `validate`, in Ajv's order; empty when it passes. */
@@ -391,7 +398,7 @@ function validationErrors(
         path: e.instancePath || "/",
         message:
           e.schemaPath === ENTITY_ID_PATTERN
-            ? entityIdMessage(valueAt(doc, e.instancePath))
+            ? entityIdMessage(valueAt(doc, e.instancePath), e.instancePath)
             : (e.message ?? ""),
       }));
 }

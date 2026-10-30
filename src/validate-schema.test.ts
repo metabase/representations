@@ -665,6 +665,30 @@ describe("validateSchema", () => {
       expect(errorsOf()[0].message).toContain("got a character outside them");
     });
 
+    it("does not suggest a fresh entity id for a reference", () => {
+      mkdirSync(join(workdir, "collections"), { recursive: true });
+      writeFileSync(
+        join(workdir, "collections", "c.yaml"),
+        yaml.dump({
+          name: "C",
+          entity_id: "cOlArChIvE000ExAmPlx2",
+          parent_id: "MissingParent",
+          "serdes/meta": [{ model: "Collection" }],
+        }),
+      );
+      const [result] = validateSchema({ folder: workdir }).results;
+      expect(result).toMatchObject({
+        status: "fail",
+        errors: expect.arrayContaining([
+          {
+            path: "/parent_id",
+            message:
+              "must be an entity id: 21 characters of A-Z, a-z, 0-9, _ and -; got 13 characters",
+          },
+        ]),
+      });
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
