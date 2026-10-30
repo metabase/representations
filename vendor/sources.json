@@ -2,7 +2,7 @@
   "sqlTools": {
     "repository": "metabase/metabase",
     "path": "resources/python-sources/sql_tools.py",
-    "commit": "ad0af5b6b036e44ae23921378c3831e53bf8d198"
+    "commit": "283fc309bf2bde8f63cc88811ea57a8321b2cf05"
   },
   "importedModels": {
     "repository": "metabase/metabase",
