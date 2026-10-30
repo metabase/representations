@@ -94,20 +94,21 @@ function handleExtractSchema(values: ParsedValues): void {
   process.exit(0);
 }
 
-function handleGenerateEntityId(values: ParsedValues): void {
+/** Prints `--count` values of `generate`, one per line, then exits. */
+function handleGenerate(values: ParsedValues, generate: () => string): void {
   const count = parseCount(values.count);
   for (let i = 0; i < count; i++) {
-    console.log(generateEntityId());
+    console.log(generate());
   }
   process.exit(0);
 }
 
+function handleGenerateEntityId(values: ParsedValues): void {
+  handleGenerate(values, generateEntityId);
+}
+
 function handleGenerateUuid(values: ParsedValues): void {
-  const count = parseCount(values.count);
-  for (let i = 0; i < count; i++) {
-    console.log(generateUuid());
-  }
-  process.exit(0);
+  handleGenerate(values, generateUuid);
 }
 
 function main(): void {

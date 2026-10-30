@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Git sync reads its content from the root of a repository, so the
       # examples get a repository of their own, which Metabase reads from disk.
@@ -22,10 +22,12 @@ jobs:
           git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Examples"
 
       - name: Start Metabase
+        env:
+          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
-            -e MB_PREMIUM_EMBEDDING_TOKEN=${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }} \
+            -e MB_PREMIUM_EMBEDDING_TOKEN \
             -v "$RUNNER_TEMP/sync-repo:/sync-repo:ro" \
             -p 3000:3000 \
             metabase/metabase-enterprise-head:latest
@@ -39,7 +41,10 @@ jobs:
 
       - name: Setup, create API key, and import
         run: |
-          # Complete first-time setup
+          # Complete first-time setup. The session and the API key are
+          # credentials: mask each before anything can print it, including
+          # the env block of later steps. jq -e fails on a missing value, so
+          # the mask never gets an empty string or "null".
           SETUP_TOKEN=$(curl -sf http://localhost:3000/api/session/properties | jq -r '.["setup-token"]')
           SESSION=$(curl -sf http://localhost:3000/api/setup -X POST \
             -H 'Content-Type: application/json' \
@@ -47,28 +52,30 @@ jobs:
               token: $token,
               user: {email:"admin@test.com", password:"Metabase123!", first_name:"Admin", last_name:"User", site_name:"Test"},
               prefs: {site_name:"Test", site_locale:"en", allow_tracking:false}
-            }')" | jq -r '.id')
-          echo "Setup complete (session: $SESSION)"
+            }')" | jq -er '.id')
+          echo "::add-mask::$SESSION"
+          echo "Setup complete"
 
-          # Create API key
           API_KEY=$(curl -sf http://localhost:3000/api/api-key \
             -H "X-Metabase-Session: $SESSION" \
             -H 'Content-Type: application/json' \
-            -d '{"name":"ci","group_id":2}' | jq -r '.unmasked_key')
+            -d '{"name":"ci","group_id":2}' | jq -er '.unmasked_key')
+          echo "::add-mask::$API_KEY"
           echo "API key created"
           echo "API_KEY=$API_KEY" >> "$GITHUB_ENV"
 
           # A new instance seeds the Sample Database's tables and fields from a
-          # snapshot and leaves fingerprinting to the hourly "Sync and Analyze" job.
-          # Run that sync now, and wait until every field has a fingerprint, so
-          # nothing checks a half-analyzed database. Primary keys are never
-          # fingerprinted.
+          # snapshot, and leaves fingerprinting to the hourly "Sync and Analyze"
+          # job. Run that sync now, and wait until every field has a
+          # fingerprint, so nothing checks a half-analyzed database. Primary
+          # keys are never fingerprinted.
           SAMPLE_DB_ID=$(curl -sf http://localhost:3000/api/database -H "X-API-Key: $API_KEY" \
             | jq -er '.data[] | select(.is_sample == true) | .id')
           curl -sf -X POST "http://localhost:3000/api/database/$SAMPLE_DB_ID/sync_schema" \
             -H "X-API-Key: $API_KEY" > /dev/null
           echo "Waiting for the Sample Database to be fingerprinted..."
           export API_KEY SAMPLE_DB_ID
+          # shellcheck disable=SC2016 # the inner shell expands the variables
           if ! timeout 600 bash -c '
             until
               curl -sf "http://localhost:3000/api/database/$SAMPLE_DB_ID/metadata" -H "X-API-Key: $API_KEY" \
@@ -160,14 +167,14 @@ jobs:
 
           FAILED=0
           while read -r ID; do
-            HTTP_CODE=$(curl -s -o /tmp/card-query-$ID.txt -w '%{http_code}' \
+            HTTP_CODE=$(curl -s -o "/tmp/card-query-$ID.txt" -w '%{http_code}' \
               -X POST \
               -H "X-API-Key: $API_KEY" \
               "http://localhost:3000/api/card/$ID/query")
 
             if [ "$HTTP_CODE" != "202" ]; then
               echo "Card $ID query failed with HTTP $HTTP_CODE"
-              cat /tmp/card-query-$ID.txt
+              cat "/tmp/card-query-$ID.txt"
               FAILED=1
             else
               echo "Card $ID query OK"
