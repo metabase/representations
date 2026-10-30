@@ -92,7 +92,6 @@ export type YamlDocument = {
 // nesting limit of 10000 is not checked: the parser runs out of stack first.
 const CODE_POINT_LIMIT = 3_145_728;
 const MAX_ALIASES_FOR_COLLECTIONS = 50;
-const BYTE_ORDER_MARK = "\uFEFF";
 
 /**
  * The yaml library warns where SnakeYAML refuses: an unknown tag, or a
@@ -162,13 +161,10 @@ function scannedEnd(doc: Document.Parsed, text: string): number {
   return !scansOn ? end : nextToken === -1 ? text.length : end + nextToken;
 }
 
-/** The number of code points in `text` before `end`, not counting a byte order mark. */
+/** The number of code points in `text` before `end`. */
 function codePointsBefore(text: string, end: number): number {
   let count = 0;
-  for (const _codePoint of text.slice(
-    text.startsWith(BYTE_ORDER_MARK) ? 1 : 0,
-    end,
-  )) {
+  for (const _codePoint of text.slice(0, end)) {
     count++;
   }
   return count;

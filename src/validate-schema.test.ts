@@ -665,6 +665,31 @@ describe("validateSchema", () => {
       expect(errorsOf()[0].message).toContain("got a character outside them");
     });
 
+    it("does not count a file's byte order mark toward the code-point limit", () => {
+      mkdirSync(join(workdir, "collections"), { recursive: true });
+      const statusOf = (codePoints: number) => {
+        writeFileSync(
+          join(workdir, "collections", "big.yaml"),
+          Buffer.concat([
+            Buffer.from([0xef, 0xbb, 0xbf]),
+            Buffer.from(`a: ${"x".repeat(codePoints - 3)}`),
+          ]),
+        );
+        return validateSchema({ folder: workdir }).results[0];
+      };
+      expect(statusOf(3_145_728).status).toBe("skipped");
+      expect(statusOf(3_145_729)).toMatchObject({
+        status: "fail",
+        errors: [
+          {
+            path: "/",
+            message:
+              "invalid YAML: the document exceeds the limit of 3145728 code points (1:1)",
+          },
+        ],
+      });
+    });
+
     it("does not suggest a fresh entity id for a reference", () => {
       mkdirSync(join(workdir, "collections"), { recursive: true });
       writeFileSync(
