@@ -167,6 +167,25 @@ describe("withSqlParser", () => {
     const asyncUse = () => withSqlParser(use);
     expect(typeof asyncUse).toBe("function");
   });
+
+  it("refuses, by its type, a use that may answer a promise", () => {
+    // Never called: the type check is the test.
+    const maybe = (parser: SqlParser) =>
+      Math.random() < 0.5 ? 1 : Promise.resolve(parser);
+    const unknownUse = (parser: SqlParser): unknown => parser;
+    const anyUse = (parser: SqlParser): any => parser;
+    const uses = [
+      // @ts-expect-error A union with a promise may answer a promise.
+      () => withSqlParser(maybe),
+      // @ts-expect-error `unknown` may be a promise.
+      () => withSqlParser(unknownUse),
+      // @ts-expect-error `any` may be a promise.
+      () => withSqlParser(anyUse),
+      () =>
+        withSqlParser((parser) => parser.referencedTables("SELECT 1", null)),
+    ];
+    expect(uses.length).toBe(4);
+  });
 });
 
 describe("loadSqlParser", () => {

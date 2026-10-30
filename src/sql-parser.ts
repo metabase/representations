@@ -503,8 +503,15 @@ export function sqlParserStarted(): boolean {
   return started !== undefined;
 }
 
-/** `never` for a promise, so that a function returning one is refused. */
-type NotPromise<T> = T extends PromiseLike<unknown> ? never : unknown;
+/**
+ * `never` for a type that may be a promise (a promise, a union with one,
+ * `unknown` or `any`), so that a function returning one is refused.
+ */
+type NotPromise<T> = unknown extends T
+  ? never
+  : [Extract<T, PromiseLike<unknown>>] extends [never]
+    ? unknown
+    : never;
 
 /** Thrown by each function of `UNLOADED_SQL_PARSER`. */
 class SqlParserUnloaded extends Error {}
