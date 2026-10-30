@@ -602,39 +602,24 @@ describe("lint", () => {
       expect(await findings(workdir)).toEqual([]);
     });
 
-    it("reports a Card, Dashboard or Document file that fails its schema, and not a Collection", async () => {
+    it("reports no schema mismatch on a Card, Dashboard, Document or Collection file", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
-      const unnamed = [
-        "collections/main/queries/basic_aggregations.yaml",
-        "collections/main/dashboards/virtual_cards.yaml",
-        "collections/main/queries.yaml",
-      ];
       const document = readdirSync(join(workdir, "collections/main/documents"))
         .filter((f) => f.endsWith(".yaml"))
         .map((f) => `collections/main/documents/${f}`)[0];
-      for (const file of [...unnamed, document]) {
+      for (const file of [
+        "collections/main/queries/basic_aggregations.yaml",
+        "collections/main/dashboards/virtual_cards.yaml",
+        "collections/main/queries.yaml",
+        document,
+      ]) {
         const path = join(workdir, file);
         writeFileSync(
           path,
           readFileSync(path, "utf8").replace(/^name: .*\n/m, ""),
         );
       }
-      expect(
-        (await findings(workdir)).map(
-          (f) => `${f.rule} ${f.severity} ${f.file}: ${f.message}`,
-        ),
-      ).toEqual(
-        [
-          ["Card", unnamed[0]],
-          ["Dashboard", unnamed[1]],
-          ["Document", document],
-        ]
-          .map(
-            ([model, file]) =>
-              `schema error ${file}: ${model} does not match its schema: / must have required property 'name'`,
-          )
-          .sort(),
-      );
+      expect(await findings(workdir)).toEqual([]);
     });
 
     it("counts the files it read, and orders one rule's findings by file", async () => {

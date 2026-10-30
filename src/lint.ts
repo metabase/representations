@@ -101,9 +101,6 @@ export type LintResult = {
 
 /** The models whose files the schema rule checks against their schemas. */
 const LINTED_MODELS = new Set([
-  "Card",
-  "Dashboard",
-  "Document",
   "Transform",
   "TransformTest",
   "Table",
