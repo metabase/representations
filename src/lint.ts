@@ -92,7 +92,11 @@ export type LintResult = {
   findings: LintFinding[];
 };
 
+/** The models whose files the schema rule checks against their schemas. */
 const LINTED_MODELS = new Set([
+  "Card",
+  "Dashboard",
+  "Document",
   "Transform",
   "TransformTest",
   "Table",
@@ -355,7 +359,7 @@ function reportSkippedFiles(skipped: readonly string[], report: Report): void {
   }
 }
 
-/** Reports each transform, transform test, table, Database or snippet file that fails its schema. */
+/** Reports each file of `LINTED_MODELS` that fails its schema. */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
     const { model, schema } = doc;
