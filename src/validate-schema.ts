@@ -218,6 +218,7 @@ function isTimeZone(zone: string): boolean {
   try {
     new Intl.DateTimeFormat("en", { timeZone: zone });
     return true;
+    // eslint-disable-next-line no-restricted-syntax -- reads no SQL
   } catch {
     return false;
   }
@@ -310,6 +311,7 @@ function validateFile(
         ),
       };
     }
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     return {
       file,
