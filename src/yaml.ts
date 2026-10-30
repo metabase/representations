@@ -37,6 +37,7 @@ export class YamlReadError extends Error {
 export function decodeUtf8(bytes: Uint8Array): string | null {
   try {
     return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    // eslint-disable-next-line no-restricted-syntax -- decodes bytes only; reads no SQL
   } catch {
     return null;
   }
