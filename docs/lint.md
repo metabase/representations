@@ -68,7 +68,7 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 - Before it reads tables or columns, the lint replaces each large literal list as Metabase does: a `VALUES` clause of more than 100 tuples becomes one tuple of `NULL`s, and an `IN` list or `ARRAY` literal of only literals with at least 100 commas becomes `IN (NULL)` or `ARRAY[NULL]`. It does not replace them before `replace_names`, as Metabase does not.
 - The columns a query reads and returns come from Metabase's `field_references`. A test's tables are replaced with Metabase's `replace_names`, with the replacements a transform test makes.
 - Loading the parser takes a moment and some memory, once per process, and only when the lint reads SQL in the folder.
-- Pyodide is an optional peer dependency, which a plain install of the package leaves out. Install it with `npm install pyodide@314.0.7`, the version the package pins. Without it, a lint that reads SQL exits with code 2 and names that command.
+- Pyodide is an optional peer dependency, which a plain install of the package leaves out. Install it with `npm install pyodide@314.0.7`, the version the package pins, where `@metabase/representations` is installed: a tool that depends on the package lists it among its own dependencies. Without it, a lint that reads SQL exits with code 2 and names that command.
 
 ## Which files are read
 

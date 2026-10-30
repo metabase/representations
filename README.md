@@ -50,7 +50,7 @@ Check the references between transforms, tables and transform tests in a folder,
 npx @metabase/representations lint --experimental --folder ./my-export
 ```
 
-The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Install it, at the version the package pins, for the lint to read SQL:
+The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Install it, at the version the package pins, where `@metabase/representations` is installed, for the lint to read SQL. A tool that depends on the package installs it among its own dependencies:
 
 ```sh
 npm install pyodide@314.0.7

@@ -418,7 +418,7 @@ describe("cli", () => {
         );
         expect(stdout).toBe("");
         expect(stderr.trimEnd().split("\n")).toEqual([
-          `The SQL parser could not start: pyodide, an optional peer dependency, is not installed. Install it with: npm install pyodide@${pinnedPyodide()}`,
+          `The SQL parser could not start: pyodide, an optional peer dependency, is not installed. Install pyodide@${pinnedPyodide()} where @metabase/representations is installed: npm install pyodide@${pinnedPyodide()}`,
         ]);
         expect(exitCode).toBe(2);
       },
