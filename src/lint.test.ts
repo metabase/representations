@@ -243,6 +243,27 @@ describe("lint", () => {
       );
     });
 
+    it("suggests the transform a test with a dangling transform_id likely tests", async () => {
+      mutateExamples("dangling-transform-id", workdir);
+      const danglingMessages = async () =>
+        (await findings(workdir))
+          .filter((f) => f.rule === "dangling-transform-id")
+          .map((f) => [f.message, f.related]);
+      const suggestion = [
+        [
+          "transform_id MissingTransform00000 matches no entity; the test likely tests Product Revenue Report, whose entity_id is 7JwIkkAG-06-nsl4jzsaq",
+          ["collections/transforms/native_transform.yaml"],
+        ],
+      ];
+      expect(await danglingMessages()).toEqual(suggestion);
+      // Outside the transform's folder, the test's name still says.
+      fs.renameSync(
+        join(workdir, "collections/transforms/native_transform"),
+        join(workdir, "collections/transforms/elsewhere"),
+      );
+      expect(await danglingMessages()).toEqual(suggestion);
+    });
+
     it("names the table an implicit join reads", async () => {
       mutateExamples("implicit-join", workdir);
       expect((await findings(workdir)).map((f) => f.message)).toEqual([

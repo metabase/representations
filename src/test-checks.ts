@@ -40,6 +40,33 @@ export function testInputs(
   }));
 }
 
+/**
+ * The transform a test with a dangling transform_id likely tests: the one
+ * whose file sits beside the test's folder, as remote sync writes a test
+ * (`<transform>/<test>.yaml` beside `<transform>.yaml`), or else the one whose
+ * name starts the test's name before its first colon. Null when neither
+ * finds one.
+ */
+function likelyTransformOf(
+  test: TestDoc,
+  docs: readonly Doc[],
+): ValidDoc<"Transform"> | null {
+  const transforms = validDocsOf(docs, "Transform");
+  const folder = test.file.slice(0, test.file.lastIndexOf("/"));
+  const beside = transforms.find((t) => t.file === `${folder}.yaml`);
+  if (beside !== undefined) {
+    return beside;
+  }
+  const colon = test.body.name.indexOf(":");
+  const named =
+    colon === -1
+      ? []
+      : transforms.filter(
+          (t) => t.body.name === test.body.name.slice(0, colon).trim(),
+        );
+  return named.length === 1 ? named[0] : null;
+}
+
 /** A schema-valid transform test, with the query transform it tests. */
 export type TestedTransform = { test: TestDoc; transform: QueryTransform };
 
@@ -77,10 +104,16 @@ export function reportTransformIds(
     const transformId = test.body.transform_id;
     const holder = holderOf(byEntityId, transformId);
     if (holder === null) {
+      const likely = likelyTransformOf(test, docs);
       report(
         "dangling-transform-id",
         test,
-        `transform_id ${transformId} matches no entity`,
+        `transform_id ${transformId} matches no entity${
+          likely === null
+            ? ""
+            : `; the test likely tests ${displayName(likely)}, whose entity_id is ${String(likely.body.entity_id)}`
+        }`,
+        likely === null ? [] : [likely.file],
       );
     } else if (holder.model !== "Transform") {
       report(

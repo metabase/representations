@@ -104,8 +104,10 @@ exports[`lint output on a broken copy of the examples matches the recording: dan
       "name": "Product Revenue Report: category totals",
     },
     "file": "collections/transforms/native_transform/product_revenue_report__category_totals.yaml",
-    "message": "transform_id MissingTransform00000 matches no entity",
-    "related": [],
+    "message": "transform_id MissingTransform00000 matches no entity; the test likely tests Product Revenue Report, whose entity_id is 7JwIkkAG-06-nsl4jzsaq",
+    "related": [
+      "collections/transforms/native_transform.yaml",
+    ],
     "rule": "dangling-transform-id",
     "severity": "error",
   },
@@ -140,7 +142,7 @@ exports[`lint output on a broken copy of the examples matches the recording: tra
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform.yaml",
-    "message": "transforms read each other's targets: Product Revenue Report → Top Categories → Product Revenue Report",
+    "message": "transforms read each other's targets: Product Revenue Report reads transforms.top_categories, the target of Top Categories -> Top Categories reads transforms.product_revenue_report, the target of Product Revenue Report. Remove one of these reads, or write one of these targets elsewhere",
     "related": [
       "collections/transforms/top_categories.yaml",
     ],
@@ -709,7 +711,7 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform_copy.yaml",
-    "message": "transforms read each other's targets: Product Revenue Report → Top Categories → Product Revenue Report",
+    "message": "transforms read each other's targets: Product Revenue Report reads transforms.top_categories, the target of Top Categories -> Top Categories reads transforms.product_revenue_report, the target of Product Revenue Report. Remove one of these reads, or write one of these targets elsewhere",
     "related": [
       "collections/transforms/top_categories.yaml",
     ],

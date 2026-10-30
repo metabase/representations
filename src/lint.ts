@@ -281,7 +281,7 @@ function createUnknownTableCheck(
 /**
  * Reports each cycle among transforms, on its first member in file order. The
  * message follows one cycle from that member, each transform reading the
- * next one's target.
+ * next one's target, and names the table each step reads.
  */
 function reportCycles(
   transforms: readonly Transform[],
@@ -289,14 +289,26 @@ function reportCycles(
   report: Report,
 ): void {
   const edges = readEdges(transforms, defaultSchemaOf);
+  const step = (from: Transform, to: Transform): string => {
+    const read =
+      from.reads.status === "read" && to.target !== null
+        ? from.reads.tables.find(
+            (t) =>
+              to.target !== null && sameTable(t, to.target, defaultSchemaOf),
+          )
+        : undefined;
+    return read === undefined
+      ? `${displayName(from.doc)} reads the target of ${displayName(to.doc)}`
+      : `${displayName(from.doc)} reads ${tableLabel(read)}, the target of ${displayName(to.doc)}`;
+  };
   for (const component of cycles(edges, transforms.length)) {
     const [first, ...rest] = component.map((i) => transforms[i]);
+    const path = cyclePath(edges, component).map((i) => transforms[i]);
+    const steps = path.slice(1).map((to, i) => step(path[i], to));
     report(
       "transform-cycle",
       first.doc,
-      `transforms read each other's targets: ${cyclePath(edges, component)
-        .map((i) => displayName(transforms[i].doc))
-        .join(" → ")}`,
+      `transforms read each other's targets: ${steps.join(" -> ")}. Remove one of these reads, or write one of these targets elsewhere`,
       rest.map((t) => t.doc.file),
     );
   }
