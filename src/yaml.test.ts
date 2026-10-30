@@ -283,6 +283,22 @@ describe("readYaml", () => {
     expect(() => readYaml(`a: &x 1\n${aliases(100)}`)).not.toThrow();
   });
 
+  it("refuses a document whose aliases expand to more than 3145728 nodes", () => {
+    // Level i is a list of two aliases to level i - 1, so the document's
+    // aliases expand to about 2^(n+2) nodes.
+    const nested = (n: number) =>
+      Array.from(
+        { length: n },
+        (_, i) => `l${i + 1}: &l${i + 1} [*l${i}, *l${i}]\n`,
+      )
+        .join("")
+        .replace(/^/, "l0: &l0 {1: x}\n");
+    expect(() => readYaml(nested(19))).not.toThrow();
+    expect(() => readYaml(nested(20))).toThrow(
+      /^the document's aliases expand to more than 3145728 nodes/,
+    );
+  });
+
   it("refuses a document whose content passes 3145728 code points, and accepts one that ends there", () => {
     // "é" is one code point but two UTF-16 units.
     const document = (codePoints: number) => `a: ${"é".repeat(codePoints - 3)}`;

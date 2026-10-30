@@ -217,8 +217,17 @@ function inspect(
     const range = isScalar(node) || isCollection(node) ? node.range : undefined;
     return range ? text.slice(range[0], range[1]) : String(node);
   };
-  const resolved = (node: unknown): unknown =>
-    isAlias(node) ? node.resolve(doc) : node;
+  // `Alias.resolve` walks the whole document on each call.
+  const aliasTargets = new Map<unknown, unknown>();
+  const resolved = (node: unknown): unknown => {
+    if (!isAlias(node)) {
+      return node;
+    }
+    if (!aliasTargets.has(node)) {
+      aliasTargets.set(node, node.resolve(doc));
+    }
+    return aliasTargets.get(node);
+  };
 
   const checkScalar = (node: Scalar, isKey: boolean): void => {
     if (!isKey && node.type === Scalar.PLAIN && node.source === "<<") {
@@ -359,7 +368,16 @@ function inspect(
   const nonStringKeys: NonStringKey[] = [];
   const path: (string | number)[] = [];
   const visiting = new Set<unknown>();
+  // A document without aliases has fewer nodes than code points, so the
+  // budget refuses only a document whose aliases expand past it.
+  let visits = 0;
   const record = (node: unknown): void => {
+    if (++visits > CODE_POINT_LIMIT) {
+      refuse(
+        `the document's aliases expand to more than ${CODE_POINT_LIMIT} nodes`,
+        node,
+      );
+    }
     const target = resolved(node);
     if (visiting.has(target)) {
       return;
@@ -404,7 +422,8 @@ function inspect(
  * leaves SnakeYAML's `allowDuplicateKeys` at its default, true
  * (`src/metabase/util/yaml.clj` `with-parse-defaults`). Throws
  * `YamlReadError` for any text SnakeYAML refuses, such as a merge source that
- * is not a map.
+ * is not a map, and for a document whose aliases expand to more than 3145728
+ * nodes, which SnakeYAML reads.
  */
 export function readYaml(text: string): YamlDocument {
   const lineCounter = new LineCounter();
