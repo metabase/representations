@@ -68,10 +68,24 @@ export type NonStringKey = {
   shadowed: boolean;
 };
 
+/** A key written a second time in one map, where it is written that time. */
+export type DuplicateKey = {
+  /** The key as written. */
+  source: string;
+  /** Counting from 1. */
+  line: number;
+  column: number;
+};
+
 /** A YAML document read as Metabase reads it. */
 export type YamlDocument = {
   value: unknown;
   nonStringKeys: readonly NonStringKey[];
+  /**
+   * Each key a map holds more than once, at each occurrence after the first.
+   * The value holds the last occurrence's value.
+   */
+  duplicateKeys: readonly DuplicateKey[];
 };
 
 // SnakeYAML's `LoaderOptions` defaults, which clj-yaml keeps. Metabase's
@@ -86,11 +100,9 @@ const BYTE_ORDER_MARK = "\uFEFF";
  */
 const REFUSED_WARNINGS = new Set(["TAG_RESOLVE_FAILED", "BAD_COLLECTION_TYPE"]);
 
-/** The reason for an error; a duplicate key keeps js-yaml's wording for `validate-schema` users. */
+/** The reason for an error, without its position. */
 function reasonOf(error: YAMLError): string {
-  return error.code === "DUPLICATE_KEY"
-    ? "duplicated mapping key"
-    : error.message.replace(/ at line \d+, column \d+:[\s\S]*$/, "");
+  return error.message.replace(/ at line \d+, column \d+:[\s\S]*$/, "");
 }
 
 function readError(error: YAMLError): YamlReadError {
@@ -178,14 +190,17 @@ type MergedEntry = {
  * Checks the parsed `doc` for what SnakeYAML refuses after parsing, and
  * names each non-string key by its text, which `toJS` then uses. Returns the
  * non-string keys, each once at the path of every map that holds it, merges
- * and aliases followed. Drops a shadowed key's pair after checking its value.
+ * and aliases followed, and each key a map holds again. Drops a shadowed
+ * key's pair after checking its value, and every pair of a key the map holds
+ * again but the last, as SnakeYAML keeps the last value.
  */
 function inspect(
   doc: Document.Parsed,
   text: string,
   lineCounter: LineCounter,
-): NonStringKey[] {
+): { nonStringKeys: NonStringKey[]; duplicateKeys: DuplicateKey[] } {
   let collectionAliases = 0;
+  const duplicateKeys: DuplicateKey[] = [];
   // Each map's keys once its merges apply, in the order SnakeYAML gives them
   // precedence: its own keys, then each merge source's in turn.
   const mergedEntries = new Map<YAMLMap, MergedEntry[]>();
@@ -259,7 +274,11 @@ function inspect(
   const checkMap = (map: YAMLMap): void => {
     const own: MergedEntry[] = [];
     const sources: YAMLMap[] = [];
-    for (const { key, value } of map.items) {
+    // Each pair whose key a later pair of the map holds again.
+    const overridden = new Set<unknown>();
+    const seen: { pair: unknown; key: unknown }[] = [];
+    for (const pair of map.items) {
+      const { key, value } = pair;
       if (isScalar(key) && typeof key.value === "symbol") {
         check(value, false);
         sources.push(...mergeSourcesOf(value));
@@ -268,6 +287,23 @@ function inspect(
       check(key, true);
       check(value, false);
       const readKey = resolved(key);
+      const earlier = seen.find((s) => sameKey(s.key, readKey));
+      if (earlier !== undefined) {
+        overridden.add(earlier.pair);
+        const position = lineCounter.linePos(
+          isScalar(key) || isCollection(key) || isAlias(key)
+            ? (key.range?.[0] ?? 0)
+            : 0,
+        );
+        duplicateKeys.push({
+          source: sourceOf(readKey),
+          line: position.line,
+          column: position.col,
+        });
+        const index = own.findIndex((e) => sameKey(e.key, readKey));
+        own.splice(index, 1);
+      }
+      seen.push({ pair, key: readKey });
       const isString = isScalar(readKey) && typeof readKey.value === "string";
       own.push({
         key: readKey,
@@ -295,8 +331,12 @@ function inspect(
         shadowed: !e.isString && stringNames.has(e.name),
       })),
     );
-    // Each own non-string key goes under its text; a shadowed one goes.
+    // Each own non-string key goes under its text; a shadowed one goes, and
+    // so does a key the map holds again.
     map.items = map.items.filter((pair) => {
+      if (overridden.has(pair)) {
+        return false;
+      }
       const readKey = resolved(pair.key);
       if (
         (isScalar(pair.key) && typeof pair.key.value === "symbol") ||
@@ -351,7 +391,7 @@ function inspect(
     visiting.delete(target);
   };
   record(doc.contents);
-  return nonStringKeys;
+  return { nonStringKeys, duplicateKeys };
 }
 
 /**
@@ -359,9 +399,12 @@ function inspect(
  * SnakeYAML: YAML 1.1 types, `<<` merge keys, SnakeYAML's limits). A map key
  * that SnakeYAML reads as something other than a string is in the value
  * under its text, and listed in `nonStringKeys`. A timestamp is a `Date`
- * with no time (`NaN`). Throws `YamlReadError` for any text SnakeYAML
- * refuses, such as a merge source that is not a map, and for a duplicate key, which SnakeYAML accepts with the last
- * value.
+ * with no time (`NaN`). A key a map holds again is in `duplicateKeys`, and
+ * the map holds its last value, as SnakeYAML keeps it: Metabase's loader
+ * leaves SnakeYAML's `allowDuplicateKeys` at its default, true
+ * (`src/metabase/util/yaml.clj` `with-parse-defaults`). Throws
+ * `YamlReadError` for any text SnakeYAML refuses, such as a merge source that
+ * is not a map.
  */
 export function readYaml(text: string): YamlDocument {
   const lineCounter = new LineCounter();
@@ -371,7 +414,8 @@ export function readYaml(text: string): YamlDocument {
     // Keeps SnakeYAML's types under a `%YAML 1.2` directive, as SnakeYAML does.
     schema: "yaml-1.1",
     customTags: snakeTags,
-    uniqueKeys: sameKey,
+    // `inspect` finds keys a map holds again, as SnakeYAML compares keys.
+    uniqueKeys: false,
     // "silent" would also drop the error for a second document.
     logLevel: "error",
   });
@@ -386,7 +430,11 @@ export function readYaml(text: string): YamlDocument {
       1,
     );
   }
-  const nonStringKeys = inspect(doc, text, lineCounter);
+  const { nonStringKeys, duplicateKeys } = inspect(doc, text, lineCounter);
   // SnakeYAML expands aliases by reference, with no limit beyond the one above.
-  return { value: doc.toJS({ maxAliasCount: -1 }), nonStringKeys };
+  return {
+    value: doc.toJS({ maxAliasCount: -1 }),
+    nonStringKeys,
+    duplicateKeys,
+  };
 }

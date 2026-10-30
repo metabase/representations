@@ -84,7 +84,7 @@ Known difference from Metabase: Metabase's import follows a symbolic link to a f
 
 ## How YAML is read
 
-A file that is not valid UTF-8 is an error; Metabase reads each invalid byte as U+FFFD instead. `lint` and `validate-schema` read each file as Metabase does: YAML 1.1 with SnakeYAML's rules, so `NO` is `false` and `017` is 15. They refuse what SnakeYAML refuses, such as an unknown tag, more than 50 aliases to a map or list, and a document longer than 3,145,728 code points. A duplicate key is an error, although Metabase keeps the last value. A key that SnakeYAML reads as no string, such as a plain `1:` or `yes:`, stays under its text as written.
+A file that is not valid UTF-8 is an error; Metabase reads each invalid byte as U+FFFD instead. `lint` and `validate-schema` read each file as Metabase does: YAML 1.1 with SnakeYAML's rules, so `NO` is `false` and `017` is 15. They refuse what SnakeYAML refuses, such as an unknown tag, more than 50 aliases to a map or list, and a document longer than 3,145,728 code points. `lint` warns on a key written twice in one map (`duplicate-yaml-key`) and reads the last value, as Metabase does; `validate-schema` fails the file. A key that SnakeYAML reads as no string, such as a plain `1:` or `yes:`, stays under its text as written.
 
 Known differences from Metabase's reading:
 

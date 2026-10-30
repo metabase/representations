@@ -661,21 +661,33 @@ describe("lint", () => {
       ]);
     });
 
-    it("reports a duplicate key as a file that does not parse", async () => {
+    it("warns on a key written twice in one map, and reads the last value", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
-      const file = "collections/transforms/duplicate_key.yaml";
-      writeFileSync(join(workdir, file), "name: a\nname: b\n");
+      const file = "collections/transforms/top_categories.yaml";
+      const path = join(workdir, file);
+      // A second name, which a Transform's schema refuses as a number, so
+      // the first value is not the one read.
+      writeFileSync(
+        path,
+        readFileSync(path, "utf8").replace(/^(name: .*)$/m, "name: 5\n$1"),
+      );
+      const line =
+        readFileSync(path, "utf8")
+          .split("\n")
+          .findIndex((l) => l.startsWith("name: ") && l !== "name: 5") + 1;
       expect(
-        (await findings(workdir)).map(({ rule, file, message }) => ({
+        (await findings(workdir)).map(({ rule, severity, file, message }) => ({
           rule,
+          severity,
           file,
           message,
         })),
       ).toEqual([
         {
-          rule: "schema",
+          rule: "duplicate-yaml-key",
+          severity: "warning",
           file,
-          message: "the file does not parse as YAML: duplicated mapping key",
+          message: `the key name is written again at ${line}:1 in the same map; Metabase keeps only the last value`,
         },
       ]);
     });

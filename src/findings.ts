@@ -9,6 +9,7 @@ export type LintSeverity = "error" | "warning";
 export const LINT_RULE_SEVERITY = {
   schema: "error",
   "skipped-by-metabase": "warning",
+  "duplicate-yaml-key": "warning",
   "duplicate-entity-id": "warning",
   "dangling-transform-id": "error",
   "wrong-type-transform-id": "error",

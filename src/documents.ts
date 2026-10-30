@@ -11,6 +11,7 @@ import {
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
 import {
   decodeUtf8,
+  type DuplicateKey,
   type NonStringKey,
   readYaml,
   type YamlDocument,
@@ -242,11 +243,15 @@ function schemaStatusOf(check: SchemaCheck): SchemaStatus {
 /** A file `loadDocs` could not read as an entity, and why. */
 export type UnreadableFile = { file: string; reason: string };
 
+/** A document with the keys its maps hold more than once. */
+export type DuplicatedKeys = { doc: Doc; keys: readonly DuplicateKey[] };
+
 /**
  * Each of `entityFiles(folder)`, in path order: as documents, as files
  * Metabase skips for having no `serdes/meta`, or as unreadable files, which
  * do not parse to a YAML map, or whose `serdes/meta` names no model or a model
- * Metabase does not import.
+ * Metabase does not import. Also each document whose maps hold a key more
+ * than once.
  */
 export function loadDocs(
   folder: string,
@@ -255,10 +260,12 @@ export function loadDocs(
   docs: Doc[];
   skipped: string[];
   unreadable: UnreadableFile[];
+  duplicatedKeys: DuplicatedKeys[];
 } {
   const docs: Doc[] = [];
   const skipped: string[] = [];
   const unreadable: UnreadableFile[] = [];
+  const duplicatedKeys: DuplicatedKeys[] = [];
   for (const file of entityFiles(folder)) {
     const text = decodeUtf8(readFileSync(resolve(folder, file)));
     if (text === null) {
@@ -274,7 +281,7 @@ export function loadDocs(
       unreadable.push({ file, reason: `does not parse as YAML: ${reason}` });
       continue;
     }
-    const { value: body, nonStringKeys } = read;
+    const { value: body, nonStringKeys, duplicateKeys } = read;
     const check = checkSchema(body, schemas);
     if (check.status === "bad-timestamp") {
       unreadable.push({ file, reason: `fails to load: ${check.message}` });
@@ -290,16 +297,20 @@ export function loadDocs(
         reason: `names the model "${check.model}", which Metabase does not import`,
       });
     } else {
-      docs.push({
+      const doc: Doc = {
         file,
         model: check.model,
         body,
         schema: schemaStatusOf(check),
         nonStringKeys,
-      });
+      };
+      docs.push(doc);
+      if (duplicateKeys.length > 0) {
+        duplicatedKeys.push({ doc, keys: duplicateKeys });
+      }
     }
   }
-  return { docs, skipped, unreadable };
+  return { docs, skipped, unreadable, duplicatedKeys };
 }
 
 /** Every document with an entity_id, keyed by it; several when the id is duplicated. */

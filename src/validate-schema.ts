@@ -291,7 +291,18 @@ function validateFile(
   }
   let doc: unknown;
   try {
-    doc = readYaml(text).value;
+    const read = readYaml(text);
+    const [duplicate] = read.duplicateKeys;
+    if (duplicate !== undefined) {
+      return {
+        file,
+        status: "fail",
+        errors: rootError(
+          `invalid YAML: duplicated mapping key (${duplicate.line}:${duplicate.column})`,
+        ),
+      };
+    }
+    doc = read.value;
     // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     return {

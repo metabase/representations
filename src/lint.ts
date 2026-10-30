@@ -12,6 +12,7 @@ import {
 import {
   displayName,
   type Doc,
+  type DuplicatedKeys,
   indexByEntityId,
   isQuerySource,
   loadDocs,
@@ -324,6 +325,25 @@ function reportUnreadableFiles(
   }
 }
 
+/**
+ * Warns on each key a document's map holds more than once. Metabase keeps the
+ * last value with no message (`readYaml`), so the others are lost.
+ */
+function reportDuplicateKeys(
+  duplicatedKeys: readonly DuplicatedKeys[],
+  report: Report,
+): void {
+  for (const { doc, keys } of duplicatedKeys) {
+    for (const { source, line, column } of keys) {
+      report(
+        "duplicate-yaml-key",
+        doc,
+        `the key ${source} is written again at ${line}:${column} in the same map; Metabase keeps only the last value`,
+      );
+    }
+  }
+}
+
 /** Warns on each file Metabase skips for having no `serdes/meta`. */
 function reportSkippedFiles(skipped: readonly string[], report: Report): void {
   for (const file of skipped) {
@@ -555,7 +575,10 @@ export async function lint({
 }: LintOptions): Promise<LintResult> {
   const settings = readSettingsFile(folder);
   const schemas = loadSchemas();
-  const { docs, skipped, unreadable } = loadDocs(folder, schemas);
+  const { docs, skipped, unreadable, duplicatedKeys } = loadDocs(
+    folder,
+    schemas,
+  );
   const engineOf = createEngineOf(docs, settings.engines);
   const byEntityId = indexByEntityId(docs);
   const files = docs.length + skipped.length + unreadable.length;
@@ -583,6 +606,7 @@ export async function lint({
 
     reportUnreadableFiles(unreadable, report);
     reportSkippedFiles(skipped, report);
+    reportDuplicateKeys(duplicatedKeys, report);
     reportSchemaMismatches(docs, report);
     reportDuplicateEntityIds(byEntityId, report);
 

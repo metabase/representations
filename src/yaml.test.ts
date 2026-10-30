@@ -111,6 +111,7 @@ describe("readYaml", () => {
         { path: ["m", 0], source: "017", shadowed: false },
         { path: [], source: "[x]", shadowed: false },
       ],
+      duplicateKeys: [],
     });
   });
 
@@ -120,6 +121,7 @@ describe("readYaml", () => {
       expect(readYaml(text)).toEqual({
         value: { "1": "b" },
         nonStringKeys: [{ path: [], source: "1", shadowed: true }],
+        duplicateKeys: [],
       });
     },
   );
@@ -128,10 +130,12 @@ describe("readYaml", () => {
     expect(readYaml("m: {<<: {'1': p}, 1: q}\n")).toEqual({
       value: { m: { "1": "p" } },
       nonStringKeys: [{ path: ["m"], source: "1", shadowed: true }],
+      duplicateKeys: [],
     });
     expect(readYaml("m: {<<: {1: x}, 1: y}\n")).toEqual({
       value: { m: { "1": "y" } },
       nonStringKeys: [{ path: ["m"], source: "1", shadowed: false }],
+      duplicateKeys: [],
     });
     expect(readYaml("m:\n  <<: {1: x}\n  s: y\n").nonStringKeys).toEqual([
       { path: ["m"], source: "1", shadowed: false },
@@ -152,6 +156,7 @@ describe("readYaml", () => {
     expect(readYaml("k: &k name\n*k : v\n")).toEqual({
       value: { k: "name", name: "v" },
       nonStringKeys: [],
+      duplicateKeys: [],
     });
     expect(readYaml("k: &k 1\n*k : v\n").nonStringKeys).toEqual([
       { path: [], source: "1", shadowed: false },
@@ -174,33 +179,54 @@ describe("readYaml", () => {
     );
   });
 
+  it.each([
+    ["a duplicate key", "a: 1\nb: 2\na: 3\n", { a: 3, b: 2 }, "a", 3],
+    [
+      "two keys SnakeYAML reads as true",
+      "yes: 1\ntrue: 2\n",
+      { true: 2 },
+      "true",
+      2,
+    ],
+    ["two keys SnakeYAML reads as 1", "01: a\n1: b\n", { "1": "b" }, "1", 2],
+    [
+      "two keys SnakeYAML reads as 1.0",
+      "1.0: a\n1.00: b\n",
+      { "1.00": "b" },
+      "1.00",
+      2,
+    ],
+    [
+      "two keys SnakeYAML reads as NaN",
+      ".nan: a\n.nan: b\n",
+      { ".nan": "b" },
+      ".nan",
+      2,
+    ],
+  ])(
+    "reads %s with the last value, and lists where the key is written again",
+    (_, text, value, source, line) => {
+      const read = readYaml(text);
+      expect(read.value).toEqual(value);
+      expect(read.duplicateKeys).toEqual([{ source, line, column: 1 }]);
+    },
+  );
+
+  it("lists a key written three times twice, in a nested map, and keeps a merge source's key apart", () => {
+    const read = readYaml("m:\n  <<: {k: 0}\n  k: 1\n  k: 2\n  k: 3\n");
+    expect(read.value).toEqual({ m: { k: 3 } });
+    expect(read.duplicateKeys).toEqual([
+      { source: "k", line: 4, column: 3 },
+      { source: "k", line: 5, column: 3 },
+    ]);
+  });
+
   it("keeps SnakeYAML's types under a %YAML 1.2 directive", () => {
     expect(valueOf("%YAML 1.2\n---\na: yes\n")).toEqual({ a: true });
     expect(valueOf("%YAML 1.3\n---\na: yes\n")).toEqual({ a: true });
   });
 
   it.each([
-    ["a duplicate key", "a: 1\nb: 2\na: 3\n", "duplicated mapping key (3:1)"],
-    [
-      "two keys SnakeYAML reads as true",
-      "yes: 1\ntrue: 2\n",
-      "duplicated mapping key (2:1)",
-    ],
-    [
-      "two keys SnakeYAML reads as 1",
-      "01: a\n1: b\n",
-      "duplicated mapping key (2:1)",
-    ],
-    [
-      "two keys SnakeYAML reads as 1.0",
-      "1.0: a\n1.00: b\n",
-      "duplicated mapping key (2:1)",
-    ],
-    [
-      "two keys SnakeYAML reads as NaN",
-      ".nan: a\n.nan: b\n",
-      "duplicated mapping key (2:1)",
-    ],
     ["an unknown tag", "a: !foo x\n", "Unresolved tag: !foo (1:4)"],
     ["a float with no digits", "a: ._\n", "._ is not a float (1:4)"],
     [
