@@ -483,7 +483,8 @@ describe("loadSqlParser", () => {
   it("reads SQL field_references cannot parse, or a union's columns, as SQLGlot leaves them", () => {
     expect(parser.fieldReferences("SELECT * FROM", "postgres")).toEqual({
       status: "unread",
-      reason: "field_references could not parse it",
+      reason:
+        "field_references reads only a single SELECT or UNION, and could not read it",
     });
     const union = parser.fieldReferences(
       "SELECT a FROM t UNION ALL SELECT b FROM u",
@@ -498,10 +499,14 @@ describe("loadSqlParser", () => {
     for (const sql of [
       "SELECT a FROM t INTERSECT SELECT a FROM u",
       "SELECT a FROM t EXCEPT SELECT a FROM u",
+      "INSERT INTO t SELECT a FROM u",
+      "UPDATE t SET a = 1",
+      "SELECT a FROM t; SELECT b FROM u",
     ]) {
       expect(parser.fieldReferences(sql, "postgres")).toEqual({
         status: "unread",
-        reason: "field_references could not parse it",
+        reason:
+          "field_references reads only a single SELECT or UNION, and could not read it",
       });
     }
   });

@@ -388,7 +388,11 @@ export function fieldReferencesOf(
   // A missing_column error, an unqualified column that no table in its scope
   // can give, names no table's column; the column checks need none.
   if (errors.some((e) => e?.type === "syntax_error")) {
-    return { status: "unread", reason: "field_references could not parse it" };
+    return {
+      status: "unread",
+      reason:
+        "field_references reads only a single SELECT or UNION, and could not read it",
+    };
   }
   return {
     status: "read",

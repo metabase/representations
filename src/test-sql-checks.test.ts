@@ -137,7 +137,7 @@ const TWO_STATEMENTS =
 const unreadColumns = (file: string, query: string): Recorded => ({
   rule: "reads-not-checked",
   file,
-  message: `could not find the columns ${query}: field_references could not parse it`,
+  message: `could not find the columns ${query}: field_references reads only a single SELECT or UNION, and could not read it`,
   related: [],
 });
 
