@@ -28,9 +28,7 @@ This repository contains the specification and examples for the Metabase Represe
 | TransformTest | Test data for a transform's input tables and checks on its output |
 | PythonLibrary | Shared Python source file available to Python transforms |
 
-## Schema Validation
-
-### CLI
+## Schema validation
 
 Validate a folder of YAML files against the schemas:
 
@@ -38,47 +36,34 @@ Validate a folder of YAML files against the schemas:
 npx @metabase/representations validate-schema --folder ./my-export
 ```
 
-Omit `--folder` to validate the current directory.
+Omit `--folder` to validate the current directory. It exits 1 when a file fails, or when the folder has no YAML files. A file with no `serdes/meta`, or an empty file, passes with a warning: Metabase skips it. A file of a model that Metabase imports and no schema here describes, such as `CustomVizPlugin` or `Dimension`, passes and is counted as not checked. A model that Metabase does not import fails.
 
-### Extracting the spec
+The validator reads YAML as Metabase does, with a few [known differences](https://github.com/metabase/representations/blob/main/docs/lint.md#how-yaml-is-read).
 
-Copy the bundled `spec.md` to a target file:
+## Other commands
+
+Copy the bundled `spec.md` to a file (default `./spec.md`):
 
 ```sh
 npx @metabase/representations extract-spec --file ./spec.md
 ```
 
-Omit `--file` to write `spec.md` into the current directory.
-
-### Extracting schemas
-
-Copy the bundled schemas (preserving folder structure) into a target directory:
+Copy the bundled schemas, with their folder structure, into a folder (default: the current directory):
 
 ```sh
 npx @metabase/representations extract-schema --folder ./schemas
 ```
 
-Omit `--folder` to extract into the current directory.
-
-### Generating entity IDs
-
-Print one or more 21-character NanoID entity IDs (one per line):
+Print 21-character NanoID entity IDs, or v4 UUIDs, one per line:
 
 ```sh
-npx @metabase/representations generate-entity-id
 npx @metabase/representations generate-entity-id --count 5
-```
-
-### Generating UUIDs
-
-Print one or more v4 UUIDs (one per line):
-
-```sh
-npx @metabase/representations generate-uuid
 npx @metabase/representations generate-uuid --count 5
 ```
 
-### Programmatic
+`--count` defaults to 1.
+
+## Programmatic use
 
 ```js
 import {
@@ -87,10 +72,7 @@ import {
   validateSchema,
 } from "@metabase/representations";
 
-const { results, passed, failed } = validateSchema({
-  folder: "./my-export",
-});
-
+const { results, passed, failed } = validateSchema({ folder: "./my-export" });
 for (const result of results) {
   if (result.status === "fail") {
     console.log(result.file, result.errors);
