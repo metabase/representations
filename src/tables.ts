@@ -13,10 +13,17 @@ export type TableName = {
  */
 export type NullSchema = "default" | "none";
 
-/** A table in a database; `database` is null when the document does not say which. */
+/**
+ * A table in a database; `database` is null when the document does not say
+ * which. `caseMatters` is true for a name Metabase looks up exactly: an MBQL
+ * or Python source reference, a table file, a transform target. It is false
+ * for a name read from SQL, or a transform test's input, which Metabase's
+ * transform-test validator compares ignoring case.
+ */
 export type TableKey = TableName & {
   database: string | null;
   nullSchema: NullSchema;
+  caseMatters: boolean;
 };
 
 /**
@@ -25,7 +32,10 @@ export type TableKey = TableName & {
  */
 export type DefaultSchemaOf = (database: string | null) => string | null;
 
-/** An identifier as Metabase compares it: in lower case. Null stays null. */
+/**
+ * An identifier as Metabase's transform-test validator compares it, and as a
+ * warehouse reads it unquoted on most engines: in lower case. Null stays null.
+ */
 export function fold(identifier: string): string;
 export function fold(identifier: string | null): string | null;
 export function fold(identifier: string | null): string | null {
@@ -33,11 +43,13 @@ export function fold(identifier: string | null): string | null {
 }
 
 /**
- * Whether two table names can denote the same table. Each part compares
- * ignoring case (`fold`):
+ * Whether two table names can denote the same table. Schema and name compare
+ * exactly when the case of both keys matters (`caseMatters`), as Metabase's
+ * import looks them up, and else ignoring case (`fold`):
  *
  * - names must be equal;
- * - databases must be equal when both are known; a missing one matches any;
+ * - databases must be equal, exactly, when both are known; a missing one
+ *   matches any;
  * - schemas must be equal once each is resolved: an unqualified name
  *   (`nullSchema` `"default"`) to the default schema of the names' database
  *   (`defaultSchemaOf`), and a name with no schema (`"none"`) to none.
@@ -47,14 +59,14 @@ export function sameTable(
   b: TableKey,
   defaultSchemaOf: DefaultSchemaOf,
 ): boolean {
-  if (fold(a.name) !== fold(b.name)) {
+  const compared =
+    a.caseMatters && b.caseMatters
+      ? (identifier: string | null) => identifier
+      : fold;
+  if (compared(a.name) !== compared(b.name)) {
     return false;
   }
-  if (
-    a.database !== null &&
-    b.database !== null &&
-    fold(a.database) !== fold(b.database)
-  ) {
+  if (a.database !== null && b.database !== null && a.database !== b.database) {
     return false;
   }
   const schemaOf = (table: TableKey): string | null =>
@@ -62,18 +74,22 @@ export function sameTable(
     (table.nullSchema === "default"
       ? defaultSchemaOf(a.database ?? b.database)
       : null);
-  return fold(schemaOf(a)) === fold(schemaOf(b));
+  return compared(schemaOf(a)) === compared(schemaOf(b));
 }
 
 /**
  * `tables` without repeats, keeping the first of each: two keys repeat when
- * their database, schema and name are equal ignoring case (`fold`), and, when
- * their schema is null, so is what it means (`nullSchema`).
+ * their database is equal, their case matters for both or neither
+ * (`caseMatters`), their schema and name are equal (ignoring case when it does
+ * not matter), and, when their schema is null, so is what it means
+ * (`nullSchema`).
  */
 export function uniqueTables(tables: readonly TableKey[]): TableKey[] {
   return uniqueBy(tables, (t) =>
     JSON.stringify([
-      ...[t.database, t.schema, t.name].map(fold),
+      t.database,
+      t.caseMatters,
+      ...[t.schema, t.name].map((part) => (t.caseMatters ? part : fold(part))),
       t.schema === null ? t.nullSchema : null,
     ]),
   );
@@ -91,6 +107,7 @@ export function tableOfRef(ref: unknown): TableKey | null {
         schema: stringOrNull(ref[1]),
         name: ref[2],
         nullSchema: "none",
+        caseMatters: true,
       }
     : null;
 }

@@ -9,7 +9,7 @@ import { fold, type TableKey, type TableName } from "./tables.js";
  * schema covers it.
  */
 export function inputCovers(
-  read: Omit<TableKey, "database">,
+  read: Pick<TableKey, "schema" | "name" | "nullSchema">,
   input: TableName,
   defaultSchema: string | null,
 ): boolean {

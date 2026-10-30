@@ -36,7 +36,6 @@ import { withSqlParser } from "./sql-parser.js";
 import { createSqlTableReader, type SqlTableReader } from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
-  fold,
   sameTable,
   tableLabel,
   type TableKey,
@@ -223,6 +222,7 @@ function tableOfFile(doc: ValidDoc<"Table">): TableKey {
     schema: doc.body.schema ?? null,
     name: doc.body.name,
     nullSchema: "none",
+    caseMatters: true,
   };
 }
 
@@ -239,7 +239,7 @@ function createUnknownTableCheck(
 ): TableCheck {
   const tableDocs = validDocsOf(docs, "Table");
   const tableFileDatabases = new Set<string | null>(
-    tableDocs.map((d) => fold(d.body.db_id)),
+    tableDocs.map((d) => d.body.db_id),
   );
   const knownTables: TableKey[] = [
     ...tableDocs.map(tableOfFile),
@@ -247,7 +247,7 @@ function createUnknownTableCheck(
   ];
   return (doc: Doc, table: TableKey) => {
     if (
-      tableFileDatabases.has(fold(table.database)) &&
+      tableFileDatabases.has(table.database) &&
       !knownTables.some((k) => sameTable(k, table, defaultSchemaOf))
     ) {
       report(
@@ -418,7 +418,12 @@ function expectationReads(
       "sql" in expectation ? readSql(expectation.sql, database) : null;
     return result?.status === "read"
       ? result.tables.map(
-          (t): TableKey => ({ database, ...t, nullSchema: "default" }),
+          (t): TableKey => ({
+            database,
+            ...t,
+            nullSchema: "default",
+            caseMatters: false,
+          }),
         )
       : [];
   });

@@ -9,6 +9,9 @@ import { type DefaultSchemaOf, fold, type TableKey } from "./tables.js";
  */
 export type DefaultSchemas = Readonly<Record<string, string | null>>;
 
+/** A table's name, and what a null schema in it means. */
+type SchemaName = Pick<TableKey, "schema" | "name" | "nullSchema">;
+
 /** A database whose default schema the lint needs, and why. */
 export type DefaultSchemaWanted = { database: string; reason: string };
 
@@ -38,8 +41,8 @@ export class MissingDefaultSchemasError extends LintSetupError {
  * (`nullSchema` `"none"`) never does.
  */
 export function defaultSchemaNeed(
-  names: readonly Omit<TableKey, "database">[],
-  testTables: readonly (readonly Omit<TableKey, "database">[])[],
+  names: readonly SchemaName[],
+  testTables: readonly (readonly SchemaName[])[],
 ): string | null {
   const unqualified = names.find(
     (n) => n.schema === null && n.nullSchema === "default",

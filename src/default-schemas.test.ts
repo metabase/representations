@@ -27,7 +27,13 @@ const k = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({ database, schema, name, nullSchema: "default" });
+): TableKey => ({
+  database,
+  schema,
+  name,
+  nullSchema: "default",
+  caseMatters: false,
+});
 
 describe("defaultSchemaNeed", () => {
   it("needs a default schema for an unqualified name", () => {
@@ -89,7 +95,11 @@ describe("the default-schema gate", () => {
   // every other comparison may pair any two names.
   it("lets through only names whose matches never depend on the default schema", () => {
     const defaults = [null, "a", "b"] as const;
-    const key = (n: GeneratedName): TableKey => ({ database: "db", ...n });
+    const key = (n: GeneratedName): TableKey => ({
+      database: "db",
+      ...n,
+      caseMatters: false,
+    });
     const isSql = (n: GeneratedName) => n.nullSchema === "default";
     // Test inputs and transform targets are named as in SQL; only a read may
     // be an MBQL reference.
@@ -176,6 +186,17 @@ describe("resolveDefaultSchemas", () => {
     expect(defaultSchemaOf("Flat")).toBeNull();
     expect(defaultSchemaOf("Shop")).toBeNull();
     expect(defaultSchemaOf("Lake")).toBeNull();
+  });
+
+  it("keys databases by their exact name, as Metabase looks a database up", () => {
+    const resolve = () =>
+      resolveDefaultSchemas({
+        testTables: [],
+        names: [k("warehouse", null, "orders")],
+        given: { Warehouse: "public" },
+        engineOf: () => null,
+      });
+    expect(resolve).toThrow(MissingDefaultSchemasError);
   });
 
   it("takes a given default schema over the engine's", () => {

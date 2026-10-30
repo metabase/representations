@@ -37,11 +37,17 @@ describe("createSourceFinder", () => {
       "Transform",
     );
     expect(sources.tables).toEqual([
-      { database: DB, schema: null, name: "ORDERS", nullSchema: "none" },
+      {
+        database: DB,
+        schema: null,
+        name: "ORDERS",
+        nullSchema: "none",
+        caseMatters: true,
+      },
     ]);
   });
 
-  it("keeps a schema named null apart from no schema, and a table once in any case", () => {
+  it("keeps a schema named null apart from no schema, and names that differ in case apart", () => {
     const sources = findSources(
       transform([
         mbql({
@@ -65,8 +71,27 @@ describe("createSourceFinder", () => {
       "Transform",
     );
     expect(sources.tables).toEqual([
-      { database: DB, schema: "null", name: "ORDERS", nullSchema: "none" },
-      { database: DB, schema: null, name: "ORDERS", nullSchema: "none" },
+      {
+        database: DB,
+        schema: "null",
+        name: "ORDERS",
+        nullSchema: "none",
+        caseMatters: true,
+      },
+      {
+        database: DB,
+        schema: null,
+        name: "ORDERS",
+        nullSchema: "none",
+        caseMatters: true,
+      },
+      {
+        database: DB,
+        schema: null,
+        name: "orders",
+        nullSchema: "none",
+        caseMatters: true,
+      },
     ]);
   });
 
@@ -90,6 +115,7 @@ describe("createSourceFinder", () => {
       schema: null,
       name: "ORDERS",
       nullSchema: "none",
+      caseMatters: true,
     };
     expect(sources.fields).toEqual([
       { table: orders, column: "TOTAL" },
@@ -100,6 +126,7 @@ describe("createSourceFinder", () => {
           schema: null,
           name: "PRODUCTS",
           nullSchema: "none",
+          caseMatters: true,
         },
         column: "CATEGORY",
       },
@@ -251,7 +278,13 @@ describe("createSourceFinder", () => {
       "NNNNNNNNNNNNNNNNNNNNN",
     ]);
     expect(sources.tables).toEqual([
-      { database: DB, schema: "PUBLIC", name: "PEOPLE", nullSchema: "none" },
+      {
+        database: DB,
+        schema: "PUBLIC",
+        name: "PEOPLE",
+        nullSchema: "none",
+        caseMatters: true,
+      },
     ]);
   });
 

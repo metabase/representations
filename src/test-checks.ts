@@ -36,6 +36,7 @@ export function testInputs(
     schema: table.schema ?? null,
     name: table.name,
     nullSchema: "default",
+    caseMatters: false,
   }));
 }
 

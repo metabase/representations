@@ -1584,6 +1584,149 @@ describe("lint", () => {
     });
   });
 
+  // Metabase's import looks a table up by exact name (`table-id-by-name`), and
+  // creates an inactive table on a miss; the transform-test validator and a
+  // warehouse reading unquoted SQL compare ignoring case.
+  describe("with table names that differ only in case", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-case-"));
+      const database = "databases/sample_postgres/sample_postgres.yaml";
+      mkdirSync(join(workdir, "databases/sample_postgres"), {
+        recursive: true,
+      });
+      mkdirSync(join(workdir, "collections/transforms"), { recursive: true });
+      cpSync(join(EXAMPLES, database), join(workdir, database));
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    /** Writes a transform reading `stage` and writing `public.<target>`. */
+    const writeTransform = (
+      file: string,
+      entityId: string,
+      stage: Record<string, unknown>,
+      target: string,
+    ) =>
+      writeFileSync(
+        join(workdir, "collections/transforms", file),
+        yaml.dump({
+          name: file,
+          entity_id: entityId,
+          creator_id: "admin@example.com",
+          source_database_id: POSTGRES_DB,
+          source: {
+            type: "query",
+            query: {
+              "lib/type": "mbql/query",
+              database: POSTGRES_DB,
+              stages: [stage],
+            },
+          },
+          target: {
+            database: POSTGRES_DB,
+            type: "table",
+            schema: "public",
+            name: target,
+          },
+          "serdes/meta": [{ model: "Transform" }],
+        }),
+      );
+    const mbqlRead = (table: string) => ({
+      "lib/type": "mbql.stage/mbql",
+      "source-table": [POSTGRES_DB, "public", table],
+    });
+    const sqlRead = (table: string) => ({
+      "lib/type": "mbql.stage/native",
+      native: `SELECT * FROM public.${table}`,
+    });
+    const writeTableFile = (name: string) => {
+      const dir = join(workdir, "databases/sample_postgres/tables", name);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, `${name}.yaml`),
+        yaml.dump({
+          name,
+          db_id: POSTGRES_DB,
+          schema: "public",
+          "serdes/meta": [{ model: "Table" }],
+        }),
+      );
+    };
+    const lintRules = async () =>
+      rules((await lint({ folder: workdir })).findings);
+
+    it("finds no cycle through an MBQL reference whose case differs from the target", async () => {
+      writeTransform("a.yaml", "CaseTransformA0000001", mbqlRead("Foo"), "bar");
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("bar"), "foo");
+      expect(await lintRules()).toEqual([]);
+      writeTransform("a.yaml", "CaseTransformA0000001", mbqlRead("foo"), "bar");
+      expect(await lintRules()).toEqual(["transform-cycle"]);
+    });
+
+    it("finds a cycle through a SQL read whose case differs from the target", async () => {
+      writeTransform("a.yaml", "CaseTransformA0000001", sqlRead("Foo"), "bar");
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("bar"), "foo");
+      expect(await lintRules()).toEqual(["transform-cycle"]);
+    });
+
+    it("counts a table file as an MBQL reference's table only in the same case, and as a SQL read's in any case", async () => {
+      writeTableFile("products");
+      writeTransform(
+        "a.yaml",
+        "CaseTransformA0000001",
+        mbqlRead("Products"),
+        "a",
+      );
+      const messages = async () =>
+        (await lint({ folder: workdir })).findings.map(
+          (f) => `${f.rule}: ${f.message}`,
+        );
+      expect(await messages()).toEqual([
+        "unknown-table: table public.Products is defined by no table file or transform target",
+      ]);
+      writeTransform(
+        "a.yaml",
+        "CaseTransformA0000001",
+        mbqlRead("products"),
+        "a",
+      );
+      expect(await messages()).toEqual([]);
+      writeTransform(
+        "a.yaml",
+        "CaseTransformA0000001",
+        sqlRead("Products"),
+        "a",
+      );
+      expect(await messages()).toEqual([]);
+    });
+
+    it("counts a transform target as an MBQL reference's table only in the same case", async () => {
+      writeTableFile("products");
+      writeTransform(
+        "a.yaml",
+        "CaseTransformA0000001",
+        mbqlRead("products"),
+        "Made",
+      );
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("made"), "b");
+      expect(await lintRules()).toEqual(["unknown-table"]);
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("Made"), "b");
+      expect(await lintRules()).toEqual([]);
+    });
+
+    it("finds a duplicate target only in the same case", async () => {
+      writeTransform("a.yaml", "CaseTransformA0000001", mbqlRead("x"), "Out");
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("y"), "out");
+      expect(await lintRules()).toEqual([]);
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("y"), "Out");
+      expect(await lintRules()).toEqual(["duplicate-target"]);
+    });
+  });
+
   // Metabase imports `[database, null, table]` as the table with no schema; on
   // a database whose default schema is not null, that table rarely exists.
   describe("with an MBQL reference with a null schema", () => {

@@ -13,14 +13,26 @@ const table = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({ database, schema, name, nullSchema: "default" });
+): TableKey => ({
+  database,
+  schema,
+  name,
+  nullSchema: "default",
+  caseMatters: false,
+});
 
 /** A table named by an MBQL reference: a null schema is the table with no schema. */
 const ref = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({ database, schema, name, nullSchema: "none" });
+): TableKey => ({
+  database,
+  schema,
+  name,
+  nullSchema: "none",
+  caseMatters: true,
+});
 
 const noSchemas: DefaultSchemaOf = () => null;
 const defaultOf =
@@ -31,6 +43,47 @@ const defaultOf =
       : null;
 
 describe("sameTable", () => {
+  it("compares names and schemas exactly when the case of both matters, as Metabase's import looks them up", () => {
+    expect(
+      sameTable(
+        ref("db", "public", "Orders"),
+        ref("db", "public", "orders"),
+        noSchemas,
+      ),
+    ).toBe(false);
+    expect(
+      sameTable(
+        ref("db", "PUBLIC", "orders"),
+        ref("db", "public", "orders"),
+        noSchemas,
+      ),
+    ).toBe(false);
+    expect(
+      sameTable(
+        ref("db", "public", "Orders"),
+        ref("db", "public", "Orders"),
+        noSchemas,
+      ),
+    ).toBe(true);
+  });
+
+  it("compares ignoring case when the case of either key does not matter", () => {
+    expect(
+      sameTable(
+        table("db", "PUBLIC", "Orders"),
+        ref("db", "public", "orders"),
+        noSchemas,
+      ),
+    ).toBe(true);
+    expect(
+      sameTable(
+        ref("db", "public", "orders"),
+        table("db", "Public", "ORDERS"),
+        noSchemas,
+      ),
+    ).toBe(true);
+  });
+
   it("compares names ignoring case, folded to lower case as Metabase folds", () => {
     expect(
       sameTable(
@@ -152,7 +205,7 @@ describe("sameTable", () => {
     ).toBe(true);
   });
 
-  it("compares two known databases ignoring case, and lets a missing one match any", () => {
+  it("compares two known databases exactly, as Metabase looks a database up by name, and lets a missing one match any", () => {
     expect(
       sameTable(table("db1", "s", "t"), table("db2", "s", "t"), noSchemas),
     ).toBe(false);
@@ -162,7 +215,7 @@ describe("sameTable", () => {
         table("SAMPLE", "s", "t"),
         noSchemas,
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       sameTable(table(null, "s", "t"), table("db2", "s", "t"), noSchemas),
     ).toBe(true);
@@ -180,19 +233,38 @@ describe("sameTable", () => {
 });
 
 describe("uniqueTables", () => {
-  it("keeps an unqualified name apart from an MBQL reference with no schema, and a qualified table once", () => {
+  it("keeps an unqualified name apart from an MBQL reference with no schema, and a SQL name once in any case", () => {
     expect(
       uniqueTables([
         ref("db", null, "t"),
         table("db", null, "T"),
-        ref("DB", null, "T"),
+        table("db", null, "t"),
         table("db", "S", "t"),
-        ref("db", "s", "t"),
+        table("db", "s", "T"),
       ]),
     ).toEqual([
       ref("db", null, "t"),
       table("db", null, "T"),
       table("db", "S", "t"),
+    ]);
+  });
+
+  it("keeps apart references whose case or database differs, and a reference from a SQL name", () => {
+    expect(
+      uniqueTables([
+        ref("db", "s", "t"),
+        ref("db", "s", "T"),
+        ref("db", "S", "t"),
+        ref("DB", "s", "t"),
+        table("db", "s", "t"),
+        ref("db", "s", "t"),
+      ]),
+    ).toEqual([
+      ref("db", "s", "t"),
+      ref("db", "s", "T"),
+      ref("db", "S", "t"),
+      ref("DB", "s", "t"),
+      table("db", "s", "t"),
     ]);
   });
 });

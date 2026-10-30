@@ -101,6 +101,7 @@ function nativeReads(
           database: native.database,
           ...t,
           nullSchema: "default",
+          caseMatters: false,
         }),
       ),
     );
@@ -118,13 +119,20 @@ function pythonReads(source: PythonSource): Reads {
   for (const t of source["source-tables"]) {
     if (t.table_id !== undefined) {
       const [database, schema, name] = t.table_id;
-      tables.push({ database, schema, name, nullSchema: "none" });
+      tables.push({
+        database,
+        schema,
+        name,
+        nullSchema: "none",
+        caseMatters: true,
+      });
     } else if (t.table !== undefined) {
       tables.push({
         database: t.database_id,
         schema: t.schema ?? null,
         name: t.table,
         nullSchema: "none",
+        caseMatters: true,
       });
     } else {
       // The schema requires neither `table` nor `table_id`.
@@ -274,6 +282,7 @@ export function transformOf(
             schema: target.schema ?? null,
             name: target.name,
             nullSchema: "default",
+            caseMatters: true,
           },
     reads: readsOf(doc),
   };

@@ -234,8 +234,7 @@ export function reportMissingReadColumns(
       const inputTable = inputTableOf(input.table);
       const missing = read.filter(
         ({ table, column }) =>
-          (table.database === null ||
-            fold(table.database) === fold(database)) &&
+          (table.database === null || table.database === database) &&
           inputCovers(table, inputTable, defaultSchema) &&
           !declared.has(fold(column)),
       );
@@ -301,6 +300,7 @@ export function reportUpstreamColumns(
         database: queryDatabaseOf(transform.doc),
         ...inputTableOf(input.table),
         nullSchema: "default",
+        caseMatters: false,
       };
       for (const upstream of checks.transforms) {
         if (

@@ -257,6 +257,21 @@ describe("reportIncrementalTags", () => {
     ).toEqual([]);
   });
 
+  it("compares the tag's table with the checkpoint field's exactly, as Metabase compares table ids", () => {
+    expect(
+      incrementalFindings(
+        incremental({
+          templateTags: [
+            { ...EVENTS_TAG, "table-id": ["Warehouse", "public", "Events"] },
+          ],
+          checkpointField: CREATED_AT,
+        }),
+      ).map((r) => r.message),
+    ).toEqual([
+      "no table template tag names public.events, the table of the checkpoint field, for Metabase to put the incremental range filter in",
+    ]);
+  });
+
   it("accepts any table tag when the checkpoint field is not a field reference or is not set", () => {
     for (const checkpointField of [42, undefined]) {
       expect(

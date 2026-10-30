@@ -33,6 +33,10 @@ An MBQL reference, `[database, schema, table]` or `[database, schema, table, fie
 
 `null-schema-reference` warns when a transform reads a table by a reference with a `null` schema, on a database whose default schema is known and is not `null`. Such a database rarely has a table with no schema. Where none exists, Metabase's import creates an inactive one, and every query on it fails: for example `["Sample Database", null, "ORDERS"]` on the H2 Sample Database, whose default schema is `PUBLIC`. The rule needs no table files. A database whose default schema is unknown gives no finding.
 
+### Case in table names
+
+A table reference (MBQL or a Python source table), a table file and a transform target name a table exactly, as Metabase's import looks it up. `["Sample Postgres", "public", "Orders"]` is not the table file for `public.orders`: Metabase's import creates an inactive `Orders` table for it. Database names compare exactly too. A name read from SQL, and a transform test's input, compare ignoring case with any other name, as Metabase's transform-test validator compares them.
+
 ## Engines
 
 An engine is Metabase's driver name, as a Database file's `engine` gives it. A Database file (`databases/<slug>/<slug>.yaml`) that names an engine takes precedence over the settings file's `engines`. Remote sync does not export Database files, so a repository it writes needs `engines` for the lint to know them.

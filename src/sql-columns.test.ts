@@ -23,6 +23,7 @@ const column = (schema: string | null, table: string, name: string) => ({
     schema,
     name: table,
     nullSchema: "default" as const,
+    caseMatters: false,
   },
   column: name,
 });
