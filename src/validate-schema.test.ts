@@ -247,6 +247,36 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("cards and dashboards", () => {
+      const example = (...path: string[]): Record<string, any> =>
+        yaml.load(
+          readFileSync(join(EXAMPLES, "collections", "main", ...path), "utf8"),
+        ) as Record<string, any>; // Example cards and dashboards are YAML maps.
+
+      const validateEntity = (entity: Record<string, any>) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "entity.yaml"),
+          yaml.dump(entity),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      const card = example(
+        "dashboards",
+        "series_and_mappings",
+        "monthly_orders.yaml",
+      );
+
+      it("accepts a card displayed as a treemap", () => {
+        expect(validateEntity({ ...card, display: "treemap" }).failed).toBe(0);
+      });
+
+      it("rejects a card with an unknown display", () => {
+        expect(validateEntity({ ...card, display: "venn" }).failed).toBe(1);
+      });
+    });
+
     describe("serdes/meta", () => {
       const collection = {
         name: "Reports",
