@@ -73,13 +73,14 @@ describe("wait-for-import.sh", () => {
   });
 
   it("waits through an earlier task and no task at all", async () => {
-    const { exitCode, output } = await waitFor([
-      task(6, "successful"),
+    const { exitCode, output, keys } = await waitFor([
+      task(6, "errored"),
       null,
       task(7, "successful"),
     ]);
     expect(output).toBe("Import 7 succeeded\n");
     expect(exitCode).toBe(0);
+    expect(keys.length).toBe(3);
   });
 
   it("fails, printing the task, when the import ends otherwise", async () => {
