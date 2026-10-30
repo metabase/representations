@@ -247,6 +247,78 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("transform targets", () => {
+      const example = yaml.load(
+        readFileSync(
+          join(EXAMPLES, "collections", "transforms", "mbql_transform.yaml"),
+          "utf8",
+        ),
+      ) as Record<string, any>; // The example transform is a YAML map.
+
+      const validateTarget = (target: Record<string, unknown>) => {
+        mkdirSync(join(workdir, "collections", "transforms"), {
+          recursive: true,
+        });
+        writeFileSync(
+          join(workdir, "collections", "transforms", "transform.yaml"),
+          yaml.dump({ ...example, target }),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      const incremental = (strategy?: unknown) => ({
+        ...example.target,
+        type: "table-incremental",
+        ...(strategy === undefined
+          ? {}
+          : { "target-incremental-strategy": strategy }),
+      });
+
+      it.each([
+        ["a table target", example.target],
+        ["an append strategy", incremental({ type: "append" })],
+        [
+          "a merge strategy keyed by name",
+          incremental({ type: "merge", "unique-key": [{ name: "ID" }] }),
+        ],
+        [
+          "a merge strategy keyed by name and field id",
+          incremental({
+            type: "merge",
+            "unique-key": [
+              { name: "ID", "field-id": 42 },
+              { name: "SKU", "field-id": null },
+            ],
+          }),
+        ],
+      ])("accepts %s", (_, target) => {
+        expect(validateTarget(target).failed).toBe(0);
+      });
+
+      it.each([
+        ["an incremental target without a strategy", incremental()],
+        ["an unknown strategy type", incremental({ type: "upsert" })],
+        [
+          "a merge strategy without a unique key",
+          incremental({ type: "merge" }),
+        ],
+        [
+          "an append strategy with a unique key",
+          incremental({ type: "append", "unique-key": [{ name: "ID" }] }),
+        ],
+        [
+          "a unique key column with a blank name",
+          incremental({ type: "merge", "unique-key": [{ name: " " }] }),
+        ],
+        [
+          "a unique key column with an unknown key",
+          incremental({ type: "merge", "unique-key": [{ column: "ID" }] }),
+        ],
+      ])("rejects %s", (_, target) => {
+        expect(validateTarget(target).failed).toBe(1);
+      });
+    });
+
     describe("serdes/meta", () => {
       const collection = {
         name: "Reports",
