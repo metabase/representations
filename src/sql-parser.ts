@@ -32,11 +32,11 @@ export type FieldSpec =
 
 /** What Metabase's `field_references` finds in a statement. */
 export type FieldReferences = {
-  /** The columns the statement reads, in any clause. */
+  /** The columns the statement reads, in any clause, in a fixed order. */
   usedFields: FieldSpec[];
   /** The columns the outermost SELECT returns, in order. */
   returnedFields: FieldSpec[];
-  /** Each name that qualifies a column but names no table or alias in its scope. */
+  /** Each name that qualifies a column but names no table or alias in its scope, sorted. */
   missingTableAliases: string[];
 };
 
@@ -319,13 +319,21 @@ function fieldReferencesOf(
   return {
     status: "read",
     references: {
-      usedFields: json.used_fields.map(fieldSpecOf),
+      // Python builds these two from sets, whose order changes from one
+      // process to the next.
+      usedFields: json.used_fields
+        .map(fieldSpecOf)
+        .map((spec) => ({ spec, key: JSON.stringify(spec) }))
+        .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+        .map(({ spec }) => spec),
       returnedFields: json.returned_fields.map(fieldSpecOf),
-      missingTableAliases: errors.flatMap((e) =>
-        e.type === "missing_table_alias" && e.table !== undefined
-          ? [e.table]
-          : [],
-      ),
+      missingTableAliases: errors
+        .flatMap((e) =>
+          e.type === "missing_table_alias" && e.table !== undefined
+            ? [e.table]
+            : [],
+        )
+        .sort(),
     },
   };
 }

@@ -272,6 +272,22 @@ describe("loadSqlParser", () => {
     });
   });
 
+  it("gives the used fields and the missing table aliases in a fixed order, though Python holds them in sets", () => {
+    const names = ["h", "c", "f", "a", "g", "b", "e", "d"];
+    const result = parser.fieldReferences(
+      `SELECT ${names.map((n) => `t.${n}, q${n}.x`).join(", ")} FROM t`,
+      "postgres",
+    );
+    if (result.status !== "read") {
+      throw new Error(result.reason);
+    }
+    const { usedFields, missingTableAliases } = result.references;
+    const keys = usedFields.map((f) => JSON.stringify(f));
+    expect(keys).toEqual([...keys].sort());
+    expect(keys.length).toBe(names.length);
+    expect(missingTableAliases).toEqual(names.map((n) => `q${n}`).sort());
+  });
+
   it("reads SQL field_references cannot parse, or a union's columns, as SQLGlot leaves them", () => {
     expect(parser.fieldReferences("SELECT * FROM", "postgres")).toEqual({
       status: "unread",
