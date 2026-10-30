@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { errorMessage, isRecord } from "./values.js";
+import { errorMessage, isRecord, uniqueBy } from "./values.js";
 
 describe("isRecord", () => {
   it("accepts a plain object, and one with no prototype", () => {
@@ -26,5 +26,12 @@ describe("errorMessage", () => {
   it("gives any other thrown value as text", () => {
     expect(errorMessage("bad input")).toBe("bad input");
     expect(errorMessage(undefined)).toBe("undefined");
+  });
+});
+
+describe("uniqueBy", () => {
+  it("keeps the first item of each key, in order", () => {
+    const items = ["b1", "a1", "b2", "c1", "a2"];
+    expect(uniqueBy(items, (item) => item[0])).toEqual(["b1", "a1", "c1"]);
   });
 });

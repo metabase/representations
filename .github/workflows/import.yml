@@ -9,6 +9,18 @@ jobs:
   import-test:
     runs-on: ubuntu-latest
 
+    # The transforms read and write this warehouse: Metabase's Sample Database
+    # on Postgres, in schema public. The Sample Database itself is SQLite,
+    # which cannot run transform tests.
+    services:
+      postgres:
+        image: metabase/qa-databases:postgres-sample-15
+        options: >-
+          --health-cmd "pg_isready -U metabase -d sample"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+
     steps:
       - uses: actions/checkout@v7
 
@@ -21,12 +33,15 @@ jobs:
           git -C "$RUNNER_TEMP/sync-repo" add .
           git -C "$RUNNER_TEMP/sync-repo" -c user.name=ci -c user.email=ci@example.com commit -q -m "Examples"
 
+      # On the service's network, Metabase reaches the warehouse as postgres:5432.
       - name: Start Metabase
         env:
           MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
+          SERVICE_NETWORK: ${{ job.services.postgres.network }}
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
+            --network "$SERVICE_NETWORK" \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
             -v "$RUNNER_TEMP/sync-repo:/sync-repo:ro" \
             -p 3000:3000 \
@@ -88,6 +103,44 @@ jobs:
             exit 1
           fi
           echo "Sample Database fingerprinted"
+
+          # The import resolves each table reference against synced metadata,
+          # so connect the warehouse, under the name its Database file gives,
+          # and wait until its first sync has found the tables.
+          WAREHOUSE=$(sed -n 's/^name: //p' examples/v1/databases/sample_postgres/sample_postgres.yaml)
+          HTTP_CODE=$(curl -s -o /tmp/warehouse.txt -w '%{http_code}' \
+            -X POST http://localhost:3000/api/database \
+            -H "X-API-Key: $API_KEY" \
+            -H 'Content-Type: application/json' \
+            -d "$(jq -n --arg name "$WAREHOUSE" '{
+              name: $name,
+              engine: "postgres",
+              details: {host: "postgres", port: 5432, dbname: "sample", user: "metabase", password: "metasample123"}
+            }')")
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat /tmp/warehouse.txt
+            echo "Connecting $WAREHOUSE failed with HTTP $HTTP_CODE"
+            exit 1
+          fi
+          WAREHOUSE_ID=$(jq -er '.id' /tmp/warehouse.txt)
+          echo "Waiting for $WAREHOUSE to sync..."
+          export WAREHOUSE_ID
+          # shellcheck disable=SC2016 # the inner shell expands the variables
+          if ! timeout 300 bash -c '
+            until
+              curl -sf "http://localhost:3000/api/database/$WAREHOUSE_ID/metadata" -H "X-API-Key: $API_KEY" \
+                | jq -e "[.tables[] | select(.schema == \"public\" and (.fields | length > 0)) | .name] | contains([\"orders\", \"products\", \"people\"])" > /dev/null
+            do
+              sleep 5
+            done
+          '; then
+            curl -s "http://localhost:3000/api/database/$WAREHOUSE_ID/metadata" -H "X-API-Key: $API_KEY" \
+              | jq '{initial_sync_status, tables: [.tables[]? | {schema, name, fields: (.fields | length)}]}' \
+              || true
+            echo "$WAREHOUSE did not sync its tables in time"
+            exit 1
+          fi
+          echo "$WAREHOUSE synced"
 
           # Without the data-apps feature, git sync skips data apps without an error.
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \

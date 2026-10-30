@@ -4,7 +4,7 @@ creator_id: admin@example.com
 description: Average price of Widget products — uses Widget Products segment and Average Product Price measure
 table_id:
 - Sample Database
-- null
+- PUBLIC
 - PRODUCTS
 definition:
   "lib/type": mbql/query
@@ -13,7 +13,7 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - null
+    - PUBLIC
     - PRODUCTS
     aggregation:
     - - avg
@@ -21,7 +21,7 @@ definition:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - null
+          - PUBLIC
           - PRODUCTS
           - PRICE
 serdes/meta:

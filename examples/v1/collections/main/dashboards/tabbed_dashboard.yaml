@@ -36,7 +36,7 @@ dashcards:
     - dimension
     - - field
       - - Sample Database
-        - null
+        - PUBLIC
         - ORDERS
         - CREATED_AT
       - null

@@ -11,7 +11,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - null
+    - PUBLIC
     - ORDERS
     aggregation:
     - - count
@@ -21,14 +21,14 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - null
+          - PUBLIC
           - ORDERS
           - TOTAL
     breakout:
     - - field
       - {}
       - - Sample Database
-        - null
+        - PUBLIC
         - ORDERS
         - USER_ID
   - "lib/type": mbql.stage/mbql
