@@ -375,7 +375,7 @@ async function startSqlParser(): Promise<SqlParser> {
   const { loadPyodide } = await import("pyodide").catch((e: unknown) => {
     throw isPyodideMissing(e)
       ? new Error(
-          `pyodide, an optional peer dependency, is not installed. Install pyodide@${PYODIDE_VERSION} where @metabase/representations is installed: npm install pyodide@${PYODIDE_VERSION}`,
+          `pyodide, an optional peer dependency, is not installed. Install pyodide@${PYODIDE_VERSION} where @metabase/representations is installed: npm install pyodide@${PYODIDE_VERSION}. Under npx, name both packages: npx -p @metabase/representations -p pyodide@${PYODIDE_VERSION} representations lint --experimental`,
         )
       : e;
   });

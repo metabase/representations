@@ -74,7 +74,7 @@ describe("Pyodide install command", () => {
       expect(typeof pinned).toBe("string");
       const named = [
         ...readFileSync(resolve(REPO_ROOT, file), "utf8").matchAll(
-          /npm install pyodide@(\S+?)[`\s]/g,
+          /(?:npm install|-p) pyodide@(\S+?)[`\s]/g,
         ),
       ].map((m) => m[1]);
       expect(named.length).toBeGreaterThan(0);

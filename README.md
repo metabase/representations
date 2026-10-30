@@ -45,19 +45,19 @@ The validator reads YAML as Metabase does, with a few [known differences](https:
 
 The lint is experimental. It is outside the package's semver guarantees: its rules, findings, output and options can change in any release. The `lint` command runs only with `--experimental`, and its programmatic API comes from `@metabase/representations/experimental`.
 
-Check the references between transforms, tables and transform tests in a folder, without a Metabase:
+Check the references between transforms, tables and transform tests in a folder, without a Metabase. The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Under `npx`, name both packages, Pyodide at the version the package pins:
 
 ```sh
-npx @metabase/representations lint --experimental --folder ./my-export
+npx -p @metabase/representations -p pyodide@314.0.7 representations lint --experimental --folder ./my-export
 ```
 
-The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Install it, at the version the package pins, where `@metabase/representations` is installed, for the lint to read SQL. A tool that depends on the package installs it among its own dependencies:
+`npx @metabase/representations lint` cannot find a Pyodide installed in the project, because `npx` installs the package elsewhere. `npx` also skips a `-p` package that the project already installs, so a project that installs Pyodide installs `@metabase/representations` too, and runs `npx representations lint`. A tool that depends on the package installs Pyodide among its own dependencies:
 
 ```sh
 npm install pyodide@314.0.7
 ```
 
-Without it, a lint of a folder with SQL exits with code 2 and names that command.
+Without Pyodide, a lint of a folder with SQL exits with code 2 and names both commands.
 
 Omit `--folder` to lint the current directory. Give a database's default schema with `--default-schema "<database>=<schema>"`, or `"<database>="` for a database with no schemas. The option repeats, once per database, and overrides the settings file. The lint says on stderr what each one sets, and warns on a database that no file in the folder names.
 
