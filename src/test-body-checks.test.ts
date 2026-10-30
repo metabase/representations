@@ -168,8 +168,8 @@ describe("reportRowsColumns", () => {
     };
     // The expectation's row also has the string key '1', which matches.
     expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
-      'input public.orders, row 2: every row must carry exactly the declared columns; missing "total"; keys that are not strings: yes',
-      "expectation by id, row 1: every row must carry exactly the declared columns; keys that are not strings: 1",
+      'input public.orders, row 2: every row must carry exactly the declared columns; missing "total"; keys YAML reads as no string: "yes"; quote them, as \'yes\':',
+      "expectation by id, row 1: every row must carry exactly the declared columns; keys YAML reads as no string: \"1\"; quote them, as '1':",
     ]);
   });
 
@@ -197,8 +197,8 @@ describe("reportRowsColumns", () => {
       nonStringKeys,
     };
     expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
-      "input public.orders, row 1: every row must carry exactly the declared columns; keys that are not strings: 1",
-      "input public.people, row 1: every row must carry exactly the declared columns; keys that are not strings: 1",
+      "input public.orders, row 1: every row must carry exactly the declared columns; keys YAML reads as no string: \"1\"; quote them, as '1':",
+      "input public.people, row 1: every row must carry exactly the declared columns; keys YAML reads as no string: \"1\"; quote them, as '1':",
     ]);
   });
 

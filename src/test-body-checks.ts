@@ -55,7 +55,9 @@ function rowsColumnsMismatch(
     ...(missing.length > 0 ? [`missing ${quoted(missing)}`] : []),
     ...(extra.length > 0 ? [`not declared: ${quoted(extra)}`] : []),
     ...(nonString.length > 0
-      ? [`keys that are not strings: ${nonString.join(", ")}`]
+      ? [
+          `keys YAML reads as no string: ${quoted(nonString)}; quote them, as '${nonString[0]}':`,
+        ]
       : []),
   ].join("; ");
 }

@@ -828,7 +828,7 @@ describe("lint", () => {
             (f) => `${f.file}: ${f.rule}: ${f.message}`,
           ),
         ).toEqual([
-          `${file}: row-columns-mismatch: input orders, row 3: every row must carry exactly the declared columns; ${key.startsWith("'") ? 'not declared: "1"; ' : ""}keys that are not strings: ${written}`,
+          `${file}: row-columns-mismatch: input orders, row 3: every row must carry exactly the declared columns; ${key.startsWith("'") ? 'not declared: "1"; ' : ""}keys YAML reads as no string: "${written}"; quote them, as '${written}':`,
         ]);
       },
     );
