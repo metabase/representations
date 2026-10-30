@@ -24,7 +24,7 @@ dashcards:
     - dimension
     - - field
       - - Sample Database
-        - null
+        - PUBLIC
         - PRODUCTS
         - CATEGORY
       - null

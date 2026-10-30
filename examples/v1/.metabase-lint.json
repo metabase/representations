@@ -1,6 +1,9 @@
 {
   "defaultSchemas": {
-    "Sample Database": null,
+    "Sample Database": "PUBLIC",
     "Sample Postgres": "public"
+  },
+  "engines": {
+    "Sample Database": "h2"
   }
 }

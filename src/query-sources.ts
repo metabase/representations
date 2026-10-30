@@ -34,6 +34,9 @@ export type DataSources = {
   natives: NativeSql[];
 };
 
+/** The data sources in a document of `model`. */
+export type SourceFinder = (doc: unknown, model: string) => DataSources;
+
 type Node = { file: string; pointer: string };
 
 type Context = { inQuery: boolean; database: string | null };
@@ -81,7 +84,11 @@ const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
  * match several branches (`anyOf`, `oneOf`, `if`), the walk follows the
  * branches the value validates against.
  */
-export function createSourceFinder({ ajv, files, models }: Schemas) {
+export function createSourceFinder({
+  ajv,
+  files,
+  models,
+}: Schemas): SourceFinder {
   // Ajv compiles each key's validator once and keeps it.
   const validates = (node: Node, value: unknown): boolean => {
     const key = node.pointer === "" ? node.file : keyOf(node);

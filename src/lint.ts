@@ -1,4 +1,8 @@
-import { createEngineOf, databaseDefaultSchemas } from "./databases.js";
+import {
+  createEngineOf,
+  databaseDefaultSchemas,
+  type EngineOf,
+} from "./databases.js";
 import {
   type DefaultSchemas,
   type NamedTable,
@@ -33,7 +37,8 @@ import {
   type Report,
 } from "./findings.js";
 import { cyclePath, cycles } from "./graph.js";
-import { createSourceFinder } from "./query-sources.js";
+import { createSourceFinder, type SourceFinder } from "./query-sources.js";
+import { engineFacts } from "./engines.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas, type Schemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
@@ -178,33 +183,42 @@ function reportDuplicateTargets(
 }
 
 /**
- * Warns on each table a transform reads by a reference with a null schema
- * (`nullSchema` `"none"`) in a database whose default schema is not null.
- * Metabase imports such a reference as the table with no schema, and creates
- * an inactive table when none exists, so every query on it fails. A database
- * whose default schema is unknown gives no finding, nor does a table that a
- * table file or a transform target with no schema names.
+ * Reports each table a transform reads, or a Card's query names, by a
+ * reference with a null schema (`nullSchema` `"none"`) in a database whose
+ * engine has schemas. Metabase imports such a reference as the table with no
+ * schema, and creates an inactive table when none exists
+ * (`resolve/default.clj` `import-table-fk`), so every query on it fails. A
+ * database whose engine is unknown gives no finding, nor does a table that a
+ * table file or a transform target with no schema names. A transform reports
+ * the tables of the cards it reads too; a Card, only those its own query
+ * names.
  */
 function reportNullSchemaReferences(
   docs: readonly Doc[],
   transforms: readonly Transform[],
-  defaultSchemaOf: DefaultSchemaOf,
+  findSources: SourceFinder,
+  engineOf: EngineOf,
   report: Report,
 ): void {
   const noSchemaTables = [
     ...validDocsOf(docs, "Table").map(tableOfFile),
     ...targetsOf(transforms),
   ].filter((t) => t.schema === null);
-  for (const { doc, reads } of transforms) {
-    if (reads.status !== "read") {
-      continue;
-    }
-    for (const table of reads.tables) {
-      const defaultSchema = defaultSchemaOf(table.database);
+  const readers = [
+    ...transforms.flatMap(({ doc, reads }) =>
+      reads.status === "read" ? [{ doc, tables: reads.tables }] : [],
+    ),
+    ...docs
+      .filter((doc) => doc.model === "Card")
+      .map((doc) => ({ doc, tables: findSources(doc.body, doc.model).tables })),
+  ];
+  for (const { doc, tables } of readers) {
+    for (const table of tables) {
+      const engine = engineOf(table.database);
       if (
         table.schema === null &&
         table.nullSchema === "none" &&
-        defaultSchema !== null &&
+        engineFacts(engine)?.schemas === true &&
         !noSchemaTables.some(
           (t) => t.database === table.database && t.name === table.name,
         )
@@ -212,7 +226,7 @@ function reportNullSchemaReferences(
         report(
           "null-schema-reference",
           doc,
-          `reads ${tableLabel(table)} in database ${table.database}, whose default schema is ${defaultSchema}: a null schema in a reference names a table with no schema, which such a database likely lacks`,
+          `reads ${tableLabel(table)} in database ${table.database}, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema`,
         );
       }
     }
@@ -565,6 +579,7 @@ export async function lint({
 
     const findings: LintFinding[] = [];
     const report = createReport(findings);
+    const findSources = createSourceFinder(schemas);
 
     reportUnreadableFiles(unreadable, report);
     reportSkippedFiles(skipped, report);
@@ -580,9 +595,9 @@ export async function lint({
     reportMissingTargetDatabases(docs, report);
     reportMissingTargetSchemas(docs, engineOf, report);
     reportUnsupportedTransformEngines(docs, engineOf, report);
-    reportEmptyNativeQueries(docs, createSourceFinder(schemas), report);
+    reportEmptyNativeQueries(docs, findSources, report);
 
-    reportNullSchemaReferences(docs, transforms, defaultSchemaOf, report);
+    reportNullSchemaReferences(docs, transforms, findSources, engineOf, report);
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
     reportTestFindings(

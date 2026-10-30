@@ -572,7 +572,7 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "null-schema-reference",
     description:
-      "Product Summary reads products by a reference with a null schema, on a database whose default schema is public, so it names a table that likely does not exist.",
+      "Product Summary reads products by a reference with a null schema, on a Postgres database, so it names a table that does not exist.",
     rules: ["null-schema-reference"],
     apply: (folder) =>
       edit(folder, PRODUCT_SUMMARY, (doc) => {

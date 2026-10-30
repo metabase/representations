@@ -286,8 +286,18 @@ describe("lint", () => {
       if (!isRecord(doc) || !isRecord(doc.source)) {
         throw new Error(`${transform} has no source`);
       }
-      // The Orders model card reads ORDERS on the Sample Database, which has
-      // no schemas.
+      // The Orders model card reads PUBLIC.ORDERS on the Sample Database,
+      // here on an engine that runs query transforms.
+      writeFileSync(
+        join(workdir, CONFIG_FILE),
+        JSON.stringify({
+          defaultSchemas: {
+            "Sample Database": "PUBLIC",
+            [POSTGRES_DB]: "public",
+          },
+          engines: { "Sample Database": "postgres" },
+        }),
+      );
       doc.source.query = {
         "lib/type": "mbql/query",
         database: "Sample Database",
@@ -308,7 +318,10 @@ describe("lint", () => {
       const input = "    schema: public\n    name: orders\n";
       expect(text).toContain(input);
       const giveInput = (table: string) =>
-        writeFileSync(test, text.replace(input, `    name: ${table}\n`));
+        writeFileSync(
+          test,
+          text.replace(input, `    schema: PUBLIC\n    name: ${table}\n`),
+        );
       giveInput("ORDERS");
       expect(await findings(workdir)).toEqual([]);
       giveInput("PRODUCTS");
@@ -317,7 +330,7 @@ describe("lint", () => {
           .filter((f) => f.rule === "missing-input")
           .map((f) => f.message),
       ).toEqual([
-        "no input for ORDERS (no schema), which transform Monthly Order Summary reads",
+        "no input for PUBLIC.ORDERS, which transform Monthly Order Summary reads",
       ]);
     });
 
@@ -841,7 +854,7 @@ describe("lint", () => {
         (await transformReads({ folder: workdir })).find(
           (t) => t.file === MBQL_TRANSFORM,
         )?.tables,
-      ).toEqual([{ schema: null, name: "ORDERS" }]);
+      ).toEqual([{ schema: "PUBLIC", name: "ORDERS" }]);
     });
 
     it("cannot read a Python source table with no name", async () => {
@@ -1148,7 +1161,7 @@ describe("lint", () => {
           ),
         );
       };
-      useCard(card, "      ", ["Sample Database", "null", "ORDERS"]);
+      useCard(card, "      ", ["Sample Database", "PUBLIC", "ORDERS"]);
       useCard(MBQL_TRANSFORM, "        ", [POSTGRES_DB, "public", "orders"]);
       expect(
         (await findings(workdir))
@@ -1899,33 +1912,63 @@ describe("lint", () => {
       );
     };
 
-    const nullSchemaFindings = async (
-      defaultSchemas?: Record<string, string | null>,
-    ) =>
-      (await lint({ folder: workdir, defaultSchemas })).findings
+    const writeSettings = (settings: Record<string, unknown>) =>
+      writeFileSync(join(workdir, CONFIG_FILE), JSON.stringify(settings));
+
+    const nullSchemaFindings = async () =>
+      (await lint({ folder: workdir })).findings
         .filter((f) => f.rule === "null-schema-reference")
         .map((f) => `${f.file}: ${f.severity}: ${f.message}`);
 
-    const ordersWarning = `${MBQL_TRANSFORM}: warning: reads orders (no schema) in database Sample Postgres, whose default schema is public: a null schema in a reference names a table with no schema, which such a database likely lacks`;
+    const ordersError = (file: string, engine: string) =>
+      `${file}: error: reads orders (no schema) in database Sample Postgres, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema`;
 
-    it("warns when the default schema is public, and not on an unqualified SQL name", async () => {
-      expect(await nullSchemaFindings({ [POSTGRES_DB]: "public" })).toEqual([
-        ordersWarning,
+    it("reports an error on an engine with schemas, whatever the default schema, and not on an unqualified SQL name", async () => {
+      writeSettings({
+        engines: { [POSTGRES_DB]: "postgres" },
+        defaultSchemas: { [POSTGRES_DB]: "public" },
+      });
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError(MBQL_TRANSFORM, "postgres"),
+      ]);
+      writeSettings({
+        engines: { [POSTGRES_DB]: "redshift" },
+        defaultSchemas: { [POSTGRES_DB]: "other" },
+      });
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError(MBQL_TRANSFORM, "redshift"),
       ]);
     });
 
-    it("takes the default schema from a Database file", async () => {
+    it("takes the engine from a Database file", async () => {
       writeDatabase({ engine: "postgres", default_schema: "public" });
-      expect(await nullSchemaFindings()).toEqual([ordersWarning]);
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError(MBQL_TRANSFORM, "postgres"),
+      ]);
     });
 
-    it("does not warn when the default schema is null, given or by the engine", async () => {
-      expect(await nullSchemaFindings({ [POSTGRES_DB]: null })).toEqual([]);
-      writeDatabase({ engine: "sqlite" });
+    it("gives no finding on an engine without schemas, or one whose schemas depend on the connection", async () => {
+      for (const engine of ["mysql", "athena"]) {
+        writeSettings({
+          engines: { [POSTGRES_DB]: engine },
+          defaultSchemas: { [POSTGRES_DB]: "public" },
+        });
+        expect(await nullSchemaFindings()).toEqual([]);
+      }
+    });
+
+    it("gives no finding when the engine is unknown, even with a default schema", async () => {
+      writeSettings({ defaultSchemas: { [POSTGRES_DB]: "public" } });
+      expect(await nullSchemaFindings()).toEqual([]);
+      writeSettings({
+        engines: { [POSTGRES_DB]: "no-such-driver" },
+        defaultSchemas: { [POSTGRES_DB]: "public" },
+      });
       expect(await nullSchemaFindings()).toEqual([]);
     });
 
-    it("does not warn on a table that a table file with no schema defines", async () => {
+    it("gives no finding on a table that a table file with no schema defines", async () => {
+      writeDatabase({ engine: "postgres", default_schema: "public" });
       const dir = join(workdir, "databases/sample_postgres/tables/orders");
       mkdirSync(dir, { recursive: true });
       const tableFile = (name: string) =>
@@ -1939,16 +1982,44 @@ describe("lint", () => {
           }),
         );
       tableFile("Orders");
-      expect(await nullSchemaFindings({ [POSTGRES_DB]: "public" })).toEqual([
-        ordersWarning,
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError(MBQL_TRANSFORM, "postgres"),
       ]);
       tableFile("orders");
-      expect(await nullSchemaFindings({ [POSTGRES_DB]: "public" })).toEqual([]);
+      expect(await nullSchemaFindings()).toEqual([]);
     });
 
-    it("does not warn when the default schema is unknown", async () => {
-      rmSync(join(workdir, SQL));
-      expect(await nullSchemaFindings()).toEqual([]);
+    it("reports a Card whose query names a table with a null schema, as a field's table too", async () => {
+      writeDatabase({ engine: "postgres", default_schema: "public" });
+      rmSync(join(workdir, "collections/transforms"), { recursive: true });
+      const card = (file: string, stage: Record<string, unknown>) => {
+        mkdirSync(join(workdir, "collections/main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections/main", file),
+          yaml.dump({
+            name: file,
+            entity_id: `${file.slice(0, 1).toUpperCase()}`.padEnd(21, "0"),
+            type: "question",
+            display: "table",
+            dataset_query: {
+              "lib/type": "mbql/query",
+              database: POSTGRES_DB,
+              stages: [{ "lib/type": "mbql.stage/mbql", ...stage }],
+            },
+            "serdes/meta": [{ model: "Card" }],
+          }),
+        );
+      };
+      card("a.yaml", { "source-table": [POSTGRES_DB, null, "orders"] });
+      card("b.yaml", {
+        "source-table": [POSTGRES_DB, "public", "people"],
+        fields: [["field", {}, [POSTGRES_DB, null, "orders", "id"]]],
+      });
+      card("c.yaml", { "source-table": [POSTGRES_DB, "public", "orders"] });
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError("collections/main/a.yaml", "postgres"),
+        ordersError("collections/main/b.yaml", "postgres"),
+      ]);
     });
   });
 

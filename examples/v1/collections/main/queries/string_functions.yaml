@@ -11,7 +11,7 @@ dataset_query:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - null
+      - PUBLIC
       - PRODUCTS
       expressions:
       - - concat
@@ -19,14 +19,14 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
         - " ("
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - CATEGORY
         - ")"
@@ -35,7 +35,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
         - 1
@@ -45,7 +45,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - VENDOR
         - Inc.
@@ -55,7 +55,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
       - - ltrim
@@ -63,7 +63,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
       - - rtrim
@@ -71,7 +71,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
       - - upper
@@ -79,7 +79,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - CATEGORY
       - - lower
@@ -87,7 +87,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
       - - length
@@ -95,7 +95,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
       - - substring
@@ -103,7 +103,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - null
+            - PUBLIC
             - PRODUCTS
             - TITLE
         - 5

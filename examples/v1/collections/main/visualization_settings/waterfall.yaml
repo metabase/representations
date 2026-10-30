@@ -11,7 +11,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - null
+    - PUBLIC
     - ORDERS
     aggregation:
     - - sum
@@ -19,14 +19,14 @@ dataset_query:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - null
+          - PUBLIC
           - ORDERS
           - TOTAL
     breakout:
     - - field
       - temporal-unit: month
       - - Sample Database
-        - null
+        - PUBLIC
         - ORDERS
         - CREATED_AT
 visualization_settings:

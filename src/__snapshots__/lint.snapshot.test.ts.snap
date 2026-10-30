@@ -286,10 +286,10 @@ exports[`lint output on a broken copy of the examples matches the recording: nul
       "name": "Product Summary",
     },
     "file": "collections/transforms/product_summary.yaml",
-    "message": "reads products (no schema) in database Sample Postgres, whose default schema is public: a null schema in a reference names a table with no schema, which such a database likely lacks",
+    "message": "reads products (no schema) in database Sample Postgres, whose engine postgres has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema",
     "related": [],
     "rule": "null-schema-reference",
-    "severity": "warning",
+    "severity": "error",
   },
 ]
 `;
