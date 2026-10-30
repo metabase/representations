@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { createHash } from "crypto";
 import { resolve } from "path";
 
 const SCRIPT = resolve(import.meta.dirname, "alpha-version.sh");
@@ -32,6 +33,10 @@ function alphaVersion(
   };
 }
 
+/** The branch's hash suffix: 7 hex digits of the SHA-256 of its name. */
+const hashOf = (branch: string) =>
+  createHash("sha256").update(branch).digest("hex").slice(0, 7);
+
 describe("alpha-version.sh", () => {
   it("rejects what semver rejects (control for the grammar)", () => {
     expect("1.6.1-alpha.main.0123456").not.toMatch(SEMVER);
@@ -44,41 +49,45 @@ describe("alpha-version.sh", () => {
       "an ordinary branch",
       "galdre/Reference-Lint",
       "70fe3a4",
-      "1.6.1-alpha.br-galdre-reference-lint.sha-70fe3a4",
-      "alpha-galdre-reference-lint",
+      "galdre-reference-lint",
     ],
+    ["a SHA of digits with a leading zero", "main", "0123456", "main"],
+    ["a branch of digits with a leading zero", "0123", "abc1234", "0123"],
+    ["a branch with no letter or digit", "_/_", "abc1234", "unnamed"],
+    ["a branch holding shell syntax", "a$(id)`id`", "abc1234", "a-id-id"],
     [
-      "a SHA of digits with a leading zero",
-      "main",
-      "0123456",
-      "1.6.1-alpha.br-main.sha-0123456",
-      "alpha-main",
-    ],
-    [
-      "a branch of digits with a leading zero",
-      "0123",
+      "a branch whose slug is longer than 64 characters",
+      `feature/${"a".repeat(240)}`,
       "abc1234",
-      "1.6.1-alpha.br-0123.sha-abc1234",
-      "alpha-0123",
+      `feature-${"a".repeat(56)}`,
     ],
     [
-      "a branch with no letter or digit",
-      "_/_",
+      "a branch whose slug has a hyphen at character 64",
+      `${"a".repeat(63)}/b`,
       "abc1234",
-      "1.6.1-alpha.br-unnamed.sha-abc1234",
-      "alpha-unnamed",
+      "a".repeat(63),
     ],
-    [
-      "a branch holding shell syntax",
-      "a$(id)`id`",
-      "abc1234",
-      "1.6.1-alpha.br-a-id-id.sha-abc1234",
-      "alpha-a-id-id",
-    ],
-  ])("gives a valid version for %s", (_, branch, sha, version, tag) => {
+  ])("gives a valid version for %s", (_, branch, sha, slug) => {
     const outputs = alphaVersion(branch, sha);
     expect(outputs.version).toMatch(SEMVER);
-    expect(outputs).toEqual({ version, tag });
+    const id = `${slug}-${hashOf(branch)}`;
+    expect(outputs).toEqual({
+      version: `1.6.1-alpha.br-${id}.sha-${sha}`,
+      tag: `alpha-${id}`,
+    });
+  });
+
+  it("hashes a fixed branch to known hex digits (control for the hash)", () => {
+    // printf '%s' main | shasum -a 256
+    expect(hashOf("main")).toBe("0d6e407");
+  });
+
+  it("gives branches with the same slug different dist-tags", () => {
+    const tags = ["feat/x", "feat-x", "Feat_X"].map(
+      (branch) => alphaVersion(branch, "abc1234").tag,
+    );
+    expect(tags.every((tag) => tag.startsWith("alpha-feat-x-"))).toBe(true);
+    expect(new Set(tags).size).toBe(3);
   });
 
   it("refuses a base version that is not X.Y.Z, and prints no output", () => {
