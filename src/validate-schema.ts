@@ -4,7 +4,13 @@ import { globSync } from "glob";
 import { dirname, resolve } from "path";
 
 import { loadSchemas, type Schemas } from "./schemas.js";
-import { errorMessage, isJavaBlank, isRecord, stringOrNull } from "./values.js";
+import {
+  errorMessage,
+  isJavaBlank,
+  isRecord,
+  isUnknownArray,
+  stringOrNull,
+} from "./values.js";
 import { readYaml } from "./yaml.js";
 
 /** The top-level folders whose `.yaml` files Metabase imports, other than `data_apps`. */
@@ -167,7 +173,7 @@ export type SchemaCheck =
  */
 function getModel(doc: unknown): string | null {
   const meta = isRecord(doc) ? doc["serdes/meta"] : undefined;
-  if (!Array.isArray(meta) || meta.length === 0) {
+  if (!isUnknownArray(meta) || meta.length === 0) {
     return null;
   }
   const last: unknown = meta[meta.length - 1];

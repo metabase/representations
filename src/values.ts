@@ -4,6 +4,14 @@ export function stringOrNull(value: unknown): string | null {
 }
 
 /**
+ * Whether `value` is an array, narrowed to `readonly unknown[]`:
+ * `Array.isArray` alone narrows `unknown` to `any[]`, whose items then pass
+ * as any type.
+ */
+export const isUnknownArray = (value: unknown): value is readonly unknown[] =>
+  Array.isArray(value);
+
+/**
  * Whether `value` is a plain object, such as a YAML map reads as: one whose
  * prototype is `Object.prototype` or null. An array, a `Date`, a `Map` or a
  * class instance is not.
@@ -21,7 +29,7 @@ export const isRecord = (value: unknown): value is Record<string, unknown> => {
  * map by name; anything else, and any entry that is not a map, gives none.
  */
 export function templateTagsOf(value: unknown): Record<string, unknown>[] {
-  const entries: unknown[] = Array.isArray(value)
+  const entries: readonly unknown[] = isUnknownArray(value)
     ? value
     : isRecord(value)
       ? Object.values(value)

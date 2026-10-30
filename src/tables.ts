@@ -1,4 +1,4 @@
-import { stringOrNull, uniqueBy } from "./values.js";
+import { isUnknownArray, stringOrNull, uniqueBy } from "./values.js";
 
 /** A table as a query names it: its schema, if the name is qualified, and its name. */
 export type TableName = {
@@ -101,7 +101,7 @@ export function uniqueTables(tables: readonly TableKey[]): TableKey[] {
  * no schema, as Metabase imports the reference.
  */
 export function tableOfRef(ref: unknown): TableKey | null {
-  return Array.isArray(ref) && typeof ref[2] === "string"
+  return isUnknownArray(ref) && typeof ref[2] === "string"
     ? {
         database: stringOrNull(ref[0]),
         schema: stringOrNull(ref[1]),
@@ -121,7 +121,7 @@ export type ColumnKey = { table: TableKey; column: string };
  */
 export function columnOfRef(ref: unknown): ColumnKey | null {
   const table = tableOfRef(ref);
-  return table !== null && Array.isArray(ref) && typeof ref[3] === "string"
+  return table !== null && isUnknownArray(ref) && typeof ref[3] === "string"
     ? { table, column: ref[3] }
     : null;
 }

@@ -6,7 +6,7 @@ import { createRequire } from "node:module";
 import { resolve } from "path";
 import { parse } from "yaml";
 
-import { isRecord, stringOrNull } from "./values.js";
+import { isRecord, isUnknownArray, stringOrNull } from "./values.js";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
@@ -38,7 +38,7 @@ function extractModel(schema: unknown): string | null {
     "model",
   );
   const path = propertyOf(model, "enum");
-  const pathEnd: unknown = Array.isArray(path) ? path.at(-1) : undefined;
+  const pathEnd: unknown = isUnknownArray(path) ? path.at(-1) : undefined;
   return stringOrNull(propertyOf(model, "const") ?? pathEnd);
 }
 

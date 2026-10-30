@@ -10,7 +10,7 @@ import {
   tableOfRef,
   uniqueTables,
 } from "./tables.js";
-import { isRecord, stringOrNull } from "./values.js";
+import { isRecord, isUnknownArray, stringOrNull } from "./values.js";
 
 export type NativeSql = {
   sql: string;
@@ -127,7 +127,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
         sources.entities.push(value);
       } else if (
         ENTITY_REFS.has(key) &&
-        Array.isArray(value) &&
+        isUnknownArray(value) &&
         typeof value[2] === "string"
       ) {
         sources.entities.push(value[2]);
@@ -171,12 +171,12 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
             : context;
         walk(value, target, inner);
       }
-      if (Array.isArray(schema.allOf)) {
+      if (isUnknownArray(schema.allOf)) {
         schema.allOf.forEach((_, i) => walk(value, at("allOf", i), context));
       }
       for (const keyword of ["anyOf", "oneOf"]) {
         const branches = schema[keyword];
-        if (Array.isArray(branches)) {
+        if (isUnknownArray(branches)) {
           branches.forEach((_, i) => {
             if (validates(at(keyword, i), value)) {
               walk(value, at(keyword, i), context);
@@ -202,8 +202,8 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
         }
       }
 
-      if (Array.isArray(value)) {
-        const prefix = Array.isArray(schema.prefixItems)
+      if (isUnknownArray(value)) {
+        const prefix = isUnknownArray(schema.prefixItems)
           ? schema.prefixItems.length
           : 0;
         value.forEach((item, i) => {
