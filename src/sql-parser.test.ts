@@ -10,6 +10,7 @@ import {
   loadSqlParser,
   type SqlParser,
   type Unread,
+  withSqlParser,
 } from "./sql-parser.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
@@ -105,6 +106,17 @@ describe("the vendored sources", () => {
         .update(readFileSync(resolve(VENDOR_DIR, sqlglot.wheel)))
         .digest("hex"),
     ).toBe(sqlglot.sha256);
+  });
+});
+
+describe("withSqlParser", () => {
+  it("refuses, by its type, a use that answers a promise", () => {
+    // Never called: the type check is the test.
+    const use = async (parser: SqlParser) =>
+      parser.referencedTables("SELECT 1", null);
+    // @ts-expect-error A promise's work runs after the stand-in parser's throw is caught.
+    const asyncUse = () => withSqlParser(use);
+    expect(typeof asyncUse).toBe("function");
   });
 });
 

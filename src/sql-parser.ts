@@ -474,6 +474,9 @@ export function sqlParserStarted(): boolean {
   return started !== undefined;
 }
 
+/** `never` for a promise, so that a function returning one is refused. */
+type NotPromise<T> = T extends PromiseLike<unknown> ? never : unknown;
+
 /** Thrown by each function of `UNLOADED_SQL_PARSER`. */
 class SqlParserUnloaded extends Error {}
 
@@ -493,11 +496,12 @@ const UNLOADED_SQL_PARSER: SqlParser = {
  * `use`'s answer, given the SQL parser, which loads only if `use` calls it.
  * Until the parser starts loading, `use` runs with a parser that throws on
  * any call; if it called one, `use` runs again with the loaded parser. So
- * `use` must have no effect besides its answer, and must not catch the
- * parser's throw.
+ * `use` must be synchronous, must have no effect besides its answer, and
+ * must not catch the parser's throw. Its type refuses an answer that is a
+ * promise.
  */
 export async function withSqlParser<T>(
-  use: (parser: SqlParser) => T,
+  use: (parser: SqlParser) => T & NotPromise<T>,
 ): Promise<T> {
   if (!sqlParserStarted()) {
     try {
