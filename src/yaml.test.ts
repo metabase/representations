@@ -266,6 +266,15 @@ describe("readYaml", () => {
     );
   });
 
+  it("does not count a byte order mark toward the code-point limit", () => {
+    const document = (codePoints: number) =>
+      `\uFEFFa: ${"x".repeat(codePoints - 3)}`;
+    expect(() => readYaml(document(3_145_728))).not.toThrow();
+    expect(() => readYaml(document(3_145_729))).toThrow(
+      "the document exceeds the limit of 3145728 code points (1:1)",
+    );
+  });
+
   // SnakeYAML checks the limit where its scanner stands after each token: a
   // plain scalar's scan takes in the spaces and line breaks after it.
   const LIMIT = 3_145_728;

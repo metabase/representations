@@ -98,6 +98,18 @@ describe("expandSnippets", () => {
     });
   });
 
+  it("refuses the 10,001st paste exactly", () => {
+    // Ten uses of Mid, each using Leaf 999 times, and one more use of Leaf.
+    const snippets = lookupIn({ Mid: uses("Leaf", 999), Leaf: "1" });
+    expect(
+      expandSnippets(`${uses("Mid", 10)} AND {{snippet: Leaf}}`, snippets),
+    ).toEqual({
+      status: "unread",
+      reason:
+        "the query uses more than 10000 snippets, the most Metabase pastes",
+    });
+  });
+
   it("is unread when the pasted SQL is longer than 10,000,000 characters", () => {
     const snippets = lookupIn({ Big: "x".repeat(1_000_000) });
     // The query's 1,000,000 characters and nine snippets of 1,000,000 each.

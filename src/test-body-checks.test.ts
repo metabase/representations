@@ -75,6 +75,23 @@ describe("reportRowsColumns", () => {
     ]);
   });
 
+  it("names the missing and undeclared keys in sorted order", () => {
+    const doc = testDoc({
+      inputs: [
+        {
+          ...ordersInput([{ zeta: 1, alpha: 2 }]),
+          columns: [
+            { name: "total", cast_type: "NUMERIC" },
+            { name: "id", cast_type: "INTEGER" },
+          ],
+        },
+      ],
+    });
+    expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
+      'input public.orders, row 1: every row must carry exactly the declared columns; missing "id", "total"; not declared: "alpha", "zeta"',
+    ]);
+  });
+
   it("names a row that only lacks a declared column", () => {
     const doc = testDoc({
       inputs: [ordersInput([{ id: 1, total: 10 }, { id: 2 }])],

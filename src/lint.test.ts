@@ -482,6 +482,43 @@ describe("lint", () => {
       );
     });
 
+    it("reports a schema mismatch only on the models the lint reads, not on a Card", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const card = "collections/main/queries/basic_aggregations.yaml";
+      const text = readFileSync(join(workdir, card), "utf8");
+      writeFileSync(
+        join(workdir, card),
+        text.replace(/^name: .*$/m, "name: 5"),
+      );
+      expect(await findings(workdir)).toEqual([]);
+    });
+
+    it("counts the files it read, and orders one rule's findings by file", async () => {
+      mkdirSync(join(workdir, "collections"), { recursive: true });
+      const collection = (file: string, id: string) =>
+        writeFileSync(
+          join(workdir, "collections", file),
+          yaml.dump({
+            name: file,
+            entity_id: id,
+            "serdes/meta": [{ model: "Collection" }],
+          }),
+        );
+      // Reported id by id: a1 and a3, then a2 and a4.
+      collection("a1.yaml", "DuplicatedId00000000X");
+      collection("a2.yaml", "DuplicatedId00000000Y");
+      collection("a3.yaml", "DuplicatedId00000000X");
+      collection("a4.yaml", "DuplicatedId00000000Y");
+      writeFileSync(join(workdir, "collections", "notes.yaml"), "name: n\n");
+      const result = await lint({ folder: workdir });
+      expect(result.files).toBe(5);
+      expect(
+        result.findings
+          .filter((f) => f.rule === "duplicate-entity-id")
+          .map((f) => f.file),
+      ).toEqual(["a1", "a2", "a3", "a4"].map((n) => `collections/${n}.yaml`));
+    });
+
     it("reports a file that is not valid UTF-8 as such", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const binary = "collections/transforms/binary.yaml";
@@ -1628,6 +1665,34 @@ describe("lint", () => {
       expect(await ordersUnknown("OTHER")).toEqual([sqlUnknown, mbqlUnknown]);
     });
 
+    it("counts a table file with no schema as the table with no schema, not the default schema's", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const dir = join(workdir, "databases/sample_postgres/tables/orders");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "orders.yaml"),
+        yaml.dump({
+          name: "orders",
+          db_id: POSTGRES_DB,
+          schema: null,
+          "serdes/meta": [{ model: "Table" }],
+        }),
+      );
+      const sqlRead = "collections/transforms/daily_order_summary.yaml";
+      expect(
+        (
+          await lint({
+            folder: workdir,
+            defaultSchemas: { [POSTGRES_DB]: "public" },
+          })
+        ).findings
+          .filter((f) => f.file === sqlRead && f.rule === "unknown-table")
+          .map((f) => f.message),
+      ).toContain(
+        "table orders is defined by no table file or transform target",
+      );
+    });
+
     it("reads a table file and a transform by their model, wherever they sit under an imported folder", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const transform = "snippets/elsewhere/daily_order_summary.yaml";
@@ -2002,6 +2067,60 @@ describe("lint", () => {
       (await lint({ folder: workdir })).findings.map(
         (f) => `${f.rule}: ${f.message}`,
       );
+
+    it("needs the default schema of the query's database, not of source_database_id, for an expectation's unqualified read", async () => {
+      setUp(
+        "Warehouse",
+        {
+          engines: { [POSTGRES_DB]: "postgres", Warehouse: "postgres" },
+          defaultSchemas: { [POSTGRES_DB]: "transforms" },
+        },
+        ["SELECT * FROM monthly_order_summary WHERE sum < 0"],
+      );
+      expect(await messages()).toEqual([]);
+    });
+
+    it("needs a default schema when the only unqualified name is a test's input or an expectation's read", async () => {
+      const settings = {
+        engines: { [POSTGRES_DB]: "postgres" },
+        defaultSchemas: {},
+      };
+      const stops = async () => {
+        try {
+          await lint({ folder: workdir });
+          return [];
+        } catch (e) {
+          if (e instanceof MissingDefaultSchemasError) {
+            return e.databases.map((d) => `${d.database}: ${d.file}`);
+          }
+          throw e;
+        }
+      };
+      setUp(POSTGRES_DB, settings, [
+        "SELECT * FROM transforms.monthly_order_summary WHERE sum < 0",
+      ]);
+      expect(await stops()).toEqual([]);
+      edit(TEST, (doc) => {
+        const [orders]: unknown[] = Array.isArray(doc.inputs) ? doc.inputs : [];
+        if (!isRecord(orders) || !isRecord(orders.table)) {
+          throw new Error(`${TEST} has no input table`);
+        }
+        doc.inputs = [{ ...orders, table: { name: "orders" } }];
+      });
+      expect(await stops()).toEqual([`${POSTGRES_DB}: ${TEST}`]);
+      setUp(POSTGRES_DB, settings, [
+        "SELECT * FROM monthly_order_summary WHERE sum < 0",
+      ]);
+      edit(TEST, (doc) => {
+        const [orders]: unknown[] = Array.isArray(doc.inputs) ? doc.inputs : [];
+        if (isRecord(orders)) {
+          doc.inputs = [
+            { ...orders, table: { schema: "public", name: "orders" } },
+          ];
+        }
+      });
+      expect(await stops()).toEqual([`${POSTGRES_DB}: ${TEST}`]);
+    });
 
     it("reads a test's SQL when source_database_id names a MongoDB database and the query a Postgres one", async () => {
       setUp(

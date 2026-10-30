@@ -20,6 +20,9 @@ describe("dialectOf", () => {
     ["sqlserver", "tsql"],
     ["bigquery-cloud-sdk", "bigquery"],
     ["starburst", "trino"],
+    ["sparksql", "spark"],
+    ["presto-jdbc", "presto"],
+    ["druid-jdbc", "druid"],
     ["h2", null],
     ["vertica", null],
     ["oracle", "oracle"],
@@ -109,7 +112,53 @@ describe("the vendored sources", () => {
   });
 });
 
+/**
+ * What `script` prints, run after importing `withSqlParser` and
+ * `sqlParserStarted` in a fresh process, where the parser has not loaded.
+ */
+function inFreshProcess(script: string): string {
+  const run = Bun.spawnSync({
+    cmd: [
+      "bun",
+      "-e",
+      `import { sqlParserStarted, withSqlParser } from "./src/sql-parser.ts";
+       ${script}`,
+    ],
+    cwd: resolve(import.meta.dirname, ".."),
+  });
+  expect(run.stderr.toString()).toBe("");
+  return run.stdout.toString().trim();
+}
+
 describe("withSqlParser", () => {
+  it("answers without loading the parser when use never calls it", () => {
+    expect(
+      inFreshProcess(
+        "console.log(await withSqlParser(() => 1), sqlParserStarted());",
+      ),
+    ).toBe("1 false");
+  });
+
+  it("rejects with the error use throws, other than the stand-in's", () => {
+    expect(
+      inFreshProcess(`
+        const answer = await withSqlParser(() => {
+          throw new Error("use failed");
+        }).catch((e) => e.message);
+        console.log(answer, sqlParserStarted());`),
+    ).toBe("use failed false");
+  });
+
+  it("loads the parser and runs use again when use calls it", () => {
+    expect(
+      inFreshProcess(`
+        const answer = await withSqlParser((parser) =>
+          parser.referencedTables("SELECT * FROM t", null),
+        );
+        console.log(JSON.stringify(answer), sqlParserStarted());`),
+    ).toBe('{"status":"read","tables":[{"schema":null,"name":"t"}]} true');
+  }, 60_000);
+
   it("refuses, by its type, a use that answers a promise", () => {
     // Never called: the type check is the test.
     const use = async (parser: SqlParser) =>

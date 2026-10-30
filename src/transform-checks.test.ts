@@ -257,6 +257,28 @@ describe("reportIncrementalTags", () => {
     ).toEqual([]);
   });
 
+  it("reports a tag whose table differs from the checkpoint field's only in schema, or only in database", () => {
+    for (const tableId of [
+      ["Warehouse", "staging", "events"],
+      ["Lake", "public", "events"],
+    ]) {
+      expect(
+        incrementalFindings(
+          incremental({
+            templateTags: [{ ...EVENTS_TAG, "table-id": tableId }],
+            checkpointField: CREATED_AT,
+          }),
+        ),
+      ).toHaveLength(1);
+    }
+  });
+
+  it("reports an incremental native transform with no table tag and no checkpoint field", () => {
+    expect(
+      incrementalFindings(incremental({ templateTags: [TEXT_TAG] })),
+    ).toHaveLength(1);
+  });
+
   it("compares the tag's table with the checkpoint field's exactly, as Metabase compares table ids", () => {
     expect(
       incrementalFindings(
