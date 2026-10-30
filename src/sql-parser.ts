@@ -56,6 +56,10 @@ export type QueryShape = {
   arrayJoinAliases: string[];
   /** Each table whose alias names its columns, as in `t AS s(x, y)`. */
   columnAliasedTables: TableName[];
+  /** The name of each column the statement names in quotes. */
+  quotedColumns: string[];
+  /** The name of each column the statement names without quotes. */
+  unquotedColumns: string[];
 };
 
 /**
@@ -199,6 +203,10 @@ def lint_query_shape(sql, dialect):
                                       if j.args.get("kind") == "ARRAY" and renames(j.this)}),
         "column_aliased_tables": [[t.db or None, t.name] for t in ast.find_all(exp.Table)
                                   if isinstance(t.args.get("alias"), exp.TableAlias) and t.args["alias"].columns],
+        "quoted_columns": sorted({c.name for c in ast.find_all(exp.Column)
+                                  if isinstance(c.this, exp.Identifier) and c.this.quoted}),
+        "unquoted_columns": sorted({c.name for c in ast.find_all(exp.Column)
+                                    if isinstance(c.this, exp.Identifier) and not c.this.quoted}),
     })
 
 
@@ -419,6 +427,8 @@ async function startSqlParser(): Promise<SqlParser> {
         select_aliases: string[];
         array_join_aliases: string[];
         column_aliased_tables: [string | null, string][];
+        quoted_columns: string[];
+        unquoted_columns: string[];
       };
       return {
         status: "read",
@@ -429,6 +439,8 @@ async function startSqlParser(): Promise<SqlParser> {
           columnAliasedTables: json.column_aliased_tables.map(
             ([schema, name]) => ({ schema, name }),
           ),
+          quotedColumns: json.quoted_columns,
+          unquotedColumns: json.unquoted_columns,
         },
       };
     },

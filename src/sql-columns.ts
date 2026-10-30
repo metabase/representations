@@ -12,6 +12,16 @@ import { isTagPlaceholder, prepareSql } from "./sql-tables.js";
 import { type ColumnKey, fold, type TableName } from "./tables.js";
 
 /**
+ * How a query names a column it reads: in quotes, without, as Metabase
+ * compiles an MBQL field (`compiled`), or unknown when the SQL names it both
+ * ways.
+ */
+export type ColumnQuoting = "quoted" | "unquoted" | "compiled" | "unknown";
+
+/** A column a query reads, and how it names it. */
+export type ReadColumn = ColumnKey & { quoting: ColumnQuoting };
+
+/**
  * The columns of native SQL in the database `database`, as Metabase's
  * `field_references` reads them. Each function parses the SQL as
  * `prepareSql` gives it for the database's engine, with `valuedTags`, and is
@@ -31,7 +41,7 @@ export type SqlColumnReader = {
     sql: string,
     database: string | null,
     valuedTags?: ReadonlySet<string>,
-  ): { status: "read"; columns: ColumnKey[] } | Unread;
+  ): { status: "read"; columns: ReadColumn[] } | Unread;
   /**
    * The names of the columns the outermost SELECT returns, in order: each
    * one's alias, or else its column's name. Null when one has neither, or
@@ -114,6 +124,13 @@ function isNotTableColumn(
   );
 }
 
+/** How `shape`'s statement names `column`. */
+function quotingOf(column: string, shape: QueryShape): ColumnQuoting {
+  const quoted = shape.quotedColumns.includes(column);
+  const unquoted = shape.unquotedColumns.includes(column);
+  return quoted === unquoted ? "unknown" : quoted ? "quoted" : "unquoted";
+}
+
 /** The name a returned field gets, or null when it has none. */
 function returnedName(field: FieldSpec): string | null {
   switch (field.type) {
@@ -184,6 +201,7 @@ export function createSqlColumnReader(
                     caseMatters: false,
                   },
                   column: field.column,
+                  quoting: quotingOf(field.column, shape),
                 },
               ]
             : [];

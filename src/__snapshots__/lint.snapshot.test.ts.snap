@@ -435,6 +435,34 @@ exports[`lint output on a broken copy of the examples matches the recording: unt
     "rule": "untestable-engine",
     "severity": "warning",
   },
+  {
+    "entity": {
+      "entity_id": "LfXNcELKeCrAfD4htCFDH",
+      "model": "TransformTest",
+      "name": "Daily Order Summary: orders per day",
+    },
+    "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+    "message": "input orders has no column created_at, which transform Daily Order Summary reads as CREATED_AT; the input's column is created_at",
+    "related": [
+      "collections/transforms/daily_order_summary.yaml",
+    ],
+    "rule": "input-missing-read-column",
+    "severity": "warning",
+  },
+  {
+    "entity": {
+      "entity_id": "LfXNcELKeCrAfD4htCFDH",
+      "model": "TransformTest",
+      "name": "Daily Order Summary: orders per day",
+    },
+    "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+    "message": "input orders has no column total, which transform Daily Order Summary reads as TOTAL; the input's column is total",
+    "related": [
+      "collections/transforms/daily_order_summary.yaml",
+    ],
+    "rule": "input-missing-read-column",
+    "severity": "warning",
+  },
 ]
 `;
 

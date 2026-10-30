@@ -26,16 +26,16 @@ type Recorded = {
 };
 
 const DB = "Warehouse";
-const engineOf: EngineOf = () => "postgres";
+const postgres: EngineOf = () => "postgres";
 const schemas = loadSchemas();
 
-let checksOf: (docs: readonly Doc[]) => TestSqlChecks;
+let checksOf: (docs: readonly Doc[], engineOf?: EngineOf) => TestSqlChecks;
 
 beforeAll(async () => {
   const parser = await loadSqlParser();
-  const readSql = createSqlTableReader(parser, engineOf);
-  const columns = createSqlColumnReader(parser, engineOf);
-  checksOf = (docs) => {
+  checksOf = (docs, engineOf = postgres) => {
+    const readSql = createSqlTableReader(parser, engineOf);
+    const columns = createSqlColumnReader(parser, engineOf);
     const byEntityId = indexByEntityId(docs);
     const readsOf = createReader(docs, byEntityId, schemas, readSql);
     const transforms = validDocsOf(docs, "Transform").map((doc) =>
@@ -50,6 +50,7 @@ beforeAll(async () => {
       transforms,
       tested: testedTransformsOf(docs, byEntityId, transformOfDoc),
       defaultSchemaOf: () => "public",
+      engineOf,
       schemas,
       readSql,
       columns,
@@ -64,9 +65,10 @@ function run(
     report: Parameters<typeof reportLiveSqlInputs>[1],
   ) => void,
   docs: readonly Doc[],
+  engineOf?: EngineOf,
 ): Recorded[] {
   const recorded: Recorded[] = [];
-  check(checksOf(docs), (rule, doc, message, related = []) =>
+  check(checksOf(docs, engineOf), (rule, doc, message, related = []) =>
     recorded.push({ rule, file: doc.file, message, related }),
   );
   return recorded;
@@ -219,7 +221,7 @@ describe("reportMissingReadColumns", () => {
 
   it("warns on each column the transform's SQL reads from an input's table that the input lacks", () => {
     const test = testDoc(sqlTransform, [
-      rowsInput("public", "orders", ["ID", "total"]),
+      rowsInput("public", "orders", ["id", "total"]),
       rowsInput(null, "customers", ["id"]),
     ]);
     const missing = (input: string, column: string) => ({
@@ -259,6 +261,84 @@ describe("reportMissingReadColumns", () => {
     ).toEqual([
       "input public.orders has no column total, which transform orders_total reads",
     ]);
+  });
+
+  describe("compares names as the warehouse names them", () => {
+    /** The columns reported missing when `sql` reads an input declaring `declared`. */
+    const missing = (
+      sql: string,
+      declared: string[],
+      engine: string,
+    ): string[] => {
+      const transform = transformDoc("cased", [nativeStage(sql)]);
+      const test = testDoc(transform, [
+        rowsInput("public", "orders", declared),
+      ]);
+      return run(reportMissingReadColumns, [transform, test], () => engine).map(
+        (f) => f.message,
+      );
+    };
+    const message = (column: string, readAs: string, declared: string) =>
+      `input public.orders has no column ${column}, which transform cased reads as ${readAs}; the input's column is ${declared}`;
+
+    it("reads an unquoted name in lower case on Postgres and Redshift", () => {
+      for (const engine of ["postgres", "redshift"]) {
+        expect(
+          missing("SELECT o.total FROM public.orders o", ["Total"], engine),
+        ).toEqual([message("total", "total", "Total")]);
+        expect(
+          missing("SELECT o.TOTAL FROM public.orders o", ["total"], engine),
+        ).toEqual([]);
+        expect(
+          missing('SELECT o."Total" FROM public.orders o', ["Total"], engine),
+        ).toEqual([]);
+      }
+    });
+
+    it("reads an unquoted name in upper case on Snowflake", () => {
+      expect(
+        missing("SELECT o.id FROM public.orders o", ["id"], "snowflake"),
+      ).toEqual([message("id", "ID", "id")]);
+      expect(
+        missing("SELECT o.id FROM public.orders o", ["ID"], "snowflake"),
+      ).toEqual([]);
+      expect(
+        missing('SELECT o."id" FROM public.orders o', ["id"], "snowflake"),
+      ).toEqual([]);
+    });
+
+    it("upper-cases a declared column on H2, as Metabase's H2 quoting does", () => {
+      expect(
+        missing('SELECT o."total" FROM public.orders o', ["total"], "h2"),
+      ).toEqual([message("total", "total", "TOTAL")]);
+      expect(
+        missing("SELECT o.total FROM public.orders o", ["total"], "h2"),
+      ).toEqual([]);
+    });
+
+    it("compares ignoring case on another engine", () => {
+      expect(
+        missing("SELECT o.total FROM public.orders o", ["Total"], "mysql"),
+      ).toEqual([]);
+    });
+
+    it("compares an MBQL field as written on Postgres", () => {
+      const transform = transformDoc("cased", [
+        {
+          "lib/type": "mbql.stage/mbql",
+          "source-table": [DB, "public", "orders"],
+          aggregation: [
+            ["sum", {}, ["field", {}, [DB, "public", "orders", "Total"]]],
+          ],
+        },
+      ]);
+      const test = testDoc(transform, [
+        rowsInput("public", "orders", ["total"]),
+      ]);
+      expect(
+        run(reportMissingReadColumns, [transform, test]).map((f) => f.message),
+      ).toEqual([message("Total", "Total", "total")]);
+    });
   });
 
   it("warns only on a field of the test's database, by its exact name", () => {

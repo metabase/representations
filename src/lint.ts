@@ -575,6 +575,7 @@ export async function lint({
         transforms,
         tested,
         defaultSchemaOf,
+        engineOf,
         schemas,
         readSql,
         columns: createSqlColumnReader(parser, engineOf),

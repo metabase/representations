@@ -1,3 +1,4 @@
+import type { EngineOf } from "./databases.js";
 import {
   displayName,
   type Doc,
@@ -9,7 +10,11 @@ import { inputCovers, standInReplacements } from "./input-match.js";
 import { createSourceFinder } from "./query-sources.js";
 import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
 import type { Schemas } from "./schemas.js";
-import type { SqlColumnReader } from "./sql-columns.js";
+import type {
+  ColumnQuoting,
+  ReadColumn,
+  SqlColumnReader,
+} from "./sql-columns.js";
 import type { Unread } from "./sql-parser.js";
 import type { SqlTableReader } from "./sql-tables.js";
 import {
@@ -32,6 +37,7 @@ export type TestSqlChecks = {
   /** Each test of a query transform, with that transform. */
   tested: readonly TestedTransform[];
   defaultSchemaOf: DefaultSchemaOf;
+  engineOf: EngineOf;
   schemas: Schemas;
   readSql: SqlTableReader;
   columns: SqlColumnReader;
@@ -186,9 +192,14 @@ function readColumnsOf(
   query: TransformQuery,
   columns: SqlColumnReader,
   reportUnread: ReportUnreadColumns,
-): ColumnKey[] {
+): ReadColumn[] {
   return [
-    ...query.fields,
+    ...query.fields.map(
+      (field): ReadColumn => ({
+        ...field,
+        quoting: "compiled",
+      }),
+    ),
     ...query.natives.flatMap(({ sql, database, valuedTags }) => {
       const result = columns.readColumns(sql, database, valuedTags);
       if (result.status === "unread") {
@@ -200,12 +211,57 @@ function readColumnsOf(
   ];
 }
 
+// Metabase names a rows input's columns with `h2x/identifier`, quoted
+// (`enterprise/backend/src/metabase_enterprise/transform_testing/compile.clj`
+// `compile-input :rows`, `rows-query`); its `:h2` dialect upper-cases each
+// quoted name (`src/metabase/util/honey_sql_2.clj`).
+
+/** How each engine with a fixed rule names an unquoted identifier. */
+const UNQUOTED_CASE: Readonly<Record<string, (name: string) => string>> = {
+  postgres: (name) => name.replace(/[A-Z]+/g, (c) => c.toLowerCase()),
+  redshift: (name) => name.replace(/[A-Z]+/g, (c) => c.toLowerCase()),
+  snowflake: (name) => name.toUpperCase(),
+  h2: (name) => name.toUpperCase(),
+};
+
+/**
+ * Returns the name the warehouse of `engine` gives a column, or null when
+ * the lint cannot tell. Metabase creates a `rows` input's columns, and
+ * compiles an MBQL field, in quotes, so as written; H2's quoting upper-cases
+ * them. A quoted name in SQL is as written, and an unquoted one is in the
+ * engine's case.
+ */
+function createWarehouseName(
+  engine: string | null,
+): ((name: string, quoting: ColumnQuoting) => string | null) | null {
+  if (engine === null || !Object.hasOwn(UNQUOTED_CASE, engine)) {
+    return null;
+  }
+  const unquoted = UNQUOTED_CASE[engine];
+  return (name, quoting) => {
+    switch (quoting) {
+      case "compiled":
+        return engine === "h2" ? name.toUpperCase() : name;
+      case "quoted":
+        return name;
+      case "unquoted":
+        return unquoted(name);
+      case "unknown":
+        return null;
+    }
+  };
+}
+
 /**
  * Warns on each column a test's transform reads from the table of one of its
  * `rows` inputs that the input does not declare: Metabase runs the transform
- * on the input, and the SQL fails. Columns compare ignoring case. A column
- * the parser cannot place in one table gives no finding. SQL whose tables
- * were read but whose columns cannot be goes to `reportUnread`.
+ * on the input, and the SQL fails. On Postgres, Redshift, Snowflake and H2,
+ * names compare as the warehouse names them (`createWarehouseName`): an
+ * unquoted `total` does not read a declared `Total` on Postgres. On another
+ * engine, or for a column the SQL names both quoted and unquoted, names
+ * compare ignoring case. A column the parser cannot place in one table gives
+ * no finding. SQL whose tables were read but whose columns cannot be goes to
+ * `reportUnread`.
  */
 export function reportMissingReadColumns(
   checks: TestSqlChecks,
@@ -216,6 +272,7 @@ export function reportMissingReadColumns(
   for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const defaultSchema = checks.defaultSchemaOf(database);
+    const warehouseName = createWarehouseName(checks.engineOf(database));
     const read = readColumnsOf(
       transform,
       queryOf(transform),
@@ -226,19 +283,45 @@ export function reportMissingReadColumns(
       if (input.format !== "rows") {
         continue;
       }
-      const declared = new Set(input.columns.map((c) => fold(c.name)));
+      const declaredNames = input.columns.map((c) => c.name);
+      const folded = new Set(declaredNames.map(fold));
+      const exact =
+        warehouseName === null
+          ? null
+          : new Set(
+              declaredNames.map((name) => warehouseName(name, "compiled")),
+            );
+      const isDeclared = ({ column, quoting }: ReadColumn): boolean => {
+        const name = warehouseName?.(column, quoting) ?? null;
+        return exact === null || name === null
+          ? folded.has(fold(column))
+          : exact.has(name);
+      };
       const inputTable = inputTableOf(input.table);
       const missing = read.filter(
-        ({ table, column }) =>
-          (table.database === null || table.database === database) &&
-          inputCovers(table, inputTable, defaultSchema) &&
-          !declared.has(fold(column)),
+        (column) =>
+          (column.table.database === null ||
+            column.table.database === database) &&
+          inputCovers(column.table, inputTable, defaultSchema) &&
+          !isDeclared(column),
       );
       for (const column of uniqueFolded(missing.map((c) => c.column))) {
+        const sameButCase = declaredNames.find(
+          (name) => fold(name) === fold(column),
+        );
+        const readColumn = missing.find((c) => fold(c.column) === fold(column));
+        const readAs =
+          readColumn === undefined
+            ? null
+            : (warehouseName?.(readColumn.column, readColumn.quoting) ?? null);
         report(
           "input-missing-read-column",
           test,
-          `input ${tableLabel(inputTable)} has no column ${column}, which transform ${displayName(transform.doc)} reads`,
+          `input ${tableLabel(inputTable)} has no column ${column}, which transform ${displayName(transform.doc)} reads${
+            sameButCase === undefined || readAs === null
+              ? ""
+              : ` as ${readAs}; the input's column is ${warehouseName?.(sameButCase, "compiled") ?? sameButCase}`
+          }`,
           [transform.doc.file],
         );
       }

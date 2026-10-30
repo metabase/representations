@@ -1,7 +1,11 @@
 import { beforeAll, describe, expect, it } from "bun:test";
 
 import type { EngineOf } from "./databases.js";
-import { createSqlColumnReader, type SqlColumnReader } from "./sql-columns.js";
+import {
+  type ColumnQuoting,
+  createSqlColumnReader,
+  type SqlColumnReader,
+} from "./sql-columns.js";
 import {
   loadSqlParser,
   type SqlParser,
@@ -20,7 +24,12 @@ beforeAll(async () => {
   columns = createSqlColumnReader(sharedParser, engineOf);
 }, 60_000);
 
-const column = (schema: string | null, table: string, name: string) => ({
+const column = (
+  schema: string | null,
+  table: string,
+  name: string,
+  quoting: ColumnQuoting = "unquoted",
+) => ({
   table: {
     database: "Warehouse",
     schema,
@@ -29,6 +38,7 @@ const column = (schema: string | null, table: string, name: string) => ({
     caseMatters: false,
   },
   column: name,
+  quoting,
 });
 
 describe("readColumns", () => {
@@ -83,6 +93,14 @@ describe("readColumns", () => {
       "no system column or niladic keyword of Postgres",
       "SELECT id, ctid, xmin, xmax, cmin, cmax, tableoid, current_user, session_user, current_role, user FROM orders",
       [column(null, "orders", "id")],
+    ],
+    [
+      "a quoted column as quoted, and one named both ways as unknown",
+      'SELECT "Total", o.id, "id" FROM orders o',
+      [
+        column(null, "orders", "id", "unknown"),
+        column(null, "orders", "Total", "quoted"),
+      ],
     ],
     [
       "a column whose alias repeats its name",

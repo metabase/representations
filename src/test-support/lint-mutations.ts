@@ -448,8 +448,8 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "untestable-engine",
     description:
-      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test.",
-    rules: ["untestable-engine"],
+      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test. Snowflake reads its unquoted columns in upper case, so its test's lower-case columns miss them.",
+    rules: ["input-missing-read-column", "untestable-engine"],
     apply: (folder) => {
       writeDatabase(folder, "Warehouse", "snowflake", {
         default_schema: "PUBLIC",

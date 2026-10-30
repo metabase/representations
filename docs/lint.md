@@ -124,7 +124,8 @@ The column checks (`input-missing-read-column`, `upstream-column-mismatch`, `tab
 
 - A column counts as read from a table only when it is qualified by the table or its alias, or its scope reads that one table. `SELECT *` reads no named column.
 - A name that is not a column of the table reads none: a column of a table whose alias names its columns (`t AS s(x, y)`), a name that is also an alias in a SELECT list (a lateral alias, as on Redshift) or of a ClickHouse `ARRAY JOIN`, and a system column or niladic keyword on Postgres or Redshift, such as `xmin`, `current_user` or `sysdate`.
-- Columns compare ignoring case. A quoted name that differs from an input's column only in case is not reported, though Postgres or Snowflake would not match the two.
+- `input-missing-read-column` compares names as the warehouse names them. Metabase creates a `rows` input's columns in quotes, so as declared, and compiles an MBQL field in quotes too; H2 upper-cases a quoted name Metabase writes. A quoted name in SQL is as written. An unquoted one is lower case on Postgres and Redshift, and upper case on Snowflake and H2. So on Postgres an unquoted `total` does not read a declared `Total`. On another engine, and for a column the SQL names both quoted and unquoted, names compare ignoring case.
+- `upstream-column-mismatch` and `table-qualified-column` compare names ignoring case.
 - A transform's output columns are known only when its query is one native stage with a name for each column: no `*` or `table.*`, and an alias for each expression.
 - SQL whose columns the parser cannot read gives no column finding, and is reported as `reads-not-checked`.
 
