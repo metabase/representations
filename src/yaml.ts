@@ -39,7 +39,10 @@ export type YamlPath = readonly (string | number)[];
  * Metabase never finds it.
  */
 export type NonStringKey = {
-  /** The path of the map that holds the key. */
+  /**
+   * The path of a map that holds the key, once its `<<` merges apply. A map
+   * an alias repeats, or that a merge copies, lists its keys at each place.
+   */
   path: YamlPath;
   /** The key as written. */
   source: string;
@@ -146,19 +149,33 @@ function codePointsBefore(text: string, end: number): number {
   return count;
 }
 
+/** A key of a map once its `<<` merges apply, as SnakeYAML reads the map. */
+type MergedEntry = {
+  /** The key as SnakeYAML reads it: an alias key resolved. */
+  key: unknown;
+  /** The key's text: a string key's value, or how a non-string key is written. */
+  name: string;
+  isString: boolean;
+  /** Whether the key is not a string and the map has a string key of its text. */
+  shadowed: boolean;
+  value: unknown;
+};
+
 /**
  * Checks the parsed `doc` for what SnakeYAML refuses after parsing, and
  * names each non-string key by its text, which `toJS` then uses. Returns the
- * non-string keys. Drops a shadowed key's pair after checking its value.
+ * non-string keys, each once at the path of every map that holds it, merges
+ * and aliases followed. Drops a shadowed key's pair after checking its value.
  */
 function inspect(
   doc: Document.Parsed,
   text: string,
   lineCounter: LineCounter,
 ): NonStringKey[] {
-  const nonStringKeys: NonStringKey[] = [];
-  const path: (string | number)[] = [];
   let collectionAliases = 0;
+  // Each map's keys once its merges apply, in the order SnakeYAML gives them
+  // precedence: its own keys, then each merge source's in turn.
+  const mergedEntries = new Map<YAMLMap, MergedEntry[]>();
 
   const refuse = (reason: string, node: unknown): never => {
     const offset =
@@ -172,6 +189,8 @@ function inspect(
     const range = isScalar(node) || isCollection(node) ? node.range : undefined;
     return range ? text.slice(range[0], range[1]) : String(node);
   };
+  const resolved = (node: unknown): unknown =>
+    isAlias(node) ? node.resolve(doc) : node;
 
   const checkScalar = (node: Scalar, isKey: boolean): void => {
     if (!isKey && node.type === Scalar.PLAIN && node.source === "<<") {
@@ -191,7 +210,8 @@ function inspect(
     }
   };
 
-  const walk = (node: unknown, isKey: boolean): void => {
+  // Checks each node once, as written, and settles each map's keys.
+  const check = (node: unknown, isKey: boolean): void => {
     if (isAlias(node)) {
       if (
         isCollection(node.resolve(doc)) &&
@@ -207,54 +227,117 @@ function inspect(
     if (isScalar(node)) {
       checkScalar(node, isKey);
     } else if (isSeq(node)) {
-      node.items.forEach((item, index) => {
-        path.push(index);
-        walk(item, false);
-        path.pop();
-      });
+      node.items.forEach((item) => check(item, false));
     } else if (isMap(node)) {
-      walkMap(node);
+      checkMap(node);
     }
   };
 
-  const walkMap = (map: YAMLMap): void => {
-    const stringKeys = new Set(
-      map.items.flatMap(({ key }) =>
-        isScalar(key) && typeof key.value === "string" ? [key.value] : [],
-      ),
-    );
-    map.items = map.items.filter((pair) => {
-      const { key, value } = pair;
-      if (isScalar(key) && typeof key.value === "symbol") {
-        // A `<<` merge key: the maps it merges count as this map.
-        for (const source of isSeq(value) ? value.items : [value]) {
-          if (isMap(source)) {
-            walkMap(source);
-          } else {
-            walk(source, false);
-          }
-        }
-        return true;
-      }
-      walk(key, true);
-      if (isScalar(key) && typeof key.value === "string") {
-        path.push(key.value);
-        walk(value, false);
-        path.pop();
-        return true;
-      }
-      const source = sourceOf(key);
-      const shadowed = stringKeys.has(source);
-      nonStringKeys.push({ path: [...path], source, shadowed });
-      path.push(source);
-      walk(value, false);
-      path.pop();
-      pair.key = new Scalar(source);
-      return !shadowed;
+  const mergeSourcesOf = (value: unknown): YAMLMap[] => {
+    const sources = resolved(value);
+    return (isSeq(sources) ? sources.items : [value]).map((source) => {
+      const map = resolved(source);
+      return isMap(map)
+        ? map
+        : refuse("expected a mapping or list of mappings for merging", source);
     });
   };
 
-  walk(doc.contents, false);
+  const checkMap = (map: YAMLMap): void => {
+    const own: MergedEntry[] = [];
+    const sources: YAMLMap[] = [];
+    for (const { key, value } of map.items) {
+      if (isScalar(key) && typeof key.value === "symbol") {
+        check(value, false);
+        sources.push(...mergeSourcesOf(value));
+        continue;
+      }
+      check(key, true);
+      check(value, false);
+      const readKey = resolved(key);
+      const isString = isScalar(readKey) && typeof readKey.value === "string";
+      own.push({
+        key: readKey,
+        name: isString ? String(readKey.value) : sourceOf(readKey),
+        isString,
+        shadowed: false,
+        value,
+      });
+    }
+    const merged = [...own];
+    for (const source of sources) {
+      for (const entry of mergedEntries.get(source) ?? []) {
+        if (!merged.some((m) => sameKey(m.key, entry.key))) {
+          merged.push(entry);
+        }
+      }
+    }
+    const stringNames = new Set(
+      merged.flatMap((e) => (e.isString ? [e.name] : [])),
+    );
+    mergedEntries.set(
+      map,
+      merged.map((e) => ({
+        ...e,
+        shadowed: !e.isString && stringNames.has(e.name),
+      })),
+    );
+    // Each own non-string key goes under its text; a shadowed one goes.
+    map.items = map.items.filter((pair) => {
+      const readKey = resolved(pair.key);
+      if (
+        (isScalar(pair.key) && typeof pair.key.value === "symbol") ||
+        (isScalar(readKey) && typeof readKey.value === "string")
+      ) {
+        if (isAlias(pair.key) && isScalar(readKey)) {
+          pair.key = new Scalar(readKey.value);
+        }
+        return true;
+      }
+      const name = sourceOf(readKey);
+      pair.key = new Scalar(name);
+      return !stringNames.has(name);
+    });
+  };
+
+  check(doc.contents, false);
+
+  // Lists each map's non-string keys at every path the map's content takes.
+  const nonStringKeys: NonStringKey[] = [];
+  const path: (string | number)[] = [];
+  const visiting = new Set<unknown>();
+  const record = (node: unknown): void => {
+    const target = resolved(node);
+    if (visiting.has(target)) {
+      return;
+    }
+    visiting.add(target);
+    if (isSeq(target)) {
+      target.items.forEach((item, index) => {
+        path.push(index);
+        record(item);
+        path.pop();
+      });
+    } else if (isMap(target)) {
+      for (const entry of mergedEntries.get(target) ?? []) {
+        if (!entry.isString) {
+          nonStringKeys.push({
+            path: [...path],
+            source: entry.name,
+            shadowed: entry.shadowed,
+          });
+        }
+        if (entry.shadowed) {
+          continue;
+        }
+        path.push(entry.name);
+        record(entry.value);
+        path.pop();
+      }
+    }
+    visiting.delete(target);
+  };
+  record(doc.contents);
   return nonStringKeys;
 }
 
@@ -264,7 +347,7 @@ function inspect(
  * that SnakeYAML reads as something other than a string is in the value
  * under its text, and listed in `nonStringKeys`. A timestamp is a `Date`
  * with no time (`NaN`). Throws `YamlReadError` for any text SnakeYAML
- * refuses, and for a duplicate key, which SnakeYAML accepts with the last
+ * refuses, such as a merge source that is not a map, and for a duplicate key, which SnakeYAML accepts with the last
  * value.
  */
 export function readYaml(text: string): YamlDocument {

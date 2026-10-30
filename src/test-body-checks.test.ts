@@ -2,6 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import type { Doc } from "./documents.js";
 import type { LintRule, Report } from "./findings.js";
+import { isRecord } from "./values.js";
+import { readYaml } from "./yaml.js";
 import {
   reportEmptyExpectations,
   reportExpectationNames,
@@ -151,6 +153,35 @@ describe("reportRowsColumns", () => {
     expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
       'input public.orders, row 2: every row must carry exactly the declared columns; missing "total"; keys that are not strings: yes',
       "expectation by id, row 1: every row must carry exactly the declared columns; keys that are not strings: 1",
+    ]);
+  });
+
+  it("names a key Metabase reads as no string that reaches a row through an alias or a merge", () => {
+    const { value, nonStringKeys } = readYaml(
+      [
+        "extra: &extra {1: x}",
+        "row: &row {id: 1, total: 2, 1: y}",
+        "inputs:",
+        "  - table: {schema: public, name: orders}",
+        "    format: rows",
+        "    columns: [{name: id, cast_type: INTEGER}, {name: total, cast_type: NUMERIC}]",
+        "    rows:",
+        "      - *row",
+        "  - table: {schema: public, name: people}",
+        "    format: rows",
+        "    columns: [{name: id, cast_type: INTEGER}]",
+        "    rows:",
+        "      - {id: 1, <<: *extra}",
+        "",
+      ].join("\n"),
+    );
+    const doc = {
+      ...testDoc(isRecord(value) ? { inputs: value.inputs } : {}),
+      nonStringKeys,
+    };
+    expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
+      "input public.orders, row 1: every row must carry exactly the declared columns; keys that are not strings: 1",
+      "input public.people, row 1: every row must carry exactly the declared columns; keys that are not strings: 1",
     ]);
   });
 

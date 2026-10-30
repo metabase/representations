@@ -124,6 +124,56 @@ describe("readYaml", () => {
     },
   );
 
+  it("lists a non-string key once over the merged map, at the merging map's path", () => {
+    expect(readYaml("m: {<<: {'1': p}, 1: q}\n")).toEqual({
+      value: { m: { "1": "p" } },
+      nonStringKeys: [{ path: ["m"], source: "1", shadowed: true }],
+    });
+    expect(readYaml("m: {<<: {1: x}, 1: y}\n")).toEqual({
+      value: { m: { "1": "y" } },
+      nonStringKeys: [{ path: ["m"], source: "1", shadowed: false }],
+    });
+    expect(readYaml("m:\n  <<: {1: x}\n  s: y\n").nonStringKeys).toEqual([
+      { path: ["m"], source: "1", shadowed: false },
+    ]);
+  });
+
+  it("lists a non-string key at each place an alias puts its map", () => {
+    expect(
+      readYaml("a: &r {1: x}\nrows:\n  - *r\nm:\n  <<: *r\n").nonStringKeys,
+    ).toEqual([
+      { path: ["a"], source: "1", shadowed: false },
+      { path: ["rows", 0], source: "1", shadowed: false },
+      { path: ["m"], source: "1", shadowed: false },
+    ]);
+  });
+
+  it("reads an alias used as a key as the value it names", () => {
+    expect(readYaml("k: &k name\n*k : v\n")).toEqual({
+      value: { k: "name", name: "v" },
+      nonStringKeys: [],
+    });
+    expect(readYaml("k: &k 1\n*k : v\n").nonStringKeys).toEqual([
+      { path: [], source: "1", shadowed: false },
+    ]);
+  });
+
+  it("checks an inline merge source as part of the document", () => {
+    expect(() => readYaml('m:\n  <<: {a: "x\\/y"}\n')).toThrow(
+      "the escape \\/ is not YAML 1.1 (2:11)",
+    );
+  });
+
+  it.each([
+    ["a scalar", "m:\n  <<: 1\n", "(2:7)"],
+    ["a scalar in a list", "m:\n  <<: [{x: 1}, 3]\n", "(2:16)"],
+  ])("refuses %s as a merge source, at its position", (_, text, position) => {
+    expect(() => readYaml(text)).toThrow(YamlReadError);
+    expect(() => readYaml(text)).toThrow(
+      `expected a mapping or list of mappings for merging ${position}`,
+    );
+  });
+
   it("keeps SnakeYAML's types under a %YAML 1.2 directive", () => {
     expect(valueOf("%YAML 1.2\n---\na: yes\n")).toEqual({ a: true });
     expect(valueOf("%YAML 1.3\n---\na: yes\n")).toEqual({ a: true });
