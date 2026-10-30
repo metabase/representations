@@ -58,6 +58,7 @@ function transformDoc(body: Record<string, unknown>): Doc {
     body: {
       name: "Orders by day",
       entity_id: TRANSFORM_ID,
+      creator_id: "admin@example.com",
       source_database_id: "Warehouse",
       source: QUERY_SOURCE,
       target: { type: "table", schema: "analytics", name: "orders_by_day" },
@@ -85,6 +86,7 @@ function testDoc(transformId: string): Doc {
       name: "Orders by day: one day",
       entity_id: "OrdersByDayOneDay0001",
       transform_id: transformId,
+      creator_id: "admin@example.com",
       inputs: [],
       expectations: [],
       "serdes/meta": [{ model: "TransformTest" }],

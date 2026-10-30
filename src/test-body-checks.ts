@@ -10,7 +10,9 @@ import type { NonStringKey, YamlPath } from "./yaml.js";
 
 /**
  * What the first row of `data` that does not carry exactly the declared
- * columns gets wrong, in Metabase's words; null when every row does. Names
+ * columns gets wrong: Metabase's rows-match-columns message, prefixed with
+ * the row's number, and the row's keys SnakeYAML reads as no string, which
+ * Metabase refuses with its own row-schema error; null when every row does. Names
  * compare case-sensitively, as in Metabase. `nonStringKeysOf` gives a row's
  * keys that Metabase reads as no string, by the row's index: Metabase
  * refuses a row with one.

@@ -14,8 +14,9 @@ export type ParsedTables = { status: "read"; tables: TableName[] } | Unread;
 
 /**
  * A field spec of Metabase's `field_references`, with the parts the lint
- * reads. A real table's columns are `all_columns` of that table; a table
- * function's are `unknown_columns`.
+ * reads. `all_columns` names a table as the query names it: usually a real
+ * table, but also a recursive CTE that refers to itself. A table function's
+ * columns are `unknown_columns`.
  */
 export type FieldSpec =
   | {
@@ -81,8 +82,8 @@ export type ReplacedTableKey = { schema?: string; table: string };
 export type SqlParser = {
   /**
    * The tables `sql` names, by `sql_tools.referenced_tables` in `dialect`
-   * (SQLGlot's default when null): each once, sorted, without the catalog, as
-   * Metabase reads them. Unread when SQLGlot raises, as on a parse error, a
+   * (SQLGlot's default when null): sorted, without the catalog, as Metabase
+   * reads them. Two tables that differ only in their catalog come twice. Unread when SQLGlot raises, as on a parse error, a
    * statement nested deeper than Python's recursion limit, or an unknown
    * dialect.
    */
@@ -148,8 +149,9 @@ const DIALECTS: Readonly<Record<string, string | null>> = {
 
 /**
  * The SQLGlot dialect Metabase parses a database's SQL in, given its engine
- * (Metabase's driver name); SQLGlot's default dialect, null, when the engine
- * is unknown.
+ * (Metabase's driver name): null, SQLGlot's default, when the engine is null
+ * or Metabase maps it to the default; an engine Metabase does not list is
+ * the dialect's name, as in Metabase.
  */
 export function dialectOf(engine: string | null): string | null {
   if (engine === null) {

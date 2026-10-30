@@ -70,8 +70,8 @@ import { stringOrNull } from "./values.js";
 export type LintOptions = {
   folder: string;
   /**
-   * Default schemas by database name, over those `CONFIG_FILE` in the folder
-   * gives.
+   * Default schemas by database name. Each overrides the one `CONFIG_FILE`
+   * in the folder gives for its database.
    */
   defaultSchemas?: DefaultSchemas;
 };
