@@ -371,9 +371,12 @@ describe("cli", () => {
         rmSync(join(workdir, ".metabase-lint.json"));
         const refused = runCli(["lint", "--experimental", "--folder", workdir]);
         expect(refused.stdout).toBe("");
-        expect(refused.stderr).toContain(
-          "Sample Postgres: names orders without a schema",
-        );
+        expect(refused.stderr.trimEnd().split("\n")).toEqual([
+          "The default schema of 1 database(s) is unknown: the schema an unqualified table name resolves to. No check ran.",
+          `Give it in .metabase-lint.json at the root of the folder, as {"defaultSchemas": {"<database>": "<schema>"}} (null for a database with no schemas).`,
+          "  Sample Postgres: collections/transforms/daily_order_summary.yaml names orders without a schema, so it resolves to the default schema",
+          'Or pass --default-schema "<database>=<schema>" for each, "<database>=" for no schemas.',
+        ]);
         expect(refused.exitCode).toBe(2);
 
         const given = runCli([

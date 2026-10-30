@@ -1,7 +1,9 @@
 import { createEngineOf, databaseDefaultSchemas } from "./databases.js";
 import {
   type DefaultSchemas,
+  type NamedTable,
   resolveDefaultSchemas,
+  type TestTables,
 } from "./default-schemas.js";
 import {
   displayName,
@@ -62,7 +64,6 @@ import {
 } from "./test-checks.js";
 import { reportTestSql } from "./test-sql-checks.js";
 import {
-  incrementalFilterTables,
   reportCollectionNamespaces,
   reportIncrementalTags,
   reportMissingTargetDatabases,
@@ -457,57 +458,61 @@ function expectationReads(
 }
 
 /**
- * For each test of a query transform, the tables its rewrite compares by the
- * default schema: the tables it replaces (its inputs and the transform's
- * target), and the tables named in SQL that the rewrite maps to them (those its
- * expectations read, and those the transform reads by SQL).
+ * For each test of a query transform, with the test's file, the tables its
+ * rewrite compares by the default schema: the tables it replaces (its inputs
+ * and the transform's target), and the tables named in SQL that the rewrite
+ * maps to them (those its expectations read, and those the transform reads by
+ * SQL).
  */
 function testRewriteTables(
   tested: readonly TestedTransform[],
   readSql: SqlTableReader,
-): TableKey[][] {
-  return tested.map(({ test, transform }) => [
-    ...testInputs(test, transform),
-    transform.target,
-    ...expectationReads({ test, transform }, readSql),
-    ...(transform.reads.status === "read"
-      ? transform.reads.tables.filter((t) => t.nullSchema === "default")
-      : []),
-  ]);
+): TestTables[] {
+  return tested.map(({ test, transform }) => ({
+    file: test.file,
+    tables: [
+      ...testInputs(test, transform),
+      transform.target,
+      ...expectationReads({ test, transform }, readSql),
+      ...(transform.reads.status === "read"
+        ? transform.reads.tables.filter((t) => t.nullSchema === "default")
+        : []),
+    ],
+  }));
 }
 
+/** `tables`, each named by `file`. */
+const namedBy = (file: string, tables: readonly TableKey[]): NamedTable[] =>
+  tables.map((table) => ({ ...table, file }));
+
 /**
- * Every table the checks compare, in its database: table files, transform
- * targets and reads, the tables an incremental transform's range filter names,
- * and, for each test of a query transform, its inputs and the tables its SQL
- * expectations read.
+ * Every table the checks compare, in its database, with the file that names
+ * it: table files, transform targets and reads, and, for each test of a query
+ * transform, its inputs and the tables its SQL expectations read.
  */
 function comparedTables(
   docs: readonly Doc[],
   transforms: readonly Transform[],
   tested: readonly TestedTransform[],
   readSql: SqlTableReader,
-): TableKey[] {
-  const testTables = tested.flatMap(({ test, transform }) => [
-    ...testInputs(test, transform),
-    ...expectationReads({ test, transform }, readSql),
-  ]);
-  const filterTables = validDocsOf(docs, "Transform").flatMap((transform) => {
-    const filter = incrementalFilterTables(transform);
-    return filter === null
-      ? []
-      : [...filter.tagTables, filter.checkpointTable].filter(
-          (t): t is TableKey => t !== null,
-        );
-  });
+): NamedTable[] {
   return [
-    ...validDocsOf(docs, "Table").map(tableOfFile),
-    ...targetsOf(transforms),
-    ...transforms.flatMap((t) =>
-      t.reads.status === "read" ? t.reads.tables : [],
+    ...validDocsOf(docs, "Table").map((doc) => ({
+      ...tableOfFile(doc),
+      file: doc.file,
+    })),
+    ...transforms.flatMap(({ doc, target, reads }) =>
+      namedBy(doc.file, [
+        ...(target === null ? [] : [target]),
+        ...(reads.status === "read" ? reads.tables : []),
+      ]),
     ),
-    ...filterTables,
-    ...testTables,
+    ...tested.flatMap(({ test, transform }) =>
+      namedBy(test.file, [
+        ...testInputs(test, transform),
+        ...expectationReads({ test, transform }, readSql),
+      ]),
+    ),
   ];
 }
 

@@ -3,6 +3,7 @@
 import { parseArgs } from "node:util";
 import { relative } from "path";
 
+import { MissingDefaultSchemasError } from "../src/default-schemas.js";
 import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
@@ -157,6 +158,12 @@ async function handleLint(values: ParsedValues): Promise<void> {
   try {
     result = await lint({ folder, defaultSchemas });
   } catch (e) {
+    if (e instanceof MissingDefaultSchemasError) {
+      console.error(
+        `${e.message}\nOr pass --default-schema "<database>=<schema>" for each, "<database>=" for no schemas.`,
+      );
+      process.exit(2);
+    }
     if (e instanceof LintSetupError) {
       console.error(e.message);
       process.exit(2);

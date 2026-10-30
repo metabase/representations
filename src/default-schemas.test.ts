@@ -4,6 +4,7 @@ import fc from "fast-check";
 import {
   defaultSchemaNeed,
   MissingDefaultSchemasError,
+  type NamedTable,
   resolveDefaultSchemas,
 } from "./default-schemas.js";
 import { inputCovers } from "./input-match.js";
@@ -15,11 +16,14 @@ import {
   type TableName,
 } from "./tables.js";
 
+const FILE = "collections/t.yaml";
+
 /** A table named in SQL: a null schema is an unqualified name. */
-const t = (schema: string | null, name: string) => ({
+const t = (schema: string | null, name: string, file = FILE) => ({
   schema,
   name,
   nullSchema: "default" as const,
+  file,
 });
 
 /** A table named by an MBQL reference: a null schema is the table with no schema. */
@@ -27,32 +31,49 @@ const ref = (schema: string | null, name: string) => ({
   schema,
   name,
   nullSchema: "none" as const,
+  file: FILE,
+});
+
+/** The tables of one transform test, in the file `file`. */
+const inTest = <T>(tables: readonly T[], file = "collections/test.yaml") => ({
+  file,
+  tables,
 });
 
 const k = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({
+): NamedTable => ({
   database,
   schema,
   name,
   nullSchema: "default",
   caseMatters: false,
+  file: `${database ?? "none"}.yaml`,
 });
 
 describe("defaultSchemaNeed", () => {
   it("needs a default schema for an unqualified name", () => {
     expect(
-      defaultSchemaNeed([t("PUBLIC", "ORDERS"), t(null, "PEOPLE")], []),
-    ).toBe("names PEOPLE without a schema");
+      defaultSchemaNeed(
+        [t("PUBLIC", "ORDERS"), t(null, "PEOPLE", "a.yaml"), t(null, "X")],
+        [],
+      ),
+    ).toEqual({
+      file: "a.yaml",
+      reason:
+        "names PEOPLE without a schema, so it resolves to the default schema",
+    });
   });
 
   it("needs a default schema for one table name in two schemas in one test", () => {
     const names = [t("A", "orders"), t("b", "ORDERS")];
-    expect(defaultSchemaNeed(names, [names])).toBe(
-      "names orders in schemas A and b",
-    );
+    expect(defaultSchemaNeed(names, [inTest(names)])).toEqual({
+      file: "collections/test.yaml",
+      reason:
+        "names orders in schemas A and b in one transform test, which only the default schema tells apart",
+    });
   });
 
   it("needs none for one table name in two schemas outside any test", () => {
@@ -63,7 +84,9 @@ describe("defaultSchemaNeed", () => {
 
   it("needs none when each test names the table in one schema", () => {
     const [a, b] = [t("A", "orders"), t("b", "ORDERS")];
-    expect(defaultSchemaNeed([a, b], [[a, t("c", "people")], [b]])).toBeNull();
+    expect(
+      defaultSchemaNeed([a, b], [inTest([a, t("c", "people")]), inTest([b])]),
+    ).toBeNull();
   });
 
   it("needs none for an MBQL reference with no schema, which names the table with no schema", () => {
@@ -78,7 +101,7 @@ describe("defaultSchemaNeed", () => {
       t("public", "orders"),
       t("RAW", "PEOPLE"),
     ];
-    expect(defaultSchemaNeed(names, [names])).toBeNull();
+    expect(defaultSchemaNeed(names, [inTest(names)])).toBeNull();
     expect(defaultSchemaNeed([], [])).toBeNull();
   });
 });
@@ -139,7 +162,12 @@ describe("the default-schema gate", () => {
     fc.assert(
       fc.property(names, names, (outside, test) => {
         const all = [...outside, ...test];
-        fc.pre(defaultSchemaNeed(all, [test]) === null);
+        fc.pre(
+          defaultSchemaNeed(
+            all.map((n) => ({ ...n, file: FILE })),
+            [inTest(test)],
+          ) === null,
+        );
         for (const a of all) {
           for (const b of all) {
             const inOneTest = test.includes(a) && test.includes(b);
@@ -172,7 +200,11 @@ describe("resolveDefaultSchemas", () => {
           k("Spread", "b", "t"),
           k("Given", null, "orders"),
         ],
-        testTables: [legacy, [k("Spread", "a", "t")], [k("Spread", "b", "t")]],
+        testTables: [
+          inTest(legacy, "legacy_test.yaml"),
+          inTest([k("Spread", "a", "t")]),
+          inTest([k("Spread", "b", "t")]),
+        ],
         given: { Given: "public" },
         engineOf: noEngines,
       });
@@ -181,8 +213,18 @@ describe("resolveDefaultSchemas", () => {
       resolve();
     } catch (e) {
       expect(e instanceof MissingDefaultSchemasError && e.databases).toEqual([
-        { database: "Legacy", reason: "names t in schemas a and b" },
-        { database: "Warehouse", reason: "names orders without a schema" },
+        {
+          database: "Legacy",
+          file: "legacy_test.yaml",
+          reason:
+            "names t in schemas a and b in one transform test, which only the default schema tells apart",
+        },
+        {
+          database: "Warehouse",
+          file: "Warehouse.yaml",
+          reason:
+            "names orders without a schema, so it resolves to the default schema",
+        },
       ]);
     }
   });

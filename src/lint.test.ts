@@ -1152,7 +1152,8 @@ describe("lint", () => {
           error.databases.map((d) => d.database),
       ).toEqual([POSTGRES_DB]);
       expect(String(error)).toContain(CONFIG_FILE);
-      expect(String(error)).toContain("--default-schema");
+      // The library has no command-line options to name.
+      expect(String(error)).not.toContain("--default-schema");
     });
 
     it("reads the default schemas in the folder's settings file", async () => {
@@ -1334,7 +1335,11 @@ describe("lint", () => {
       }
     };
 
-    const stop = { stops: [`${DATABASE}: names account in schemas a and b`] };
+    const stop = {
+      stops: [
+        `${DATABASE}: names account in schemas a and b in one transform test, which only the default schema tells apart`,
+      ],
+    };
 
     it("lints when no transform test compares the two", async () => {
       expect(await outcome()).toEqual({ rules: [] });

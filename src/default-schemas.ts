@@ -12,8 +12,21 @@ export type DefaultSchemas = Readonly<Record<string, string | null>>;
 /** A table's name, and what a null schema in it means. */
 type SchemaName = Pick<TableKey, "schema" | "name" | "nullSchema">;
 
-/** A database whose default schema the lint needs, and why. */
-export type DefaultSchemaWanted = { database: string; reason: string };
+/** A table a file names. */
+export type NamedTable = TableKey & { file: string };
+
+/** The tables one transform test's rewrite compares, and the test's file. */
+export type TestTables = { file: string; tables: readonly TableKey[] };
+
+/**
+ * A database whose default schema the lint needs: the first file that needs
+ * it, and why, as a sentence whose subject is the file.
+ */
+export type DefaultSchemaWanted = {
+  database: string;
+  file: string;
+  reason: string;
+};
 
 /** The lint needs default schemas that neither the settings nor the engine give. */
 export class MissingDefaultSchemasError extends LintSetupError {
@@ -23,9 +36,11 @@ export class MissingDefaultSchemasError extends LintSetupError {
   constructor(databases: readonly DefaultSchemaWanted[]) {
     super(
       [
-        `The default schema of ${databases.length} database(s) is unknown: the schema an unqualified table name resolves to.`,
-        `Give it in ${CONFIG_FILE} at the root of the folder, as {"defaultSchemas": {"<database>": "<schema>"}} (null for a database with no schemas), or with --default-schema "<database>=<schema>".`,
-        ...databases.map(({ database, reason }) => `  ${database}: ${reason}`),
+        `The default schema of ${databases.length} database(s) is unknown: the schema an unqualified table name resolves to. No check ran.`,
+        `Give it in ${CONFIG_FILE} at the root of the folder, as {"defaultSchemas": {"<database>": "<schema>"}} (null for a database with no schemas).`,
+        ...databases.map(
+          ({ database, file, reason }) => `  ${database}: ${file} ${reason}`,
+        ),
       ].join("\n"),
     );
     this.databases = databases;
@@ -34,23 +49,26 @@ export class MissingDefaultSchemasError extends LintSetupError {
 
 /**
  * Why a database whose tables the lint names by `names` needs its default
- * schema: an unqualified name, or one table name in two schemas among the
- * tables of one transform test in `testTables`, which the test's rewrite
- * compares by the default schema. Null when no comparison of these names
- * depends on the default schema. A name with no schema by an MBQL reference
- * (`nullSchema` `"none"`) never does.
+ * schema, and the first file that needs it: an unqualified name, or one table
+ * name in two schemas among the tables of one transform test in
+ * `testTables`, which the test's rewrite compares by the default schema. Null
+ * when no comparison of these names depends on the default schema. A name
+ * with no schema by an MBQL reference (`nullSchema` `"none"`) never does.
  */
 export function defaultSchemaNeed(
-  names: readonly SchemaName[],
-  testTables: readonly (readonly SchemaName[])[],
-): string | null {
+  names: readonly (SchemaName & { file: string })[],
+  testTables: readonly { file: string; tables: readonly SchemaName[] }[],
+): { file: string; reason: string } | null {
   const unqualified = names.find(
     (n) => n.schema === null && n.nullSchema === "default",
   );
   if (unqualified !== undefined) {
-    return `names ${unqualified.name} without a schema`;
+    return {
+      file: unqualified.file,
+      reason: `names ${unqualified.name} without a schema, so it resolves to the default schema`,
+    };
   }
-  for (const tables of testTables) {
+  for (const { file, tables } of testTables) {
     const qualified = tables.filter((n) => n.schema !== null);
     for (const a of qualified) {
       const b = qualified.find(
@@ -58,7 +76,10 @@ export function defaultSchemaNeed(
           fold(n.name) === fold(a.name) && fold(n.schema) !== fold(a.schema),
       );
       if (b !== undefined) {
-        return `names ${a.name} in schemas ${a.schema} and ${b.schema}`;
+        return {
+          file,
+          reason: `names ${a.name} in schemas ${a.schema} and ${b.schema} in one transform test, which only the default schema tells apart`,
+        };
       }
     }
   }
@@ -66,13 +87,16 @@ export function defaultSchemaNeed(
 }
 
 /** `tables` by database, skipping a table with no database. */
-function byDatabase(
-  tables: readonly TableKey[],
-): Map<string, Omit<TableKey, "database">[]> {
-  const grouped = new Map<string, Omit<TableKey, "database">[]>();
-  for (const { database, ...name } of tables) {
-    if (database !== null) {
-      grouped.set(database, [...(grouped.get(database) ?? []), name]);
+function byDatabase<T extends { database: string | null }>(
+  tables: readonly T[],
+): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  for (const table of tables) {
+    if (table.database !== null) {
+      grouped.set(table.database, [
+        ...(grouped.get(table.database) ?? []),
+        table,
+      ]);
     }
   }
   return grouped;
@@ -92,9 +116,9 @@ export function resolveDefaultSchemas({
   given,
   engineOf,
 }: {
-  names: readonly TableKey[];
+  names: readonly NamedTable[];
   /** For each transform test, the tables its rewrite compares. */
-  testTables: readonly (readonly TableKey[])[];
+  testTables: readonly TestTables[];
   given: DefaultSchemas;
   engineOf: EngineOf;
 }): DefaultSchemaOf {
@@ -106,19 +130,22 @@ export function resolveDefaultSchemas({
       ? null
       : undefined;
   };
-  const testsByDatabase = testTables.map(byDatabase);
+  const testsByDatabase = testTables.map(({ file, tables }) => ({
+    file,
+    byDatabase: byDatabase(tables),
+  }));
   const wanted = [...byDatabase(names)].flatMap(([database, inDatabase]) => {
-    const reason =
+    const need =
       known(database) === undefined
         ? defaultSchemaNeed(
             inDatabase,
             testsByDatabase.flatMap((test) => {
-              const inTest = test.get(database);
-              return inTest === undefined ? [] : [inTest];
+              const tables = test.byDatabase.get(database);
+              return tables === undefined ? [] : [{ file: test.file, tables }];
             }),
           )
         : null;
-    return reason === null ? [] : [{ database, reason }];
+    return need === null ? [] : [{ database, ...need }];
   });
   if (wanted.length > 0) {
     throw new MissingDefaultSchemasError(

@@ -8,7 +8,7 @@ An unqualified table name, such as `orders` in SQL, a transform's target or a te
 
 ### Where the lint finds a default schema
 
-The lint needs the default schema of a database when an unqualified name is in it, or when one transform test's tables name one table in two schemas. Without it, the lint stops before any check and names each such database.
+The lint needs the default schema of a database when an unqualified name is in it, or when one transform test's tables name one table in two schemas. Without it, the lint stops before any check, and runs none. For each such database it names the first file that needs the default schema, and why.
 
 Two qualified names, such as `a.account` and `b.account`, denote the same table or not whatever the default schema is. They depend on it only in a transform test: Metabase rewrites a test's SQL to stand-in tables, and it rewrites a qualified name it has no key for to a table of the same name in the default schema. A test's tables are its inputs, its transform's target, the tables its expectations read, and the tables its transform reads by SQL. So `a.account` read by one transform and `b.account` by another need no default schema, but a test with an input `a.account` and an expectation that reads `b.account` does.
 
