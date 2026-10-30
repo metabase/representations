@@ -37,7 +37,7 @@ Validate a folder of YAML files against the schemas:
 npx @metabase/representations validate-schema --folder ./my-export
 ```
 
-Omit `--folder` to validate the current directory. It exits 1 when a file fails, and 2 when the folder has no YAML files ([exit codes](#exit-codes)). A file with no `serdes/meta`, or an empty file, passes with a warning: Metabase skips it. A file of a model that Metabase imports and no schema here describes, such as `CustomVizPlugin` or `Dimension`, passes and is counted as not checked. A model that Metabase does not import fails, and so does a file that is not valid UTF-8.
+Omit `--folder` to validate the current directory. It exits 1 when a file fails, and 2 when the folder has no YAML files in Metabase's top-level folders ([exit codes](#exit-codes)). A file with no `serdes/meta`, or an empty file, passes with a warning: Metabase skips it. A file of a model that Metabase imports and no schema here describes, such as `CustomVizPlugin` or `Dimension`, passes and is counted as not checked. A model that Metabase does not import fails, and so does a file that is not valid UTF-8.
 
 The validator reads YAML as Metabase does, with a few [known differences](https://github.com/metabase/representations/blob/main/docs/lint.md#how-yaml-is-read).
 
@@ -159,7 +159,7 @@ Every command exits with one of these codes; `representations --help` prints the
 |------|---------|
 | 0 | The command ran. `validate-schema`: no file failed; `lint`: no finding is an error. |
 | 1 | `validate-schema`: a file failed; `lint`: a finding is an error. |
-| 2 | Nothing was checked: a usage error (an unknown command or option, an option with no value or an invalid one, `lint` without `--experimental`), a folder that is missing, is not a folder or holds no YAML files, a lint that cannot run (an invalid settings file, an unknown default schema, a SQL parser that cannot start), or an unexpected error, such as a file the command cannot read. |
+| 2 | Nothing was checked: a usage error (an unknown command or option, an option with no value or an invalid one, `lint` without `--experimental`), a folder that is missing, is not a folder or has no YAML files in Metabase's top-level folders, a lint that cannot run (an invalid settings file, an unknown default schema, a SQL parser that cannot start), or an unexpected error, such as a file the command cannot read. |
 
 ## Programmatic use
 

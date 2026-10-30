@@ -70,10 +70,11 @@ Exit codes:
   1  validate-schema: a file failed; lint: a finding is an error.
   2  Nothing was checked: a usage error (an unknown command or option, an
      option with no value or an invalid one, lint without
-     --experimental), a folder that is missing, is not a folder or holds
-     no YAML files, a lint that cannot run (an invalid settings file, an
-     unknown default schema, a SQL parser that cannot start), or an
-     unexpected error, such as a file the command cannot read.`;
+     --experimental), a folder that is missing, is not a folder or has
+     no YAML files in Metabase's top-level folders, a lint that cannot
+     run (an invalid settings file, an unknown default schema, a SQL
+     parser that cannot start), or an unexpected error, such as a file
+     the command cannot read.`;
 
 /** The exit code when nothing was checked: a usage error, no files, a lint that cannot run, or an unexpected error. */
 const NOTHING_CHECKED = 2;
