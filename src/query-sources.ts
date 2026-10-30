@@ -194,7 +194,7 @@ export function createSourceFinder({ ajv, files, models }: Schemas) {
       if (isRecord(value)) {
         const properties = isRecord(schema.properties) ? schema.properties : {};
         for (const key of Object.keys(value)) {
-          if (key in properties) {
+          if (Object.hasOwn(properties, key)) {
             walk(value[key], at("properties", key), context);
           } else if (isRecord(schema.additionalProperties)) {
             walk(value[key], at("additionalProperties"), context);

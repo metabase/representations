@@ -249,6 +249,27 @@ describe("createSourceFinder", () => {
     expect(sources.natives.map((n) => [...n.valuedTags])).toEqual([["state"]]);
   });
 
+  it("finds the card of a legacy template-tags map's tag named like an Object property", () => {
+    const sources = findSources(
+      transform([
+        {
+          "lib/type": "mbql.stage/native",
+          native: "SELECT * FROM {{constructor}}",
+          "template-tags": {
+            constructor: {
+              type: "card",
+              name: "constructor",
+              id: "1d4e9fdf-49ae-4fbe-ae27-05e7c6a5cfe8",
+              "card-id": "CCCCCCCCCCCCCCCCCCCCC",
+            },
+          },
+        },
+      ]),
+      "Transform",
+    );
+    expect(sources.entities).toEqual(["CCCCCCCCCCCCCCCCCCCCC"]);
+  });
+
   it("finds the card, snippet and table of a native stage's template tags", () => {
     const tag = (type: string, extra: object) => ({
       type,
