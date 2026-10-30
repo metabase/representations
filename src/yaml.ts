@@ -30,6 +30,19 @@ export class YamlReadError extends Error {
   }
 }
 
+/**
+ * The text of a file's bytes, decoded as UTF-8; null when they are not valid
+ * UTF-8.
+ */
+export function decodeUtf8(bytes: Uint8Array): string | null {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    // eslint-disable-next-line no-restricted-syntax -- decodes bytes only; reads no SQL
+  } catch {
+    return null;
+  }
+}
+
 /** Where a node is in a value: map keys and list indexes, from the root. */
 export type YamlPath = readonly (string | number)[];
 

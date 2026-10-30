@@ -10,6 +10,7 @@ import {
 } from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
 import {
+  decodeUtf8,
   type NonStringKey,
   readYaml,
   type YamlDocument,
@@ -259,9 +260,14 @@ export function loadDocs(
   const skipped: string[] = [];
   const unreadable: UnreadableFile[] = [];
   for (const file of entityFiles(folder)) {
+    const text = decodeUtf8(readFileSync(resolve(folder, file)));
+    if (text === null) {
+      unreadable.push({ file, reason: "is not valid UTF-8" });
+      continue;
+    }
     let read: YamlDocument;
     try {
-      read = readYaml(readFileSync(resolve(folder, file), "utf8"));
+      read = readYaml(text);
       // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
     } catch (e) {
       const reason = e instanceof YamlReadError ? e.reason : errorMessage(e);

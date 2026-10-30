@@ -482,6 +482,18 @@ describe("lint", () => {
       );
     });
 
+    it("reports a file that is not valid UTF-8 as such", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const binary = "collections/transforms/binary.yaml";
+      writeFileSync(
+        join(workdir, binary),
+        Buffer.from([0x6e, 0x61, 0x6d, 0x65, 0x3a, 0x20, 0xc3, 0x28, 0x0a]),
+      );
+      expect(
+        (await findings(workdir)).map((f) => `${f.file}: ${f.message}`),
+      ).toEqual([`${binary}: the file is not valid UTF-8`]);
+    });
+
     it("warns on a file with no serdes/meta, which Metabase skips, and reads no entity from it", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const empty = "collections/transforms/empty.yaml";

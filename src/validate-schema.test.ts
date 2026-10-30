@@ -586,6 +586,21 @@ describe("validateSchema", () => {
       });
     });
 
+    it("fails a file that is not valid UTF-8, saying so", () => {
+      mkdirSync(join(workdir, "collections"), { recursive: true });
+      writeFileSync(
+        join(workdir, "collections", "binary.yaml"),
+        Buffer.from([0xff, 0xfe, 0x00, 0x41]),
+      );
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("collections", "binary.yaml"),
+          status: "fail",
+          errors: [{ path: "/", message: "not valid UTF-8" }],
+        },
+      ]);
+    });
+
     it("says what an entity id needs, and how to make one", () => {
       mkdirSync(join(workdir, "collections"), { recursive: true });
       const write = (entityId: string) =>

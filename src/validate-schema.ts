@@ -11,7 +11,7 @@ import {
   isUnknownArray,
   stringOrNull,
 } from "./values.js";
-import { readYaml } from "./yaml.js";
+import { decodeUtf8, readYaml } from "./yaml.js";
 
 /** The top-level folders whose `.yaml` files Metabase imports, other than `data_apps`. */
 const ENTITY_FOLDERS = [
@@ -285,9 +285,13 @@ function validateFile(
   file: string,
   schemas: Schemas,
 ): ValidationResult {
+  const text = decodeUtf8(readFileSync(resolve(folder, file)));
+  if (text === null) {
+    return { file, status: "fail", errors: rootError("not valid UTF-8") };
+  }
   let doc: unknown;
   try {
-    doc = readYaml(readFileSync(resolve(folder, file), "utf8")).value;
+    doc = readYaml(text).value;
     // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     return {
