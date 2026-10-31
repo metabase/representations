@@ -289,6 +289,30 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("collection namespace", () => {
+      const validateCollection = (namespace: string) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "reports.yaml"),
+          yaml.dump({
+            name: "Reports",
+            entity_id: "cOlRePorTs000ExAmPlx2",
+            namespace,
+            "serdes/meta": [{ model: "Collection" }],
+          }),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      it("accepts data-actions", () => {
+        expect(validateCollection("data-actions").failed).toBe(0);
+      });
+
+      it("rejects an unknown namespace", () => {
+        expect(validateCollection("data_actions").failed).toBe(1);
+      });
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
