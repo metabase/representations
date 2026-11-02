@@ -12,6 +12,7 @@ export type ExtractSpecResult = {
   target: string;
 };
 
+/** Copies the bundled spec.md to `file`, creating its folder. */
 export function extractSpec({ file }: ExtractSpecOptions): ExtractSpecResult {
   const source = resolve(PACKAGE_ROOT, "core-spec/v1/spec.md");
   const target = resolve(file);

@@ -8,8 +8,8 @@
         "ajv": "^8.17.1",
         "ajv-formats": "^3.0.1",
         "glob": "^11.0.1",
-        "js-yaml": "^4.1.0",
         "nanoid": "^5.1.9",
+        "yaml": "^2.9.1",
       },
       "devDependencies": {
         "@eslint/js": "^10.0.1",
@@ -17,6 +17,7 @@
         "@types/js-yaml": "^4.0.9",
         "@types/node": "^25.6.0",
         "eslint": "^10.2.1",
+        "js-yaml": "^4.1.0",
         "oxfmt": "^0.45.0",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.58.2",
@@ -275,6 +276,8 @@
     "which": ["which@2.0.2", "", { "dependencies": { "isexe": "^2.0.0" }, "bin": { "node-which": "./bin/node-which" } }, "sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA=="],
 
     "word-wrap": ["word-wrap@1.2.5", "", {}, "sha512-BN22B5eaMMI9UMtjrGd5g5eCYPpCPDUy0FJXbYsaT5zYxjFOckS53SQDE3pWkVoWpHXVb3BrYcEN4Twa55B5cA=="],
+
+    "yaml": ["yaml@2.9.1", "", { "bin": { "yaml": "bin.mjs" } }, "sha512-3NxN8+78OdzbT7C/WjGsyfPAtJaN3FNDsWxv7Y7mcDsT/oOmgW8BpyQQFFBnvZE3j9Y2Sdz1ULFLezL7Eb2yFw=="],
 
     "yocto-queue": ["yocto-queue@0.1.0", "", {}, "sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q=="],
 

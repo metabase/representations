@@ -1,7 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
-import { join, resolve } from "path";
+import { join, relative, resolve } from "path";
 
 const REPO_ROOT = resolve(import.meta.dirname, "..");
 const CLI = "bin/cli.ts";
@@ -168,6 +176,119 @@ describe("cli", () => {
       ]);
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/\d+ passed, 0 failed/);
+    });
+
+    it("passes a file Metabase skips, with a warning that names it", () => {
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-skip-"));
+      try {
+        mkdirSync(join(folder, "collections"));
+        writeFileSync(
+          join(folder, "collections", "notes.yaml"),
+          "name: Notes\n",
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stderr.trimEnd().split("\n")).toEqual([
+          expect.stringMatching(/^WARN {2}\S*collections\/notes\.yaml$/),
+          "      Metabase skips this file because it has no serdes/meta",
+        ]);
+        expect(stdout.trim()).toBe("0 passed, 0 failed, 1 skipped");
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    });
+
+    it("escapes control and format characters from the folder on stderr", () => {
+      // C0 with a workflow command after a line feed, DEL, C1, the line and
+      // paragraph separators, and format characters, one outside the BMP.
+      const unsafe =
+        "\u001b[31m\u001b]0;x\u0007\r\t\n::error title=x::pwned\u007f\u0085\u009b\u2028\u2029\u202e\u200b\ufeff\u{e0001}";
+      const escaped =
+        "\\u001b[31m\\u001b]0;x\\u0007\\u000d\\u0009\\u000a::error title=x::pwned\\u007f\\u0085\\u009b\\u2028\\u2029\\u202e\\u200b\\ufeff\\udb40\\udc01";
+      const kept = "é中😀\\ ";
+      const inYaml = JSON.stringify(unsafe + kept).slice(1, -1);
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-escape-"));
+      try {
+        mkdirSync(join(folder, "collections"));
+        const write = (name: string, text: string) =>
+          writeFileSync(join(folder, "collections", name), text);
+        write(
+          `1${unsafe}${kept}.yaml`,
+          `serdes/meta:\n- model: "M${inYaml}"\n`,
+        );
+        write(`2${unsafe}${kept}.yaml`, `"k${inYaml}_at": 1\n`);
+        write(`3${unsafe}${kept}.yaml`, "name: Notes\n");
+        const { stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        const at = relative(REPO_ROOT, join(folder, "collections"));
+        const text = escaped + kept;
+        expect(stderr.trimEnd().split("\n")).toEqual([
+          `FAIL  ${at}/1${text}.yaml (M${text})`,
+          `      / unknown model "M${text}"`,
+          `FAIL  ${at}/2${text}.yaml`,
+          `      /k${text}_at k${text}_at is not text, which Metabase reads as a time; quote it`,
+          `WARN  ${at}/3${text}.yaml`,
+          "      Metabase skips this file because it has no serdes/meta",
+        ]);
+        expect(exitCode).toBe(1);
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    });
+
+    it("fails a file it cannot read, naming it escaped on stderr", () => {
+      const unsafe = "\u001b]0;x\u0007\n::error::pwned";
+      const escaped = "\\u001b]0;x\\u0007\\u000a::error::pwned";
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-locked-"));
+      const locked = join(folder, "collections", `a${unsafe}.yaml`);
+      try {
+        mkdirSync(join(folder, "collections"));
+        writeFileSync(locked, "serdes/meta:\n- model: Collection\n");
+        chmodSync(locked, 0o000);
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        const at = relative(REPO_ROOT, join(folder, "collections"));
+        expect(stderr.trimEnd().split("\n")).toEqual([
+          `FAIL  ${at}/a${escaped}.yaml`,
+          "      / cannot read the file (EACCES)",
+        ]);
+        expect(stdout.trim()).toBe("0 passed, 1 failed");
+        expect(exitCode).toBe(1);
+      } finally {
+        chmodSync(locked, 0o644);
+        rmSync(folder, { recursive: true, force: true });
+      }
+    });
+
+    it("counts a file of a model no schema describes as not checked", () => {
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-plugin-"));
+      try {
+        mkdirSync(join(folder, "custom_viz_plugins"));
+        writeFileSync(
+          join(folder, "custom_viz_plugins", "plugin.yaml"),
+          "serdes/meta:\n- model: CustomVizPlugin\n",
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stderr).toBe("");
+        expect(stdout.trim()).toBe("0 passed, 0 failed, 1 not checked");
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
     });
 
     it("errors when the folder has no YAML files", () => {
