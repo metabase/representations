@@ -1,7 +1,7 @@
 name: Python Hello World
 entity_id: g2cRYwopfoL1BW9Y4n3wb
 creator_id: admin@example.com
-source_database_id: Sample Database
+source_database_id: Sample Postgres
 source:
   type: python
   source-tables: []
@@ -14,9 +14,9 @@ source:
             "number": [1, 2]
         })
 target:
-  database: Sample Database
+  database: Sample Postgres
   type: table
-  schema: TRANSFORMS
+  schema: transforms
   name: hello_world
 serdes/meta:
 - model: Transform

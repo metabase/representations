@@ -1,25 +1,25 @@
 name: Daily Order Summary
 entity_id: 7XqqzlsonSq4KFyOvtrAm
 creator_id: admin@example.com
-source_database_id: Sample Database
+source_database_id: Sample Postgres
 source:
   type: query
   query:
     "lib/type": mbql/query
-    database: Sample Database
+    database: Sample Postgres
     stages:
       - "lib/type": mbql.stage/native
         native: |-
           SELECT
-            DATE_TRUNC('day', CREATED_AT) AS order_date,
+            DATE_TRUNC('day', created_at) AS order_date,
             COUNT(*) AS order_count,
-            SUM(TOTAL) AS total_revenue
-          FROM ORDERS
+            SUM(total) AS total_revenue
+          FROM orders
           GROUP BY 1
 target:
-  database: Sample Database
+  database: Sample Postgres
   type: table
-  schema: TRANSFORMS
+  schema: transforms
   name: daily_order_summary
 tags:
 - entity_id: qJU4-opN0IFLKDEdmXiYh
