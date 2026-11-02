@@ -17,7 +17,7 @@ The corpus checks the lint against what a real Metabase does, on many more folde
 ## Recording
 
 Only `scripts/record-corpus.ts` writes cases, so every expected answer comes from Metabase, never from the lint. It needs:
-- a Metabase with transforms enabled and read-write git sync
+- a Metabase whose git sync reads `SYNC_REPO`; the recorder enables transforms and read-write git sync itself
 - a warehouse named `Sample Postgres`, as in `.github/workflows/import.yml`
 
 ```sh

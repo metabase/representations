@@ -20,8 +20,9 @@
 // exits 1 when Metabase now answers any of them differently, so a change in
 // Metabase that moves the lint's target shows up in CI.
 //
-// Metabase must have transforms enabled, read-write git sync and a warehouse
-// named as corpus/base's Database file names it.
+// Metabase must sync from REPO and hold a warehouse named as corpus/base's
+// Database file names it. The recorder enables transforms and switches git
+// sync to read-write.
 import fc from "fast-check";
 import { spawnSync } from "node:child_process";
 import {
@@ -86,6 +87,30 @@ if (!url || !apiKey || !repo) {
   process.exit(2);
 }
 const metabase = createMetabase(url, apiKey);
+
+// Transforms are off on a new instance, and creating a transform test needs
+// read-write git sync. Both settings may be set already.
+const enabled = await metabase.api("PUT", "/api/setting/transforms-enabled", {
+  value: true,
+});
+// Metabase answers a string setting as plain text.
+const syncUrl = await metabase.api("GET", "/api/setting/remote-sync-url");
+if (syncUrl.status !== 200 || syncUrl.text.trim() === "") {
+  console.error(
+    `Metabase syncs from no repository: GET /api/setting/remote-sync-url answered ${describe(syncUrl)}`,
+  );
+  process.exit(1);
+}
+const readWrite = await metabase.api("PUT", "/api/ee/remote-sync/settings", {
+  "remote-sync-url": syncUrl.text.trim(),
+  "remote-sync-type": "read-write",
+});
+for (const answer of [enabled, readWrite]) {
+  if (answer.status < 200 || answer.status >= 300) {
+    console.error(`Setting up Metabase failed: ${describe(answer)}`);
+    process.exit(1);
+  }
+}
 
 const properties = await metabase.api("GET", "/api/session/properties");
 const version =

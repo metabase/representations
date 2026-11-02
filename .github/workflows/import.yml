@@ -233,11 +233,15 @@ jobs:
             exit 1
           fi
 
+      # Bun runs the lint, and the corpus check below, which needs only the
+      # API key: it runs even when the examples fail to import.
       - uses: oven-sh/setup-bun@v2
+        if: ${{ !cancelled() && env.API_KEY != '' }}
         with:
           bun-version: "1.3.9"
 
       - name: Install the lint's dependencies
+        if: ${{ !cancelled() && env.API_KEY != '' }}
         run: bun install --frozen-lockfile
 
       # The lint reads the files alone; Metabase is the reference. The step
@@ -339,9 +343,11 @@ jobs:
       # when it was recorded; corpus.test.ts compares the lint with those
       # answers. Record each case again, on a branch of its own that replaces
       # the content above, and fail when Metabase now answers differently.
-      # A failure above does not hide a change in Metabase's answers.
+      # It needs only the API key and the warehouse, and enables transforms
+      # and read-write git sync itself, so a failure above, such as examples
+      # Metabase no longer imports, does not hide a change in its answers.
       - name: Check the corpus's recorded answers against Metabase
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && env.API_KEY != '' }}
         run: |
           bun run scripts/record-corpus.ts --url http://localhost:3000 --api-key "$API_KEY" \
             --repo "$RUNNER_TEMP/sync-repo" --check
