@@ -226,6 +226,7 @@ function isTimeZone(zone: string): boolean {
   try {
     new Intl.DateTimeFormat("en", { timeZone: zone });
     return true;
+    // eslint-disable-next-line no-restricted-syntax -- reads no SQL
   } catch {
     return false;
   }
@@ -334,6 +335,7 @@ export function readEntityFile(
   let read: YamlDocument;
   try {
     read = readYaml(text);
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (error) {
     return { status: "unparsed", invalidUtf8, error };
   }
