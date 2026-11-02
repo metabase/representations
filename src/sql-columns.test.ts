@@ -200,7 +200,7 @@ describe("readColumns on other engines", () => {
     }
   });
 
-  it("reads a select-list alias as a column only where the engine has no lateral aliases", () => {
+  it("reads a select-list alias as a column in each clause where the engine reads no alias", () => {
     const sql =
       "SELECT price * 2 AS doubled, doubled + 1 AS d2 FROM orders WHERE doubled > 0";
     const names = (engine: string) => {
@@ -220,7 +220,7 @@ describe("readColumns on other engines", () => {
     ).toEqual({ status: "read", columns: [column(null, "orders", "price")] });
   });
 
-  it("reads no alias that a GROUP BY names where the engine allows it", () => {
+  it("reads no alias that a GROUP BY names, on Postgres and MySQL", () => {
     const names = (engine: string, sql: string) => {
       const result = onEngine(engine).readColumns(sql, "Warehouse");
       return result.status === "read"
@@ -229,6 +229,7 @@ describe("readColumns on other engines", () => {
     };
     const grouped = "SELECT lower(name) AS n FROM people GROUP BY n";
     expect(names("postgres", grouped)).toEqual(["name"]);
+    expect(names("mysql", grouped)).toEqual(["name"]);
   });
 
   it("reads no ClickHouse ARRAY JOIN alias", () => {

@@ -224,6 +224,7 @@ describe("check-metabase-sources", () => {
       resolve(ROOT, ".github/workflows/metabase-sources.yml"),
       "utf8",
     );
+    expect(workflow).toContain("  push:\n    branches: [main]\n");
     expect(workflow).toContain("  pull_request:\n");
     expect(workflow).toContain("  schedule:\n");
     expect(workflow).not.toMatch(/^\s+if:/m);
