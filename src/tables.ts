@@ -27,6 +27,52 @@ export type TableKey = TableName & {
 };
 
 /**
+ * A table named in SQL, or a transform test's input: an unqualified name is in
+ * the default schema, and names compare ignoring case.
+ */
+export const sqlTable = (
+  database: string | null,
+  { schema, name }: TableName,
+): TableKey => ({
+  database,
+  schema,
+  name,
+  nullSchema: "default",
+  caseMatters: false,
+});
+
+/**
+ * A table Metabase looks up as named: by an MBQL or Python source reference,
+ * or a table file. A null schema is the table with no schema, and names
+ * compare exactly.
+ */
+export const exactTable = (
+  database: string | null,
+  { schema, name }: TableName,
+): TableKey => ({
+  database,
+  schema,
+  name,
+  nullSchema: "none",
+  caseMatters: true,
+});
+
+/**
+ * A transform's target: Metabase creates it in the default schema when it
+ * names none, and quotes its name, so names compare exactly.
+ */
+export const targetTable = (
+  database: string,
+  { schema, name }: TableName,
+): TableKey => ({
+  database,
+  schema,
+  name,
+  nullSchema: "default",
+  caseMatters: true,
+});
+
+/**
  * The schema an unqualified table name resolves to in each database, by its
  * name: a string, or null when the database has none.
  */
@@ -106,13 +152,10 @@ export function uniqueTables(tables: readonly TableKey[]): TableKey[] {
  */
 export function tableOfRef(ref: unknown): TableKey | null {
   return isUnknownArray(ref) && typeof ref[2] === "string"
-    ? {
-        database: stringOrNull(ref[0]),
+    ? exactTable(stringOrNull(ref[0]), {
         schema: stringOrNull(ref[1]),
         name: ref[2],
-        nullSchema: "none",
-        caseMatters: true,
-      }
+      })
     : null;
 }
 

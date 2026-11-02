@@ -11,7 +11,7 @@ import {
 } from "./sql-parser.js";
 import { stripLargeLiteralLists } from "./literal-lists.js";
 import { isTagPlaceholder, prepareSql } from "./sql-tables.js";
-import { type ColumnKey, fold, type TableName } from "./tables.js";
+import { type ColumnKey, fold, sqlTable, type TableName } from "./tables.js";
 
 /**
  * How a query names a column it reads: in quotes, without, as Metabase
@@ -237,12 +237,7 @@ export function createSqlColumnReader(
             )
             ? [
                 {
-                  table: {
-                    database,
-                    ...table,
-                    nullSchema: "default",
-                    caseMatters: false,
-                  },
+                  table: sqlTable(database, table),
                   column: field.column,
                   quoting: quotingOf(field.column, shape),
                 },

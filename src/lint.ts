@@ -53,7 +53,9 @@ import {
 } from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
+  exactTable,
   sameTable,
+  sqlTable,
   tableLabel,
   type TableKey,
   type TableName,
@@ -269,13 +271,10 @@ function reportNullSchemaReferences(
 
 /** The table a table file defines. */
 function tableOfFile(doc: ValidDoc<"Table">): TableKey {
-  return {
-    database: doc.body.db_id,
+  return exactTable(doc.body.db_id, {
     schema: doc.body.schema ?? null,
     name: doc.body.name,
-    nullSchema: "none",
-    caseMatters: true,
-  };
+  });
 }
 
 /**
@@ -540,14 +539,7 @@ function expectationReads(
     const result =
       "sql" in expectation ? readSql(expectation.sql, database) : null;
     return result?.status === "read"
-      ? result.tables.map(
-          (t): TableKey => ({
-            database,
-            ...t,
-            nullSchema: "default",
-            caseMatters: false,
-          }),
-        )
+      ? result.tables.map((t) => sqlTable(database, t))
       : [];
   });
 }

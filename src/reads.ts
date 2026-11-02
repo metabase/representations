@@ -18,7 +18,13 @@ import {
   type SnippetLookup,
 } from "./snippets.js";
 import type { SqlTableReader } from "./sql-tables.js";
-import { type TableKey, uniqueTables } from "./tables.js";
+import {
+  exactTable,
+  sqlTable,
+  type TableKey,
+  targetTable,
+  uniqueTables,
+} from "./tables.js";
 
 /**
  * The tables a document reads, in order and each once, or why they could not
@@ -95,16 +101,7 @@ function nativeReads(
     if (result.status === "unread") {
       return result;
     }
-    tables.push(
-      ...result.tables.map(
-        (t): TableKey => ({
-          database: native.database,
-          ...t,
-          nullSchema: "default",
-          caseMatters: false,
-        }),
-      ),
-    );
+    tables.push(...result.tables.map((t) => sqlTable(native.database, t)));
   }
   return { status: "read", tables };
 }
@@ -119,21 +116,11 @@ function pythonReads(source: PythonSource): Reads {
   for (const t of source["source-tables"]) {
     if (t.table_id !== undefined && t.table_id !== null) {
       const [database, schema, name] = t.table_id;
-      tables.push({
-        database,
-        schema,
-        name,
-        nullSchema: "none",
-        caseMatters: true,
-      });
+      tables.push(exactTable(database, { schema, name }));
     } else if (t.table !== undefined) {
-      tables.push({
-        database: t.database_id,
-        schema: t.schema ?? null,
-        name: t.table,
-        nullSchema: "none",
-        caseMatters: true,
-      });
+      tables.push(
+        exactTable(t.database_id, { schema: t.schema ?? null, name: t.table }),
+      );
     } else {
       // The schema requires neither `table` nor `table_id`.
       return {
@@ -281,13 +268,10 @@ export function transformOf(
     target:
       database === null
         ? null
-        : {
-            database,
+        : targetTable(database, {
             schema: target.schema ?? null,
             name: target.name,
-            nullSchema: "default",
-            caseMatters: true,
-          },
+          }),
     reads: readsOf(doc),
   };
 }

@@ -17,6 +17,7 @@ import type { RewrittenTableReader } from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
   sameTable,
+  sqlTable,
   tableLabel,
   type TableKey,
 } from "./tables.js";
@@ -28,13 +29,10 @@ export function testInputs(
   test: TestDoc,
   transform: QueryTransform,
 ): TableKey[] {
-  return test.body.inputs.map(({ table }) => ({
-    database: queryDatabaseOf(transform.doc),
-    schema: table.schema ?? null,
-    name: table.name,
-    nullSchema: "default",
-    caseMatters: false,
-  }));
+  const database = queryDatabaseOf(transform.doc);
+  return test.body.inputs.map(({ table }) =>
+    sqlTable(database, { schema: table.schema ?? null, name: table.name }),
+  );
 }
 
 /**

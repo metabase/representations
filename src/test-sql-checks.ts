@@ -28,6 +28,7 @@ import {
   type DefaultSchemaOf,
   fold,
   sameTable,
+  sqlTable,
   type TableKey,
   tableLabel,
   type TableName,
@@ -456,12 +457,10 @@ export function reportUpstreamColumns(
       if (input.format !== "rows") {
         continue;
       }
-      const table: TableKey = {
-        database: queryDatabaseOf(transform.doc),
-        ...inputTableOf(input.table),
-        nullSchema: "default",
-        caseMatters: false,
-      };
+      const table = sqlTable(
+        queryDatabaseOf(transform.doc),
+        inputTableOf(input.table),
+      );
       for (const upstream of checks.transforms) {
         if (
           upstream === transform ||
@@ -641,15 +640,7 @@ export function reportUnreplacedReads(
       }
       for (const table of result.tables) {
         if (!isStandIn(table)) {
-          reportRead(
-            {
-              database,
-              ...table,
-              nullSchema: "default",
-              caseMatters: false,
-            },
-            false,
-          );
+          reportRead(sqlTable(database, table), false);
         }
       }
     }
