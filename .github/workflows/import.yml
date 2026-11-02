@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
 
     # The transforms read and write this warehouse: Metabase's Sample Database
-    # on Postgres, in schema public. The Sample Database itself is SQLite,
-    # which cannot run transform tests.
+    # on Postgres, in schema public. The Sample Database itself is H2, which
+    # can run transform tests but cannot run query transforms.
     services:
       postgres:
         image: metabase/qa-databases:postgres-sample-15
