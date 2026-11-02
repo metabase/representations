@@ -658,3 +658,71 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
   },
 ]
 `;
+
+exports[`lint output on a broken copy of the examples matches the recording: duplicate yaml key 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "jf55MTi7z8cWQjPG2PEgz",
+      "model": "Transform",
+      "name": "Top Categories",
+    },
+    "file": "collections/transforms/top_categories.yaml",
+    "message": "the key name is written again at 27:1 in the same map; Metabase keeps only the last value",
+    "related": [],
+    "rule": "duplicate-yaml-key",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: invalid utf8 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": null,
+      "model": null,
+      "name": null,
+    },
+    "file": "collections/transforms/top_categories.yaml",
+    "message": "the file is not valid UTF-8, and Metabase reads each invalid byte as U+FFFD; save the file as UTF-8",
+    "related": [],
+    "rule": "invalid-utf8",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: unknown engine 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+      "model": "Transform",
+      "name": "Python Hello World",
+    },
+    "file": "collections/transforms/python_hello_world.yaml",
+    "message": "the engine third-party-driver of database Legacy is not in the lint's table of Metabase's drivers, as a third-party or newer driver is not, so the checks that depend on it do not run. Check the driver name",
+    "related": [],
+    "rule": "unknown-engine",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: empty native query 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "w7EfUbsxLA7kXBHVXgeaZ",
+      "model": "Transform",
+      "name": "Monthly Sales Summary",
+    },
+    "file": "collections/transforms/monthly_sales_summary.yaml",
+    "message": "a native query of this transform is empty; Metabase accepts it, and every run fails",
+    "related": [],
+    "rule": "empty-native-query",
+    "severity": "warning",
+  },
+]
+`;

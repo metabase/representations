@@ -22,12 +22,14 @@ function applyMutation(name: string, folder: string): void {
   mutation.apply(folder);
 }
 
-// One tree per rule, and one tree with several rules,
-// which pins the order of findings. A deliberate change to the output is
-// recorded with `bun test --update-snapshots` and reviewed in the diff.
+// One tree per rule, and one tree with several rules, which pins the order of
+// findings. A deliberate change to the output is recorded with
+// `bun test --update-snapshots` and reviewed in the diff.
 const TREES: [string, (folder: string) => void][] = [
   ["schema", (f) => mutateExamples("invalid-test", f)],
   ["skipped by metabase", (f) => mutateExamples("skipped-by-metabase", f)],
+  ["duplicate yaml key", (f) => mutateExamples("duplicate-yaml-key", f)],
+  ["invalid utf8", (f) => mutateExamples("invalid-utf8", f)],
   [
     "duplicate entity id and target",
     (f) => mutateExamples("copied-transform", f),
@@ -52,6 +54,8 @@ const TREES: [string, (folder: string) => void][] = [
     "unsupported transform engine",
     (f) => mutateExamples("unsupported-transform-engine", f),
   ],
+  ["unknown engine", (f) => mutateExamples("unknown-engine", f)],
+  ["empty native query", (f) => mutateExamples("empty-native-query", f)],
   ["missing input", (f) => mutateExamples("missing-input", f)],
   ["unused input", (f) => mutateExamples("unused-input", f)],
   ["null schema reference", (f) => mutateExamples("null-schema-reference", f)],

@@ -1,4 +1,10 @@
-import { cpSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import {
+  appendFileSync,
+  cpSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "fs";
 import yaml from "js-yaml";
 import { dirname, join, resolve } from "path";
 
@@ -22,6 +28,8 @@ const PYTHON_TEST =
 const PYTHON_HELLO_WORLD = "collections/transforms/python_hello_world.yaml";
 const DAILY_ORDER_SUMMARY = "collections/transforms/daily_order_summary.yaml";
 const PRODUCT_SUMMARY = "collections/transforms/product_summary.yaml";
+const MONTHLY_SALES_SUMMARY =
+  "collections/transforms/monthly_sales_summary.yaml";
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
 const ORDERS_MODEL = "collections/main/queries/orders_model.yaml";
@@ -601,6 +609,46 @@ export const MUTATIONS: Mutation[] = [
     rules: ["skipped-by-metabase"],
     apply: (folder) =>
       write(folder, "collections/transforms/notes.yaml", { name: "Notes" }),
+  },
+  {
+    name: "duplicate-yaml-key",
+    description:
+      "A transform file names its name twice, with the same value; Metabase keeps the last.",
+    rules: ["duplicate-yaml-key"],
+    apply: (folder) => {
+      const path = join(folder, TOP_CATEGORIES);
+      const name = readFileSync(path, "utf8")
+        .split("\n")
+        .find((line) => line.startsWith("name: "));
+      appendFileSync(path, `${name}\n`);
+    },
+  },
+  {
+    name: "invalid-utf8",
+    description:
+      "A transform file holds a comment in Latin-1, which is not valid UTF-8.",
+    rules: ["invalid-utf8"],
+    apply: (folder) =>
+      appendFileSync(
+        join(folder, TOP_CATEGORIES),
+        Buffer.from("# caf\xe9\n", "latin1"),
+      ),
+  },
+  {
+    name: "unknown-engine",
+    description:
+      "Python Hello World moves to a database whose engine is a driver the lint does not know.",
+    rules: ["unknown-engine"],
+    apply: (folder) => {
+      writeDatabase(folder, "Legacy", "third-party-driver");
+      moveTransform(folder, PYTHON_HELLO_WORLD, "Legacy");
+    },
+  },
+  {
+    name: "empty-native-query",
+    description: "A native transform's query is only whitespace.",
+    rules: ["empty-native-query"],
+    apply: (folder) => editNativeSql(folder, MONTHLY_SALES_SUMMARY, () => " "),
   },
   {
     name: "invalid-test",
