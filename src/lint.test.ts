@@ -42,6 +42,10 @@ import { isRecord } from "./values.js";
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 const POSTGRES_DB = "Sample Postgres";
 const MBQL_TRANSFORM = "collections/transforms/mbql_transform.yaml";
+const MONTHLY_ORDER_SUMMARY_TEST =
+  "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml";
+const ORDERS_MODEL = "collections/main/queries/orders_model.yaml";
+const ORDERS_MODEL_ENTITY_ID = "4eroqa4ZYl4WkNjP8XTvu";
 const NATIVE_TRANSFORM = "collections/transforms/native_transform.yaml";
 const DAILY_ORDER_SUMMARY_TEST =
   "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
@@ -331,95 +335,89 @@ describe("lint", () => {
 
     it("follows a card a query transform uses to the tables the card reads", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
-      // The Orders model card reads PUBLIC.ORDERS on the Sample Database,
-      // here on an engine that runs query transforms.
-      writeSettings(workdir, { engines: { "Sample Database": "postgres" } });
+      // The Orders model card reads public.orders on the warehouse, whose
+      // engine runs query transforms.
+      edit(workdir, ORDERS_MODEL, (doc) => {
+        doc.dataset_query.database = POSTGRES_DB;
+        doc.dataset_query.stages[0]["source-table"] = [
+          POSTGRES_DB,
+          "public",
+          "orders",
+        ];
+      });
       edit(workdir, MBQL_TRANSFORM, (doc) => {
         doc.source.query = {
           "lib/type": "mbql/query",
-          database: "Sample Database",
+          database: POSTGRES_DB,
           stages: [
             {
               "lib/type": "mbql.stage/mbql",
-              "source-card": "4eroqa4ZYl4WkNjP8XTvu",
+              "source-card": ORDERS_MODEL_ENTITY_ID,
               aggregation: [["count", {}]],
             },
           ],
         };
       });
-      const test = join(
-        workdir,
-        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
-      );
+      const test = join(workdir, MONTHLY_ORDER_SUMMARY_TEST);
       const text = readFileSync(test, "utf8");
       const input = "    schema: public\n    name: orders\n";
       expect(text).toContain(input);
-      const giveInput = (table: string) =>
-        writeFileSync(
-          test,
-          text.replace(input, `    schema: PUBLIC\n    name: ${table}\n`),
-        );
-      giveInput("ORDERS");
       expect(await findings(workdir)).toEqual([]);
-      giveInput("PRODUCTS");
+      writeFileSync(
+        test,
+        text.replace(input, "    schema: public\n    name: products\n"),
+      );
       expect(
         (await findings(workdir))
           .filter((f) => f.rule === "missing-input")
           .map((f) => f.message),
       ).toEqual([
-        "no input for PUBLIC.ORDERS, which transform Monthly Order Summary reads",
+        "no input for public.orders, which transform Monthly Order Summary reads",
       ]);
     });
 
     it("reports a table read by MBQL and by SQL once", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
-      writeSettings(workdir, { engines: { "Sample Database": "postgres" } });
-      const card = join(workdir, "collections/main/queries/orders_model.yaml");
-      writeFileSync(
-        card,
-        readFileSync(card, "utf8").replace(
-          /stages:[\s\S]*?ORDERS\n/,
-          'stages:\n    - "lib/type": mbql.stage/native\n      native: SELECT * FROM PUBLIC.ORDERS\n',
-        ),
-      );
+      edit(workdir, ORDERS_MODEL, (doc) => {
+        doc.dataset_query = {
+          "lib/type": "mbql/query",
+          database: POSTGRES_DB,
+          stages: [
+            {
+              "lib/type": "mbql.stage/native",
+              native: "SELECT * FROM public.orders",
+            },
+          ],
+        };
+      });
       edit(workdir, MBQL_TRANSFORM, (doc) => {
         doc.source.query = {
           "lib/type": "mbql/query",
-          database: "Sample Database",
+          database: POSTGRES_DB,
           stages: [
             {
               "lib/type": "mbql.stage/mbql",
-              "source-table": ["Sample Database", "PUBLIC", "ORDERS"],
+              "source-table": [POSTGRES_DB, "public", "orders"],
               aggregation: [
                 [
                   "metric",
                   { "lib/uuid": "6f1c2a43-8f0e-4c4e-9b8a-0d5f1e2a3b4c" },
-                  "4eroqa4ZYl4WkNjP8XTvu",
+                  ORDERS_MODEL_ENTITY_ID,
                 ],
               ],
             },
           ],
         };
       });
-      const test = join(
-        workdir,
-        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
-      );
-      const input = "    schema: public\n    name: orders\n";
-      expect(readFileSync(test, "utf8")).toContain(input);
-      writeFileSync(
-        test,
-        readFileSync(test, "utf8").replace(
-          input,
-          "    schema: PUBLIC\n    name: PRODUCTS\n",
-        ),
-      );
+      edit(workdir, MONTHLY_ORDER_SUMMARY_TEST, (doc) => {
+        doc.inputs[0].table.name = "products";
+      });
       expect(
         (await findings(workdir))
           .filter((f) => f.rule === "missing-input")
           .map((f) => f.message),
       ).toEqual([
-        "no input for PUBLIC.ORDERS, which transform Monthly Order Summary reads",
+        "no input for public.orders, which transform Monthly Order Summary reads",
       ]);
     });
 
@@ -965,7 +963,7 @@ describe("lint", () => {
         (await transformReads({ folder: workdir })).find(
           (t) => t.file === MBQL_TRANSFORM,
         )?.tables,
-      ).toEqual([{ schema: "PUBLIC", name: "ORDERS" }]);
+      ).toEqual([{ schema: null, name: "ORDERS" }]);
     });
 
     it("cannot read a Python source table with no name", async () => {
@@ -1215,7 +1213,7 @@ describe("lint", () => {
           ),
         );
       };
-      useCard(card, "      ", ["Sample Database", "PUBLIC", "ORDERS"]);
+      useCard(card, "      ", ["Sample Database", "null", "ORDERS"]);
       useCard(MBQL_TRANSFORM, "        ", [POSTGRES_DB, "public", "orders"]);
       expect(
         (await findings(workdir))
@@ -2485,7 +2483,7 @@ describe("lint", () => {
 });
 
 describe("stand-ins of a transform test", () => {
-  const H2_DB = "Sample Database";
+  const H2_DB = "Legacy";
   const DAILY_ORDER_SUMMARY = "collections/transforms/daily_order_summary.yaml";
   const DAILY_ORDER_SUMMARY_TEST =
     "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
@@ -2512,6 +2510,11 @@ describe("stand-ins of a transform test", () => {
 
   it("an unqualified read of an input in the default schema written in another case reads no other table", async () => {
     cpSync(EXAMPLES, workdir, { recursive: true });
+    // H2's default schema, PUBLIC, is upper case.
+    writeSettings(workdir, {
+      defaultSchemas: { [H2_DB]: "PUBLIC" },
+      engines: { [H2_DB]: "h2" },
+    });
     editYaml(DAILY_ORDER_SUMMARY, (doc) => {
       doc.source_database_id = H2_DB;
       doc.source.query.database = H2_DB;

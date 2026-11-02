@@ -4,7 +4,7 @@ creator_id: admin@example.com
 description: Products with non-empty title containing "awesome", vendor starting with "A"
 table_id:
 - Sample Database
-- PUBLIC
+- null
 - PRODUCTS
 definition:
   "lib/type": mbql/query
@@ -13,7 +13,7 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
     filters:
     - - not-empty
@@ -21,7 +21,7 @@ definition:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - PRODUCTS
           - TITLE
     - - contains
@@ -29,7 +29,7 @@ definition:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - PRODUCTS
           - TITLE
       - awesome
@@ -38,7 +38,7 @@ definition:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - PRODUCTS
           - VENDOR
       - A
@@ -47,7 +47,7 @@ definition:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - PRODUCTS
           - TITLE
       - discontinued
@@ -56,7 +56,7 @@ definition:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - PRODUCTS
           - EAN
       - "0"
