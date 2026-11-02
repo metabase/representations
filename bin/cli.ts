@@ -4,7 +4,10 @@ import { statSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { relative } from "path";
 
-import { MissingDefaultSchemasError } from "../src/default-schemas.js";
+import {
+  type DefaultSchemas,
+  MissingDefaultSchemasError,
+} from "../src/default-schemas.js";
 import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
@@ -13,6 +16,7 @@ import { lint, type LintResult } from "../src/lint.js";
 import {
   CONFIG_FILE,
   LintSetupError,
+  parseDefaultSchemas,
   readSettingsFile,
 } from "../src/settings.js";
 import { validateSchema } from "../src/validate-schema.js";
@@ -181,28 +185,6 @@ function handleValidateSchema(values: ParsedValues): void {
   process.exit(failed > 0 ? 1 : 0);
 }
 
-// "DATABASE=SCHEMA" pairs; "DATABASE=" means the database has no schemas.
-function parseDefaultSchemas(
-  pairs: readonly string[],
-): Record<string, string | null> {
-  const schemas: Record<string, string | null> = {};
-  for (const pair of pairs) {
-    const at = pair.lastIndexOf("=");
-    if (at <= 0) {
-      usageError(
-        `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
-      );
-    }
-    const database = pair.slice(0, at);
-    if (Object.hasOwn(schemas, database)) {
-      usageError(`--default-schema names ${database} twice`);
-    }
-    const schema = pair.slice(at + 1);
-    schemas[database] = schema === "" ? null : schema;
-  }
-  return schemas;
-}
-
 /**
  * Says on stderr which default schema each `--default-schema` sets, and
  * which it overrides in the settings file; warns on a database the folder's
@@ -237,7 +219,12 @@ async function handleLint(values: ParsedValues): Promise<void> {
     );
   }
   const folder = folderToCheck(values);
-  const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+  let defaultSchemas: DefaultSchemas;
+  try {
+    defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+  } catch (e) {
+    usageError(errorMessage(e));
+  }
   let result: LintResult;
   try {
     result = await lint({ folder, defaultSchemas });

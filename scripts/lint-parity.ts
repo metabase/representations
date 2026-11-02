@@ -21,10 +21,12 @@
 import { existsSync } from "fs";
 import { parseArgs } from "node:util";
 
+import type { DefaultSchemas } from "../src/default-schemas.js";
 import { loadDocs, validDocsOf } from "../src/documents.js";
 import { lint, transformReads } from "../src/lint.js";
 import { loadSchemas } from "../src/schemas.js";
-import { isRecord } from "../src/values.js";
+import { parseDefaultSchemas } from "../src/settings.js";
+import { errorMessage, isRecord } from "../src/values.js";
 import {
   describeRefusal,
   ENVIRONMENT_REFUSALS,
@@ -50,16 +52,12 @@ if (!url || !apiKey || !folder) {
   );
   process.exit(2);
 }
-const defaultSchemas: Record<string, string> = {};
-for (const pair of values["default-schema"] ?? []) {
-  const at = pair.indexOf("=");
-  if (at <= 0) {
-    console.error(
-      `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
-    );
-    process.exit(2);
-  }
-  defaultSchemas[pair.slice(0, at)] = pair.slice(at + 1);
+let defaultSchemas: DefaultSchemas;
+try {
+  defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+} catch (e) {
+  console.error(errorMessage(e));
+  process.exit(2);
 }
 
 if (!existsSync(folder)) {

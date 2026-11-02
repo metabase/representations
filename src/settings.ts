@@ -76,3 +76,31 @@ export function readSettingsFile(folder: string): LintSettings {
   }
   return { defaultSchemas, engines };
 }
+
+/**
+ * The default schema of each database that `pairs`, the values of the
+ * `--default-schema` option, give as `DATABASE=SCHEMA`; `DATABASE=` gives
+ * null, a database with no schemas. A pair splits at its last `=`. Throws a
+ * `LintSetupError` on a pair with no database, and on a database that two
+ * pairs name.
+ */
+export function parseDefaultSchemas(
+  pairs: readonly string[],
+): Record<string, string | null> {
+  const schemas: Record<string, string | null> = {};
+  for (const pair of pairs) {
+    const at = pair.lastIndexOf("=");
+    if (at <= 0) {
+      throw new LintSetupError(
+        `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
+      );
+    }
+    const database = pair.slice(0, at);
+    if (Object.hasOwn(schemas, database)) {
+      throw new LintSetupError(`--default-schema names ${database} twice`);
+    }
+    const schema = pair.slice(at + 1);
+    schemas[database] = schema === "" ? null : schema;
+  }
+  return schemas;
+}

@@ -460,3 +460,71 @@ describe("lint-parity", () => {
     PARITY_PROCESS_TIMEOUT_MS,
   );
 });
+
+describe("--default-schema", () => {
+  /** The exit code and the output of `script` run with `args`. */
+  async function run(
+    script: string,
+    args: readonly string[],
+  ): Promise<{ exitCode: number; output: string }> {
+    const child = Bun.spawn(["bun", "run", resolve(ROOT, script), ...args], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [output, errors, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    return { exitCode, output: output + errors };
+  }
+
+  const withPairs = (pairs: readonly string[]) =>
+    pairs.flatMap((p) => ["--default-schema", p]);
+  const lintWith = (pairs: readonly string[]) =>
+    run("bin/cli.ts", [
+      "lint",
+      "--experimental",
+      "--folder",
+      EXAMPLES,
+      ...withPairs(pairs),
+    ]);
+  // A URL on port 1 refuses every connection, so the parity script stops at
+  // its first request to Metabase.
+  const parityWith = (pairs: readonly string[]) =>
+    run("scripts/lint-parity.ts", [
+      "--url",
+      "http://127.0.0.1:1",
+      "--api-key",
+      "key",
+      "--folder",
+      EXAMPLES,
+      ...withPairs(pairs),
+    ]);
+
+  it(
+    "is refused by the lint and the parity script for a pair with no database",
+    async () => {
+      for (const command of [lintWith, parityWith]) {
+        const { exitCode, output } = await command(["=x"]);
+        expect(output).toContain(
+          "Invalid --default-schema: =x (expected DATABASE=SCHEMA)",
+        );
+        expect(exitCode).toBe(2);
+      }
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "is refused by the lint and the parity script for a database given twice",
+    async () => {
+      for (const command of [lintWith, parityWith]) {
+        const { exitCode, output } = await command(["db=x", "db=y"]);
+        expect(output).toContain("--default-schema names db twice");
+        expect(exitCode).toBe(2);
+      }
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+});

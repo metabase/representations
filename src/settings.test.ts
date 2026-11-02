@@ -3,7 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
-import { CONFIG_FILE, LintSetupError, readSettingsFile } from "./settings.js";
+import {
+  CONFIG_FILE,
+  LintSetupError,
+  parseDefaultSchemas,
+  readSettingsFile,
+} from "./settings.js";
 
 describe("readSettingsFile", () => {
   let folder: string;
@@ -56,5 +61,29 @@ describe("readSettingsFile", () => {
     write(text);
     expect(() => readSettingsFile(folder)).toThrow(LintSetupError);
     expect(() => readSettingsFile(folder)).toThrow(message);
+  });
+});
+
+describe("parseDefaultSchemas", () => {
+  it("reads DATABASE= as a database with no schemas", () => {
+    expect(parseDefaultSchemas(["db="])).toEqual({ db: null });
+  });
+
+  it("splits a pair at its last =", () => {
+    expect(parseDefaultSchemas(["a=b=c"])).toEqual({ "a=b": "c" });
+  });
+
+  it("refuses a database named twice", () => {
+    expect(() => parseDefaultSchemas(["db=x", "db=y"])).toThrow(
+      new LintSetupError("--default-schema names db twice"),
+    );
+  });
+
+  it("refuses a pair with no database", () => {
+    expect(() => parseDefaultSchemas(["=x"])).toThrow(
+      new LintSetupError(
+        "Invalid --default-schema: =x (expected DATABASE=SCHEMA)",
+      ),
+    );
   });
 });
