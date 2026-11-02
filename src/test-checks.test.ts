@@ -18,6 +18,7 @@ import { loadSqlParser } from "./sql-parser.js";
 type Found = { severity: string; rule: string; message: string };
 
 const PG = "Warehouse";
+const CH = "Clicks";
 
 beforeAll(async () => {
   await loadSqlParser();
@@ -30,8 +31,8 @@ beforeEach(() => {
   writeFileSync(
     join(workdir, CONFIG_FILE),
     JSON.stringify({
-      engines: { [PG]: "postgres" },
-      defaultSchemas: { [PG]: "public" },
+      engines: { [PG]: "postgres", [CH]: "clickhouse" },
+      defaultSchemas: { [PG]: "public", [CH]: "default" },
     }),
   );
 });
@@ -177,5 +178,31 @@ describe("inputs of a transform with a field-filter tag", () => {
         inputs,
       }),
     ).toEqual([unused]);
+  });
+});
+
+describe("columns an input lacks", () => {
+  it("a ClickHouse column whose case is not the input's is missing", async () => {
+    const missing = async (database: string, targetSchema: string) =>
+      (
+        await lintTest({
+          database,
+          targetSchema,
+          sql: "SELECT o.id, o.total FROM orders o",
+          inputs: [rowsInput("orders", ["id", "Total"])],
+        })
+      ).filter((f) => f.rule === "input-missing-read-column");
+    expect(await missing(PG, "transforms")).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        message: expect.stringContaining("has no column total"),
+      }),
+    ]);
+    expect(await missing(CH, "default")).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        message: expect.stringContaining("has no column total"),
+      }),
+    ]);
   });
 });

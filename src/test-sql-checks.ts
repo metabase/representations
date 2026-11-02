@@ -226,6 +226,7 @@ const UNQUOTED_CASE: Readonly<Record<string, (name: string) => string>> = {
   redshift: lowerAscii,
   snowflake: (name) => name.toUpperCase(),
   h2: (name) => name.toUpperCase(),
+  clickhouse: (name) => name,
 };
 
 /**
@@ -233,7 +234,8 @@ const UNQUOTED_CASE: Readonly<Record<string, (name: string) => string>> = {
  * the lint cannot tell. Metabase creates a `rows` input's columns, and
  * compiles an MBQL field, in quotes, so as written; H2's quoting upper-cases
  * them. A quoted name in SQL is as written, and an unquoted one is in the
- * engine's case. Redshift folds every name, quoted or not.
+ * engine's case; ClickHouse keeps it as written. Redshift folds every name,
+ * quoted or not.
  */
 function createWarehouseName(
   engine: string | null,
@@ -262,10 +264,10 @@ function createWarehouseName(
 /**
  * Warns on each column a test's transform reads from the table of one of its
  * `rows` inputs that the input does not declare: Metabase runs the transform
- * on the input, and the SQL fails. On Postgres, Redshift, Snowflake and H2,
- * names compare as the warehouse names them (`createWarehouseName`): an
- * unquoted `total` does not read a declared `Total` on Postgres. On another
- * engine, or for a column the SQL names both quoted and unquoted, names
+ * on the input, and the SQL fails. On Postgres, Redshift, Snowflake, H2 and
+ * ClickHouse, names compare as the warehouse names them
+ * (`createWarehouseName`): an unquoted `total` does not read a declared
+ * `Total` on Postgres. On another engine, or for a column the SQL names both quoted and unquoted, names
  * compare ignoring case. A column the parser cannot place in one table gives
  * no finding. SQL whose tables were read but whose columns cannot be goes to
  * `reportUnread`.
