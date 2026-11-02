@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 
@@ -61,6 +61,54 @@ describe("readSettingsFile", () => {
     write(text);
     expect(() => readSettingsFile(folder)).toThrow(LintSetupError);
     expect(() => readSettingsFile(folder)).toThrow(message);
+  });
+
+  it("refuses a settings file that links to a FIFO, without waiting for a writer", () => {
+    // A read that blocks would block this process, so a child process reads.
+    const readInChild = () => {
+      const child = Bun.spawnSync({
+        cmd: [
+          process.execPath,
+          "-e",
+          `import { readSettingsFile } from ${JSON.stringify(join(import.meta.dirname, "settings.ts"))};
+           try {
+             console.log(JSON.stringify(readSettingsFile(${JSON.stringify(folder)})));
+           } catch (e) {
+             console.log(e.name);
+           }`,
+        ],
+        timeout: 5_000,
+      });
+      return {
+        stdout: child.stdout.toString().trim(),
+        signalCode: child.signalCode ?? null,
+      };
+    };
+    write('{"engines": {"Warehouse": "postgres"}}');
+    expect(readInChild()).toEqual({
+      stdout: '{"defaultSchemas":{},"engines":{"Warehouse":"postgres"}}',
+      signalCode: null,
+    });
+
+    rmSync(join(folder, CONFIG_FILE));
+    const fifo = join(folder, "fifo");
+    expect(Bun.spawnSync({ cmd: ["mkfifo", fifo] }).exitCode).toBe(0);
+    symlinkSync(fifo, join(folder, CONFIG_FILE));
+    expect(readInChild()).toEqual({
+      stdout: "LintSetupError",
+      signalCode: null,
+    });
+  }, 20_000);
+
+  it("refuses a settings file that is a symbolic link to a regular file", () => {
+    const target = join(folder, "settings.json");
+    writeFileSync(target, '{"engines": {"Warehouse": "postgres"}}');
+    symlinkSync(target, join(folder, CONFIG_FILE));
+    expect(() => readSettingsFile(folder)).toThrow(
+      new LintSetupError(
+        `${CONFIG_FILE} is not a regular file; replace it with a file`,
+      ),
+    );
   });
 });
 

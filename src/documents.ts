@@ -3,6 +3,7 @@ import {
   entityFiles,
   readEntityFile,
   type SchemaCheck,
+  SYMBOLIC_LINK,
   type ValidationError,
 } from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
@@ -239,8 +240,8 @@ export type DuplicatedKeys = { doc: Doc; keys: readonly DuplicateKey[] };
 /**
  * Each of `entityFiles(folder)`, in path order: as documents, as files
  * Metabase skips for having no `serdes/meta`, or as unreadable files, which
- * do not parse to a YAML map, or whose `serdes/meta` names no model or a model
- * Metabase does not import. Also each document whose maps hold a key more
+ * are symbolic links, do not parse to a YAML map, or whose `serdes/meta` names
+ * no model or a model Metabase does not import. Also each document whose maps hold a key more
  * than once, and each file that is not valid UTF-8, which is read with each
  * invalid byte as U+FFFD, as Metabase reads it.
  */
@@ -261,6 +262,10 @@ export function loadDocs(
   const invalidUtf8: string[] = [];
   for (const file of entityFiles(folder)) {
     const entity = readEntityFile(folder, file, schemas);
+    if (entity.status === "symbolic-link") {
+      unreadable.push({ file, reason: `is ${SYMBOLIC_LINK}` });
+      continue;
+    }
     if (entity.invalidUtf8) {
       invalidUtf8.push(file);
     }

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs";
+import { lstatSync, readFileSync } from "fs";
 import { resolve } from "path";
 
 import { errorMessage, isRecord } from "./values.js";
@@ -33,15 +33,23 @@ const SETTINGS_KEYS = new Set(["defaultSchemas", "engines"]);
 
 /**
  * The settings `CONFIG_FILE` in `folder` gives; none when there is no such
- * file. Throws a `LintSetupError` when the file is not a JSON object of the
- * form `{"defaultSchemas": {"<database>": "<schema>" | null}, "engines":
+ * file. Throws a `LintSetupError` when the file is not a regular file (a
+ * symbolic link is not), or not a JSON object of the form
+ * `{"defaultSchemas": {"<database>": "<schema>" | null}, "engines":
  * {"<database>": "<engine>"}}`, each key optional. The error's message gives
  * each key and parser message from the file as a JSON string.
  */
 export function readSettingsFile(folder: string): LintSettings {
   const path = resolve(folder, CONFIG_FILE);
-  if (!existsSync(path)) {
+  const stats = lstatSync(path, { throwIfNoEntry: false });
+  if (stats === undefined) {
     return { defaultSchemas: {}, engines: {} };
+  }
+  // A link or a device can point at what never ends, such as /dev/zero.
+  if (!stats.isFile()) {
+    throw new LintSetupError(
+      `${CONFIG_FILE} is not a regular file; replace it with a file`,
+    );
   }
   let settings: unknown;
   try {

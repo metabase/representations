@@ -703,6 +703,57 @@ describe("cli", () => {
       },
       LINT_PROCESS_TIMEOUT_MS,
     );
+
+    it(
+      "reports a transform file that is a symbolic link as an error, and does not lint its target",
+      () => {
+        const folder = join(workdir, "repo");
+        cpSync(EXAMPLES, folder, { recursive: true });
+        const linked = "collections/transforms/linked.yaml";
+        const text = readFileSync(join(folder, TOP_CATEGORIES), "utf8")
+          .replace("jf55MTi7z8cWQjPG2PEgz", "LinkedTransform000000")
+          .replace("name: top_categories", "name: linked_categories");
+        expect(text).toContain("LinkedTransform000000");
+        expect(text).toContain("name: linked_categories");
+        const lintFindings = () => {
+          const { stdout, exitCode } = runCli([
+            "lint",
+            "--experimental",
+            "--folder",
+            folder,
+          ]);
+          return {
+            exitCode,
+            findings: stdout
+              .trim()
+              .split("\n")
+              .filter((line) => line !== "")
+              .map((line): unknown => JSON.parse(line)),
+          };
+        };
+        writeFileSync(join(folder, linked), text);
+        expect(lintFindings()).toEqual({ exitCode: 0, findings: [] });
+
+        rmSync(join(folder, linked));
+        writeFileSync(join(workdir, "outside.yaml"), text);
+        symlinkSync(join(workdir, "outside.yaml"), join(folder, linked));
+        expect(lintFindings()).toEqual({
+          exitCode: 1,
+          findings: [
+            {
+              rule: "schema",
+              severity: "error",
+              file: linked,
+              entity: { model: null, entity_id: null, name: null },
+              message:
+                "the file is a symbolic link: remote sync reads the link's text, not the file it points to; replace the link with the file",
+              related: [],
+            },
+          ],
+        });
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
   });
 
   describe("build", () => {

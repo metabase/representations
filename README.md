@@ -76,7 +76,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 ### Settings file
 
-`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema; without them, the engine checks and `null-schema-reference` give no finding, and `unknown-engine` warns. Give both for each database the repository's transforms and cards name:
+`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. It must be a regular file, not a symbolic link. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema; without them, the engine checks and `null-schema-reference` give no finding, and `unknown-engine` warns. Give both for each database the repository's transforms and cards name:
 
 ```json
 {

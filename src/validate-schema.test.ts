@@ -159,7 +159,7 @@ describe("validateSchema", () => {
         ]);
       });
 
-      it("follows no symbolic link to a folder, and follows one to a file", () => {
+      it("follows no symbolic link to a folder, and fails one to a file without reading it", () => {
         const outside = mkdtempSync(join(tmpdir(), "representations-linked-"));
         try {
           mkdirSync(join(outside, "group"));
@@ -174,9 +174,20 @@ describe("validateSchema", () => {
           );
 
           expect(statuses()).toEqual([
-            "collections/file.yaml Collection ok",
+            "collections/file.yaml  fail",
             "collections/real/real.yaml Collection ok",
           ]);
+          expect(validateSchema({ folder: workdir }).results[0]).toEqual({
+            file: "collections/file.yaml",
+            status: "fail",
+            errors: [
+              {
+                path: "/",
+                message:
+                  "a symbolic link: remote sync reads the link's text, not the file it points to; replace the link with the file",
+              },
+            ],
+          });
         } finally {
           rmSync(outside, { recursive: true, force: true });
         }
@@ -191,14 +202,17 @@ describe("validateSchema", () => {
         expect(statuses()).toEqual(["collections/lower.yaml Collection ok"]);
       });
 
-      it("skips a symbolic link to nothing, which is not a regular file", () => {
+      it("fails a symbolic link to nothing, which remote sync reads as text", () => {
         write("collections/real.yaml", collection);
         symlinkSync(
           join(workdir, "nonexistent.yaml"),
           join(workdir, "collections", "broken.yaml"),
         );
 
-        expect(statuses()).toEqual(["collections/real.yaml Collection ok"]);
+        expect(statuses()).toEqual([
+          "collections/broken.yaml  fail",
+          "collections/real.yaml Collection ok",
+        ]);
       });
 
       it("skips the files Metabase does not import", () => {

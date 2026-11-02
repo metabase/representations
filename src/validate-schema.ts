@@ -75,10 +75,10 @@ const IMPORTED = new Set<string>(IMPORTED_MODELS);
  * file at any depth under an `ENTITY_FOLDERS` folder, and each
  * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
  * Names match in their exact case, on any platform. A file whose name starts
- * with a dot is skipped; a folder whose name does is not. A file inside a
- * folder that is a symbolic link is skipped, though Metabase follows such a
- * folder; a symbolic link to a file is followed, and one to nothing is
- * skipped, as Metabase skips what is not a regular file.
+ * with a dot is skipped; a folder whose name does is not. A symbolic link of
+ * such a name is listed, whatever it points to, as remote sync lists it; a
+ * file inside a folder that is a symbolic link is not, as remote sync does not
+ * descend into it. Anything else that is not a regular file is skipped.
  */
 export function entityFiles(folder: string): string[] {
   const linked = createLinkedFolderCheck(folder);
@@ -97,12 +97,13 @@ export function entityFiles(folder: string): string[] {
     ],
     { cwd: folder, dot: true, nodir: true, nocase: false },
   )
-    .filter(
-      (file) =>
+    .filter((file) => {
+      const stats = lstatSync(resolve(folder, file), { throwIfNoEntry: false });
+      return (
         !linked(dirname(file)) &&
-        statSync(resolve(folder, file), { throwIfNoEntry: false })?.isFile() ===
-          true,
-    )
+        (stats?.isFile() === true || stats?.isSymbolicLink() === true)
+      );
+    })
     .sort();
 }
 
@@ -296,8 +297,14 @@ export function validateSchema({
   };
 }
 
+/** Why a symbolic link fails, and what to do. */
+export const SYMBOLIC_LINK =
+  "a symbolic link: remote sync reads the link's text, not the file it points to; replace the link with the file";
+
 /** An entity file as `readEntityFile` reads it. */
 export type EntityFileRead =
+  // Remote sync reads a symbolic link's text, the path it holds, and fails.
+  | { status: "symbolic-link" }
   | { status: "unparsed"; invalidUtf8: boolean; error: unknown }
   | {
       status: "parsed";
@@ -311,14 +318,19 @@ export type EntityFileRead =
  * it: its bytes decoded as UTF-8 with each invalid byte read as U+FFFD, and
  * the text parsed as YAML (`readYaml`) and checked against its model's schema
  * (`checkSchema`). `invalidUtf8` says whether the bytes held an invalid byte.
- * An `unparsed` file holds the error `readYaml` threw.
+ * An `unparsed` file holds the error `readYaml` threw. A symbolic link is not
+ * read.
  */
 export function readEntityFile(
   folder: string,
   file: string,
   schemas: Schemas,
 ): EntityFileRead {
-  const { text, invalidUtf8 } = decodeUtf8(readFileSync(resolve(folder, file)));
+  const path = resolve(folder, file);
+  if (lstatSync(path).isSymbolicLink()) {
+    return { status: "symbolic-link" };
+  }
+  const { text, invalidUtf8 } = decodeUtf8(readFileSync(path));
   let read: YamlDocument;
   try {
     read = readYaml(text);
@@ -342,6 +354,9 @@ function validateFile(
   schemas: Schemas,
 ): ValidationResult {
   const entity = readEntityFile(folder, file, schemas);
+  if (entity.status === "symbolic-link") {
+    return { file, status: "fail", errors: rootError(SYMBOLIC_LINK) };
+  }
   if (entity.invalidUtf8) {
     return { file, status: "fail", errors: rootError("not valid UTF-8") };
   }
