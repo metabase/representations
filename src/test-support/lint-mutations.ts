@@ -1,8 +1,11 @@
 import {
   appendFileSync,
   cpSync,
+  existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  rmSync,
   writeFileSync,
 } from "fs";
 import yaml from "js-yaml";
@@ -895,6 +898,34 @@ function findMutation(name: string): Mutation {
     throw new Error(`Unknown mutation: ${name}`);
   }
   return mutation;
+}
+
+/**
+ * Turns the tree in `folder` into a remote-sync repository, which holds no
+ * Database file: removes each Database file, and moves its engine and its
+ * default schema to `CONFIG_FILE`, under the entries the settings file
+ * already gives.
+ */
+export function asRemoteSync(folder: string): void {
+  const settingsPath = join(folder, CONFIG_FILE);
+  const settings = JSON.parse(readFileSync(settingsPath, "utf8")) as Settings; // The example's settings, which `writeSettings` writes.
+  const databases = join(folder, "databases");
+  for (const slug of readdirSync(databases)) {
+    const path = join(databases, slug, `${slug}.yaml`);
+    if (!existsSync(path)) {
+      continue;
+    }
+    const doc = yaml.load(readFileSync(path, "utf8")) as Record<string, any>; // A Database file is a YAML map.
+    rmSync(path);
+    settings.engines = { [doc.name]: doc.engine, ...settings.engines };
+    if (doc.default_schema !== undefined) {
+      settings.defaultSchemas = {
+        [doc.name]: doc.default_schema,
+        ...settings.defaultSchemas,
+      };
+    }
+  }
+  writeFileSync(settingsPath, JSON.stringify(settings));
 }
 
 /** Copies `examples/v1` to `folder` and applies the named mutation. */

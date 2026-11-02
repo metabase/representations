@@ -26,6 +26,7 @@ import { LINT_RULE_SEVERITY, LINT_RULES } from "./experimental.js";
 import type { LintFinding } from "./findings.js";
 import { lint, transformReads } from "./lint.js";
 import {
+  asRemoteSync,
   edit,
   type ExpectedFinding,
   MUTATIONS,
@@ -237,6 +238,28 @@ describe("lint", () => {
         );
       },
     );
+
+    // Remote sync writes no Database file: the engines come from the
+    // settings file alone.
+    it.each(MUTATIONS.map((m) => [m.name]))(
+      "reports %s the same way in a remote-sync repository",
+      async (name) => {
+        const mutation = mutateExamples(name, workdir);
+        asRemoteSync(workdir);
+        expect(placed(await findings(workdir))).toEqual(
+          placed(mutation.findings),
+        );
+      },
+    );
+
+    it("finds nothing in the examples as a remote-sync repository", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      asRemoteSync(workdir);
+      expect(readdirSync(join(workdir, "databases/sample_postgres"))).toEqual(
+        [],
+      );
+      expect(await findings(workdir)).toEqual([]);
+    });
 
     it("breaks a different test with each rule of refused-tests", async () => {
       const mutation = mutateExamples("refused-tests", workdir);
