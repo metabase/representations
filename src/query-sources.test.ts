@@ -192,10 +192,6 @@ describe("createSourceFinder", () => {
       { table: table("ORDERS"), column: "CREATED_AT" },
       { table: table("PRODUCTS"), column: "CREATED_AT" },
     ]);
-    expect(sources.unvaluedFilterTables).toEqual([
-      table("PEOPLE"),
-      table("REVIEWS"),
-    ]);
   });
 
   it("finds a joined table and the tables of the fields in its conditions", () => {

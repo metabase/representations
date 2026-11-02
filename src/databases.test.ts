@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { createEngineOf } from "./databases.js";
+import { createEngineOf, databasesOf } from "./databases.js";
+import type { Doc } from "./documents.js";
+import type { DataSources } from "./query-sources.js";
+import { sqlTable } from "./tables.js";
 
 describe("createEngineOf", () => {
   it("takes each database's engine from the settings, by name", () => {
@@ -16,5 +19,47 @@ describe("createEngineOf", () => {
     const engineOf = createEngineOf({ Warehouse: "postgres" });
     expect(engineOf("Other")).toBeNull();
     expect(engineOf(null)).toBeNull();
+  });
+});
+
+describe("databasesOf", () => {
+  it("collects the databases of the tables and native queries a document names, each once", () => {
+    const doc: Doc = {
+      file: "collections/dashboards/d.yaml",
+      model: "Dashboard",
+      schema: { status: "unchecked" },
+      nonStringKeys: [],
+      body: {},
+    };
+    const native = (database: string | null) => ({
+      sql: "SELECT 1",
+      database,
+      valuedTags: new Set<string>(),
+      snippetIds: new Map<string, string>(),
+      tableTags: new Map(),
+      cardTags: new Map<string, string>(),
+      hasTemplateTags: false,
+    });
+    const sources: DataSources = {
+      tables: [
+        sqlTable("Tables", { schema: "public", name: "a" }),
+        sqlTable("Tables", { schema: "public", name: "b" }),
+      ],
+      tagTables: [
+        {
+          tag: "c",
+          type: "dimension",
+          table: sqlTable("Tags", { schema: null, name: "c" }),
+        },
+      ],
+      fields: [],
+      entities: [],
+      natives: [native("Natives"), native(null)],
+    };
+    expect(databasesOf(doc, () => sources)).toEqual([
+      "Tables",
+      "Tags",
+      "Natives",
+    ]);
   });
 });

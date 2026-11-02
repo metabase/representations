@@ -54,8 +54,6 @@ export type DataSources = {
   tables: TableKey[];
   /** The table each template tag names, in document order. */
   tagTables: TagTable[];
-  /** The table of each `dimension` template tag with no default. */
-  unvaluedFilterTables: TableKey[];
   /**
    * The column of each field id inside a query, but that of a `dimension` tag
    * with no default.
@@ -206,7 +204,6 @@ export function createSourceFinder({
     const sources: DataSources = {
       tables: [],
       tagTables: [],
-      unvaluedFilterTables: [],
       fields: [],
       entities: [],
       natives: [],
@@ -235,9 +232,6 @@ export function createSourceFinder({
             type: context.tag.type,
             table,
           });
-        }
-        if (context.inUnvaluedFilter) {
-          sources.unvaluedFilterTables.push(table);
         }
       }
       const field =
@@ -382,7 +376,6 @@ export function createSourceFinder({
     return {
       tables: uniqueTables(sources.tables),
       tagTables: sources.tagTables,
-      unvaluedFilterTables: uniqueTables(sources.unvaluedFilterTables),
       fields: sources.fields,
       entities: uniqueBy(sources.entities, (e) => `${e.model} ${e.id}`),
       natives: sources.natives,

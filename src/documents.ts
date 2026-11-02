@@ -112,13 +112,6 @@ type TransformTestBody = {
   expectations: readonly TestExpectation[];
 };
 
-/** The fields the lint reads from a schema-valid Table, as `table.yaml` types them. */
-type TableBody = {
-  name: string;
-  db_id: string;
-  schema?: string | null;
-};
-
 /** The fields the lint reads from a schema-valid snippet, as `snippet.yaml` types them. */
 type SnippetBody = {
   name: string;
@@ -129,7 +122,6 @@ type ValidBodies = {
   NativeQuerySnippet: SnippetBody;
   Transform: TransformBody;
   TransformTest: TransformTestBody;
-  Table: TableBody;
 };
 
 /** A document of model `M` that matches its schema, with the body that schema guarantees. */
@@ -237,7 +229,7 @@ export type DuplicatedKeys = { doc: Doc; keys: readonly DuplicateKey[] };
  * Each of `entityFiles(folder)`, in path order: as documents, as files
  * Metabase skips for having no `serdes/meta`, or as unreadable files, which
  * are symbolic links, do not parse to a YAML map, or whose `serdes/meta` names
- * no model or a model Metabase does not import. Also each document whose maps hold a key more
+ * no model or a model outside `IMPORTED_MODELS`. Also each document whose maps hold a key more
  * than once, and each file that is not valid UTF-8, which is read with each
  * invalid byte sequence as U+FFFD (`decodeUtf8`). Throws the error of a file
  * or folder (`unreadableFolders`) it cannot read.
@@ -293,7 +285,7 @@ export function loadDocs(
     } else if (check.status === "unknown-model") {
       unreadable.push({
         file,
-        reason: `names the model "${check.model}", which Metabase does not import`,
+        reason: `names the model "${check.model}", which is not among the models Metabase imports from entity files`,
       });
     } else {
       const doc: Doc = {
