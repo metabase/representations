@@ -186,11 +186,15 @@ function getModel(doc: unknown): string | null {
 
 /**
  * Whether Metabase skips `doc`, a parsed file, without an error: the file is
- * empty, or a map whose `serdes/meta` is absent or null.
+ * empty, an empty list or an empty string, or a map whose `serdes/meta` is
+ * absent or null.
  */
 function skippedByMetabase(doc: unknown): boolean {
   return (
-    doc === null || (isRecord(doc) && (doc["serdes/meta"] ?? null) === null)
+    doc === null ||
+    doc === "" ||
+    (isUnknownArray(doc) && doc.length === 0) ||
+    (isRecord(doc) && (doc["serdes/meta"] ?? null) === null)
   );
 }
 

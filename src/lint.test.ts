@@ -682,6 +682,25 @@ describe("lint", () => {
       );
     });
 
+    it("warns on a file whose YAML is an empty list or an empty string, which Metabase skips, and fails a non-empty list", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const emptyList = "collections/transforms/empty_list.yaml";
+      const emptyString = "collections/transforms/empty_string.yaml";
+      const list = "collections/transforms/list.yaml";
+      writeFileSync(join(workdir, emptyList), "[]\n");
+      writeFileSync(join(workdir, emptyString), "''\n");
+      writeFileSync(join(workdir, list), "- a\n");
+      expect(
+        (await findings(workdir)).map(
+          (f) => `${f.severity} ${f.rule} ${f.file}: ${f.message}`,
+        ),
+      ).toEqual([
+        `error schema ${list}: the file is not a YAML map`,
+        `warning skipped-by-metabase ${emptyList}: Metabase skips this file because it has no serdes/meta`,
+        `warning skipped-by-metabase ${emptyString}: Metabase skips this file because it has no serdes/meta`,
+      ]);
+    });
+
     it("reports a file whose serdes/meta names no model as a schema error", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = "collections/transforms/listed.yaml";

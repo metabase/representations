@@ -814,6 +814,22 @@ describe("validateSchema", () => {
       ]);
     });
 
+    it.each([
+      ["an empty list", "[]\n"],
+      ["an empty string", "''\n"],
+    ])("skips a file whose YAML is %s, as Metabase does", (_, content) => {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(join(workdir, "transforms", "empty.yaml"), content);
+
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("transforms", "empty.yaml"),
+          status: "skipped",
+          warning: "Metabase skips this file because it has no serdes/meta",
+        },
+      ]);
+    });
+
     it("fails a file that is a YAML list as not a map", () => {
       mkdirSync(join(workdir, "transforms"), { recursive: true });
       writeFileSync(
