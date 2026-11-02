@@ -592,37 +592,32 @@ describe("cli", () => {
     it(
       "reads --default-schema DATABASE= as a database with no schemas",
       () => {
-        // Product Revenue Report reads public.top_categories; Top Categories,
-        // which reads it, writes top_categories with no schema: the
-        // database's default schema.
-        mutateExamples("transform-cycle", workdir);
-        const replaceIn = (file: string, from: string, to: string) => {
-          const path = join(workdir, file);
-          const text = readFileSync(path, "utf8");
-          expect(text).toContain(from);
-          writeFileSync(path, text.replace(from, to));
-        };
-        replaceIn(
-          "collections/transforms/native_transform.yaml",
-          "JOIN transforms.top_categories",
-          "JOIN public.top_categories",
-        );
-        replaceIn(
-          "collections/transforms/top_categories.yaml",
-          "  schema: transforms\n",
-          "",
-        );
-        const lintWith = (defaultSchema: string) =>
-          runCli([
+        // Product Summary reads products by a reference with a null schema.
+        // Only a database with no schemas has such a table, so only a null
+        // default schema silences null-schema-reference.
+        mutateExamples("null-schema-reference", workdir);
+        const lintWith = (defaultSchema: string) => {
+          const { stdout, exitCode } = runCli([
             "lint",
             "--experimental",
             "--folder",
             workdir,
             "--default-schema",
             `Sample Postgres=${defaultSchema}`,
-          ]).stdout;
-        expect(lintWith("public")).toContain("transform-cycle");
-        expect(lintWith("")).not.toContain("transform-cycle");
+          ]);
+          return {
+            exitCode,
+            nullSchemaReference: stdout.includes('"null-schema-reference"'),
+          };
+        };
+        expect(lintWith("public")).toEqual({
+          exitCode: 1,
+          nullSchemaReference: true,
+        });
+        expect(lintWith("")).toEqual({
+          exitCode: 0,
+          nullSchemaReference: false,
+        });
       },
       LINT_PROCESS_TIMEOUT_MS,
     );
