@@ -330,4 +330,25 @@ describe("readYaml", () => {
       "the document exceeds the limit of 3145728 code points (1:1)",
     );
   });
+
+  // The yaml library parses this document in about 0.3 s.
+  it("reads one map of 80,000 distinct keys in time linear in the keys", () => {
+    const keys = 80_000;
+    const text = Array.from({ length: keys }, (_, i) => `k${i}: 1`).join("\n");
+    const start = performance.now();
+    const read = readYaml(text);
+    const elapsed = performance.now() - start;
+    expect(Object.keys(read.value as object)).toHaveLength(keys);
+    expect(read.duplicateKeys).toEqual([]);
+    expect(elapsed).toBeLessThan(3_000);
+  }, 120_000);
+
+  it("keeps the last of a key written three times, and reports the later two", () => {
+    const read = readYaml("a: 1\nb: 2\na: 3\na: 4\n");
+    expect(read.value).toEqual({ a: 4, b: 2 });
+    expect(read.duplicateKeys).toEqual([
+      { source: "a", line: 3, column: 1 },
+      { source: "a", line: 4, column: 1 },
+    ]);
+  });
 });

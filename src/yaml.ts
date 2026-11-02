@@ -13,7 +13,7 @@ import {
   type YAMLMap,
 } from "yaml";
 
-import { sameKey, snakeTags } from "./yaml-scalars.js";
+import { keyBucket, sameKey, snakeTags } from "./yaml-scalars.js";
 
 /**
  * A YAML text that Metabase would refuse to read. `reason` says why;
@@ -182,6 +182,32 @@ type MergedEntry = {
   value: unknown;
 };
 
+/** Items found by their map key as SnakeYAML compares keys (`sameKey`). */
+type KeyIndex<T extends { key: unknown }> = {
+  /** The item last added whose key is one with `key`. */
+  find: (key: unknown) => T | undefined;
+  add: (item: T) => void;
+};
+
+// A map can hold hundreds of thousands of keys: a lookup must not compare a
+// key with every other one.
+function createKeyIndex<T extends { key: unknown }>(): KeyIndex<T> {
+  const buckets = new Map<unknown, T[]>();
+  return {
+    find: (key) =>
+      buckets.get(keyBucket(key))?.findLast((item) => sameKey(item.key, key)),
+    add: (item) => {
+      const bucket = keyBucket(item.key);
+      const items = buckets.get(bucket);
+      if (items === undefined) {
+        buckets.set(bucket, [item]);
+      } else {
+        items.push(item);
+      }
+    },
+  };
+}
+
 /**
  * Checks the parsed `doc` for what SnakeYAML refuses after parsing, and
  * names each non-string key by its text, which `toJS` then uses. Returns the
@@ -279,9 +305,14 @@ function inspect(
   const checkMap = (map: YAMLMap): void => {
     const own: MergedEntry[] = [];
     const sources: YAMLMap[] = [];
-    // Each pair whose key a later pair of the map holds again.
+    // Each pair whose key a later pair of the map holds again, and its entry.
     const overridden = new Set<unknown>();
-    const seen: { pair: unknown; key: unknown }[] = [];
+    const overriddenEntries = new Set<MergedEntry>();
+    const seen = createKeyIndex<{
+      pair: unknown;
+      key: unknown;
+      entry: MergedEntry;
+    }>();
     for (const pair of map.items) {
       const { key, value } = pair;
       if (isScalar(key) && typeof key.value === "symbol") {
@@ -292,9 +323,10 @@ function inspect(
       check(key, true);
       check(value, false);
       const readKey = resolved(key);
-      const earlier = seen.find((s) => sameKey(s.key, readKey));
+      const earlier = seen.find(readKey);
       if (earlier !== undefined) {
         overridden.add(earlier.pair);
+        overriddenEntries.add(earlier.entry);
         const position = lineCounter.linePos(
           isScalar(key) || isCollection(key) || isAlias(key)
             ? (key.range?.[0] ?? 0)
@@ -305,24 +337,26 @@ function inspect(
           line: position.line,
           column: position.col,
         });
-        const index = own.findIndex((e) => sameKey(e.key, readKey));
-        own.splice(index, 1);
       }
-      seen.push({ pair, key: readKey });
       const isString = isScalar(readKey) && typeof readKey.value === "string";
-      own.push({
+      const entry: MergedEntry = {
         key: readKey,
         name: isString ? String(readKey.value) : sourceOf(readKey),
         isString,
         shadowed: false,
         value,
-      });
+      };
+      seen.add({ pair, key: readKey, entry });
+      own.push(entry);
     }
-    const merged = [...own];
+    const merged = own.filter((e) => !overriddenEntries.has(e));
+    const mergedKeys = createKeyIndex<MergedEntry>();
+    merged.forEach(mergedKeys.add);
     for (const source of sources) {
       for (const entry of mergedEntries.get(source) ?? []) {
-        if (!merged.some((m) => sameKey(m.key, entry.key))) {
+        if (mergedKeys.find(entry.key) === undefined) {
           merged.push(entry);
+          mergedKeys.add(entry);
         }
       }
     }
