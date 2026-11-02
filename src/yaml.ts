@@ -118,8 +118,8 @@ function readError(error: YAMLError): YamlReadError {
 
 /**
  * The first refusal among the yaml library's findings. Beyond its errors,
- * SnakeYAML refuses an unknown tag and a `%YAML` major version other than 1,
- * which the library only warns about.
+ * SnakeYAML refuses an unknown tag, a tag on the wrong kind of node, and a
+ * `%YAML` major version other than 1, which the library only warns about.
  */
 function refusalOf(doc: Document.Parsed): YamlReadError | null {
   const [error] = doc.errors;

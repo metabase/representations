@@ -11,9 +11,9 @@ import type { SourceFinder } from "./query-sources.js";
 import { isRecord, stringOrNull, uniqueBy } from "./values.js";
 
 /**
- * A database's engine as its Database file names it, such as `postgres` or
- * `bigquery-cloud-sdk`: Metabase's driver name. Null when neither a
- * schema-valid Database file nor the settings file names it.
+ * A database's engine, Metabase's driver name, such as `postgres` or
+ * `bigquery-cloud-sdk`, from its Database file or the settings file. Null
+ * when neither a schema-valid Database file nor the settings file names it.
  */
 export type EngineOf = (database: string | null) => string | null;
 

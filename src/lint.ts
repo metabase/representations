@@ -317,9 +317,9 @@ function reportCycles(
 
 /**
  * Warns on each file whose entity_id another file of its model also holds.
- * Metabase loads both, the second over the first (`lookUpEntity`): the last file
- * in path order stands and the others are lost, with no message. Files of
- * different models may share an entity_id: Metabase keeps each.
+ * Remote sync keeps one, the last in path order (`lookUpEntity`), and drops
+ * the others with no message. Files of different models may share an
+ * entity_id: Metabase keeps each.
  */
 function reportDuplicateEntityIds(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
@@ -375,7 +375,7 @@ function reportInvalidUtf8(files: readonly string[], report: Report): void {
 
 /**
  * Warns on each key a document's map holds more than once. Metabase keeps the
- * last value with no message (`readYaml`), so the others are lost.
+ * last value with no message, so the others are lost.
  */
 function reportDuplicateKeys(
   duplicatedKeys: readonly DuplicatedKeys[],

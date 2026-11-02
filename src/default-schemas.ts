@@ -30,9 +30,9 @@ export type DefaultSchemaWanted = {
 };
 
 /**
- * The lint needs default schemas that neither the settings nor the engine
- * give. The message gives each name from the folder as a JSON string, so that
- * no control character in a name reaches the terminal or a CI log.
+ * The lint needs a default schema that no source gives. The message gives
+ * each name from the folder as a JSON string, so that no control character
+ * in a name reaches the terminal or a CI log.
  */
 export class MissingDefaultSchemasError extends LintSetupError {
   override name = "MissingDefaultSchemasError";
