@@ -353,7 +353,7 @@ exports[`lint output on a broken copy of the examples matches the recording: unt
       "name": "Daily Order Summary: orders per day",
     },
     "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
-    "message": "input orders has no column created_at, which transform Daily Order Summary reads as CREATED_AT; the input's column is created_at",
+    "message": "transform Daily Order Summary reads the column CREATED_AT from input orders, which declares created_at: Snowflake reads an unquoted name in upper case, and Metabase creates the input's columns as declared. Declare the column as CREATED_AT, or write it as "created_at" in the SQL",
     "related": [
       "collections/transforms/daily_order_summary.yaml",
     ],
@@ -367,7 +367,7 @@ exports[`lint output on a broken copy of the examples matches the recording: unt
       "name": "Daily Order Summary: orders per day",
     },
     "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
-    "message": "input orders has no column total, which transform Daily Order Summary reads as TOTAL; the input's column is total",
+    "message": "transform Daily Order Summary reads the column TOTAL from input orders, which declares total: Snowflake reads an unquoted name in upper case, and Metabase creates the input's columns as declared. Declare the column as TOTAL, or write it as "total" in the SQL",
     "related": [
       "collections/transforms/daily_order_summary.yaml",
     ],

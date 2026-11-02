@@ -281,7 +281,8 @@ export function reportMissingReadColumns(
   for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const defaultSchema = checks.defaultSchemaOf(database);
-    const warehouseName = createWarehouseName(checks.engineOf(database));
+    const engine = checks.engineOf(database);
+    const warehouseName = createWarehouseName(engine);
     const read = readColumnsOf(
       transform,
       queryOf(transform),
@@ -319,23 +320,90 @@ export function reportMissingReadColumns(
           (name) => fold(name) === fold(column),
         );
         const readColumn = missing.find((c) => fold(c.column) === fold(column));
-        const readAs =
-          readColumn === undefined
-            ? null
-            : (warehouseName?.(readColumn.column, readColumn.quoting) ?? null);
+        const transformName = displayName(transform.doc);
         report(
           "input-missing-read-column",
           test,
-          `input ${tableLabel(inputTable)} has no column ${column}, which transform ${displayName(transform.doc)} reads${
-            sameButCase === undefined || readAs === null
-              ? ""
-              : ` as ${readAs}; the input's column is ${warehouseName?.(sameButCase, "compiled") ?? sameButCase}`
-          }`,
+          (sameButCase !== undefined &&
+            readColumn !== undefined &&
+            warehouseName !== null &&
+            caseMismatchMessage({
+              engine,
+              warehouseName,
+              transformName,
+              input: tableLabel(inputTable),
+              read: readColumn,
+              declared: sameButCase,
+            })) ||
+            `input ${tableLabel(inputTable)} has no column ${column}, which transform ${transformName} reads`,
           [transform.doc.file],
         );
       }
     }
   }
+}
+
+/** Why the warehouse of each engine in `UNQUOTED_CASE` reads an unquoted name in its case. */
+const UNQUOTED_READS: Readonly<Record<string, string>> = {
+  postgres: "Postgres reads an unquoted name in lower case",
+  snowflake: "Snowflake reads an unquoted name in upper case",
+  h2: "H2 reads an unquoted name in upper case",
+  clickhouse: "ClickHouse compares names with case",
+};
+
+/**
+ * The message of a column a transform reads that an input declares in
+ * another case: the name the warehouse reads and the name of the input's
+ * column, why they differ, and how to make them agree. Null when
+ * `warehouseName` cannot name the read column.
+ */
+function caseMismatchMessage({
+  engine,
+  warehouseName,
+  transformName,
+  input,
+  read,
+  declared,
+}: {
+  engine: string | null;
+  warehouseName: (name: string, quoting: ColumnQuoting) => string | null;
+  transformName: string;
+  input: string;
+  read: ReadColumn;
+  declared: string;
+}): string | null {
+  const readAs = warehouseName(read.column, read.quoting);
+  const declaredAs = warehouseName(declared, "compiled");
+  if (readAs === null || declaredAs === null) {
+    return null;
+  }
+  const readReason =
+    read.quoting === "compiled"
+      ? "Metabase quotes an MBQL field's name, so the warehouse reads it as written"
+      : read.quoting === "quoted"
+        ? "the SQL quotes the name, so the warehouse reads it as written"
+        : engine !== null && Object.hasOwn(UNQUOTED_READS, engine)
+          ? UNQUOTED_READS[engine]
+          : null;
+  if (readReason === null) {
+    return null;
+  }
+  const createReason =
+    declaredAs === declared
+      ? "Metabase creates the input's columns as declared"
+      : `Metabase creates the input's column as ${declaredAs}`;
+  const fixes = [
+    ...(warehouseName(readAs, "compiled") === readAs
+      ? [`declare the column as ${readAs}`]
+      : []),
+    ...(read.quoting === "compiled"
+      ? []
+      : engine === "clickhouse"
+        ? [`write it as ${declaredAs} in the SQL`]
+        : [`write it as "${declaredAs}" in the SQL`]),
+  ];
+  const fix = fixes.join(", or ");
+  return `transform ${transformName} reads the column ${readAs} from input ${input}, which declares ${declared}: ${readReason}, and ${createReason}. ${fix.charAt(0).toUpperCase()}${fix.slice(1)}`;
 }
 
 /**

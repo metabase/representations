@@ -298,13 +298,19 @@ describe("reportMissingReadColumns", () => {
         (f) => f.message,
       );
     };
-    const message = (column: string, readAs: string, declared: string) =>
-      `input public.orders has no column ${column}, which transform cased reads as ${readAs}; the input's column is ${declared}`;
+    const message = (readAs: string, declared: string, reasons: string) =>
+      `transform cased reads the column ${readAs} from input public.orders, which declares ${declared}: ${reasons}`;
 
     it("reads an unquoted name in lower case on Postgres", () => {
       expect(
         missing("SELECT o.total FROM public.orders o", ["Total"], "postgres"),
-      ).toEqual([message("total", "total", "Total")]);
+      ).toEqual([
+        message(
+          "total",
+          "Total",
+          'Postgres reads an unquoted name in lower case, and Metabase creates the input\'s columns as declared. Declare the column as total, or write it as "Total" in the SQL',
+        ),
+      ]);
       expect(
         missing("SELECT o.TOTAL FROM public.orders o", ["total"], "postgres"),
       ).toEqual([]);
@@ -337,7 +343,13 @@ describe("reportMissingReadColumns", () => {
     it("reads an unquoted name in upper case on Snowflake", () => {
       expect(
         missing("SELECT o.id FROM public.orders o", ["id"], "snowflake"),
-      ).toEqual([message("id", "ID", "id")]);
+      ).toEqual([
+        message(
+          "ID",
+          "id",
+          'Snowflake reads an unquoted name in upper case, and Metabase creates the input\'s columns as declared. Declare the column as ID, or write it as "id" in the SQL',
+        ),
+      ]);
       expect(
         missing("SELECT o.id FROM public.orders o", ["ID"], "snowflake"),
       ).toEqual([]);
@@ -349,7 +361,13 @@ describe("reportMissingReadColumns", () => {
     it("upper-cases a declared column on H2, as Metabase's H2 quoting does", () => {
       expect(
         missing('SELECT o."total" FROM public.orders o', ["total"], "h2"),
-      ).toEqual([message("total", "total", "TOTAL")]);
+      ).toEqual([
+        message(
+          "total",
+          "total",
+          'the SQL quotes the name, so the warehouse reads it as written, and Metabase creates the input\'s column as TOTAL. Write it as "TOTAL" in the SQL',
+        ),
+      ]);
       expect(
         missing("SELECT o.total FROM public.orders o", ["total"], "h2"),
       ).toEqual([]);
@@ -376,7 +394,13 @@ describe("reportMissingReadColumns", () => {
       ]);
       expect(
         run(reportMissingReadColumns, [transform, test]).map((f) => f.message),
-      ).toEqual([message("Total", "Total", "total")]);
+      ).toEqual([
+        message(
+          "Total",
+          "total",
+          "Metabase quotes an MBQL field's name, so the warehouse reads it as written, and Metabase creates the input's columns as declared. Declare the column as Total",
+        ),
+      ]);
     });
   });
 

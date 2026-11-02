@@ -195,13 +195,17 @@ describe("columns an input lacks", () => {
     expect(await missing(PG, "transforms")).toEqual([
       expect.objectContaining({
         severity: "warning",
-        message: expect.stringContaining("has no column total"),
+        message: expect.stringContaining(
+          "reads the column total from input orders, which declares Total",
+        ),
       }),
     ]);
     expect(await missing(CH, "default")).toEqual([
       expect.objectContaining({
         severity: "warning",
-        message: expect.stringContaining("has no column total"),
+        message: expect.stringContaining(
+          "reads the column total from input orders, which declares Total",
+        ),
       }),
     ]);
   });
