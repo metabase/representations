@@ -76,7 +76,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 ### Settings file
 
-`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. It must be a regular file, not a symbolic link. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema; without them, the engine checks and `null-schema-reference` give no finding, and `unknown-engine` warns. Give both for each database the repository's transforms and cards name:
+`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. It must be a regular file, not a symbolic link. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema. Without an engine, the engine checks and `null-schema-reference` give no finding, and `unknown-engine` warns. Without a default schema that it needs, the lint runs no check and names the database. Give both for each database the repository's transforms and cards name:
 
 ```json
 {
@@ -97,7 +97,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map, a file whose `serdes/meta` names no model or a model Metabase does not import, or a transform whose source database was deleted. |
+| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map, a file whose `serdes/meta` names no model or a model Metabase does not import, a symbolic link in a folder Metabase imports, or a transform whose source database was deleted. |
 | `invalid-utf8` | warning | A file that is not valid UTF-8. Metabase reads each invalid byte as U+FFFD, and the lint reads the file the same way. |
 | `skipped-by-metabase` | warning | A file with no `serdes/meta`, an empty file, or a file that holds only `[]` or `''`, which Metabase skips. |
 | `duplicate-yaml-key` | warning | A key written twice in one map of a file. Metabase keeps the last value without a message. |

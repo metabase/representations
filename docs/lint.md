@@ -4,7 +4,7 @@ How the `lint` command resolves tables, reads SQL and YAML, and where it can be 
 
 ## The folder it expects
 
-The lint expects the whole repository as Metabase's remote sync writes it: every collection, transform, transform test, snippet and table file of the content it lints. It reports what a file names and the folder lacks. For example, `transform-collection` reports a transform whose collection is not in the folder, though an import into a Metabase that already holds the collection accepts it. Lint a part of a repository, and such findings follow from the missing files.
+The lint expects the whole repository as Metabase's remote sync writes it: every collection, transform, transform test and snippet file of the content it lints. It reports what a file names and the folder lacks. For example, `transform-collection` reports a transform whose collection is not in the folder, though an import into a Metabase that already holds the collection accepts it. Lint a part of a repository, and such findings follow from the missing files.
 
 ## Default schemas
 
@@ -39,7 +39,7 @@ An MBQL reference, `[database, schema, table]` or `[database, schema, table, fie
 
 ### Case in table names
 
-A table reference (MBQL or a Python source table), a table file and a transform target name a table exactly, as Metabase's import looks it up. `["Sample Postgres", "public", "Orders"]` is not the table file for `public.orders`: Metabase's import creates an inactive `Orders` table for it. Database names compare exactly too. `duplicate-target` is the exception: Metabase creates a target in quotes, as named, and Redshift folds every name to lower case, quoted or not, while its `enable_case_sensitive_identifier` setting is off, its default. So on Redshift two targets that differ only in case are one table. The lint does not fold on SQL Server or MySQL, whose case rule is a server setting (a collation, `lower_case_table_names`) that the folder does not give. An unquoted name read from SQL, and a transform test's input, compare ignoring case with any other name, as Metabase's transform-test validator compares them. In a transform test's expectation SQL and transform SQL, a quoted name compares as written, as Metabase's `replace_names` matches it: `analytics."T"` is not the target `analytics.t`, and `"Orders"` in a transform's SQL gives `missing-input` for a test whose input is `orders`. Metabase quotes each table name of an MBQL transform, so a reference `["Sample Postgres", "public", "Orders"]` needs an input named `Orders` exactly. The native SQL of a card that the transform reads is not checked this way.
+A table reference (MBQL or a Python source table), a table file and a transform target name a table exactly, as Metabase's import looks it up. `["Sample Postgres", "public", "Orders"]` is not the table file for `public.orders`: Metabase's import creates an inactive `Orders` table for it. Database names compare exactly too. `duplicate-target` is the exception: Metabase creates a target in quotes, as named, and Redshift folds every name to lower case, quoted or not, while its `enable_case_sensitive_identifier` setting is off, its default. So on Redshift two targets that differ only in case are one table. The lint does not fold on SQL Server or MySQL, whose case rule is a server setting (a collation, `lower_case_table_names`) that the folder does not give. A name read from SQL, quoted or not, and a transform test's input, compare ignoring case with any other name, as Metabase's transform-test validator compares them. The exception is Metabase's rewrite of a transform test's SQL to its stand-in tables: there, a quoted name in the expectation SQL or the transform's SQL compares as written, as Metabase's `replace_names` matches it: `analytics."T"` is not the target `analytics.t`, and `"Orders"` in a transform's SQL gives `missing-input` for a test whose input is `orders`. Metabase quotes each table name of an MBQL transform, so a reference `["Sample Postgres", "public", "Orders"]` needs an input named `Orders` exactly. The native SQL of a card that the transform reads is not checked this way.
 
 ## Engines
 
@@ -62,7 +62,7 @@ Remote sync does not export Database files. In a repository it writes, the lint 
 }
 ```
 
-Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema` (except on a blank schema), `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns once on each database a transform or card writes to or reads that has no engine the lint knows, so this silence is visible: a transform's target database and the databases of its Python source tables, a card's query's database, and the databases of the tables and native queries either names. An engine that the settings file names and the lint's table of Metabase's drivers lacks, such as a third-party driver, keeps the warning; check the driver name.
+Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema` (except on a blank schema), `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns once for each transform or card and each database it writes to or reads that has no engine the lint knows, so this silence is visible: a transform's target database and the databases of its Python source tables, a card's query's database, and the databases of the tables and native queries either names. An engine that the settings file names and the lint's table of Metabase's drivers lacks, such as a third-party driver, keeps the warning; check the driver name.
 
 ### Target database
 
@@ -118,7 +118,7 @@ Known differences from Metabase's reading:
 
 ## Metabase versions
 
-The lint reads SQL as Metabase 0.65 does, from 0.65.0 through 0.65.2.1, and as `master` does at the commit `vendor/sources.json` records. Those versions pin the same SQLGlot, 30.20.0, and their `sql_tools.py` has the same `referenced_tables`, `field_references` and `replace_names`. The files can differ elsewhere, in functions the lint does not call.
+The lint reads SQL as a Metabase version does that pins SQLGlot 30.20.0 and whose `sql_tools.py` has the same `referenced_tables`, `field_references` and `replace_names` as the copy in `vendor/`: Metabase 0.65 from 0.65.0, and `master` at the commit `vendor/sources.json` records. The files can differ elsewhere, in functions the lint does not call.
 
 Metabase 0.64 and earlier pin SQLGlot 28.6.0 and an older `referenced_tables` and `replace_names`. On those versions, the lint can find tables or columns that Metabase does not, or parse SQL that Metabase cannot, and the reverse. A later Metabase version can differ too; compare its `resources/python-sources/sql_tools.py` and `pyproject.toml` with the copy in `vendor/`.
 
