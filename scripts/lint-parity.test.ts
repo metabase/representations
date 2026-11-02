@@ -359,9 +359,29 @@ describe("lint-parity", () => {
             : { status: 200, body: { id: 999 } },
       });
       expect(output).toContain(
-        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}), which no error rule predicts\n`,
+        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}); the lint reports no transform-reads-other-table\n`,
       );
       expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "agrees with Metabase on a transform that quotes a table name in another case than its input",
+    async () => {
+      const message =
+        "The transform test could not fully remap the source to test tables; these reference(s) remain: Orders.";
+      const { exitCode, output } = await runParity({
+        folder: mutated("transform-reads-other-table"),
+        testProbe: (t) =>
+          t.name === "Daily Order Summary"
+            ? unremapped(message)
+            : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        `OK    test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: transform-test.unremapped-reference on the transform (${JSON.stringify(message)})\n`,
+      );
+      expect(exitCode).toBe(0);
     },
     PARITY_PROCESS_TIMEOUT_MS,
   );

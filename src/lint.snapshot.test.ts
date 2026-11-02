@@ -73,6 +73,23 @@ const TREES: [string, (folder: string) => void][] = [
     (f) => mutateExamples("duplicate-expectation-name", f),
   ],
   ["no expectations", (f) => mutateExamples("no-expectations", f)],
+  [
+    "input missing read column",
+    (f) => mutateExamples("input-missing-read-column", f),
+  ],
+  [
+    "upstream column mismatch",
+    (f) => mutateExamples("upstream-column-mismatch", f),
+  ],
+  [
+    "table qualified column",
+    (f) => mutateExamples("table-qualified-column", f),
+  ],
+  [
+    "expectation qualified column",
+    (f) => mutateExamples("expectation-qualified-column", f),
+  ],
+  ["live sql input", (f) => mutateExamples("live-sql-input", f)],
   ["reads not checked", (f) => mutateExamples("missing-snippet", f)],
   [
     "several rules",

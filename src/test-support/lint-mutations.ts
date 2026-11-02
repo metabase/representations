@@ -595,10 +595,20 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "untestable-engine",
     description:
-      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test.",
+      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test. Snowflake reads its unquoted columns in upper case, so its test's lower-case columns miss them.",
     findings: [
       {
         rule: "untestable-engine",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+      {
+        rule: "input-missing-read-column",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+      {
+        rule: "input-missing-read-column",
         file: DAILY_ORDER_SUMMARY_TEST,
         related: [DAILY_ORDER_SUMMARY],
       },
@@ -696,6 +706,102 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       edit(folder, TOP_CATEGORIES_TEST, (doc) => {
         doc.expectations = [];
+      }),
+  },
+  {
+    name: "input-missing-read-column",
+    description:
+      "A test's orders input drops product_id, a column its transform joins on.",
+    findings: [
+      {
+        rule: "input-missing-read-column",
+        file: CATEGORY_TOTALS_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        const orders = doc.inputs[0];
+        orders.columns = orders.columns.filter(
+          (column: Record<string, any>) => column.name !== "product_id",
+        );
+        for (const row of orders.rows) {
+          delete row.product_id;
+        }
+      }),
+  },
+  {
+    name: "upstream-column-mismatch",
+    description:
+      "Product Revenue Report renames its total_revenue column; the test of Top Categories, which reads it, keeps the old name.",
+    findings: [
+      {
+        rule: "upstream-column-mismatch",
+        file: TOP_CATEGORIES_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
+    apply: (folder) =>
+      editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
+        sql.replace("AS total_revenue", "AS revenue"),
+      ),
+  },
+  {
+    name: "table-qualified-column",
+    description:
+      "Top Categories qualifies a column by the name of the table it reads, outside the default schema, with no alias; Metabase's test rewrite leaves the qualifier naming no table.",
+    findings: [
+      {
+        rule: "table-qualified-column",
+        file: TOP_CATEGORIES_TEST,
+        related: [TOP_CATEGORIES],
+      },
+    ],
+    apply: (folder) =>
+      editNativeSql(folder, TOP_CATEGORIES, (sql) =>
+        sql.replace(
+          "SELECT\n  category,",
+          "SELECT\n  product_revenue_report.category,",
+        ),
+      ),
+  },
+  {
+    name: "expectation-qualified-column",
+    description:
+      "An expectation qualifies a column by the bare name of the transform's target, which it reads with its schema; Metabase's test rewrite leaves the qualifier naming no table.",
+    findings: [
+      { rule: "expectation-qualified-column", file: DAILY_ORDER_SUMMARY_TEST },
+    ],
+    apply: (folder) =>
+      edit(folder, DAILY_ORDER_SUMMARY_TEST, (doc) => {
+        doc.expectations[1].sql =
+          "SELECT * FROM transforms.daily_order_summary WHERE daily_order_summary.total_revenue < 0";
+      }),
+  },
+  {
+    name: "transform-reads-other-table",
+    description:
+      "A transform quotes the name of a table it reads in another case than its test's input; Metabase's test rewrite leaves the table real.",
+    findings: [
+      {
+        rule: "transform-reads-other-table",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+    ],
+    apply: (folder) =>
+      editNativeSql(folder, DAILY_ORDER_SUMMARY, (sql) =>
+        sql.replace("FROM orders", 'FROM "Orders"'),
+      ),
+  },
+  {
+    name: "live-sql-input",
+    description:
+      "A test's SQL input reads the real products table, so the test depends on live data.",
+    findings: [{ rule: "live-sql-input", file: CATEGORY_TOTALS_TEST }],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        doc.inputs[1].sql = "SELECT id, category FROM products";
       }),
   },
   {

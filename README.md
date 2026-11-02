@@ -118,12 +118,18 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `untestable-transform` | error | A test of a transform that is not a query transform. |
 | `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |
 | `duplicate-input` | error | Two inputs of one test for the same table. |
+| `transform-reads-other-table` | error | A test whose transform names a table in quotes in another case than the test's input. Metabase replaces a quoted name only in its exact case, so the transform still reads the real table, and Metabase refuses the test. An MBQL query quotes each table name. |
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
 | `row-columns-mismatch` | error | The first row of a `rows` input or `equals` expectation whose keys are not exactly the declared columns. A key YAML reads as no string, such as `yes:` or `1:`, counts as not declared; quote it as `'1':`. |
 | `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
 | `null-schema-reference` | error | An MBQL reference in a transform or a card with a `null` schema, on a database whose engine has schemas. Metabase imports it as a table with no schema, an inactive stub that holds no data: a query that reads it fails on every run. A `temporal-unit` tag and a `dimension` tag with a default put their field in the query, so their table is read. A card's `dimension` tag with no default on such a table gives this error too: the card fails once the tag has a value. An unknown engine gives no finding, and so does a `null` default schema given for the database, which says it has no schemas. |
 | `null-schema-tag` | warning | A `dimension` tag with no default in a transform, whose field names a table by a `null` schema, on a database whose engine has schemas. Metabase imports the field as an inactive stub, and the transform and its tests run, since such a tag compiles to `1 = 1`; the filter fails once the tag has a value. A `dimension` tag with a default, a `temporal-unit` tag and a card's tag give `null-schema-reference`. |
 | `no-expectations` | warning | A test with no expectations. |
+| `input-missing-read-column` | warning | A test input without a column its transform reads. |
+| `upstream-column-mismatch` | warning | A test input for another transform's target, with a column that transform does not return. |
+| `table-qualified-column` | warning | A column qualifier in a transform's SQL that names no table or alias once a transform test replaces the tables. Metabase refuses the test if the qualifier still names no table once the template tags have values. |
+| `expectation-qualified-column` | error | A column qualifier in a SQL expectation that names no table or alias once a transform test replaces the tables. |
+| `live-sql-input` | warning | A test's SQL input that reads a real table, so the test depends on live data. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
 ## Other commands

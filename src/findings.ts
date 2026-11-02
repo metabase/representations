@@ -28,12 +28,18 @@ export const LINT_RULE_SEVERITY = {
   "untestable-transform": "error",
   "untestable-engine": "warning",
   "duplicate-input": "error",
+  "transform-reads-other-table": "error",
   "expectation-reads-other-table": "error",
   "row-columns-mismatch": "error",
   "duplicate-expectation-name": "error",
   "null-schema-reference": "error",
   "null-schema-tag": "warning",
   "no-expectations": "warning",
+  "input-missing-read-column": "warning",
+  "upstream-column-mismatch": "warning",
+  "table-qualified-column": "warning",
+  "expectation-qualified-column": "error",
+  "live-sql-input": "warning",
   "reads-not-checked": "warning",
 } as const satisfies Record<string, LintSeverity>;
 

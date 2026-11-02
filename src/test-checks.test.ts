@@ -199,6 +199,24 @@ describe("inputs of a transform with a field-filter tag", () => {
 });
 
 describe("inputs of a transform with a temporal-unit tag", () => {
+  it("a temporal-unit tag's field is a column the input must declare", async () => {
+    expect(
+      await lintTest({
+        sql: "SELECT {{u}} AS m, count(*) AS c FROM public.orders GROUP BY 1",
+        tags: [temporalUnitTag("u", [PG, "public", "orders", "created_at"])],
+        inputs: [rowsInput("public.orders", ["id"])],
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        rule: "input-missing-read-column",
+        message: expect.stringContaining(
+          "input public.orders has no column created_at",
+        ),
+      }),
+    ]);
+  });
+
   it("a temporal-unit tag's table is a read that needs an input", async () => {
     expect(
       await lintTest({
@@ -227,6 +245,95 @@ describe("inputs of an MBQL transform", () => {
       inputs: [rowsInput("public.orders", ["id"])],
     });
     expect(found.filter((f) => inputRules.has(f.rule))).toEqual([]);
+  });
+});
+
+describe("tables the transform's SQL reads after the rewrite", () => {
+  it("a quoted table name whose case is not the input's is an error", async () => {
+    const errors = async (table: string) =>
+      (
+        await lintTest({
+          sql: `SELECT o.id FROM ${table} o`,
+          inputs: [rowsInput("orders", ["id"])],
+        })
+      ).filter((f) => f.severity === "error");
+    expect(await errors('"orders"')).toEqual([]);
+    expect(await errors('"Orders"')).toEqual([
+      {
+        severity: "error",
+        rule: "transform-reads-other-table",
+        message:
+          "transform T reads Orders, and input orders does not stand in for it: Metabase replaces a quoted name only in its exact case, and refuses a test whose transform still reads a real table. Name the input Orders, or write the name in the SQL as the input does",
+      },
+    ]);
+  });
+
+  it("a field-filter tag's field in another case needs no input", async () => {
+    expect(
+      await lintTest({
+        sql: "SELECT id, created_at FROM orders WHERE {{d}}",
+        tags: [dimensionTag("d", [PG, "public", "Orders", "created_at"])],
+        inputs: [rowsInput("orders", ["id", "created_at"])],
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe("expectation SQL that Metabase refuses", () => {
+  const transform = {
+    sql: "SELECT o.id FROM orders o",
+    inputs: [rowsInput("orders", ["id"])],
+  };
+
+  it("a column qualifier in an expectation that names no table after the rewrite is an error", async () => {
+    expect(
+      await lintTest({
+        ...transform,
+        expectationSql: "SELECT o.id FROM transforms.out o WHERE o.id < 0",
+      }),
+    ).toEqual([]);
+    expect(
+      await lintTest({
+        ...transform,
+        expectationSql: "SELECT out.id FROM transforms.out WHERE out.id < 0",
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        severity: "error",
+        rule: "expectation-qualified-column",
+        message: expect.stringContaining("qualifies a column by out"),
+      }),
+    ]);
+  });
+});
+
+describe("columns an input lacks", () => {
+  it("a ClickHouse column whose case is not the input's is missing", async () => {
+    const missing = async (database: string, targetSchema: string) =>
+      (
+        await lintTest({
+          database,
+          targetSchema,
+          sql: "SELECT o.id, o.total FROM orders o",
+          inputs: [rowsInput("orders", ["id", "Total"])],
+        })
+      ).filter((f) => f.rule === "input-missing-read-column");
+    expect(await missing(PG, "transforms")).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        message: expect.stringContaining(
+          "reads the column total from input orders, which declares Total",
+        ),
+      }),
+    ]);
+    expect(await missing(CH, "default")).toEqual([
+      expect.objectContaining({
+        severity: "warning",
+        message: expect.stringContaining(
+          "reads the column total from input orders, which declares Total",
+        ),
+      }),
+    ]);
   });
 });
 
