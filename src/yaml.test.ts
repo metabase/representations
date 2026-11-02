@@ -351,4 +351,13 @@ describe("readYaml", () => {
       { source: "a", line: 4, column: 1 },
     ]);
   });
+
+  it.each([
+    ["a map", "x: &c {y: *c}\n", "(1:11)"],
+    ["a list", "x: &c [1, *c]\n", "(1:11)"],
+  ])("refuses an alias to %s that holds it", (_, text, position) => {
+    expect(() => readYaml(text)).toThrow(
+      `an alias refers to a map or list that holds it ${position}`,
+    );
+  });
 });

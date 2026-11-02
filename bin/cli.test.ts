@@ -674,6 +674,35 @@ describe("cli", () => {
       },
       LINT_PROCESS_TIMEOUT_MS,
     );
+
+    it(
+      "reports a self-referencing alias in a transform as an error on that file",
+      () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const file = "collections/transforms/native_transform.yaml";
+        writeFileSync(
+          join(workdir, file),
+          `${readFileSync(join(workdir, file), "utf8")}x: &c {y: *c}\n`,
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          workdir,
+        ]);
+        expect({
+          exitCode,
+          stackOverflow: stderr.includes("Maximum call stack size exceeded"),
+        }).toEqual({ exitCode: 1, stackOverflow: false });
+        expect(
+          stdout
+            .trim()
+            .split("\n")
+            .map((line): unknown => JSON.parse(line)),
+        ).toContainEqual(expect.objectContaining({ severity: "error", file }));
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
   });
 
   describe("build", () => {

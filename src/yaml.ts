@@ -410,7 +410,9 @@ function inspect(
     }
     const target = resolved(node);
     if (visiting.has(target)) {
-      return;
+      // SnakeYAML builds the cycle, and Metabase's conversion of it recurses
+      // without end.
+      refuse("an alias refers to a map or list that holds it", node);
     }
     visiting.add(target);
     if (isSeq(target)) {
@@ -452,8 +454,9 @@ function inspect(
  * leaves SnakeYAML's `allowDuplicateKeys` at its default, true
  * (`src/metabase/util/yaml.clj` `with-parse-defaults`). Throws
  * `YamlReadError` for any text SnakeYAML refuses, such as a merge source that
- * is not a map, and for a document whose aliases expand to more than 3145728
- * nodes, which SnakeYAML reads.
+ * is not a map, for a document whose aliases expand to more than 3145728
+ * nodes, which SnakeYAML reads, and for an alias to a map or list that holds
+ * it, which Metabase cannot read.
  */
 export function readYaml(text: string): YamlDocument {
   const lineCounter = new LineCounter();
