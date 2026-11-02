@@ -194,7 +194,7 @@ function reportDuplicateTargets(
       report(
         "duplicate-target",
         doc,
-        `target ${tableLabel(target)} is also written by ${clashes.length} other transform(s)`,
+        `target ${tableLabel(target)} is also written by ${clashes.length} other transform(s); each run of one replaces the other's table`,
         clashes.map((c) => c.doc.file),
       );
     }
@@ -261,7 +261,7 @@ function reportNullSchemaReferences(
         report(
           "null-schema-reference",
           doc,
-          `reads ${tableLabel(table)} in database ${table.database}, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema`,
+          `reads ${tableLabel(table)} in database ${table.database}, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema, or, if the database has no schemas, give it a null default schema in .metabase-lint.json`,
         );
       }
     }

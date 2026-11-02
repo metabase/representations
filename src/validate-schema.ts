@@ -1,4 +1,4 @@
-import type { ValidateFunction } from "ajv/dist/2020.js";
+import type { ErrorObject, ValidateFunction } from "ajv/dist/2020.js";
 import { lstatSync, readdirSync, readFileSync, statSync } from "fs";
 import { globSync } from "glob";
 import { dirname, resolve } from "path";
@@ -481,8 +481,21 @@ function validationErrors(
         message:
           e.schemaPath === ENTITY_ID_PATTERN
             ? entityIdMessage(valueAt(doc, e.instancePath), e.instancePath)
-            : (e.message ?? ""),
+            : `${e.message ?? ""}${allowedValuesOf(e)}`,
       }));
+}
+
+/** The values an `enum` or `const` error allows, as `: "a", "b"`; empty for any other error. */
+function allowedValuesOf(error: ErrorObject): string {
+  const allowed: unknown =
+    error.keyword === "enum"
+      ? error.params.allowedValues
+      : error.keyword === "const"
+        ? [error.params.allowedValue]
+        : undefined;
+  return isUnknownArray(allowed)
+    ? `: ${allowed.map((v) => JSON.stringify(v)).join(", ")}`
+    : "";
 }
 
 /**

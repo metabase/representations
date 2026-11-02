@@ -407,7 +407,7 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "missing-incremental-table-tag",
     description:
-      "A native transform writes an incremental table, but its query has no table variable for the range filter.",
+      "A native transform writes an incremental table, but its query has no template tag of type table for the range filter.",
     rules: ["missing-incremental-table-tag"],
     apply: (folder) =>
       edit(folder, PRODUCT_REVENUE_REPORT, (doc) => {

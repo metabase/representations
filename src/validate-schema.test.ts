@@ -862,6 +862,33 @@ describe("validateSchema", () => {
   });
 });
 
+describe("schema errors", () => {
+  const schemas = loadSchemas();
+  const messages = (value: Record<string, unknown>) => {
+    const check = checkSchema({ value, nonStringKeys: [] }, schemas);
+    return check.status === "checked"
+      ? check.errors.map((e) => `${e.path} ${e.message}`)
+      : check;
+  };
+
+  it("give the values an enum or a const allows", () => {
+    expect(
+      messages({
+        name: "T",
+        expectations: [{ type: "contains" }],
+        "serdes/meta": [{ model: "TransformTest" }],
+      }),
+    ).toContain(
+      '/expectations/0/type must be equal to one of the allowed values: "equals", "empty"',
+    );
+    expect(
+      messages({
+        "serdes/meta": [{ model: "Collection" }, { model: "DataApp" }],
+      }),
+    ).toContain('/serdes~1meta/0/model must be equal to constant: "DataApp"');
+  });
+});
+
 // Each verdict is that of Java's DateTimeFormatter built as Metabase's
 // `u.date/parse` builds it (`src/metabase/util/date_2/parse.clj`).
 describe("time text", () => {

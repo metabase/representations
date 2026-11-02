@@ -2270,7 +2270,7 @@ describe("lint", () => {
         .map((f) => `${f.file}: ${f.severity}: ${f.message}`);
 
     const ordersError = (file: string, engine: string) =>
-      `${file}: error: reads orders (no schema) in database Sample Postgres, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema`;
+      `${file}: error: reads orders (no schema) in database Sample Postgres, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema, or, if the database has no schemas, give it a null default schema in .metabase-lint.json`;
 
     it("reports an error on an engine with schemas, whatever the default schema, and not on an unqualified SQL name", async () => {
       writeSettings({

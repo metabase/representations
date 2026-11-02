@@ -107,7 +107,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `duplicate-target` | warning | Two transforms that write the same table. On Redshift, which folds every name to lower case, targets that differ only in case are the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
 | `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |
-| `missing-incremental-table-tag` | error | An incremental native transform with no table variable (a `{{table}}` template tag) for Metabase to filter new rows into, or none for the checkpoint field's table. |
+| `missing-incremental-table-tag` | error | An incremental native transform with no template tag of type table (`{{table}}`) for Metabase to filter new rows into, or none for the checkpoint field's table. |
 | `missing-target-database` | error | A transform that is not a query transform and names no target database. |
 | `missing-target-schema` | error | A transform whose target schema is blank, or that names no schema on an engine with schemas. |
 | `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
