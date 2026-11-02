@@ -205,6 +205,7 @@ describe("entityRefsOf", () => {
     expect(
       refs("Document", {
         collection_id: COLLECTION_ID,
+        content_type: "application/json+vnd.prose-mirror",
         document: {
           type: "doc",
           content: [
@@ -248,6 +249,70 @@ describe("entityRefsOf", () => {
     ]);
   });
 
+  it("reads the content of a ProseMirror document only", () => {
+    expect(
+      refs("Document", {
+        collection_id: COLLECTION_ID,
+        content_type: "text/markdown",
+        document: {
+          type: "doc",
+          content: [
+            {
+              type: "cardEmbed",
+              attrs: { id: [{ model: "Card", id: CARD_ID }] },
+            },
+          ],
+        },
+      }),
+    ).toEqual([["collection_id", COLLECTION_ID, "Collection"]]);
+  });
+
+  it("finds a legacy MBQL 4 reference clause with no options", () => {
+    expect(
+      refs("Segment", {
+        definition: { filter: ["and", ["segment", SEGMENT_ID]] },
+      }),
+    ).toEqual([["definition.filter[1][1]", SEGMENT_ID, "Segment"]]);
+  });
+
+  it("finds a card's parameter mappings, dimension mappings and MBQL anywhere in its visualization settings", () => {
+    expect(
+      refs("Card", {
+        parameter_mappings: [{ card_id: CARD_2 }],
+        dimension_mappings: [
+          { target: ["dimension", ["metric", {}, CARD_ID]] },
+        ],
+        visualization_settings: {
+          "graph.metrics": [["segment", {}, SEGMENT_ID]],
+          column_settings: {
+            [JSON.stringify(["ref", ["measure", {}, MEASURE_ID]])]: {},
+            "not json": {},
+          },
+        },
+      }),
+    ).toEqual([
+      ["parameter_mappings[0].card_id", CARD_2, "Card"],
+      ["dimension_mappings[0].target[1][2]", CARD_ID, "Card"],
+      ['visualization_settings["graph.metrics"][0][2]', SEGMENT_ID, "Segment"],
+      [
+        `visualization_settings.column_settings[${JSON.stringify(JSON.stringify(["ref", ["measure", {}, MEASURE_ID]]))}][1][2]`,
+        MEASURE_ID,
+        "Measure",
+      ],
+    ]);
+  });
+
+  it("names the dashboard of a tab given as [dashboard, tab]", () => {
+    expect(
+      entityRefsOf("Dashboard", {
+        dashcards: [
+          { dashboard_tab_id: [DASHBOARD_ID, TAB_ID] },
+          { dashboard_tab_id: TAB_ID },
+        ],
+      }).map((r) => r.dashboard),
+    ).toEqual([DASHBOARD_ID, undefined]);
+  });
+
   it("finds the references of collections, snippets, data apps, timelines, tables and table settings", () => {
     expect(refs("Collection", { parent_id: COLLECTION_ID })).toEqual([
       ["parent_id", COLLECTION_ID, "Collection"],
@@ -287,7 +352,7 @@ describe("entityRefsOf", () => {
     ]);
   });
 
-  it("finds an action's collection, model, query and parameter cards", () => {
+  it("finds an action's collection, model, query, parameter cards and settings", () => {
     expect(
       refs("Action", {
         collection_id: COLLECTION_ID,
@@ -301,6 +366,13 @@ describe("entityRefsOf", () => {
         ],
         parameters: [{ values_source_config: { card_id: CARD_2 } }],
         parameter_mappings: [{ card_id: CARD_ID }],
+        visualization_settings: {
+          click_behavior: {
+            type: "link",
+            linkType: "question",
+            targetId: CARD_2,
+          },
+        },
       }),
     ).toEqual([
       ["collection_id", COLLECTION_ID, "Collection"],
@@ -312,6 +384,7 @@ describe("entityRefsOf", () => {
       ],
       ["parameters[0].values_source_config.card_id", CARD_2, "Card"],
       ["parameter_mappings[0].card_id", CARD_ID, "Card"],
+      ["visualization_settings.click_behavior.targetId", CARD_2, "Card"],
     ]);
   });
 
@@ -442,27 +515,61 @@ describe("reportEntityRefs", () => {
       entity_id: CARD_ID,
       collection_id: DASHBOARD_ID,
     });
-    const tabRef = doc("collections/d2.yaml", "Dashboard", {
-      entity_id: "DashDashDashDashDash2",
-      dashcards: [{ card_id: TAB_ID }],
-    });
-    expect(run([dashboard, card, tabRef])).toEqual([
+    expect(run([dashboard, card])).toEqual([
       {
         rule: "wrong-type-entity-ref",
         file: "collections/q.yaml",
         message: `collection_id ${DASHBOARD_ID} names a Dashboard, not a Collection`,
         related: ["collections/d.yaml"],
       },
+    ]);
+  });
+
+  it("reports a dashcard tab and a click behavior tab that no dashboard has", () => {
+    const other = doc("collections/d2.yaml", "Dashboard", {
+      entity_id: "DashDashDashDashDash2",
+      dashcards: [
+        {
+          dashboard_tab_id: "MissingTab00000000001",
+          visualization_settings: {
+            click_behavior: {
+              type: "link",
+              linkType: "dashboard",
+              targetId: DASHBOARD_ID,
+              tabId: [DASHBOARD_ID, "MissingTab00000000002"],
+            },
+          },
+        },
+      ],
+    });
+    expect(run([dashboard, other]).map((r) => [r.rule, r.message])).toEqual([
+      [
+        "dangling-entity-ref",
+        "dashcards[0].dashboard_tab_id MissingTab00000000001 matches no DashboardTab in the folder; Metabase fails the import on a reference it cannot resolve, and a synced repository must hold everything its content uses",
+      ],
+      [
+        "dangling-entity-ref",
+        `dashcards[0].visualization_settings.click_behavior.tabId MissingTab00000000002 matches no DashboardTab of dashboard ${DASHBOARD_ID} in the folder; Metabase fails the import on a reference it cannot resolve, and a synced repository must hold everything its content uses`,
+      ],
+    ]);
+  });
+
+  it("reports a tab given as [dashboard, tab] that belongs to another dashboard", () => {
+    const other = doc("collections/d2.yaml", "Dashboard", {
+      entity_id: "DashDashDashDashDash2",
+      dashcards: [{ dashboard_tab_id: ["DashDashDashDashDash2", TAB_ID] }],
+    });
+    expect(run([dashboard, other])).toEqual([
       {
-        rule: "wrong-type-entity-ref",
+        rule: "dangling-entity-ref",
         file: "collections/d2.yaml",
-        message: `dashcards[0].card_id ${TAB_ID} names a DashboardTab, not a Card`,
+        message: `dashcards[0].dashboard_tab_id ${TAB_ID} matches no DashboardTab of dashboard DashDashDashDashDash2; it is a tab of another dashboard`,
         related: ["collections/d.yaml"],
       },
     ]);
   });
 
-  it("allows the built-in transform tags and common.py with no file", () => {
+  it("allows the built-in transform tags with no file", () => {
     const tags = [...BUILT_IN_ENTITIES].filter(([, m]) => m === "TransformTag");
     expect(tags.length).toBe(4);
     const job = doc("transforms/transform_jobs/j.yaml", "TransformJob", {
@@ -470,9 +577,22 @@ describe("reportEntityRefs", () => {
       job_tags: tags.map(([id]) => ({ tag_id: id })),
     });
     expect(run([job])).toEqual([]);
-    expect(BUILT_IN_ENTITIES.get("cWWH9qJPvHNB3rP2vLZrK")).toBe(
-      "PythonLibrary",
-    );
+  });
+
+  it("allows a card whose source is an instance analytics card, as a card only", () => {
+    // "People" in Metabase's resources/instance_analytics.
+    const analyticsCard = "0wVIfjBJWclD0lKeABYYl";
+    expect(BUILT_IN_ENTITIES.get(analyticsCard)).toBe("Card");
+    const card = doc("collections/q.yaml", "Card", {
+      entity_id: CARD_ID,
+      dataset_query: { stages: [{ "source-card": analyticsCard }] },
+    });
+    expect(run([card])).toEqual([]);
+    const misused = doc("collections/q.yaml", "Card", {
+      entity_id: CARD_ID,
+      collection_id: analyticsCard,
+    });
+    expect(run([misused]).map((r) => r.rule)).toEqual(["dangling-entity-ref"]);
   });
 
   it("does not let a built-in id stand in for another model", () => {

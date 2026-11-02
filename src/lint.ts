@@ -573,7 +573,8 @@ function comparedTables(
 
 /**
  * Checks the references between transforms, tables and transform tests in a
- * folder of representation files. Reads only the files; needs no Metabase.
+ * folder of representation files, and that each entity id a file references
+ * names a file of the right model in the folder (`reportEntityRefs`). Reads only the files; needs no Metabase.
  * Findings are grouped by rule, in the order of `LINT_RULES`, then by file.
  * Native SQL is parsed by Metabase's own code, loaded once per process, the
  * first time a check reads SQL (`withSqlParser`).

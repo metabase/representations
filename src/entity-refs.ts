@@ -1,6 +1,10 @@
-import { type Doc, holderOf } from "./documents.js";
+import { readFileSync } from "fs";
+import { resolve } from "path";
+
+import { type Doc, holderOf, otherHolderOf } from "./documents.js";
 import type { Report } from "./findings.js";
 import { isRecord, isUnknownArray } from "./values.js";
+import { VENDOR_DIR } from "./vendor-sources.js";
 
 /**
  * An entity id a file references: where in the file (a YAML path such as
@@ -11,6 +15,11 @@ export type EntityReference = {
   path: string;
   entityId: string;
   allowedModels: readonly string[];
+  /**
+   * For a dashboard tab named as `[dashboard, tab]`, the dashboard's entity
+   * id: the tab must be one of that dashboard's tabs.
+   */
+  dashboard?: string;
 };
 
 type Body = Readonly<Record<string, unknown>>;
@@ -68,9 +77,19 @@ const eachItem = (
     ? value.flatMap((item, i) => find(item, join(path, i)))
     : [];
 
-/** The last element of a serdes path or vector reference, or the value itself. */
-const lastOf = (value: unknown): unknown =>
-  isUnknownArray(value) ? value[value.length - 1] : value;
+/**
+ * A dashboard tab reference: a tab's entity id, or `[dashboard, tab]`, which
+ * names the dashboard the tab must belong to.
+ */
+function tabRef(path: string, value: unknown): EntityReference[] {
+  if (!isUnknownArray(value)) {
+    return ref(path, value, [DASHBOARD_TAB]);
+  }
+  const [dashboard] = value;
+  return ref(path, value[value.length - 1], [DASHBOARD_TAB]).map((r) =>
+    value.length > 1 && typeof dashboard === "string" ? { ...r, dashboard } : r,
+  );
+}
 
 /**
  * The model an MBQL reference clause names (`serialization.clj`
@@ -93,10 +112,6 @@ const CLAUSE_MODELS: Readonly<Record<string, string>> = {
 function mbqlRefs(value: unknown, path: string): EntityReference[] {
   if (isUnknownArray(value)) {
     const [tag, second, third] = value;
-    // A field clause names a field, and nests no entity reference.
-    if (tag === "field" && isRecord(second) && isUnknownArray(third)) {
-      return [];
-    }
     const model = typeof tag === "string" ? CLAUSE_MODELS[tag] : undefined;
     if (model !== undefined && isRecord(second) && isPortableId(third)) {
       return [
@@ -175,7 +190,7 @@ function clickBehaviorRefs(settings: unknown, path: string): EntityReference[] {
     ...(models === undefined
       ? []
       : ref(join(at, "targetId"), behavior.targetId, models)),
-    ...ref(join(at, "tabId"), lastOf(behavior.tabId), [DASHBOARD_TAB]),
+    ...tabRef(join(at, "tabId"), behavior.tabId),
   ];
 }
 
@@ -213,11 +228,31 @@ function visualizerRefs(settings: Body, path: string): EntityReference[] {
 }
 
 /**
- * The entity references in visualization settings
- * (`serialization.clj` `import-visualization-settings`): a link card's
- * entity, the click behaviors of the card and of each column, and the cards
- * of a visualizer dashcard. Timelines are left out: Metabase drops a missing
- * one without a message.
+ * The MBQL in each `column_settings` key, a JSON-encoded reference that
+ * Metabase decodes and walks (`serialization.clj`
+ * `visualization-settings-deps`). A key that is not JSON holds none.
+ */
+function columnKeyRefs(columns: Body, path: string): EntityReference[] {
+  return Object.keys(columns).flatMap((key) => {
+    let decoded: unknown;
+    try {
+      decoded = JSON.parse(key);
+      // eslint-disable-next-line no-restricted-syntax -- wraps JSON.parse only, which reads no SQL
+    } catch {
+      return [];
+    }
+    return mbqlRefs(decoded, join(path, key));
+  });
+}
+
+/**
+ * The entity references in visualization settings, as Metabase finds their
+ * dependencies and imports them (`serialization.clj`
+ * `visualization-settings-deps`, `import-visualization-settings`): MBQL
+ * anywhere in them and in each `column_settings` key, a link card's entity,
+ * the click behaviors of the card and of each column, and the cards of a
+ * visualizer dashcard. Timelines are left out: Metabase drops a missing one
+ * without a message.
  */
 function visualizationRefs(settings: unknown, path: string): EntityReference[] {
   if (!isRecord(settings)) {
@@ -230,31 +265,34 @@ function visualizationRefs(settings: unknown, path: string): EntityReference[] {
       ? LINK_MODELS[entity.model]
       : undefined;
   const columns = settings.column_settings;
+  const columnsAt = join(path, "column_settings");
   return [
+    ...mbqlRefs(settings, path),
     ...(linkModels === undefined
       ? []
       : keyRef(entity, join(join(path, "link"), "entity"), "id", linkModels)),
     ...clickBehaviorRefs(settings, path),
     ...(isRecord(columns)
-      ? Object.entries(columns).flatMap(([key, column]) =>
-          clickBehaviorRefs(column, join(join(path, "column_settings"), key)),
-        )
+      ? [
+          ...columnKeyRefs(columns, columnsAt),
+          ...Object.entries(columns).flatMap(([key, column]) =>
+            clickBehaviorRefs(column, join(columnsAt, key)),
+          ),
+        ]
       : []),
     ...visualizerRefs(settings, path),
   ];
 }
 
 /**
- * The models a document's serdes path may name that are entity ids; a
- * database, table or field path is left out.
+ * The models a document's serdes path may end in that are not entity ids: a
+ * smart link to a database, a table or a user (`prose_mirror.clj`
+ * `smart-link-model->db-model`).
  */
-const NOT_ENTITY_PATH_MODELS = new Set([
-  "Database",
-  "Schema",
-  "Table",
-  "Field",
-  "User",
-]);
+const NOT_ENTITY_PATH_MODELS = new Set(["Database", "Table", "User"]);
+
+/** The content type of a ProseMirror document (`prose_mirror.clj` `prose-mirror-content-type`). */
+const PROSE_MIRROR = "application/json+vnd.prose-mirror";
 
 /** The entity a serdes path in a document names, by its last element. */
 function documentPathRef(value: unknown, path: string): EntityReference[] {
@@ -306,11 +344,7 @@ const dashcardRefs = (dashcard: unknown, path: string): EntityReference[] =>
           join(path, "parameter_mappings"),
           mbqlRefs,
         ),
-        ...ref(
-          join(path, "dashboard_tab_id"),
-          lastOf(dashcard.dashboard_tab_id),
-          [DASHBOARD_TAB],
-        ),
+        ...tabRef(join(path, "dashboard_tab_id"), dashcard.dashboard_tab_id),
         ...visualizationRefs(
           dashcard.visualization_settings,
           join(path, "visualization_settings"),
@@ -344,13 +378,18 @@ const AI_CONTEXT_MODELS: Readonly<Record<string, readonly string[]>> = {
  * message when missing.
  */
 export const ENTITY_REF_FINDERS: Readonly<Record<string, RefFinder>> = {
-  // card.clj `card-deps`
+  // card.clj `card-deps`. Not `result_metadata`: its `field_ref`s are field,
+  // expression and aggregation references, which hold no entity id.
   Card: (body) => [
     ...keyRef(body, "", "collection_id", COLLECTION),
     ...keyRef(body, "", "dashboard_id", ["Dashboard"]),
     ...keyRef(body, "", "document_id", ["Document"]),
     ...mbqlRefs(body.dataset_query, "dataset_query"),
     ...parameterRefs(body.parameters, "parameters"),
+    ...eachItem(body.parameter_mappings, "parameter_mappings", mbqlRefs),
+    ...eachItem(body.dimension_mappings, "dimension_mappings", (m, at) =>
+      isRecord(m) ? mbqlRefs(m.target, join(at, "target")) : [],
+    ),
     ...visualizationRefs(body.visualization_settings, "visualization_settings"),
   ],
   // dashboard.clj `dashboard-deps`
@@ -359,10 +398,13 @@ export const ENTITY_REF_FINDERS: Readonly<Record<string, RefFinder>> = {
     ...parameterRefs(body.parameters, "parameters"),
     ...eachItem(body.dashcards, "dashcards", dashcardRefs),
   ],
-  // document.clj `serdes/deserialization-dependencies "Document"`
+  // document.clj `serdes/deserialization-dependencies "Document"`: Metabase
+  // reads the content of a ProseMirror document only (`document-deps`).
   Document: (body) => [
     ...keyRef(body, "", "collection_id", COLLECTION),
-    ...documentNodeRefs(body.document, "document"),
+    ...(body.content_type === PROSE_MIRROR
+      ? documentNodeRefs(body.document, "document")
+      : []),
   ],
   // collection.clj `serdes/deserialization-dependencies "Collection"`
   Collection: collectionRef("parent_id"),
@@ -371,8 +413,9 @@ export const ENTITY_REF_FINDERS: Readonly<Record<string, RefFinder>> = {
     ...keyRef(body, "", "collection_id", COLLECTION),
     ...mbqlRefs(body.template_tags, "template_tags"),
   ],
-  // actions/models.clj `serdes/deserialization-dependencies "Action"`, and the
-  // card each parameter takes its values from (`:parameters` transform).
+  // actions/models.clj `serdes/deserialization-dependencies "Action"`, and
+  // what its `:parameters`, `:parameter_mappings` and `:visualization_settings`
+  // transforms import.
   Action: (body) => [
     ...keyRef(body, "", "collection_id", COLLECTION),
     ...keyRef(body, "", "model_id", CARD),
@@ -383,6 +426,7 @@ export const ENTITY_REF_FINDERS: Readonly<Record<string, RefFinder>> = {
     ),
     ...parameterRefs(body.parameters, "parameters"),
     ...eachItem(body.parameter_mappings, "parameter_mappings", mbqlRefs),
+    ...visualizationRefs(body.visualization_settings, "visualization_settings"),
   ],
   // data_app.clj `serdes/deserialization-dependencies "DataApp"`
   DataApp: collectionRef("collection"),
@@ -437,30 +481,41 @@ export function entityRefsOf(model: string, body: Body): EntityReference[] {
 }
 
 /**
- * The entities every Metabase instance has, which remote sync does not sync
- * (`docs/data-modeling/semantic-layer/remote-sync.md`, "What doesn't sync"),
- * by entity id, with their model: a reference to one resolves without a file.
+ * The instance analytics content Metabase EE loads at startup, by entity id,
+ * with its model: `vendor/instance-analytics.json`, which
+ * `scripts/update-instance-analytics.ts` writes from Metabase's
+ * `resources/instance_analytics` (at commit 714a9e49117).
+ */
+function instanceAnalyticsEntities(): [string, string][] {
+  const { entities } = JSON.parse(
+    readFileSync(resolve(VENDOR_DIR, "instance-analytics.json"), "utf8"),
+  ) as { entities: Record<string, string> };
+  return Object.entries(entities);
+}
+
+/**
+ * The entities a fresh Metabase instance has, by entity id, with their
+ * model: a reference to one resolves without a file, but only as that model.
  */
 export const BUILT_IN_ENTITIES: ReadonlyMap<string, string> = new Map([
   // The built-in transform tags: resources/migrations/057_update_migrations.yaml:990-994
-  // (changeSet v57.2025-08-22T00:13:00).
+  // (changeSet v57.2025-08-22T00:13:00). Remote sync does not sync them
+  // (docs/data-modeling/semantic-layer/remote-sync.md, "What doesn't sync").
   ["wYLcUPbtF7jVPO0duGGHR", "TransformTag"],
   ["dUW7nvQHQBdA0Rx0gJckI", "TransformTag"],
   ["qPGCJu7t97kn-X07_fgSj", "TransformTag"],
   ["DeeJHc81qKhD9qWINISO8", "TransformTag"],
-  // The default common.py: resources/migrations/059_update_migrations.yaml:1191-1194;
-  // `builtin-entity-id` in transforms_python/models/python_library.clj:55-58.
-  ["cWWH9qJPvHNB3rP2vLZrK", "PythonLibrary"],
+  ...instanceAnalyticsEntities(),
 ]);
 
-/** Each dashboard tab's entity id, with the dashboard file that holds it. */
-function dashboardTabs(docs: readonly Doc[]): Map<string, Doc> {
-  const tabs = new Map<string, Doc>();
+/** Each dashboard tab's entity id, with the dashboard files that hold it. */
+function dashboardTabs(docs: readonly Doc[]): Map<string, Doc[]> {
+  const tabs = new Map<string, Doc[]>();
   for (const doc of docs) {
     if (doc.model === "Dashboard" && isUnknownArray(doc.body.tabs)) {
       for (const tab of doc.body.tabs) {
         if (isRecord(tab) && typeof tab.entity_id === "string") {
-          tabs.set(tab.entity_id, doc);
+          tabs.set(tab.entity_id, [...(tabs.get(tab.entity_id) ?? []), doc]);
         }
       }
     }
@@ -470,12 +525,13 @@ function dashboardTabs(docs: readonly Doc[]): Map<string, Doc> {
 
 /**
  * Reports each entity id a file references (`entityRefsOf`) that no file of
- * an allowed model holds (`holderOf`; a dashboard tab, any dashboard's tab):
- * as `wrong-type-entity-ref` when a file of another model holds it, else as
- * `dangling-entity-ref`. A remote-sync repository must hold everything its
- * content uses (`remote-sync.md`, "Library content must be self-contained"),
- * and Metabase fails the import on a reference it cannot resolve. A built-in
- * entity (`BUILT_IN_ENTITIES`) needs no file.
+ * an allowed model holds (`holderOf`; for a dashboard tab, a tab of the
+ * dashboard the reference names, or of any dashboard when it names none): as
+ * `wrong-type-entity-ref` when a file of another model holds it
+ * (`otherHolderOf`), else as `dangling-entity-ref`. A remote-sync repository
+ * must hold everything its content uses (`remote-sync.md`, "Library content
+ * must be self-contained"), and Metabase fails the import on a reference it
+ * cannot resolve. A built-in entity (`BUILT_IN_ENTITIES`) needs no file.
  */
 export function reportEntityRefs(
   docs: readonly Doc[],
@@ -483,36 +539,43 @@ export function reportEntityRefs(
   report: Report,
 ): void {
   const tabs = dashboardTabs(docs);
-  const holds = (id: string, model: string): boolean =>
-    model === DASHBOARD_TAB
-      ? tabs.has(id)
-      : holderOf(byEntityId, id, model) !== null;
   for (const doc of docs) {
-    for (const { path, entityId, allowedModels } of entityRefsOf(
+    for (const { path, entityId, allowedModels, dashboard } of entityRefsOf(
       doc.model,
       doc.body,
     )) {
+      const tabHolders = tabs.get(entityId) ?? [];
+      const holds = (model: string): boolean =>
+        model === DASHBOARD_TAB
+          ? tabHolders.some(
+              (d) => dashboard === undefined || d.body.entity_id === dashboard,
+            )
+          : holderOf(byEntityId, entityId, model) !== null;
       const builtIn = BUILT_IN_ENTITIES.get(entityId);
       if (
-        allowedModels.some((m) => holds(entityId, m)) ||
+        allowedModels.some(holds) ||
         (builtIn !== undefined && allowedModels.includes(builtIn))
       ) {
         continue;
       }
-      const wanted = allowedModels.join(" or ");
-      const tab = tabs.get(entityId);
-      const others = [
-        ...(byEntityId.get(entityId) ?? []),
-        ...(tab === undefined
-          ? []
-          : [{ model: DASHBOARD_TAB, file: tab.file }]),
-      ];
-      if (others.length > 0) {
+      const wanted = `${allowedModels.join(" or ")}${
+        dashboard === undefined ? "" : ` of dashboard ${dashboard}`
+      }`;
+      // No file of an allowed model holds the id, so any holder is of another.
+      const other = otherHolderOf(byEntityId, entityId, allowedModels[0]);
+      if (other !== null) {
         report(
           "wrong-type-entity-ref",
           doc,
-          `${path} ${entityId} names a ${others[0].model}, not a ${wanted}`,
-          others.map((o) => o.file),
+          `${path} ${entityId} names a ${other.model}, not a ${wanted}`,
+          (byEntityId.get(entityId) ?? []).map((h) => h.file),
+        );
+      } else if (dashboard !== undefined && tabHolders.length > 0) {
+        report(
+          "dangling-entity-ref",
+          doc,
+          `${path} ${entityId} matches no ${wanted}; it is a tab of another dashboard`,
+          tabHolders.map((d) => d.file),
         );
       } else {
         report(

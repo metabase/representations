@@ -2,7 +2,7 @@
 
 Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
-This repository holds the specification and examples of the Metabase Representation Format, and the `@metabase/representations` package. The package's CLI validates a folder of YAML files against the schemas, and lints the references between transforms, tables and transform tests.
+This repository holds the specification and examples of the Metabase Representation Format, and the `@metabase/representations` package. The package's CLI validates a folder of YAML files against the schemas, and lints the references between transforms, tables and transform tests, and the entity ids each file references.
 
 ## Contents
 
@@ -45,7 +45,7 @@ The validator reads YAML as Metabase does, with a few [known differences](https:
 
 The lint is experimental. It is outside the package's semver guarantees: its rules, findings, output and options can change in any release. The `lint` command runs only with `--experimental`, and its programmatic API comes from `@metabase/representations/experimental`.
 
-Check the references between transforms, tables and transform tests in a folder, without a Metabase. The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Under `npx`, name both packages, Pyodide at the version the package pins:
+Check the references between transforms, tables and transform tests in a folder, and the entity ids each file references, without a Metabase. The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Under `npx`, name both packages, Pyodide at the version the package pins:
 
 ```sh
 npx -p @metabase/representations -p pyodide@314.0.7 representations lint --experimental --folder ./my-export
@@ -103,7 +103,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `duplicate-entity-id` | warning | Two files of one model that hold the same `entity_id`. Remote sync keeps the last in path order (the paths sorted as strings, by UTF-16 code unit) and drops the others without a message. Files of different models may share an `entity_id`. |
 | `dangling-transform-id` | error | A test whose `transform_id` matches no entity. |
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
-| `dangling-entity-ref` | error | An entity id that a file references, such as a card's `collection_id` or `source-card`, a dashcard's `card_id` or a transform job's `tag_id`, that no file in the folder holds. Metabase fails the import on a reference it cannot resolve, and a synced repository must hold everything its content uses. The built-in transform tags and the default `common.py`, which every Metabase has, need no file. Database, table, field and user references are not checked. |
+| `dangling-entity-ref` | error | An entity id that a file references, such as a card's `collection_id` or `source-card`, a dashcard's `card_id` or a transform job's `tag_id`, that no file in the folder holds. Metabase fails the import on a reference it cannot resolve, and a synced repository must hold everything its content uses. A dashboard tab given as `[dashboard, tab]` must be a tab of that dashboard. The built-in transform tags and the instance analytics content, which every Metabase has, need no file. Database, table, field and user references are not checked. |
 | `wrong-type-entity-ref` | error | An entity id that a file references, held only by a file of a model the reference cannot name, such as a card's `collection_id` that names a dashboard. |
 | `duplicate-target` | warning | Two transforms that write the same table. On Redshift, which folds every name to lower case, targets that differ only in case are the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
@@ -129,6 +129,8 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `table-qualified-column` | warning | A SQL column qualifier that names no table or alias once a transform test replaces the tables. |
 | `live-sql-input` | warning | A test's SQL input that reads a real table, so the test depends on live data. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
+
+`dangling-entity-ref` and `wrong-type-entity-ref` assume a self-contained repository, except for the content every Metabase ships with: the built-in transform tags and the instance analytics content.
 
 ## Other commands
 

@@ -39,7 +39,8 @@ Commands:
   lint               Experimental: its rules, output and options can change
                      in any release, and it runs only with --experimental.
                      Checks references between transforms, tables and
-                     transform tests; prints one JSON finding per line,
+                     transform tests, and the entity ids each file
+                     references; prints one JSON finding per line,
                      grouped by rule, then by file. Rules and finding
                      fields: ${DOCS_URL}
     --experimental     Run the experimental lint (required)
