@@ -2161,6 +2161,73 @@ describe("lint", () => {
     });
   });
 
+  describe("with two transforms that write one schema and name", () => {
+    const OTHER_DB = "Other Postgres";
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-target-"));
+      mkdirSync(join(workdir, "collections/transforms"), { recursive: true });
+      writeFileSync(
+        join(workdir, CONFIG_FILE),
+        JSON.stringify({
+          engines: { [POSTGRES_DB]: "postgres", [OTHER_DB]: "postgres" },
+          defaultSchemas: { [POSTGRES_DB]: "public", [OTHER_DB]: "public" },
+        }),
+      );
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    /** Writes a native transform on `database` that writes `transforms.same`. */
+    const writeTransform = (file: string, entityId: string, database: string) =>
+      writeFileSync(
+        join(workdir, "collections/transforms", file),
+        yaml.dump({
+          name: file,
+          entity_id: entityId,
+          creator_id: "admin@example.com",
+          source_database_id: database,
+          source: {
+            type: "query",
+            query: {
+              "lib/type": "mbql/query",
+              database,
+              stages: [
+                { "lib/type": "mbql.stage/native", native: "SELECT 1 AS x" },
+              ],
+            },
+          },
+          target: {
+            database,
+            type: "table",
+            schema: "transforms",
+            name: "same",
+          },
+          "serdes/meta": [{ model: "Transform" }],
+        }),
+      );
+
+    const duplicateTargetFiles = async () =>
+      (await lint({ folder: workdir })).findings
+        .filter((f) => f.rule === "duplicate-target")
+        .map((f) => f.file)
+        .sort();
+
+    it("finds a duplicate target only in one database", async () => {
+      writeTransform("a.yaml", "SameTargetTransform01", POSTGRES_DB);
+      writeTransform("b.yaml", "SameTargetTransform02", OTHER_DB);
+      expect(await duplicateTargetFiles()).toEqual([]);
+      writeTransform("b.yaml", "SameTargetTransform02", POSTGRES_DB);
+      expect(await duplicateTargetFiles()).toEqual([
+        "collections/transforms/a.yaml",
+        "collections/transforms/b.yaml",
+      ]);
+    });
+  });
+
   // Metabase imports `[database, null, table]` as the table with no schema; on
   // a database whose default schema is not null, that table rarely exists.
   describe("with an MBQL reference with a null schema", () => {
