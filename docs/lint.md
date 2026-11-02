@@ -62,7 +62,7 @@ Remote sync does not export Database files. In a repository it writes, the lint 
 }
 ```
 
-Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema`, `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns once on each database a transform or card writes to or reads that has no engine the lint knows, so this silence is visible: a transform's target database and the databases of its Python source tables, a card's query's database, and the databases of the tables and native queries either names. An engine that the settings file names and the lint's table of Metabase's drivers lacks, such as a third-party driver, keeps the warning; check the driver name.
+Without an engine, the lint parses the database's SQL in SQLGlot's default dialect, and the rules that depend on the engine give no finding: `missing-target-schema` (except on a blank schema), `unsupported-transform-engine`, `untestable-engine` and `null-schema-reference`. `unknown-engine` warns once on each database a transform or card writes to or reads that has no engine the lint knows, so this silence is visible: a transform's target database and the databases of its Python source tables, a card's query's database, and the databases of the tables and native queries either names. An engine that the settings file names and the lint's table of Metabase's drivers lacks, such as a third-party driver, keeps the warning; check the driver name.
 
 ### Target database
 
@@ -76,7 +76,7 @@ Such a transform has no target. No rule compares it with other tables, and the e
 
 Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase at the commit `src/engines.ts` names:
 
-- `missing-target-schema`, an error: a transform's target names no schema, on an engine with schemas. Metabase's API refuses such a transform; an import accepts it.
+- `missing-target-schema`, an error: a transform's target schema is blank, on any engine, or the target names no schema, on an engine with schemas. Metabase refuses a blank schema. Its API refuses a transform with no schema on an engine with schemas; an import accepts it.
 - `unsupported-transform-engine`, a warning: the engine cannot run that kind of transform, query or Python. Metabase's API refuses it.
 - `untestable-engine`, a warning: a test of a query transform whose query's database (`source.query.database`, not `source_database_id`) has an engine that cannot run transform tests, such as Snowflake or BigQuery. Metabase refuses every run of it.
 

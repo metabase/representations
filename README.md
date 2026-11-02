@@ -109,7 +109,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |
 | `missing-incremental-table-tag` | error | An incremental native transform with no table variable (a `{{table}}` template tag) for Metabase to filter new rows into, or none for the checkpoint field's table. |
 | `missing-target-database` | error | A transform that is not a query transform and names no target database. |
-| `missing-target-schema` | error | A transform whose target names no schema, on an engine with schemas. |
+| `missing-target-schema` | error | A transform whose target schema is blank, or that names no schema on an engine with schemas. |
 | `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
 | `unknown-engine` | warning | A database that a transform or card writes to or reads and that has no engine the lint knows, so the checks that depend on the engine give no finding. Give it under `engines` in the settings file; an engine missing from the lint's table, such as a third-party driver, keeps the warning. |
 | `empty-native-query` | warning | A transform whose native query is empty or only whitespace. Metabase accepts it, and every run fails. |

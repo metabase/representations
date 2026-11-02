@@ -1427,6 +1427,71 @@ describe("lint", () => {
         ]);
       },
     );
+
+    describe("on a transform as Metabase writes and pulls it", () => {
+      const NATIVE = "collections/transforms/native_transform.yaml";
+
+      const findingsIn = async (file: string) =>
+        (await findings(workdir))
+          .filter((f) => f.file === file)
+          .map((f) => `${f.severity} ${f.rule}: ${f.message}`);
+
+      const errorsIn = async (file: string) =>
+        (await findingsIn(file)).filter((f) => f.startsWith("error "));
+
+      it("a blank target schema on an engine without schemas is an error", async () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        writeFileSync(
+          join(workdir, CONFIG_FILE),
+          JSON.stringify({
+            defaultSchemas: {
+              "Sample Database": "PUBLIC",
+              [POSTGRES_DB]: "public",
+              Shop: null,
+            },
+            engines: { "Sample Database": "h2", Shop: "mysql" },
+          }),
+        );
+        const file = "collections/transforms/shop_report.yaml";
+        const original: unknown = yaml.load(
+          readFileSync(join(EXAMPLES, NATIVE), "utf8"),
+        );
+        if (
+          !isRecord(original) ||
+          !isRecord(original.source) ||
+          !isRecord(original.source.query)
+        ) {
+          throw new Error(`${NATIVE} has no query`);
+        }
+        const { source, query } = {
+          source: original.source,
+          query: original.source.query,
+        };
+        const writeShopTransform = (target: Record<string, unknown>) =>
+          writeFileSync(
+            join(workdir, file),
+            yaml.dump({
+              ...original,
+              name: "Shop Report",
+              entity_id: "ShopReportTransform01",
+              source_database_id: "Shop",
+              source: { ...source, query: { ...query, database: "Shop" } },
+              target: {
+                database: "Shop",
+                type: "table",
+                name: "shop_report",
+                ...target,
+              },
+            }),
+          );
+        writeShopTransform({});
+        expect(await errorsIn(file)).toEqual([]);
+        writeShopTransform({ schema: "" });
+        expect(await errorsIn(file)).toEqual([
+          expect.stringMatching(/^error missing-target-schema: /),
+        ]);
+      });
+    });
   });
 
   describe("default schemas", () => {

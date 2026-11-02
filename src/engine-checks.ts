@@ -21,10 +21,11 @@ const isBlank = (schema: string | null | undefined): boolean =>
   schema === undefined || schema === null || isJavaBlank(schema);
 
 /**
- * Reports each transform whose target names no schema, or a blank one, on a
- * database whose engine has schemas. Metabase's API refuses such a transform;
- * an import accepts it. A transform with no target database has nothing to
- * check.
+ * Reports each transform whose target schema is blank, on any engine, and
+ * each whose target names no schema, or a null one, on a database whose
+ * engine has schemas. Metabase refuses a blank schema everywhere; its API
+ * refuses no schema on an engine with schemas, and an import accepts it. A
+ * transform with no target database has nothing to check.
  */
 export function reportMissingTargetSchemas(
   docs: readonly Doc[],
@@ -36,11 +37,15 @@ export function reportMissingTargetSchemas(
     if (database === null) {
       continue;
     }
+    const { schema } = transform.body.target;
     const engine = engineOf(database);
-    if (
-      engineFacts(engine)?.schemas === true &&
-      isBlank(transform.body.target.schema)
-    ) {
+    if (typeof schema === "string" && isJavaBlank(schema)) {
+      report(
+        "missing-target-schema",
+        transform,
+        `the target's schema is blank, which Metabase refuses on any database. Name the schema, or remove the key if database ${database} has no schemas`,
+      );
+    } else if (engineFacts(engine)?.schemas === true && isBlank(schema)) {
       report(
         "missing-target-schema",
         transform,
