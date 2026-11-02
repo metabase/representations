@@ -20,7 +20,8 @@ export type TestTables = { file: string; tables: readonly TableKey[] };
 
 /**
  * A database whose default schema the lint needs: the first file that needs
- * it, and why, as a sentence whose subject is the file.
+ * it, and why, as a sentence whose subject is the file and which gives each
+ * table and schema name as a JSON string.
  */
 export type DefaultSchemaWanted = {
   database: string;
@@ -28,7 +29,11 @@ export type DefaultSchemaWanted = {
   reason: string;
 };
 
-/** The lint needs default schemas that neither the settings nor the engine give. */
+/**
+ * The lint needs default schemas that neither the settings nor the engine
+ * give. The message gives each name from the folder as a JSON string, so that
+ * no control character in a name reaches the terminal or a CI log.
+ */
 export class MissingDefaultSchemasError extends LintSetupError {
   override name = "MissingDefaultSchemasError";
   readonly databases: readonly DefaultSchemaWanted[];
@@ -39,7 +44,8 @@ export class MissingDefaultSchemasError extends LintSetupError {
         `The default schema of ${databases.length} database(s) is unknown: the schema an unqualified table name resolves to. No check ran.`,
         `Give it in ${CONFIG_FILE} at the root of the folder, as {"defaultSchemas": {"<database>": "<schema>"}} (null for a database with no schemas).`,
         ...databases.map(
-          ({ database, file, reason }) => `  ${database}: ${file} ${reason}`,
+          ({ database, file, reason }) =>
+            `  ${JSON.stringify(database)}: ${JSON.stringify(file)} ${reason}`,
         ),
       ].join("\n"),
     );
@@ -65,7 +71,7 @@ export function defaultSchemaNeed(
   if (unqualified !== undefined) {
     return {
       file: unqualified.file,
-      reason: `names ${unqualified.name} without a schema, so it resolves to the default schema`,
+      reason: `names ${JSON.stringify(unqualified.name)} without a schema, so it resolves to the default schema`,
     };
   }
   for (const { file, tables } of testTables) {
@@ -78,7 +84,7 @@ export function defaultSchemaNeed(
       if (b !== undefined) {
         return {
           file,
-          reason: `names ${a.name} in schemas ${a.schema} and ${b.schema} in one transform test, which only the default schema tells apart`,
+          reason: `names ${JSON.stringify(a.name)} in schemas ${JSON.stringify(a.schema)} and ${JSON.stringify(b.schema)} in one transform test, which only the default schema tells apart`,
         };
       }
     }

@@ -40,7 +40,7 @@ describe("readSettingsFile", () => {
     [
       "an unknown key",
       '{"defaultSchema": {}}',
-      "has unknown keys: defaultSchema",
+      'has unknown keys: "defaultSchema"',
     ],
     [
       "a default schema that is not a string or null",

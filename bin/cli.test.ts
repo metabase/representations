@@ -443,7 +443,7 @@ describe("cli", () => {
         expect(refused.stderr.trimEnd().split("\n")).toEqual([
           "The default schema of 1 database(s) is unknown: the schema an unqualified table name resolves to. No check ran.",
           `Give it in .metabase-lint.json at the root of the folder, as {"defaultSchemas": {"<database>": "<schema>"}} (null for a database with no schemas).`,
-          "  Sample Postgres: collections/transforms/daily_order_summary.yaml names orders without a schema, so it resolves to the default schema",
+          '  "Sample Postgres": "collections/transforms/daily_order_summary.yaml" names "orders" without a schema, so it resolves to the default schema',
           'Or pass --default-schema "<database>=<schema>" for each, "<database>=" for no schemas.',
         ]);
         expect(refused.exitCode).toBe(2);
@@ -623,6 +623,59 @@ describe("cli", () => {
           ]).stdout;
         expect(lintWith("public")).toContain("transform-cycle");
         expect(lintWith("")).not.toContain("transform-cycle");
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "prints no workflow command and no ESC byte on stderr from names in the folder",
+      () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const daily = join(
+          workdir,
+          "collections/transforms/daily_order_summary.yaml",
+        );
+        const text = readFileSync(daily, "utf8");
+        expect(text).toContain("Sample Postgres");
+        writeFileSync(
+          daily,
+          text.replaceAll(
+            "Sample Postgres",
+            '"Sample Postgres\\n::error title=x::pwned"',
+          ),
+        );
+        writeFileSync(
+          join(workdir, "collections/transforms/daily_order_summary_esc.yaml"),
+          text
+            .replace("7XqqzlsonSq4KFyOvtrAm", "DailyOrderSummaryEsc0")
+            .replaceAll("Sample Postgres", '"Esc \\e]0;x\\a"'),
+        );
+        const names = runCli(["lint", "--experimental", "--folder", workdir]);
+        expect(names.stderr).toContain("default schema");
+        expect(names.exitCode).toBe(2);
+
+        cpSync(EXAMPLES, join(workdir, "keys"), { recursive: true });
+        writeFileSync(
+          join(workdir, "keys", ".metabase-lint.json"),
+          JSON.stringify({ "k\n::error title=x::pwned\u001b]0;x\u0007": 1 }),
+        );
+        const keys = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          join(workdir, "keys"),
+        ]);
+        expect(keys.stderr).toContain("has unknown keys");
+        expect(keys.exitCode).toBe(2);
+
+        const unsafe = ({ stderr }: RunResult) => ({
+          workflowCommand: /(^|[\n\r])::/.test(stderr),
+          esc: stderr.includes("\u001b"),
+        });
+        expect({ names: unsafe(names), keys: unsafe(keys) }).toEqual({
+          names: { workflowCommand: false, esc: false },
+          keys: { workflowCommand: false, esc: false },
+        });
       },
       LINT_PROCESS_TIMEOUT_MS,
     );

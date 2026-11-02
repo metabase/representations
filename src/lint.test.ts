@@ -1642,7 +1642,7 @@ describe("lint", () => {
 
     const stop = {
       stops: [
-        `${DATABASE}: names account in schemas a and b in one transform test, which only the default schema tells apart`,
+        `${DATABASE}: names "account" in schemas "a" and "b" in one transform test, which only the default schema tells apart`,
       ],
     };
 

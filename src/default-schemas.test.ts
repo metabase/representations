@@ -63,7 +63,7 @@ describe("defaultSchemaNeed", () => {
     ).toEqual({
       file: "a.yaml",
       reason:
-        "names PEOPLE without a schema, so it resolves to the default schema",
+        'names "PEOPLE" without a schema, so it resolves to the default schema',
     });
   });
 
@@ -72,7 +72,7 @@ describe("defaultSchemaNeed", () => {
     expect(defaultSchemaNeed(names, [inTest(names)])).toEqual({
       file: "collections/test.yaml",
       reason:
-        "names orders in schemas A and b in one transform test, which only the default schema tells apart",
+        'names "orders" in schemas "A" and "b" in one transform test, which only the default schema tells apart',
     });
   });
 
@@ -217,13 +217,13 @@ describe("resolveDefaultSchemas", () => {
           database: "Legacy",
           file: "legacy_test.yaml",
           reason:
-            "names t in schemas a and b in one transform test, which only the default schema tells apart",
+            'names "t" in schemas "a" and "b" in one transform test, which only the default schema tells apart',
         },
         {
           database: "Warehouse",
           file: "Warehouse.yaml",
           reason:
-            "names orders without a schema, so it resolves to the default schema",
+            'names "orders" without a schema, so it resolves to the default schema',
         },
       ]);
     }

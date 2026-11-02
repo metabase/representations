@@ -35,7 +35,8 @@ const SETTINGS_KEYS = new Set(["defaultSchemas", "engines"]);
  * The settings `CONFIG_FILE` in `folder` gives; none when there is no such
  * file. Throws a `LintSetupError` when the file is not a JSON object of the
  * form `{"defaultSchemas": {"<database>": "<schema>" | null}, "engines":
- * {"<database>": "<engine>"}}`, each key optional.
+ * {"<database>": "<engine>"}}`, each key optional. The error's message gives
+ * each key and parser message from the file as a JSON string.
  */
 export function readSettingsFile(folder: string): LintSettings {
   const path = resolve(folder, CONFIG_FILE);
@@ -48,7 +49,7 @@ export function readSettingsFile(folder: string): LintSettings {
     // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (e) {
     throw new LintSetupError(
-      `${CONFIG_FILE} does not parse as JSON: ${errorMessage(e)}`,
+      `${CONFIG_FILE} does not parse as JSON: ${JSON.stringify(errorMessage(e))}`,
     );
   }
   if (!isRecord(settings)) {
@@ -59,7 +60,7 @@ export function readSettingsFile(folder: string): LintSettings {
   );
   if (unknownKeys.length > 0) {
     throw new LintSetupError(
-      `${CONFIG_FILE} has unknown keys: ${unknownKeys.join(", ")}`,
+      `${CONFIG_FILE} has unknown keys: ${unknownKeys.map((key) => JSON.stringify(key)).join(", ")}`,
     );
   }
   const { defaultSchemas = {}, engines = {} } = settings;
