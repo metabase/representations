@@ -43,11 +43,18 @@ const WIDGETS_SEGMENT_ENTITY_ID = "WarehouseWidgets00001";
 const PRODUCT_COUNT_MEASURE_ENTITY_ID = "WarehouseProducts0001";
 const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
 
+/** A finding the lint reports: its rule, its file, and its related files, none when not given. */
+export type ExpectedFinding = {
+  rule: LintRule;
+  file: string;
+  related?: string[];
+};
+
 export type Mutation = {
   name: string;
   description: string;
-  /** The rules the lint reports on the mutated tree; the clean tree reports none. */
-  rules: LintRule[];
+  /** The findings the lint reports on the mutated tree, each once; the clean tree reports none. */
+  findings: ExpectedFinding[];
   apply: (folder: string) => void;
 };
 
@@ -203,7 +210,13 @@ export const MUTATIONS: Mutation[] = [
     name: "implicit-join",
     description:
       "An MBQL transform breaks out by a product field through orders.product_id; its test gives orders that column, and has no products input.",
-    rules: ["missing-input"],
+    findings: [
+      {
+        rule: "missing-input",
+        file: MONTHLY_ORDER_SUMMARY_TEST,
+        related: [MONTHLY_ORDER_SUMMARY],
+      },
+    ],
     apply: (folder) => {
       edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
         doc.source.query.stages[0].breakout.push([
@@ -225,7 +238,13 @@ export const MUTATIONS: Mutation[] = [
     name: "segment-filter",
     description:
       "An MBQL transform filters by a segment on products; its test has no products input.",
-    rules: ["missing-input"],
+    findings: [
+      {
+        rule: "missing-input",
+        file: MONTHLY_ORDER_SUMMARY_TEST,
+        related: [MONTHLY_ORDER_SUMMARY],
+      },
+    ],
     apply: (folder) => {
       writeProductsDefinition(
         folder,
@@ -254,7 +273,13 @@ export const MUTATIONS: Mutation[] = [
     name: "measure-aggregation",
     description:
       "An MBQL transform aggregates a measure on products; its test has no products input.",
-    rules: ["missing-input"],
+    findings: [
+      {
+        rule: "missing-input",
+        file: MONTHLY_ORDER_SUMMARY_TEST,
+        related: [MONTHLY_ORDER_SUMMARY],
+      },
+    ],
     apply: (folder) => {
       writeProductsDefinition(
         folder,
@@ -280,7 +305,7 @@ export const MUTATIONS: Mutation[] = [
     name: "absent-source",
     description:
       "An MBQL transform filters by a segment that is not in the folder, so its reads are unknown.",
-    rules: ["reads-not-checked"],
+    findings: [{ rule: "reads-not-checked", file: MONTHLY_ORDER_SUMMARY }],
     apply: (folder) =>
       edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
         doc.source.query.stages[0].filters = [
@@ -292,7 +317,7 @@ export const MUTATIONS: Mutation[] = [
     name: "self-source-card",
     description:
       "An MBQL transform reads a card that uses itself as its source, so its reads are unknown.",
-    rules: ["reads-not-checked"],
+    findings: [{ rule: "reads-not-checked", file: MONTHLY_ORDER_SUMMARY }],
     apply: (folder) => {
       edit(folder, ORDERS_MODEL, (doc) => {
         const [stage] = doc.dataset_query.stages;
@@ -310,7 +335,18 @@ export const MUTATIONS: Mutation[] = [
     name: "unqualified-input",
     description:
       "A test's input drops the schema of a table its transform reads with one; Metabase never matches the two.",
-    rules: ["missing-input", "unused-input"],
+    findings: [
+      {
+        rule: "missing-input",
+        file: TOP_CATEGORIES_TEST,
+        related: [TOP_CATEGORIES],
+      },
+      {
+        rule: "unused-input",
+        file: TOP_CATEGORIES_TEST,
+        related: [TOP_CATEGORIES],
+      },
+    ],
     apply: (folder) =>
       edit(folder, TOP_CATEGORIES_TEST, (doc) => {
         delete doc.inputs[0].table.schema;
@@ -320,7 +356,18 @@ export const MUTATIONS: Mutation[] = [
     name: "qualified-input",
     description:
       "A test's input names a schema other than the default for a table its transform reads unqualified; Metabase never matches the two.",
-    rules: ["missing-input", "unused-input"],
+    findings: [
+      {
+        rule: "missing-input",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+      {
+        rule: "unused-input",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+    ],
     apply: (folder) =>
       edit(folder, DAILY_ORDER_SUMMARY_TEST, (doc) => {
         doc.inputs[0].table.schema = "OTHER";
@@ -330,7 +377,13 @@ export const MUTATIONS: Mutation[] = [
     name: "python-transform-test",
     description:
       "A test is written for a Python transform, which Metabase cannot test.",
-    rules: ["untestable-transform"],
+    findings: [
+      {
+        rule: "untestable-transform",
+        file: PYTHON_TEST,
+        related: [PYTHON_HELLO_WORLD],
+      },
+    ],
     apply: (folder) => {
       cpSync(join(folder, DAILY_ORDER_SUMMARY_TEST), join(folder, PYTHON_TEST));
       edit(folder, PYTHON_TEST, (doc) => {
@@ -343,7 +396,7 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "duplicate-input",
     description: "A test declares two inputs for the same table.",
-    rules: ["duplicate-input"],
+    findings: [{ rule: "duplicate-input", file: DAILY_ORDER_SUMMARY_TEST }],
     apply: (folder) =>
       addSqlInput(
         folder,
@@ -356,7 +409,13 @@ export const MUTATIONS: Mutation[] = [
     name: "expectation-reads-other-table",
     description:
       "An expectation's SQL reads a table that is neither the output nor an input.",
-    rules: ["expectation-reads-other-table"],
+    findings: [
+      {
+        rule: "expectation-reads-other-table",
+        file: MONTHLY_ORDER_SUMMARY_TEST,
+        related: [MONTHLY_ORDER_SUMMARY],
+      },
+    ],
     apply: (folder) =>
       edit(folder, MONTHLY_ORDER_SUMMARY_TEST, (doc) => {
         doc.expectations[0].sql =
@@ -367,7 +426,7 @@ export const MUTATIONS: Mutation[] = [
     name: "missing-snippet",
     description:
       "A native transform uses a snippet that is not in the folder, so its reads are unknown.",
-    rules: ["reads-not-checked"],
+    findings: [{ rule: "reads-not-checked", file: PRODUCT_REVENUE_REPORT }],
     apply: (folder) =>
       editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
         sql.replace("GROUP BY", "{{snippet: No Such Snippet}}\nGROUP BY"),
@@ -376,7 +435,13 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "dangling-transform-id",
     description: "A test's transform_id names no entity.",
-    rules: ["dangling-transform-id"],
+    findings: [
+      {
+        rule: "dangling-transform-id",
+        file: CATEGORY_TOTALS_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.transform_id = "MissingTransform00000";
@@ -385,7 +450,13 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "wrong-type-transform-id",
     description: "A test's transform_id names a transform tag.",
-    rules: ["wrong-type-transform-id"],
+    findings: [
+      {
+        rule: "wrong-type-transform-id",
+        file: CATEGORY_TOTALS_TEST,
+        related: ["transforms/transform_tags/daily.yaml"],
+      },
+    ],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.transform_id = DAILY_TAG_ENTITY_ID;
@@ -395,7 +466,28 @@ export const MUTATIONS: Mutation[] = [
     name: "copied-transform",
     description:
       "A transform file is copied without a new entity_id or target.",
-    rules: ["duplicate-entity-id", "duplicate-target"],
+    findings: [
+      {
+        rule: "duplicate-entity-id",
+        file: PRODUCT_REVENUE_REPORT,
+        related: ["collections/transforms/native_transform_copy.yaml"],
+      },
+      {
+        rule: "duplicate-entity-id",
+        file: "collections/transforms/native_transform_copy.yaml",
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+      {
+        rule: "duplicate-target",
+        file: PRODUCT_REVENUE_REPORT,
+        related: ["collections/transforms/native_transform_copy.yaml"],
+      },
+      {
+        rule: "duplicate-target",
+        file: "collections/transforms/native_transform_copy.yaml",
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
     apply: (folder) =>
       cpSync(
         join(folder, PRODUCT_REVENUE_REPORT),
@@ -406,7 +498,13 @@ export const MUTATIONS: Mutation[] = [
     name: "transform-cycle",
     description:
       "Product Revenue Report reads Top Categories, which reads it; its test gets the new input.",
-    rules: ["transform-cycle"],
+    findings: [
+      {
+        rule: "transform-cycle",
+        file: PRODUCT_REVENUE_REPORT,
+        related: [TOP_CATEGORIES],
+      },
+    ],
     apply: (folder) => {
       editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
         sql.replace(
@@ -426,7 +524,13 @@ export const MUTATIONS: Mutation[] = [
     name: "transform-collection",
     description:
       "A transform is put in a collection of the default namespace, where Metabase refuses it.",
-    rules: ["transform-collection"],
+    findings: [
+      {
+        rule: "transform-collection",
+        file: PRODUCT_REVENUE_REPORT,
+        related: ["collections/main/queries.yaml"],
+      },
+    ],
     apply: (folder) =>
       edit(folder, PRODUCT_REVENUE_REPORT, (doc) => {
         doc.collection_id = QUERIES_COLLECTION_ENTITY_ID;
@@ -436,7 +540,9 @@ export const MUTATIONS: Mutation[] = [
     name: "missing-incremental-table-tag",
     description:
       "A native transform writes an incremental table, but its query has no template tag of type table for the range filter.",
-    rules: ["missing-incremental-table-tag"],
+    findings: [
+      { rule: "missing-incremental-table-tag", file: PRODUCT_REVENUE_REPORT },
+    ],
     apply: (folder) =>
       edit(folder, PRODUCT_REVENUE_REPORT, (doc) => {
         doc.target.type = "table-incremental";
@@ -455,7 +561,7 @@ export const MUTATIONS: Mutation[] = [
     name: "missing-target-database",
     description:
       "A Python transform's target names no database, which Metabase requires for a Python transform.",
-    rules: ["missing-target-database"],
+    findings: [{ rule: "missing-target-database", file: PYTHON_HELLO_WORLD }],
     apply: (folder) =>
       edit(folder, PYTHON_HELLO_WORLD, (doc) => {
         delete doc.target.database;
@@ -465,7 +571,7 @@ export const MUTATIONS: Mutation[] = [
     name: "missing-target-schema",
     description:
       "A transform's target names no schema, on a Postgres database, which has schemas.",
-    rules: ["missing-target-schema"],
+    findings: [{ rule: "missing-target-schema", file: PYTHON_HELLO_WORLD }],
     apply: (folder) =>
       edit(folder, PYTHON_HELLO_WORLD, (doc) => {
         delete doc.target.schema;
@@ -475,7 +581,9 @@ export const MUTATIONS: Mutation[] = [
     name: "unsupported-transform-engine",
     description:
       "Python Hello World moves to an H2 database, whose driver runs no Python transform.",
-    rules: ["unsupported-transform-engine"],
+    findings: [
+      { rule: "unsupported-transform-engine", file: PYTHON_HELLO_WORLD },
+    ],
     apply: (folder) => {
       writeDatabase(folder, "Legacy", "h2");
       moveTransform(folder, PYTHON_HELLO_WORLD, "Legacy");
@@ -485,7 +593,23 @@ export const MUTATIONS: Mutation[] = [
     name: "untestable-engine",
     description:
       "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test. Snowflake reads its unquoted columns in upper case, so its test's lower-case columns miss them.",
-    rules: ["input-missing-read-column", "untestable-engine"],
+    findings: [
+      {
+        rule: "untestable-engine",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+      {
+        rule: "input-missing-read-column",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+      {
+        rule: "input-missing-read-column",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+    ],
     apply: (folder) => {
       writeDatabase(folder, "Warehouse", "snowflake", {
         default_schema: "PUBLIC",
@@ -496,7 +620,13 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "missing-input",
     description: "A test drops the input for a table its transform reads.",
-    rules: ["missing-input"],
+    findings: [
+      {
+        rule: "missing-input",
+        file: CATEGORY_TOTALS_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.inputs = doc.inputs.filter(
@@ -507,7 +637,13 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "unused-input",
     description: "A test has an input for a table its transform does not read.",
-    rules: ["unused-input"],
+    findings: [
+      {
+        rule: "unused-input",
+        file: TOP_CATEGORIES_TEST,
+        related: [TOP_CATEGORIES],
+      },
+    ],
     apply: (folder) =>
       addSqlInput(
         folder,
@@ -520,7 +656,18 @@ export const MUTATIONS: Mutation[] = [
     name: "table-name-typo",
     description:
       "A transform misspells a table it reads, so its test's input no longer matches.",
-    rules: ["missing-input", "unused-input"],
+    findings: [
+      {
+        rule: "missing-input",
+        file: CATEGORY_TOTALS_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+      {
+        rule: "unused-input",
+        file: CATEGORY_TOTALS_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
     apply: (folder) =>
       editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
         sql.replace("FROM orders o", "FROM ordres o"),
@@ -530,7 +677,7 @@ export const MUTATIONS: Mutation[] = [
     name: "row-columns-mismatch",
     description:
       "A test input's row misspells a declared column, so it lacks that column and carries an undeclared one.",
-    rules: ["row-columns-mismatch"],
+    findings: [{ rule: "row-columns-mismatch", file: CATEGORY_TOTALS_TEST }],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         const row = doc.inputs[0].rows[1];
@@ -541,7 +688,9 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "duplicate-expectation-name",
     description: "A test's two expectations share a name.",
-    rules: ["duplicate-expectation-name"],
+    findings: [
+      { rule: "duplicate-expectation-name", file: CATEGORY_TOTALS_TEST },
+    ],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.expectations[1].name = doc.expectations[0].name;
@@ -550,7 +699,7 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "no-expectations",
     description: "A test has no expectations, so it checks nothing.",
-    rules: ["no-expectations"],
+    findings: [{ rule: "no-expectations", file: TOP_CATEGORIES_TEST }],
     apply: (folder) =>
       edit(folder, TOP_CATEGORIES_TEST, (doc) => {
         doc.expectations = [];
@@ -560,7 +709,13 @@ export const MUTATIONS: Mutation[] = [
     name: "input-missing-read-column",
     description:
       "A test's orders input drops product_id, a column its transform joins on.",
-    rules: ["input-missing-read-column"],
+    findings: [
+      {
+        rule: "input-missing-read-column",
+        file: CATEGORY_TOTALS_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         const orders = doc.inputs[0];
@@ -576,7 +731,13 @@ export const MUTATIONS: Mutation[] = [
     name: "upstream-column-mismatch",
     description:
       "Product Revenue Report renames its total_revenue column; the test of Top Categories, which reads it, keeps the old name.",
-    rules: ["upstream-column-mismatch"],
+    findings: [
+      {
+        rule: "upstream-column-mismatch",
+        file: TOP_CATEGORIES_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
     apply: (folder) =>
       editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
         sql.replace("AS total_revenue", "AS revenue"),
@@ -586,7 +747,13 @@ export const MUTATIONS: Mutation[] = [
     name: "table-qualified-column",
     description:
       "Top Categories qualifies a column by the name of the table it reads, outside the default schema, with no alias; Metabase's test rewrite leaves the qualifier naming no table.",
-    rules: ["table-qualified-column"],
+    findings: [
+      {
+        rule: "table-qualified-column",
+        file: TOP_CATEGORIES_TEST,
+        related: [TOP_CATEGORIES],
+      },
+    ],
     apply: (folder) =>
       editNativeSql(folder, TOP_CATEGORIES, (sql) =>
         sql.replace(
@@ -599,7 +766,9 @@ export const MUTATIONS: Mutation[] = [
     name: "expectation-qualified-column",
     description:
       "An expectation qualifies a column by the bare name of the transform's target, which it reads with its schema; Metabase's test rewrite leaves the qualifier naming no table.",
-    rules: ["expectation-qualified-column"],
+    findings: [
+      { rule: "expectation-qualified-column", file: DAILY_ORDER_SUMMARY_TEST },
+    ],
     apply: (folder) =>
       edit(folder, DAILY_ORDER_SUMMARY_TEST, (doc) => {
         doc.expectations[1].sql =
@@ -610,7 +779,7 @@ export const MUTATIONS: Mutation[] = [
     name: "live-sql-input",
     description:
       "A test's SQL input reads the real products table, so the test depends on live data.",
-    rules: ["live-sql-input"],
+    findings: [{ rule: "live-sql-input", file: CATEGORY_TOTALS_TEST }],
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.inputs[1].sql = "SELECT id, category FROM products";
@@ -620,7 +789,7 @@ export const MUTATIONS: Mutation[] = [
     name: "null-schema-reference",
     description:
       "Product Summary reads products by a reference with a null schema, on a Postgres database, so it names a table that does not exist.",
-    rules: ["null-schema-reference"],
+    findings: [{ rule: "null-schema-reference", file: PRODUCT_SUMMARY }],
     apply: (folder) =>
       edit(folder, PRODUCT_SUMMARY, (doc) => {
         doc.source.query.stages[0]["source-table"] = [
@@ -634,7 +803,12 @@ export const MUTATIONS: Mutation[] = [
     name: "skipped-by-metabase",
     description:
       "A YAML file of notes with no serdes/meta sits beside the transforms; Metabase skips it.",
-    rules: ["skipped-by-metabase"],
+    findings: [
+      {
+        rule: "skipped-by-metabase",
+        file: "collections/transforms/notes.yaml",
+      },
+    ],
     apply: (folder) =>
       write(folder, "collections/transforms/notes.yaml", { name: "Notes" }),
   },
@@ -642,7 +816,7 @@ export const MUTATIONS: Mutation[] = [
     name: "duplicate-yaml-key",
     description:
       "A transform file names its name twice, with the same value; Metabase keeps the last.",
-    rules: ["duplicate-yaml-key"],
+    findings: [{ rule: "duplicate-yaml-key", file: TOP_CATEGORIES }],
     apply: (folder) => {
       const path = join(folder, TOP_CATEGORIES);
       const name = readFileSync(path, "utf8")
@@ -655,7 +829,7 @@ export const MUTATIONS: Mutation[] = [
     name: "invalid-utf8",
     description:
       "A transform file holds a comment in Latin-1, which is not valid UTF-8.",
-    rules: ["invalid-utf8"],
+    findings: [{ rule: "invalid-utf8", file: TOP_CATEGORIES }],
     apply: (folder) =>
       appendFileSync(
         join(folder, TOP_CATEGORIES),
@@ -666,7 +840,7 @@ export const MUTATIONS: Mutation[] = [
     name: "unknown-engine",
     description:
       "Python Hello World moves to a database whose engine is a driver the lint does not know.",
-    rules: ["unknown-engine"],
+    findings: [{ rule: "unknown-engine", file: PYTHON_HELLO_WORLD }],
     apply: (folder) => {
       writeDatabase(folder, "Legacy", "third-party-driver");
       moveTransform(folder, PYTHON_HELLO_WORLD, "Legacy");
@@ -675,13 +849,13 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "empty-native-query",
     description: "A native transform's query is only whitespace.",
-    rules: ["empty-native-query"],
+    findings: [{ rule: "empty-native-query", file: MONTHLY_SALES_SUMMARY }],
     apply: (folder) => editNativeSql(folder, MONTHLY_SALES_SUMMARY, () => " "),
   },
   {
     name: "invalid-test",
     description: "A test has an expectation type the schema does not allow.",
-    rules: ["schema"],
+    findings: [{ rule: "schema", file: TOP_CATEGORIES_TEST }],
     apply: (folder) =>
       edit(folder, TOP_CATEGORIES_TEST, (doc) => {
         doc.expectations[0].type = "contains";
@@ -691,7 +865,7 @@ export const MUTATIONS: Mutation[] = [
     name: "broken-table-file",
     description:
       "A table file has no name and a number for its schema; the lint must not count it as a table.",
-    rules: ["schema"],
+    findings: [{ rule: "schema", file: ORDERS_TABLE_FILE }],
     apply: (folder) =>
       write(folder, ORDERS_TABLE_FILE, {
         db_id: DB,
@@ -703,7 +877,9 @@ export const MUTATIONS: Mutation[] = [
     name: "refused-tests",
     description:
       "Four tests each break in a different way that Metabase refuses when the test is created.",
-    rules: [...REFUSED_TEST_RULES],
+    get findings() {
+      return REFUSED_TEST_RULES.flatMap((rule) => findMutation(rule).findings);
+    },
     // The mutation of each rule has the rule's name.
     apply: (folder) => {
       for (const rule of REFUSED_TEST_RULES) {

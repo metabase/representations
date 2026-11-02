@@ -27,6 +27,7 @@ import type { LintFinding } from "./findings.js";
 import { lint, transformReads } from "./lint.js";
 import {
   edit,
+  type ExpectedFinding,
   MUTATIONS,
   mutateExamples,
   write,
@@ -173,7 +174,9 @@ describe("lint", () => {
   });
 
   it("has a mutation that reports each error rule", async () => {
-    const mutated = new Set(MUTATIONS.flatMap((m) => m.rules));
+    const mutated = new Set(
+      MUTATIONS.flatMap((m) => m.findings.map((f) => f.rule)),
+    );
     expect(
       LINT_RULES.filter(
         (rule) => LINT_RULE_SEVERITY[rule] === "error" && !mutated.has(rule),
@@ -219,11 +222,19 @@ describe("lint", () => {
     const findings = async (folder: string): Promise<LintFinding[]> =>
       (await lint({ folder })).findings;
 
-    it.each(MUTATIONS.map((m) => [m.name, m.rules]))(
-      "reports %s as %p",
-      async (name, expected) => {
-        mutateExamples(name, workdir);
-        expect(rules(await findings(workdir))).toEqual([...expected].sort());
+    /** `found` as rule, file and related files, in a fixed order. */
+    const placed = (found: readonly ExpectedFinding[]) =>
+      found
+        .map(({ rule, file, related = [] }) => ({ rule, file, related }))
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+
+    it.each(MUTATIONS.map((m) => [m.name]))(
+      "reports %s on each finding's file, with its related files",
+      async (name) => {
+        const mutation = mutateExamples(name, workdir);
+        expect(placed(await findings(workdir))).toEqual(
+          placed(mutation.findings),
+        );
       },
     );
 
@@ -233,10 +244,10 @@ describe("lint", () => {
         (f) => f.severity === "error",
       );
       expect(errors.map((f): string => f.rule).sort()).toEqual(
-        [...mutation.rules].sort(),
+        mutation.findings.map((f): string => f.rule).sort(),
       );
       expect(new Set(errors.map((f) => f.entity.entity_id)).size).toBe(
-        mutation.rules.length,
+        mutation.findings.length,
       );
     });
 
