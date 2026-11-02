@@ -324,30 +324,36 @@ export function indexByEntityId(docs: readonly Doc[]): Map<string, Doc[]> {
 }
 
 /**
- * The document of `model` that an entity_id names: of the files of that
- * model that hold it, the last in path order. Remote sync lists a
+ * What an entity_id names as a `model`: the document of that model, a
+ * document of another model, or nothing in the folder.
+ */
+export type EntityLookup =
+  | { status: "found"; doc: Doc }
+  | { status: "other-model"; doc: Doc }
+  | { status: "missing" };
+
+/**
+ * Looks up the document of `model` that an entity_id names: of the files of
+ * that model that hold it, the last in path order. Remote sync lists a
  * repository's files sorted by path (`remote_sync/source/git.clj`
  * `list-files`) and keeps the last file read for each entity
  * (`remote_sync/source/ingestable.clj` `ingest-all`), so the last file's
- * content stands. Null when no file of `model` holds it.
+ * content stands. When no file of `model` holds it, gives the first file of
+ * another model that does, in path order: what the reference likely meant to
+ * name.
  */
-export function holderOf(
+export function lookUpEntity(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   id: string,
   model: string,
-): Doc | null {
-  return (byEntityId.get(id) ?? []).findLast((d) => d.model === model) ?? null;
-}
-
-/**
- * A file of another model than `model` that holds `id`, the first in path
- * order: what a reference to a `model` likely meant to name when no file of
- * `model` holds it. Null when there is none.
- */
-export function otherHolderOf(
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  id: string,
-  model: string,
-): Doc | null {
-  return (byEntityId.get(id) ?? []).find((d) => d.model !== model) ?? null;
+): EntityLookup {
+  const holders = byEntityId.get(id) ?? [];
+  const found = holders.findLast((d) => d.model === model);
+  if (found !== undefined) {
+    return { status: "found", doc: found };
+  }
+  const other = holders.find((d) => d.model !== model);
+  return other === undefined
+    ? { status: "missing" }
+    : { status: "other-model", doc: other };
 }

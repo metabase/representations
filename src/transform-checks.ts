@@ -1,9 +1,8 @@
 import {
   displayName,
   type Doc,
-  holderOf,
   isQuerySource,
-  otherHolderOf,
+  lookUpEntity,
   type QuerySource,
   targetDatabaseOf,
   validDocsOf,
@@ -31,7 +30,7 @@ const NATIVE_STAGE = "mbql.stage/native";
  * collection must be in the repository. A transform in the root collection
  * (collection_id null or absent) has nothing to check. Of several Collection
  * files with the collection's entity id, the last in path order is the
- * collection (`holderOf`).
+ * collection (`lookUpEntity`).
  */
 export function reportCollectionNamespaces(
   docs: readonly Doc[],
@@ -43,22 +42,22 @@ export function reportCollectionNamespaces(
     if (id === undefined || id === null) {
       continue;
     }
-    const collection = holderOf(byEntityId, id, "Collection");
-    const other = otherHolderOf(byEntityId, id, "Collection");
-    if (collection === null && other !== null) {
+    const found = lookUpEntity(byEntityId, id, "Collection");
+    if (found.status === "other-model") {
       report(
         "transform-collection",
         transform,
-        `collection_id ${id} names a ${other.model}, not a Collection`,
-        [other.file],
+        `collection_id ${id} names a ${found.doc.model}, not a Collection`,
+        [found.doc.file],
       );
-    } else if (collection === null) {
+    } else if (found.status === "missing") {
       report(
         "transform-collection",
         transform,
         `collection ${id} is not in the folder; a transform's collection must be in the repository`,
       );
     } else {
+      const collection = found.doc;
       const namespace = stringOrNull(collection.body.namespace);
       if (namespace !== TRANSFORMS_NAMESPACE) {
         report(

@@ -1,8 +1,7 @@
 import {
   displayName,
   type Doc,
-  holderOf,
-  otherHolderOf,
+  lookUpEntity,
   queryDatabaseOf,
   validDocsOf,
   type ValidDoc,
@@ -69,7 +68,7 @@ function likelyTransformOf(
 export type TestedTransform = { test: TestDoc; transform: QueryTransform };
 
 /**
- * Each schema-valid test whose transform_id names (`holderOf`) a schema-valid
+ * Each schema-valid test whose transform_id names (`lookUpEntity`) a schema-valid
  * query transform, with that transform, in file order.
  */
 export function testedTransformsOf(
@@ -78,8 +77,9 @@ export function testedTransformsOf(
   transformOfDoc: ReadonlyMap<Doc, Transform>,
 ): TestedTransform[] {
   return validDocsOf(docs, "TransformTest").flatMap((test) => {
-    const holder = holderOf(byEntityId, test.body.transform_id, "Transform");
-    const transform = holder === null ? undefined : transformOfDoc.get(holder);
+    const found = lookUpEntity(byEntityId, test.body.transform_id, "Transform");
+    const transform =
+      found.status === "found" ? transformOfDoc.get(found.doc) : undefined;
     return transform !== undefined && isQueryTransform(transform)
       ? [{ test, transform }]
       : [];
@@ -87,7 +87,7 @@ export function testedTransformsOf(
 }
 
 /**
- * Reports each schema-valid test whose transform_id (`holderOf`) names no
+ * Reports each schema-valid test whose transform_id (`lookUpEntity`) names no
  * Transform, or a transform that is not a query transform. When a file of
  * another model holds the id, the finding names that file. A test of a
  * Transform that fails its schema gets no finding here.
@@ -100,16 +100,15 @@ export function reportTransformIds(
 ): void {
   for (const test of validDocsOf(docs, "TransformTest")) {
     const transformId = test.body.transform_id;
-    const holder = holderOf(byEntityId, transformId, "Transform");
-    const other = otherHolderOf(byEntityId, transformId, "Transform");
-    if (holder === null && other !== null) {
+    const found = lookUpEntity(byEntityId, transformId, "Transform");
+    if (found.status === "other-model") {
       report(
         "wrong-type-transform-id",
         test,
-        `transform_id ${transformId} names a ${other.model}, not a Transform`,
+        `transform_id ${transformId} names a ${found.doc.model}, not a Transform`,
         (byEntityId.get(transformId) ?? []).map((h) => h.file),
       );
-    } else if (holder === null) {
+    } else if (found.status === "missing") {
       const likely = likelyTransformOf(test, docs);
       report(
         "dangling-transform-id",
@@ -122,7 +121,7 @@ export function reportTransformIds(
         likely === null ? [] : [likely.file],
       );
     } else {
-      const transform = transformOfDoc.get(holder);
+      const transform = transformOfDoc.get(found.doc);
       if (transform !== undefined && !isQueryTransform(transform)) {
         report(
           "untestable-transform",

@@ -1,9 +1,8 @@
 import {
   asValid,
   type Doc,
-  holderOf,
   isPythonSource,
-  otherHolderOf,
+  lookUpEntity,
   isQueryTransformDoc,
   type PythonSource,
   type QueryTransformDoc,
@@ -148,7 +147,7 @@ function pythonReads(source: PythonSource): Reads {
 
 /**
  * Returns the lookup of the snippets a query uses among `docs`: a snippet
- * named by id is the snippet file holding that id (`holderOf`); one named by
+ * named by id is the snippet file holding that id (`lookUpEntity`); one named by
  * name is the schema-valid snippet of that name. Says why a snippet cannot
  * be pasted: absent, failing its schema, or of another model.
  */
@@ -166,19 +165,18 @@ export function createSnippetFinder(
     `snippet ${name} is in ${doc.file}, which fails its schema`;
   return (name, id) => {
     if (id !== undefined) {
-      const doc = holderOf(byEntityId, id, SNIPPET_MODEL);
-      if (doc === null) {
-        const other = otherHolderOf(byEntityId, id, SNIPPET_MODEL);
+      const found = lookUpEntity(byEntityId, id, SNIPPET_MODEL);
+      if (found.status === "missing") {
+        return { unusable: `snippet ${name} (${id}) is not in the folder` };
+      }
+      if (found.status === "other-model") {
         return {
-          unusable:
-            other === null
-              ? `snippet ${name} (${id}) is not in the folder`
-              : `snippet ${name} (${id}) names a ${other.model}, not a snippet`,
+          unusable: `snippet ${name} (${id}) names a ${found.doc.model}, not a snippet`,
         };
       }
-      const valid = asValid(doc, SNIPPET_MODEL);
+      const valid = asValid(found.doc, SNIPPET_MODEL);
       return valid === null
-        ? { unusable: failsSchema(name, doc) }
+        ? { unusable: failsSchema(name, found.doc) }
         : { content: valid.body.content };
     }
     const content = snippetByName.get(name);
@@ -232,13 +230,17 @@ export function createReader(
       if (model === SNIPPET_MODEL) {
         continue;
       }
-      const sourceDoc = holderOf(byEntityId, id, model);
-      if (sourceDoc === null) {
+      const found = lookUpEntity(byEntityId, id, model);
+      if (found.status !== "found") {
         return {
           status: "unread",
-          reason: `source ${model} ${id} is not in the folder`,
+          reason:
+            found.status === "missing"
+              ? `source ${model} ${id} is not in the folder`
+              : `source ${model} ${id} names a ${found.doc.model}, not a ${model}`,
         };
       }
+      const sourceDoc = found.doc;
       // Checked before the recursive call: there, the reason would gain a
       // "through" for a file the chain already names.
       if (inner.has(sourceDoc)) {

@@ -309,7 +309,7 @@ function reportCycles(
 
 /**
  * Warns on each file whose entity_id another file of its model also holds.
- * Metabase loads both, the second over the first (`holderOf`): the last file
+ * Metabase loads both, the second over the first (`lookUpEntity`): the last file
  * in path order stands and the others are lost, with no message. Files of
  * different models may share an entity_id: Metabase keeps each.
  */
