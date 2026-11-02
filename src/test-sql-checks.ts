@@ -106,11 +106,7 @@ export function createQueryReader(
  * `doc`. `query` names the query and what its columns do, as "this
  * transform reads or returns".
  */
-export type ReportUnreadColumns = (
-  doc: Doc,
-  query: string,
-  unread: Unread,
-) => void;
+type ReportUnreadColumns = (doc: Doc, query: string, unread: Unread) => void;
 
 /** The subject of a transform's query in a `ReportUnreadColumns` warning. */
 const TRANSFORM_COLUMNS = "this transform reads or returns";

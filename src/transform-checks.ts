@@ -87,7 +87,7 @@ export function nativeOnlyStage(
  * `table-id` is not a table reference; and the checkpoint field's table, or
  * null. Null for any other transform.
  */
-export function incrementalFilterTables(transform: ValidDoc<"Transform">): {
+function incrementalFilterTables(transform: ValidDoc<"Transform">): {
   tagTables: (TableKey | null)[];
   checkpointTable: TableKey | null;
 } | null {

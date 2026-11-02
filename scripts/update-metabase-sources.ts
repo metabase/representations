@@ -9,8 +9,8 @@ import { readFileSync, writeFileSync } from "fs";
 import { parseArgs } from "node:util";
 import { resolve } from "path";
 
-import { isRecord } from "../src/values.js";
-import { VENDOR_DIR } from "../src/vendor-sources.js";
+import { errorMessage } from "../src/values.js";
+import { readVendorSources, VENDOR_DIR } from "../src/vendor-sources.js";
 
 const { values } = parseArgs({
   options: {
@@ -24,20 +24,14 @@ const baseUrl = values["base-url"] ?? "https://raw.githubusercontent.com";
 const apiUrl = values["api-url"] ?? "https://api.github.com";
 
 const sourcesPath = resolve(vendorDir, "sources.json");
-const sources: unknown = JSON.parse(readFileSync(sourcesPath, "utf8"));
-const sqlTools = isRecord(sources) ? sources.sqlTools : undefined;
-if (
-  !isRecord(sources) ||
-  !isRecord(sqlTools) ||
-  typeof sqlTools.repository !== "string" ||
-  typeof sqlTools.path !== "string" ||
-  typeof sqlTools.commit !== "string"
-) {
-  console.error(
-    `${sourcesPath} records no sqlTools repository, path and commit`,
-  );
+let sources: ReturnType<typeof readVendorSources>;
+try {
+  sources = readVendorSources(vendorDir);
+} catch (e) {
+  console.error(errorMessage(e));
   process.exit(1);
 }
+const { sqlTools } = sources;
 const { repository, path, commit: recorded } = sqlTools;
 
 /** The body of a GET of `url`; exits 1, naming `label`, when it fails. */

@@ -3,6 +3,10 @@ export function stringOrNull(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+/** Whether `value` is a string or null. */
+export const isStringOrNull = (value: unknown): value is string | null =>
+  value === null || typeof value === "string";
+
 /**
  * Whether `value` is an array, narrowed to `readonly unknown[]`:
  * `Array.isArray` alone narrows `unknown` to `any[]`, whose items then pass
@@ -10,6 +14,17 @@ export function stringOrNull(value: unknown): string | null {
  */
 export const isUnknownArray = (value: unknown): value is readonly unknown[] =>
   Array.isArray(value);
+
+/** Whether `value` is an array of strings. */
+export const isStringArray = (value: unknown): value is string[] =>
+  isUnknownArray(value) && value.every((item) => typeof item === "string");
+
+/**
+ * A reference token of a JSON pointer as the key it names: `~1` is `/`, and
+ * `~0` is `~`.
+ */
+export const unescapePointer = (token: string): string =>
+  token.replace(/~1/g, "/").replace(/~0/g, "~");
 
 /**
  * Whether `value` is a plain object, such as a YAML map reads as: one whose

@@ -3,7 +3,13 @@ import { resolve } from "path";
 
 import { LintSetupError } from "./settings.js";
 import type { TableName } from "./tables.js";
-import { errorMessage, isRecord, isUnknownArray } from "./values.js";
+import {
+  errorMessage,
+  isRecord,
+  isStringArray,
+  isStringOrNull,
+  isUnknownArray,
+} from "./values.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
 /** Why the lint could not read a SQL text. */
@@ -352,12 +358,6 @@ function jsonOf(answer: unknown): unknown {
     return undefined;
   }
 }
-
-const isStringOrNull = (value: unknown): value is string | null =>
-  value === null || typeof value === "string";
-
-const isStringArray = (value: unknown): value is string[] =>
-  isUnknownArray(value) && value.every((v) => typeof v === "string");
 
 /**
  * A field spec of `field_references`' JSON as a `FieldSpec`; null when it is

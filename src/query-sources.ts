@@ -10,7 +10,13 @@ import {
   tableOfRef,
   uniqueTables,
 } from "./tables.js";
-import { isRecord, isUnknownArray, stringOrNull, uniqueBy } from "./values.js";
+import {
+  isRecord,
+  isUnknownArray,
+  stringOrNull,
+  uniqueBy,
+  unescapePointer,
+} from "./values.js";
 
 export type NativeSql = {
   sql: string;
@@ -22,7 +28,7 @@ export type NativeSql = {
 };
 
 /** An entity a query uses: its entity id and the model Metabase resolves it in. */
-export type EntityRef = { id: string; model: string };
+type EntityRef = { id: string; model: string };
 
 /** The data sources a document names, found where its schema types them. */
 export type DataSources = {
@@ -82,9 +88,6 @@ const ENTITY_KEYS = new Map([
 
 const escapePointer = (key: string) =>
   key.replace(/~/g, "~0").replace(/\//g, "~1");
-
-const unescapePointer = (part: string) =>
-  part.replace(/~1/g, "/").replace(/~0/g, "~");
 
 const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
 

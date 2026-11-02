@@ -10,6 +10,7 @@ import {
   isRecord,
   isUnknownArray,
   stringOrNull,
+  unescapePointer,
 } from "./values.js";
 import { decodeUtf8, readYaml, type YamlDocument } from "./yaml.js";
 
@@ -423,7 +424,7 @@ const ENTITY_ID_PATTERN = "common/id.yaml#/$defs/entity_id/pattern";
 function valueAt(doc: unknown, pointer: string): unknown {
   let value = doc;
   for (const part of pointer.split("/").slice(1)) {
-    const key = part.replace(/~1/g, "/").replace(/~0/g, "~");
+    const key = unescapePointer(part);
     value = isRecord(value)
       ? value[key]
       : isUnknownArray(value)

@@ -26,7 +26,7 @@ import { loadDocs, validDocsOf } from "../src/documents.js";
 import { lint, transformReads } from "../src/lint.js";
 import { loadSchemas } from "../src/schemas.js";
 import { parseDefaultSchemas } from "../src/settings.js";
-import { errorMessage, isRecord } from "../src/values.js";
+import { errorMessage, isRecord, isStringArray } from "../src/values.js";
 import {
   describeRefusal,
   ENVIRONMENT_REFUSALS,
@@ -97,9 +97,6 @@ async function api(
 /** The answer as a failure message names it: its status and its body. */
 const describe = (answer: Answer) =>
   `${answer.status} ${answer.text.trim() || "(empty body)"}`;
-
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
 
 /** Metabase's answer to creating a transform test. */
 type Probe =

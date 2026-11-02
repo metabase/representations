@@ -29,7 +29,7 @@ import {
  * The tables a document reads, in order and each once, or why they could not
  * be found.
  */
-export type Reads =
+type Reads =
   | { status: "read"; tables: TableKey[] }
   | { status: "unread"; reason: string };
 

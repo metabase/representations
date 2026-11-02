@@ -1,7 +1,7 @@
 import { lstatSync, readFileSync } from "fs";
 import { resolve } from "path";
 
-import { errorMessage, isRecord } from "./values.js";
+import { errorMessage, isRecord, isStringOrNull } from "./values.js";
 
 /** The file, at the root of the linted folder, that gives the lint's settings. */
 export const CONFIG_FILE = ".metabase-lint.json";
@@ -26,8 +26,6 @@ const isMapOf = <T>(
   isRecord(value) && Object.values(value).every(isValue);
 
 const isString = (v: unknown): v is string => typeof v === "string";
-const isStringOrNull = (v: unknown): v is string | null =>
-  v === null || typeof v === "string";
 
 const SETTINGS_KEYS = new Set(["defaultSchemas", "engines"]);
 
