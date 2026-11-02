@@ -5,12 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   import-test:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # Git sync reads its content from the root of a repository, so the
       # examples get a repository of their own, which Metabase reads from disk.

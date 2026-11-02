@@ -58,27 +58,50 @@ function parseCount(raw: string | undefined): number {
   return count;
 }
 
-function handleValidateSchema(values: ParsedValues): void {
-  const folder = values.folder ?? process.cwd();
-  const { results, passed, failed } = validateSchema({ folder });
-
-  if (results.length === 0) {
+/** Exits with status 1, saying so, when a command found no files in `folder`. */
+function exitIfNoFiles(files: number, folder: string): void {
+  if (files === 0) {
     console.error(`No YAML files found in ${folder}`);
     process.exit(1);
   }
+}
+
+function handleValidateSchema(values: ParsedValues): void {
+  const folder = values.folder ?? process.cwd();
+  const { results, passed, failed, skipped, unchecked } = validateSchema({
+    folder,
+  });
+
+  exitIfNoFiles(results.length, folder);
 
   for (const result of results) {
-    if (result.status === "ok") {
-      continue;
-    }
     const path = relative(process.cwd(), `${folder}/${result.file}`);
-    console.error(`FAIL  ${path}${result.model ? ` (${result.model})` : ""}`);
-    for (const error of result.errors) {
-      console.error(`      ${error.path} ${error.message}`);
+    switch (result.status) {
+      case "ok":
+      case "unchecked":
+        break;
+      case "skipped":
+        console.error(`WARN  ${path}`);
+        console.error(`      ${result.warning}`);
+        break;
+      case "fail":
+        console.error(
+          `FAIL  ${path}${result.model ? ` (${result.model})` : ""}`,
+        );
+        for (const error of result.errors) {
+          console.error(`      ${error.path} ${error.message}`);
+        }
+        break;
     }
   }
 
-  console.log(`\n${passed} passed, ${failed} failed`);
+  const counts = [
+    `${passed} passed`,
+    `${failed} failed`,
+    ...(skipped > 0 ? [`${skipped} skipped`] : []),
+    ...(unchecked > 0 ? [`${unchecked} not checked`] : []),
+  ];
+  console.log(`\n${counts.join(", ")}`);
   process.exit(failed > 0 ? 1 : 0);
 }
 

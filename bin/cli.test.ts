@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
@@ -168,6 +175,51 @@ describe("cli", () => {
       ]);
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/\d+ passed, 0 failed/);
+    });
+
+    it("passes a file Metabase skips, with a warning that names it", () => {
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-skip-"));
+      try {
+        mkdirSync(join(folder, "collections"));
+        writeFileSync(
+          join(folder, "collections", "notes.yaml"),
+          "name: Notes\n",
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stderr.trimEnd().split("\n")).toEqual([
+          expect.stringMatching(/^WARN {2}\S*collections\/notes\.yaml$/),
+          "      Metabase skips this file because it has no serdes/meta",
+        ]);
+        expect(stdout.trim()).toBe("0 passed, 0 failed, 1 skipped");
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
+    });
+
+    it("counts a file of a model no schema describes as not checked", () => {
+      const folder = mkdtempSync(join(tmpdir(), "representations-cli-plugin-"));
+      try {
+        mkdirSync(join(folder, "custom_viz_plugins"));
+        writeFileSync(
+          join(folder, "custom_viz_plugins", "plugin.yaml"),
+          "serdes/meta:\n- model: CustomVizPlugin\n",
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          folder,
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stderr).toBe("");
+        expect(stdout.trim()).toBe("0 passed, 0 failed, 1 not checked");
+      } finally {
+        rmSync(folder, { recursive: true, force: true });
+      }
     });
 
     it("errors when the folder has no YAML files", () => {

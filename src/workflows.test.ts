@@ -16,26 +16,42 @@ type RunStep = {
   shell: string | null;
 };
 
-/** Every job of every workflow, with its steps; throws on a file that is not a map of jobs. */
-function workflowJobs(): { workflow: string; job: string; steps: Step[] }[] {
+type WorkflowDoc = {
+  workflow: string;
+  doc: Record<string, unknown>;
+  jobs: Record<string, unknown>;
+};
+
+/** The workflow `workflow` written as `text`; throws if it is not a map of jobs. */
+function workflowDocOf(workflow: string, text: string): WorkflowDoc {
+  const doc: unknown = yaml.load(text);
+  if (!isRecord(doc) || !isRecord(doc.jobs)) {
+    throw new Error(`${workflow} has no map of jobs`);
+  }
+  return { workflow, doc, jobs: doc.jobs };
+}
+
+/** Each workflow's document, by file name. */
+function workflowDocs(): WorkflowDoc[] {
   return readdirSync(WORKFLOWS)
     .filter((file) => /\.ya?ml$/.test(file))
     .sort()
-    .flatMap((workflow) => {
-      const doc: unknown = yaml.load(
-        readFileSync(join(WORKFLOWS, workflow), "utf8"),
-      );
-      if (!isRecord(doc) || !isRecord(doc.jobs)) {
-        throw new Error(`${workflow} has no map of jobs`);
+    .map((workflow) =>
+      workflowDocOf(workflow, readFileSync(join(WORKFLOWS, workflow), "utf8")),
+    );
+}
+
+/** Every job of every workflow, with its steps; throws on a job with no list of steps. */
+function workflowJobs(): { workflow: string; job: string; steps: Step[] }[] {
+  return workflowDocs().flatMap(({ workflow, jobs }) =>
+    Object.entries(jobs).map(([job, body]) => {
+      if (!isRecord(body) || !Array.isArray(body.steps)) {
+        throw new Error(`${workflow} ${job} has no list of steps`);
       }
-      return Object.entries(doc.jobs).map(([job, body]) => {
-        if (!isRecord(body) || !Array.isArray(body.steps)) {
-          throw new Error(`${workflow} ${job} has no list of steps`);
-        }
-        const steps: unknown[] = body.steps;
-        return { workflow, job, steps: steps.filter(isRecord) };
-      });
-    });
+      const steps: unknown[] = body.steps;
+      return { workflow, job, steps: steps.filter(isRecord) };
+    }),
+  );
 }
 
 /** Every `run` script of every workflow, with where it sits. */
@@ -54,6 +70,30 @@ function runSteps(): RunStep[] {
           ]
         : [],
     ),
+  );
+}
+
+/**
+ * Whether `value` names the `secrets` context in any form: `secrets.X`,
+ * `secrets['X']`, `toJSON(secrets)` or `secrets: inherit`.
+ */
+const namesSecrets = (value: unknown): boolean =>
+  /\bsecrets\b/.test(JSON.stringify(value ?? {}));
+
+/**
+ * Each job of `docs`, as `"<workflow> <job>"`, that can read a secret: its
+ * workflow's `env` or its own body names the `secrets` context.
+ */
+function jobsReadingSecrets(
+  docs: readonly WorkflowDoc[] = workflowDocs(),
+): Set<string> {
+  return new Set(
+    docs.flatMap(({ workflow, doc, jobs }) => {
+      const workflowReads = namesSecrets(doc.env);
+      return Object.entries(jobs)
+        .filter(([, body]) => workflowReads || namesSecrets(body))
+        .map(([job]) => `${workflow} ${job}`);
+    }),
   );
 }
 
@@ -311,6 +351,42 @@ describe("isPublish", () => {
   );
 });
 
+describe("jobsReadingSecrets", () => {
+  it("finds a job that names the secrets context in any form", () => {
+    const doc = workflowDocOf(
+      "w.yml",
+      [
+        "jobs:",
+        "  dotted:",
+        "    steps: [{run: echo, env: {T: '${{ secrets.TOKEN }}'}}]",
+        "  bracketed:",
+        "    steps: [{run: echo, env: {T: \"${{ secrets['TOKEN'] }}\"}}]",
+        "  whole:",
+        "    steps: [{run: echo, env: {S: '${{ toJSON(secrets) }}'}}]",
+        "  inherited:",
+        "    uses: ./.github/workflows/other.yml",
+        "    secrets: inherit",
+        "  none:",
+        "    steps: [{run: echo my_secrets mysecrets, env: {T: '${{ github.token }}'}}]",
+      ].join("\n"),
+    );
+    expect([...jobsReadingSecrets([doc])].sort()).toEqual([
+      "w.yml bracketed",
+      "w.yml dotted",
+      "w.yml inherited",
+      "w.yml whole",
+    ]);
+  });
+
+  it("finds every job of a workflow whose env names a secret", () => {
+    const doc = workflowDocOf(
+      "w.yml",
+      "env: {T: \"${{ secrets['TOKEN'] }}\"}\njobs: {a: {steps: []}}",
+    );
+    expect([...jobsReadingSecrets([doc])]).toEqual(["w.yml a"]);
+  });
+});
+
 describe("workflows", () => {
   const steps = runSteps();
 
@@ -387,6 +463,45 @@ describe("workflows", () => {
       [],
     );
     expect(new Set(versions).size).toBe(1);
+  });
+
+  // A tag can be moved to other code; a commit SHA cannot.
+  it("pin each third-party action to a commit SHA in a job that reads a secret", () => {
+    const readingSecrets = jobsReadingSecrets();
+    expect(readingSecrets.size).toBeGreaterThan(0);
+    const unpinned = workflowJobs()
+      .filter(({ workflow, job }) => readingSecrets.has(`${workflow} ${job}`))
+      .flatMap(({ workflow, job, steps }) =>
+        steps.flatMap((step) =>
+          typeof step.uses === "string" &&
+          !step.uses.startsWith("actions/") &&
+          !step.uses.startsWith("./") &&
+          !/@[0-9a-f]{40}$/.test(step.uses)
+            ? [`${workflow} ${job}: ${step.uses}`]
+            : [],
+        ),
+      );
+    expect(unpinned).toEqual([]);
+  });
+
+  // A checkout leaves the job's GitHub token in .git/config, where any later
+  // step, and the code it installs, could read it next to the secret.
+  it("check out without keeping credentials in a job that reads a secret", () => {
+    const readingSecrets = jobsReadingSecrets();
+    const keeping = actionSteps("actions/checkout")
+      .filter((c) => readingSecrets.has(`${c.workflow} ${c.job}`))
+      .filter((c) => c.inputs["persist-credentials"] !== false)
+      .map((c) => `${c.workflow} ${c.job}`);
+    expect(keeping).toEqual([]);
+  });
+
+  // Without a permissions block, the job's GitHub token gets the repository's
+  // default scopes, which can include write access.
+  it("give the Import workflow a token that can only read the contents", () => {
+    const importWorkflow = workflowDocs().find(
+      ({ workflow }) => workflow === "import.yml",
+    );
+    expect(importWorkflow?.doc.permissions).toEqual({ contents: "read" });
   });
 
   // Without --frozen-lockfile, bun install rewrites bun.lock when package.json
