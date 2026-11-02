@@ -18,14 +18,13 @@ const MAX_EXPANDED_SQL_LENGTH = 10_000_000;
 export function snippetIdsOf(templateTags: unknown): Map<string, string> {
   const ids = new Map<string, string>();
   for (const tag of templateTagsOf(templateTags)) {
-    const name = typeof tag.name === "string" ? tag.name : "";
-    const match = /^\s*snippet:\s*(.*?)\s*$/.exec(name);
+    const name = typeof tag.name === "string" ? snippetNameOf(tag.name) : null;
     if (
       tag.type === "snippet" &&
-      match !== null &&
+      name !== null &&
       typeof tag["snippet-id"] === "string"
     ) {
-      ids.set(match[1], tag["snippet-id"]);
+      ids.set(name, tag["snippet-id"]);
     }
   }
   return ids;
