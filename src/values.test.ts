@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import {
+  describeThrown,
   errorMessage,
   escapeUnprintable,
   isRecord,
@@ -87,5 +88,43 @@ describe("escapeUnprintable", () => {
   it("keeps the value of a JSON text", () => {
     const value = { "k\u009b": "\u2028\u202e\n\u{e0001}" };
     expect(JSON.parse(escapeUnprintable(JSON.stringify(value)))).toEqual(value);
+  });
+});
+
+describe("describeThrown", () => {
+  // A line of the text that holds a control or format character, or starts
+  // a workflow command.
+  const unsafeLines = (text: string) =>
+    text
+      .split("\n")
+      .filter(
+        (line) =>
+          /[\p{Cc}\p{Cf}\u2028\u2029]/u.test(line) || line.startsWith("::"),
+      );
+  const message = "a\n::error title=x::pwned\u001b";
+
+  it("escapes the message whole and keeps the stack frames on their lines", () => {
+    const text = describeThrown(new Error(message));
+    expect(text.split("\n")[0]).toBe(
+      "Error: a\\u000a::error title=x::pwned\\u001b",
+    );
+    expect(text.split("\n").length).toBeGreaterThan(1);
+    expect(unsafeLines(text)).toEqual([]);
+  });
+
+  // As for an error class that names itself after its stack is made.
+  it("escapes the whole stack of an error whose stack starts with another name", () => {
+    const thrown = new Error(message);
+    expect(thrown.stack?.startsWith("Error: ")).toBe(true);
+    thrown.name = "Renamed";
+    const text = describeThrown(thrown);
+    expect(text).toContain("a\\u000a::error title=x::pwned\\u001b");
+    expect(unsafeLines(text)).toEqual([]);
+  });
+
+  it("escapes a thrown value that is not an error", () => {
+    expect(describeThrown(message)).toBe(
+      "a\\u000a::error title=x::pwned\\u001b",
+    );
   });
 });

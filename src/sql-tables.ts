@@ -144,6 +144,15 @@ export function isSqlParseError(unread: Unread): boolean {
   );
 }
 
+/**
+ * Whether a reader of this module refused SQL because SQLGlot raised a
+ * TokenError on it, such as at an unclosed quote. Metabase's check of a
+ * transform test's SQL rethrows such an error, and the test fails.
+ */
+export function isSqlTokenError(unread: Unread): boolean {
+  return unread.reason.startsWith(`${PARSE_FAILURE}TokenError: `);
+}
+
 /** Why the lint does not read a native query of `engine`. */
 const notSql = (engine: string): Unread => ({
   status: "unread",

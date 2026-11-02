@@ -91,6 +91,22 @@ export function uniqueBy<T>(
 }
 
 /**
+ * `thrown` as text for a terminal or a CI log: its `name: message` escaped
+ * whole by `escapeUnprintable`, and its stack frames line by line.
+ */
+export function describeThrown(thrown: unknown): string {
+  if (!(thrown instanceof Error)) {
+    return escapeUnprintable(errorMessage(thrown));
+  }
+  const head = `${thrown.name}: ${thrown.message}`;
+  const stack = thrown.stack ?? head;
+  return stack.startsWith(head)
+    ? escapeUnprintable(head) +
+        stack.slice(head.length).split("\n").map(escapeUnprintable).join("\n")
+    : escapeUnprintable(stack);
+}
+
+/**
  * Java's `Character.isWhitespace`: a space, line or paragraph separator other
  * than a no-break space, a tab, a line feed, a vertical tab, a form feed, a
  * carriage return, or U+001C to U+001F.

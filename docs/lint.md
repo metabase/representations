@@ -14,6 +14,8 @@ An unqualified table name, such as `orders` in SQL, a transform's target or a te
 
 The lint needs the default schema of a database when an unqualified name is in it, or when one transform test's tables name one table in two schemas, or name it both by an MBQL reference with a `null` schema and in a schema. Without it, the lint skips each comparison that depends on it: an unqualified name with a qualified one, or with a name an MBQL reference gives with a `null` schema. `missing-default-schema` warns once for each such database, on the first file that needs the default schema, says why, and names the other files as related files. Every other check runs.
 
+Two qualified names, such as `a.account` and `b.account`, name different tables in every database, so comparing them needs no default schema. The lint still needs it when one transform test's tables name one table in two schemas. A test's tables are its inputs, its transform's target, the tables its expectations read, and the tables its transform reads. So `a.account` read by one transform and `b.account` by another need no default schema, but a test with an input `a.account` and an expectation that reads `b.account` does.
+
 It takes a database's default schema from the first of these that gives one:
 
 1. `--default-schema "<database>=<schema>"` on the command line, or the `defaultSchemas` option of the `lint` function; `"<database>="` or `null` for no schemas.
@@ -86,7 +88,9 @@ Metabase 0.64 and earlier pin SQLGlot 28.6.0 and an older `referenced_tables`. O
 
 ## Known limits
 
-Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input. Metabase refuses a transform test whose transform or expectation SQL it cannot parse. So when the lint parses a test's SQL in its engine's dialect and SQLGlot cannot parse it, Metabase refuses the test. Other `reads-not-checked` warnings on a test, such as SQL parsed in the default dialect, a missing snippet file, or columns the parser cannot read, say nothing about Metabase's verdict.
+Where SQLGlot reads a query wrong, Metabase reads it wrong the same way, and the lint agrees with Metabase. A query the parser cannot read is reported as `reads-not-checked`, a warning, never as a missing or unused input. Metabase refuses a transform test whose transform or expectation SQL it cannot parse. So when the lint parses a test's expectation SQL as written, in its engine's dialect, and SQLGlot raises a ParseError or a TokenError, the lint reports `unparseable-test-sql` on the test, an error. The lint does not predict whether Metabase can parse a transform's SQL as it prepares it for a test: a transform's SQL that does not parse gives `reads-not-checked` on the transform only. A TokenError, such as at an unclosed quote, also fails the test: Metabase reports it as another error than a parse error. Other `reads-not-checked` warnings on a test, such as SQL parsed in the default dialect, a missing snippet file, or columns the parser cannot read, say nothing about Metabase's verdict.
+
+The lint does not predict whether Metabase accepts a transform test's SQL when it runs the test. To run a test, Metabase replaces the tables that the transform and the expectations read with temporary tables that hold the test's inputs, and it can refuse the test at that step: for example, when a name in quotes differs in case from the input it stands for, or when a column is qualified by a table's name instead of an alias. The lint checks that each table the SQL names is an input of the test or the transform's target. It does not check how Metabase replaces them.
 
 When the settings file gives no engine for a database, the lint parses its SQL in SQLGlot's default dialect, where Metabase uses the engine's. Engine-specific syntax then fails to parse, for example backticked names in MySQL and BigQuery or bracketed names in SQL Server, and the query is reported as `reads-not-checked`.
 
@@ -94,7 +98,7 @@ A query near Metabase's limit of 10,000,000 characters takes the parser a long t
 
 ### Reported as `reads-not-checked`
 
-- SQL SQLGlot cannot parse, for example H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
+- SQL SQLGlot cannot parse. A transform test's expectation SQL gives `unparseable-test-sql` on the test instead when the database's engine is given and SQLGlot raises a ParseError or a TokenError. Examples: H2's `SELECT TOP 5 …`, and in ClickHouse `LIMIT 1 BY id LIMIT 100` or `WITH TOTALS` without `GROUP BY`.
 - An expression nested deeper than Python's recursion limit allows, such as a deeply nested expression in parentheses.
 - A snippet the lint cannot paste: one whose file is not in the folder, or one that no snippet tag defines. In a stage with template tags, Metabase refuses to run a query with a snippet no template tag defines, unless the snippet is in an optional clause: Metabase then leaves the clause out, and so does the lint. In a stage with no template tags, Metabase substitutes nothing and runs the SQL as written.
 - Template tags Metabase cannot parse, such as an unmatched `[[`, an empty `{{}}`, or an optional clause with no tag. Metabase refuses to run such a query.
