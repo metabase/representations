@@ -33,6 +33,9 @@ const POSTGRES_PRODUCTS = [POSTGRES_DB, "public", "products"] as const;
 const WIDGETS_SEGMENT_ENTITY_ID = "WarehouseWidgets00001";
 const PRODUCT_COUNT_MEASURE_ENTITY_ID = "WarehouseProducts0001";
 const ORDERS_TABLE_FILE = "databases/sample_database/tables/orders/orders.yaml";
+const CLICK_BEHAVIORS_DASHBOARD =
+  "collections/main/dashboards/click_behaviors.yaml";
+const CLICK_BEHAVIORS_DASHBOARD_ENTITY_ID = "c0R_gvn90vURE5hdxK3f0";
 
 export type Mutation = {
   name: string;
@@ -243,8 +246,8 @@ export const MUTATIONS: Mutation[] = [
   {
     name: "absent-source",
     description:
-      "An MBQL transform filters by a segment that is not in the folder, so its reads are unknown.",
-    rules: ["reads-not-checked"],
+      "An MBQL transform filters by a segment that is not in the folder, so its reads are unknown and the import fails.",
+    rules: ["dangling-entity-ref", "reads-not-checked"],
     apply: (folder) =>
       edit(folder, MONTHLY_ORDER_SUMMARY, (doc) => {
         doc.source.query.stages[0].filters = [
@@ -353,6 +356,25 @@ export const MUTATIONS: Mutation[] = [
     apply: (folder) =>
       edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
         doc.transform_id = DAILY_TAG_ENTITY_ID;
+      }),
+  },
+  {
+    name: "dangling-entity-ref",
+    description:
+      "A dashcard's card_id names a card that is not in the folder, so the import fails.",
+    rules: ["dangling-entity-ref"],
+    apply: (folder) =>
+      edit(folder, CLICK_BEHAVIORS_DASHBOARD, (doc) => {
+        doc.dashcards[1].card_id = "MissingCard0000000001";
+      }),
+  },
+  {
+    name: "wrong-type-entity-ref",
+    description: "A card's collection_id names a dashboard.",
+    rules: ["wrong-type-entity-ref"],
+    apply: (folder) =>
+      edit(folder, ORDERS_MODEL, (doc) => {
+        doc.collection_id = CLICK_BEHAVIORS_DASHBOARD_ENTITY_ID;
       }),
   },
   {

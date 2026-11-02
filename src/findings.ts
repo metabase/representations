@@ -13,6 +13,8 @@ export const LINT_RULE_SEVERITY = {
   "duplicate-entity-id": "warning",
   "dangling-transform-id": "error",
   "wrong-type-transform-id": "error",
+  "dangling-entity-ref": "error",
+  "wrong-type-entity-ref": "error",
   "duplicate-target": "warning",
   "transform-cycle": "error",
   "transform-collection": "error",

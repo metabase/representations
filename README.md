@@ -103,6 +103,8 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `duplicate-entity-id` | warning | Two files of one model that hold the same `entity_id`. Remote sync keeps the last in path order (the paths sorted as strings, by UTF-16 code unit) and drops the others without a message. Files of different models may share an `entity_id`. |
 | `dangling-transform-id` | error | A test whose `transform_id` matches no entity. |
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
+| `dangling-entity-ref` | error | An entity id that a file references, such as a card's `collection_id` or `source-card`, a dashcard's `card_id` or a transform job's `tag_id`, that no file in the folder holds. Metabase fails the import on a reference it cannot resolve, and a synced repository must hold everything its content uses. The built-in transform tags and the default `common.py`, which every Metabase has, need no file. Database, table, field and user references are not checked. |
+| `wrong-type-entity-ref` | error | An entity id that a file references, held only by a file of a model the reference cannot name, such as a card's `collection_id` that names a dashboard. |
 | `duplicate-target` | warning | Two transforms that write the same table. On Redshift, which folds every name to lower case, targets that differ only in case are the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
 | `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |

@@ -38,6 +38,7 @@ import {
   type LintRule,
   type Report,
 } from "./findings.js";
+import { reportEntityRefs } from "./entity-refs.js";
 import { cyclePath, cycles } from "./graph.js";
 import { createSourceFinder, type SourceFinder } from "./query-sources.js";
 import { engineFacts, FOLDS_ALL_IDENTIFIERS } from "./engines.js";
@@ -653,6 +654,7 @@ export async function lint({
     );
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
+    reportEntityRefs(docs, byEntityId, report);
     reportTestFindings(
       tested,
       defaultSchemaOf,

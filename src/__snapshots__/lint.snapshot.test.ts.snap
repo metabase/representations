@@ -133,6 +133,42 @@ exports[`lint output on a broken copy of the examples matches the recording: wro
 ]
 `;
 
+exports[`lint output on a broken copy of the examples matches the recording: dangling entity ref 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "c0R_gvn90vURE5hdxK3f0",
+      "model": "Dashboard",
+      "name": "Click Behavior Examples",
+    },
+    "file": "collections/main/dashboards/click_behaviors.yaml",
+    "message": "dashcards[1].card_id MissingCard0000000001 matches no Card in the folder; Metabase fails the import on a reference it cannot resolve, and a synced repository must hold everything its content uses",
+    "related": [],
+    "rule": "dangling-entity-ref",
+    "severity": "error",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: wrong-type entity ref 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "4eroqa4ZYl4WkNjP8XTvu",
+      "model": "Card",
+      "name": "Orders model",
+    },
+    "file": "collections/main/queries/orders_model.yaml",
+    "message": "collection_id c0R_gvn90vURE5hdxK3f0 names a Dashboard, not a Collection",
+    "related": [
+      "collections/main/dashboards/click_behaviors.yaml",
+    ],
+    "rule": "wrong-type-entity-ref",
+    "severity": "error",
+  },
+]
+`;
+
 exports[`lint output on a broken copy of the examples matches the recording: transform cycle 1`] = `
 [
   {

@@ -37,6 +37,8 @@ const TREES: [string, (folder: string) => void][] = [
     "wrong-type transform id",
     (f) => mutateExamples("wrong-type-transform-id", f),
   ],
+  ["dangling entity ref", (f) => mutateExamples("dangling-entity-ref", f)],
+  ["wrong-type entity ref", (f) => mutateExamples("wrong-type-entity-ref", f)],
   ["transform cycle", (f) => mutateExamples("transform-cycle", f)],
   ["transform collection", (f) => mutateExamples("transform-collection", f)],
   [
