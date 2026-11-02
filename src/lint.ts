@@ -203,15 +203,14 @@ function reportDuplicateTargets(
 
 /**
  * Reports each table a transform reads, or a Card's query names, and the
- * table of each field-filter tag of either, by a reference with a null schema (`nullSchema` `"none"`) in a database whose
- * engine has schemas. Metabase imports such a reference as the table with no
- * schema, and creates an inactive table when none exists
- * (`resolve/default.clj` `import-table-fk`), so every query on it fails. A
- * database whose engine is unknown gives no finding, nor does one in
- * `noSchemaDatabases`, nor a table that a table file or a transform target
- * with no schema names. A transform reports
- * the tables of the cards it reads too; a Card, only those its own query
- * names.
+ * table of each field-filter tag of either, by a reference with a null schema
+ * (`nullSchema` `"none"`) in a database whose engine has schemas. Metabase
+ * imports such a reference as the table with no schema, and creates an
+ * inactive table when none exists (`resolve/default.clj` `import-table-fk`),
+ * so every query on it fails. A database whose engine is unknown gives no
+ * finding, nor does one in `noSchemaDatabases`, nor a table that a table file
+ * or a transform target with no schema names. A transform reports the tables
+ * of the cards it reads too; a Card, only those its own query names.
  */
 function reportNullSchemaReferences(
   docs: readonly Doc[],

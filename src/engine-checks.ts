@@ -157,7 +157,7 @@ export function reportUnknownEngines(
         doc,
         engine === null
           ? `no Database file or ${CONFIG_FILE} names the engine of database ${database}, so the checks that depend on it do not run. Give the database's driver name under "engines" in ${CONFIG_FILE}`
-          : `the engine ${engine} of database ${database} is not in the lint's table of Metabase's drivers, as a third-party or newer driver is not, so the checks that depend on it do not run. Check the driver name`,
+          : `the lint does not know the engine ${engine} of database ${database}, as with a third-party or newer driver, so the checks that depend on it do not run. Check the driver name`,
       );
     }
   }

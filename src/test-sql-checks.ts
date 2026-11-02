@@ -218,11 +218,6 @@ function readColumnsOf(
   ];
 }
 
-// Metabase names a rows input's columns with `h2x/identifier`, quoted
-// (`enterprise/backend/src/metabase_enterprise/transform_testing/compile.clj`
-// `compile-input :rows`, `rows-query`); its `:h2` dialect upper-cases each
-// quoted name (`src/metabase/util/honey_sql_2.clj`).
-
 const lowerAscii = (name: string) =>
   name.replace(/[A-Z]+/g, (c) => c.toLowerCase());
 
@@ -255,6 +250,9 @@ function createWarehouseName(
   }
   return (name, quoting) => {
     switch (quoting) {
+      // Metabase names a rows input's columns with `h2x/identifier`, quoted
+      // (`transform_testing/compile.clj` `compile-input :rows`, `rows-query`);
+      // its `:h2` dialect upper-cases each quoted name (`honey_sql_2.clj`).
       case "compiled":
         return engine === "h2" ? name.toUpperCase() : name;
       case "quoted":

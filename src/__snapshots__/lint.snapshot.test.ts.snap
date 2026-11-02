@@ -282,7 +282,7 @@ exports[`lint output on a broken copy of the examples matches the recording: unk
       "name": "Python Hello World",
     },
     "file": "collections/transforms/python_hello_world.yaml",
-    "message": "the engine third-party-driver of database Legacy is not in the lint's table of Metabase's drivers, as a third-party or newer driver is not, so the checks that depend on it do not run. Check the driver name",
+    "message": "the lint does not know the engine third-party-driver of database Legacy, as with a third-party or newer driver, so the checks that depend on it do not run. Check the driver name",
     "related": [],
     "rule": "unknown-engine",
     "severity": "warning",

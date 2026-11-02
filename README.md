@@ -51,7 +51,7 @@ Check the transforms, transform tests and tables in a folder, and the references
 npx -p @metabase/representations -p pyodide@314.0.7 representations lint --experimental --folder ./my-export
 ```
 
-`npx @metabase/representations lint` cannot find a Pyodide installed in the project, because `npx` installs the package elsewhere. `npx` also skips a `-p` package that the project already installs, so a project that installs Pyodide installs `@metabase/representations` too, and runs `npx representations lint`. A tool that depends on the package installs Pyodide among its own dependencies:
+`npx @metabase/representations lint` cannot find a Pyodide installed in the project, because `npx` installs the package elsewhere. `npx` also skips a `-p` package that the project already installs. So in a project that installs Pyodide, also install `@metabase/representations`, and run `npx representations lint`. A tool that depends on the package installs Pyodide among its own dependencies:
 
 ```sh
 npm install pyodide@314.0.7

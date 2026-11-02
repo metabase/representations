@@ -466,7 +466,7 @@ describe("reportUnknownEngines", () => {
         (r) => r.message,
       ),
     ).toEqual([
-      "the engine duckdb of database Warehouse is not in the lint's table of Metabase's drivers, as a third-party or newer driver is not, so the checks that depend on it do not run. Check the driver name",
+      "the lint does not know the engine duckdb of database Warehouse, as with a third-party or newer driver, so the checks that depend on it do not run. Check the driver name",
     ]);
   });
 
