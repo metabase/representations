@@ -62,6 +62,11 @@ import {
   uniqueTables,
 } from "./tables.js";
 import {
+  reportEmptyExpectations,
+  reportExpectationNames,
+  reportRowsColumns,
+} from "./test-body-checks.js";
+import {
   reportTestFindings,
   reportTransformIds,
   type TestedTransform,
@@ -739,6 +744,9 @@ export async function lint({
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
     const readRewritten = createRewrittenTableReader(parser, engineOf);
     reportTestFindings(tested, defaultSchemaOf, readRewritten, report);
+    reportRowsColumns(docs, report);
+    reportExpectationNames(docs, report);
+    reportEmptyExpectations(docs, report);
     reportUntestableEngines(tested, engineOf, report);
     return {
       files,

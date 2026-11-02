@@ -119,8 +119,11 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |
 | `duplicate-input` | error | Two inputs of one test for the same table. |
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
+| `row-columns-mismatch` | error | The first row of a `rows` input or `equals` expectation whose keys are not exactly the declared columns. A key YAML reads as no string, such as `yes:` or `1:`, counts as not declared; quote it as `'1':`. |
+| `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
 | `null-schema-reference` | error | An MBQL reference in a transform or a card with a `null` schema, on a database whose engine has schemas. Metabase imports it as a table with no schema, an inactive stub that holds no data: a query that reads it fails on every run. A `temporal-unit` tag and a `dimension` tag with a default put their field in the query, so their table is read. A card's `dimension` tag with no default on such a table gives this error too: the card fails once the tag has a value. An unknown engine gives no finding, and so does a `null` default schema given for the database, which says it has no schemas. |
 | `null-schema-tag` | warning | A `dimension` tag with no default in a transform, whose field names a table by a `null` schema, on a database whose engine has schemas. Metabase imports the field as an inactive stub, and the transform and its tests run, since such a tag compiles to `1 = 1`; the filter fails once the tag has a value. A `dimension` tag with a default, a `temporal-unit` tag and a card's tag give `null-schema-reference`. |
+| `no-expectations` | warning | A test with no expectations. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
 ## Other commands

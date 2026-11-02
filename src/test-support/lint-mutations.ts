@@ -667,6 +667,38 @@ export const MUTATIONS: Mutation[] = [
       ),
   },
   {
+    name: "row-columns-mismatch",
+    description:
+      "A test input's row misspells a declared column, so it lacks that column and carries an undeclared one.",
+    findings: [{ rule: "row-columns-mismatch", file: CATEGORY_TOTALS_TEST }],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        const row = doc.inputs[0].rows[1];
+        row.totl = row.total;
+        delete row.total;
+      }),
+  },
+  {
+    name: "duplicate-expectation-name",
+    description: "A test's two expectations share a name.",
+    findings: [
+      { rule: "duplicate-expectation-name", file: CATEGORY_TOTALS_TEST },
+    ],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        doc.expectations[1].name = doc.expectations[0].name;
+      }),
+  },
+  {
+    name: "no-expectations",
+    description: "A test has no expectations, so it checks nothing.",
+    findings: [{ rule: "no-expectations", file: TOP_CATEGORIES_TEST }],
+    apply: (folder) =>
+      edit(folder, TOP_CATEGORIES_TEST, (doc) => {
+        doc.expectations = [];
+      }),
+  },
+  {
     name: "null-schema-reference",
     description:
       "Product Summary reads products by a reference with a null schema, on a Postgres database, so it names a table that does not exist.",
