@@ -1,10 +1,18 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { mkdtempSync, rmSync } from "fs";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
+import YAML from "yaml";
 
 import { loadDocs, validDocsOf } from "../src/documents.js";
-import { transformReads } from "../src/lint.js";
+import { lint, transformReads } from "../src/lint.js";
 import { loadSchemas } from "../src/schemas.js";
 import { mutateExamples } from "../src/test-support/lint-mutations.js";
 import { isRecord } from "../src/values.js";
@@ -34,8 +42,12 @@ const testsOf = (folder: string) =>
 // Each parity run lints the examples in a new process, which loads the SQL
 // parser and takes seconds.
 const PARITY_PROCESS_TIMEOUT_MS = 30_000;
+// A run that probes transforms also lints a mutated copy of the examples for
+// each probe.
+const PROBE_PROCESS_TIMEOUT_MS = 60_000;
 
 type Transform = (typeof TRANSFORMS)[number];
+/** An answer of the stand-in Metabase: a string body goes as plain text, anything else as JSON. */
 type Reply = { status: number; body: unknown };
 
 const refusal = (status: number, code: string, extra: object = {}): Reply => ({
@@ -55,15 +67,223 @@ const missingInputs = (transform: Transform): Reply =>
         })
     : refusal(422, "transform-test.unsupported-transform");
 
+const POSTGRES_ID = 2;
+const DATABASES = [
+  { id: 1, name: "Sample Database", engine: "h2" },
+  { id: POSTGRES_ID, name: "Sample Postgres", engine: "postgres" },
+];
+const ORDERS_CREATED_AT_ID = 77;
+const POSTGRES_METADATA = {
+  tables: [
+    {
+      id: 5,
+      schema: "public",
+      name: "orders",
+      fields: [
+        { id: 76, name: "id" },
+        { id: ORDERS_CREATED_AT_ID, name: "created_at" },
+      ],
+    },
+    {
+      id: 6,
+      schema: "public",
+      name: "products",
+      fields: [{ id: 78, name: "id" }],
+    },
+  ],
+};
+const databaseIdOf = (name: unknown) =>
+  DATABASES.find((d) => d.name === name)?.id ?? null;
+
+/** The id of the table a `[database, schema, table]` reference names, or null. */
+const tableIdOf = (ref: unknown) =>
+  Array.isArray(ref) && databaseIdOf(ref[0]) === POSTGRES_ID
+    ? (POSTGRES_METADATA.tables.find(
+        (t) => t.schema === ref[1] && t.name === ref[2],
+      )?.id ?? null)
+    : null;
+
+/** The id of the table that holds the field with id `fieldId`, or null. */
+const tableIdOfField = (fieldId: unknown) =>
+  POSTGRES_METADATA.tables.find((t) => t.fields.some((f) => f.id === fieldId))
+    ?.id ?? null;
+
+/**
+ * Each transform of `folder` as Metabase answers GET /api/transform/:id once
+ * it imported them: a database and a table template tag's table by their ids.
+ */
+function importedTransforms(folder: string) {
+  return new Map(
+    validDocsOf(loadDocs(folder, loadSchemas()).docs, "Transform").map(
+      (doc) => {
+        const id = transformByEntityId.get(doc.body.entity_id)?.id ?? 0;
+        const source: Record<string, unknown> = { ...doc.body.source };
+        if (isRecord(source.query)) {
+          const stages: unknown[] = Array.isArray(source.query.stages)
+            ? source.query.stages
+            : [];
+          source.query = {
+            ...source.query,
+            database: databaseIdOf(source.query.database),
+            stages: stages.map((stage) =>
+              isRecord(stage) && isRecord(stage["template-tags"])
+                ? {
+                    ...stage,
+                    "template-tags": Object.fromEntries(
+                      Object.entries(stage["template-tags"]).map(
+                        ([name, tag]) => [
+                          name,
+                          isRecord(tag) && tag.type === "table"
+                            ? { ...tag, "table-id": tableIdOf(tag["table-id"]) }
+                            : tag,
+                        ],
+                      ),
+                    ),
+                  }
+                : stage,
+            ),
+          };
+        }
+        const target: Record<string, unknown> = { ...doc.body.target };
+        if (target.database !== undefined) {
+          target.database = databaseIdOf(target.database);
+        }
+        return [
+          id,
+          { id, name: doc.body.name, source, target, collection_id: 10 },
+        ] as const;
+      },
+    ),
+  );
+}
+
+/**
+ * The tables the warehouse holds: the tables of POSTGRES_METADATA, and the
+ * target of each transform of the examples, as after a run of each.
+ */
+const WAREHOUSE_TABLES = [
+  ...POSTGRES_METADATA.tables.map((t) => ({
+    database: POSTGRES_ID,
+    schema: t.schema,
+    name: t.name,
+  })),
+  ...validDocsOf(loadDocs(EXAMPLES, loadSchemas()).docs, "Transform").map(
+    (doc) => ({
+      database: databaseIdOf(doc.body.target.database),
+      schema: doc.body.target.schema,
+      name: doc.body.target.name,
+    }),
+  ),
+];
+
+const TARGET_DATABASE_NOT_FOUND = "The target database cannot be found.";
+const TARGET_SCHEMA_REQUIRED = "A target schema is required for this database.";
+const TABLE_VARIABLE_REQUIRED =
+  "Incremental transform with a native query requires a table variable. Please add a table variable to the query and update the checkpoint field.";
+const TABLE_EXISTS = "A table with that name already exists.";
+
+/**
+ * Metabase's answer to POST /api/transform: the checks its API makes, in
+ * their order, each failed one answered with its status and its message as
+ * plain text, and a body that fails the endpoint's schema answered 400 with
+ * JSON errors. The checks: the target database exists, the checkpoint field
+ * exists, the warehouse holds no table of the target's name (409), the target
+ * names a schema on a database with schemas, and an incremental native query
+ * has a table template tag for the checkpoint field's table, or any table
+ * template tag when no checkpoint field is set.
+ */
+function saveTransform(body: unknown): Reply {
+  if (!isRecord(body) || !isRecord(body.source) || !isRecord(body.target)) {
+    return { status: 400, body: { errors: { body: "invalid" } } };
+  }
+  const { source, target } = body;
+  // The endpoint's schema takes a target schema only as a NonBlankString.
+  if (typeof target.schema === "string" && target.schema.trim() === "") {
+    return {
+      status: 400,
+      body: { errors: { target: "schema: should be a non-blank string" } },
+    };
+  }
+  if (
+    target.type === "table-incremental" &&
+    !isRecord(target["target-incremental-strategy"])
+  ) {
+    return {
+      status: 400,
+      body: { errors: { target: "missing target-incremental-strategy" } },
+    };
+  }
+  const query = isRecord(source.query) ? source.query : null;
+  const databaseId =
+    source.type === "query"
+      ? (query?.database ?? target.database)
+      : target.database;
+  if (!DATABASES.some((d) => d.id === databaseId)) {
+    return { status: 400, body: TARGET_DATABASE_NOT_FOUND };
+  }
+  const strategy = source["source-incremental-strategy"];
+  if (
+    isRecord(strategy) &&
+    strategy["checkpoint-filter-field-id"] !== ORDERS_CREATED_AT_ID
+  ) {
+    return { status: 400, body: "Checkpoint field not found." };
+  }
+  if (
+    WAREHOUSE_TABLES.some(
+      (t) =>
+        t.database === databaseId &&
+        t.schema === target.schema &&
+        t.name === target.name,
+    )
+  ) {
+    return { status: 409, body: TABLE_EXISTS };
+  }
+  if (databaseId === POSTGRES_ID && typeof target.schema !== "string") {
+    return { status: 400, body: TARGET_SCHEMA_REQUIRED };
+  }
+  const stages = Array.isArray(query?.stages) ? query.stages : [];
+  const nativeStage =
+    stages.length === 1 &&
+    isRecord(stages[0]) &&
+    stages[0]["lib/type"] === "mbql.stage/native"
+      ? stages[0]
+      : null;
+  const tags = isRecord(nativeStage?.["template-tags"])
+    ? Object.values(nativeStage["template-tags"])
+    : [];
+  const checkpointTableId = isRecord(strategy)
+    ? tableIdOfField(strategy["checkpoint-filter-field-id"])
+    : null;
+  if (
+    target.type === "table-incremental" &&
+    nativeStage !== null &&
+    !tags.some(
+      (tag) =>
+        isRecord(tag) &&
+        tag.type === "table" &&
+        (checkpointTableId === null || tag["table-id"] === checkpointTableId),
+    )
+  ) {
+    return { status: 400, body: TABLE_VARIABLE_REQUIRED };
+  }
+  return { status: 200, body: { id: 500 } };
+}
+
 type Fake = {
   /** The answer to creating a test with no inputs, the probe of a transform's reads. */
   readsProbe?: (transform: Transform) => Reply;
   /** The answer to creating a test with inputs, given the test's expectations. */
   testProbe?: (transform: Transform, expectations: unknown) => Reply;
+  /** The answer to creating a transform, given the request's body. */
+  transformProbe?: (body: unknown) => Reply;
   /** The folder Metabase imported. */
   folder?: string;
   /** The answer to deleting a test. */
-  deleted?: Reply;
+  deleteAnswer?: Reply;
+  /** Whether to pass --probe-transforms. */
+  probeTransforms?: boolean;
+  /** The answer to GET /api/database/:id/metadata for Sample Postgres. */
+  metadata?: Reply;
 };
 
 let server: ReturnType<typeof Bun.serve> | undefined;
@@ -103,30 +323,75 @@ const readsTable = (expectations: unknown, table: string) =>
 const unremapped = (message: string): Reply =>
   refusal(400, "transform-test.unremapped-reference", { message });
 
-/** Runs lint-parity.ts against a fake Metabase that imported the examples. */
+/**
+ * Runs lint-parity.ts against a fake Metabase that imported the examples.
+ * `created` and `deleted` count the transforms it created and deleted.
+ */
 async function runParity({
   readsProbe = missingInputs,
   testProbe = () => ({ status: 200, body: { id: 999 } }),
+  transformProbe = saveTransform,
   folder = EXAMPLES,
-  deleted = { status: 204, body: null },
-}: Fake): Promise<{ exitCode: number; output: string }> {
+  deleteAnswer = { status: 204, body: null },
+  probeTransforms = false,
+  metadata = { status: 200, body: POSTGRES_METADATA },
+}: Fake): Promise<{
+  exitCode: number;
+  output: string;
+  created: number;
+  deleted: number;
+}> {
+  let created = 0;
+  let deleted = 0;
+  let imported: ReturnType<typeof importedTransforms> | undefined;
   server = Bun.serve({
     port: 0,
     fetch: async (request) => {
       const path = new URL(request.url).pathname;
-      const reply = (r: Reply) => Response.json(r.body, { status: r.status });
+      const reply = (r: Reply) =>
+        typeof r.body === "string"
+          ? new Response(r.body, { status: r.status })
+          : Response.json(r.body, { status: r.status });
       if (request.method === "GET" && path === "/api/transform") {
         return Response.json(
           TRANSFORMS.map((t) => ({ id: t.id, entity_id: t.entity_id })),
         );
       }
+      const transformPath = /^\/api\/transform\/(\d+)$/.exec(path);
+      if (request.method === "GET" && transformPath !== null) {
+        imported ??= importedTransforms(folder);
+        const transform = imported.get(Number(transformPath[1]));
+        return transform === undefined
+          ? new Response("Not found.", { status: 404 })
+          : Response.json(transform);
+      }
+      if (request.method === "POST" && path === "/api/transform") {
+        const answer = transformProbe(await request.json());
+        if (answer.status === 200) {
+          created++;
+        }
+        return reply(answer);
+      }
+      if (request.method === "DELETE" && transformPath !== null) {
+        deleted++;
+        return new Response(null, { status: 204 });
+      }
+      if (request.method === "GET" && path === "/api/database") {
+        return Response.json({ data: DATABASES });
+      }
+      if (
+        request.method === "GET" &&
+        path === `/api/database/${POSTGRES_ID}/metadata`
+      ) {
+        return reply(metadata);
+      }
       if (request.method === "GET" && path === "/api/ee/transform-test") {
         return Response.json(testsOf(folder));
       }
       if (request.method === "DELETE") {
-        return deleted.body === null
-          ? new Response(null, { status: deleted.status })
-          : reply(deleted);
+        return deleteAnswer.body === null
+          ? new Response(null, { status: deleteAnswer.status })
+          : reply(deleteAnswer);
       }
       if (request.method === "POST" && path === "/api/ee/transform-test") {
         const body: unknown = await request.json();
@@ -158,6 +423,7 @@ async function runParity({
       "key",
       "--folder",
       folder,
+      ...(probeTransforms ? ["--probe-transforms"] : []),
     ],
     { stdout: "pipe", stderr: "pipe" },
   );
@@ -166,7 +432,7 @@ async function runParity({
     new Response(child.stderr).text(),
     child.exited,
   ]);
-  return { exitCode, output: output + errors };
+  return { exitCode, output: output + errors, created, deleted };
 }
 
 describe("lint-parity", () => {
@@ -469,18 +735,380 @@ describe("lint-parity", () => {
     "fails when Metabase does not delete a test it created",
     async () => {
       const { exitCode, output } = await runParity({
-        deleted: {
+        deleteAnswer: {
           status: 403,
           body: "You don't have permissions to do that.",
         },
       });
       expect(output).toContain(
-        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase answered the probe 200, but the created test was not deleted: DELETE /api/ee/transform-test/999 answered 403 "You don't have permissions to do that."\n`,
+        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase answered the probe 200, but the created test was not deleted: DELETE /api/ee/transform-test/999 answered 403 You don't have permissions to do that.\n`,
       );
       expect(exitCode).toBe(1);
     },
     PARITY_PROCESS_TIMEOUT_MS,
   );
+
+  describe("--probe-transforms", () => {
+    const PYTHON =
+      "transform Python Hello World (collections/transforms/python_hello_world.yaml)";
+    const REPORT =
+      "transform Product Revenue Report (collections/transforms/native_transform.yaml)";
+    const isPython = (body: unknown) =>
+      isRecord(body) && isRecord(body.source) && body.source.type === "python";
+
+    it(
+      "agrees with Metabase on each rule its transform API enforces, and deletes what it creates",
+      async () => {
+        const { exitCode, output, created, deleted } = await runParity({
+          probeTransforms: true,
+        });
+        for (const line of [
+          `OK    probe missing-target-schema, ${PYTHON}, as imported: accepted\n`,
+          `OK    probe missing-target-schema, ${PYTHON}, as mutated: refused (${JSON.stringify(TARGET_SCHEMA_REQUIRED)})\n`,
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as imported: accepted\n`,
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as mutated: refused (${JSON.stringify(TABLE_VARIABLE_REQUIRED)})\n`,
+          `OK    probe missing-target-database, ${PYTHON}, as imported: accepted\n`,
+          `OK    probe missing-target-database, ${PYTHON}, as mutated: refused (${JSON.stringify(TARGET_DATABASE_NOT_FOUND)})\n`,
+        ]) {
+          expect(output).toContain(line);
+        }
+        expect(output).not.toContain("FAIL");
+        expect(exitCode).toBe(0);
+        expect(created).toBe(3);
+        expect(deleted).toBe(created);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails when Metabase refuses a transform the lint finds nothing wrong with",
+      async () => {
+        const { exitCode, output } = await runParity({
+          probeTransforms: true,
+          transformProbe: (body) =>
+            isPython(body)
+              ? { status: 400, body: TARGET_SCHEMA_REQUIRED }
+              : saveTransform(body),
+        });
+        expect(output).toContain(
+          `FAIL  probe missing-target-schema, ${PYTHON}, as imported: Metabase refuses it with ${JSON.stringify(TARGET_SCHEMA_REQUIRED)}; the lint reports no missing-target-schema\n`,
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails when Metabase accepts a transform the lint calls an error",
+      async () => {
+        const { exitCode, output, created, deleted } = await runParity({
+          probeTransforms: true,
+          transformProbe: () => ({ status: 200, body: { id: 500 } }),
+        });
+        expect(output).toContain(
+          `FAIL  probe missing-incremental-table-tag, ${REPORT}, as mutated: Metabase accepts it; the lint reports missing-incremental-table-tag\n`,
+        );
+        expect(exitCode).toBe(1);
+        expect(deleted).toBe(created);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails when Metabase answers no probe",
+      async () => {
+        const { exitCode, output } = await runParity({
+          probeTransforms: true,
+          transformProbe: () => ({
+            status: 403,
+            body: "You don't have permissions to do that.",
+          }),
+        });
+        expect(output).toContain(
+          `FAIL  probe missing-target-database, ${PYTHON}, as mutated: Metabase answered the probe 403 You don't have permissions to do that.\n`,
+        );
+        for (const rule of [
+          "missing-target-schema",
+          "missing-incremental-table-tag",
+          "missing-target-database",
+        ]) {
+          expect(output).toContain(
+            `FAIL  probe ${rule}: compared no answer with Metabase: every probe failed or was skipped\n`,
+          );
+        }
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails a probe whose field lookup Metabase does not answer, naming the answer",
+      async () => {
+        const { exitCode, output } = await runParity({
+          probeTransforms: true,
+          metadata: { status: 500, body: "Database unavailable" },
+        });
+        expect(output).toContain(
+          `FAIL  probe missing-incremental-table-tag, ${REPORT}, as mutated: GET /api/database/${POSTGRES_ID}/metadata answered 500 Database unavailable\n`,
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "asks Metabase about a blank target schema as about a missing one",
+      async () => {
+        workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+        const folder = join(workdir, "repo");
+        cpSync(EXAMPLES, folder, { recursive: true });
+        const python = join(
+          folder,
+          "collections/transforms/python_hello_world.yaml",
+        );
+        writeFileSync(
+          python,
+          readFileSync(python, "utf8").replace(
+            "schema: transforms",
+            'schema: " "',
+          ),
+        );
+        const { exitCode, output } = await runParity({
+          folder,
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          `OK    probe missing-target-schema, ${PYTHON}, as imported: refused (${JSON.stringify(TARGET_SCHEMA_REQUIRED)})\n`,
+        );
+        expect(output).not.toContain("FAIL");
+        expect(exitCode).toBe(0);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "compares each probe with the findings on its own transform only",
+      async () => {
+        workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+        const folder = join(workdir, "repo");
+        cpSync(EXAMPLES, folder, { recursive: true });
+        const summary = join(
+          folder,
+          "collections/transforms/product_summary.yaml",
+        );
+        const doc: unknown = YAML.parse(readFileSync(summary, "utf8"));
+        if (!isRecord(doc) || !isRecord(doc.target)) {
+          throw new Error("product_summary.yaml has no target");
+        }
+        delete doc.target.schema;
+        writeFileSync(summary, YAML.stringify(doc));
+        const { output } = await runParity({ folder, probeTransforms: true });
+        // Premise: the folder's lint reports missing-target-schema on Product
+        // Summary, which no probe changes.
+        const { findings } = await lint({ folder });
+        expect(
+          findings.some(
+            (f) =>
+              f.rule === "missing-target-schema" &&
+              f.entity.name === "Product Summary",
+          ),
+        ).toBe(true);
+        expect(output).toContain(
+          `OK    probe missing-target-schema, ${PYTHON}, as imported: accepted\n`,
+        );
+        expect(output).not.toContain("FAIL  probe");
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    /**
+     * A copy of the examples in a new folder, with `change` made to the text
+     * of the file at `file`.
+     */
+    function examplesWith(
+      file: string,
+      change: (text: string) => string,
+    ): string {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+      const folder = join(workdir, "repo");
+      cpSync(EXAMPLES, folder, { recursive: true });
+      const path = join(folder, file);
+      writeFileSync(path, change(readFileSync(path, "utf8")));
+      return folder;
+    }
+
+    /** The examples with a table template tag on `table` in Product Revenue Report's query. */
+    const withTableTag = (table: string) =>
+      examplesWith("collections/transforms/native_transform.yaml", (text) =>
+        text.replace(
+          "          GROUP BY p.category\n",
+          [
+            "          GROUP BY p.category",
+            "        template-tags:",
+            "          source:",
+            "            type: table",
+            "            name: source",
+            "            id: 6f1d1f43-3c4b-4d47-9a51-4f3b0a1e3c11",
+            "            display-name: Source",
+            `            table-id: [Sample Postgres, public, ${table}]`,
+            "",
+          ].join("\n"),
+        ),
+      );
+
+    it(
+      "agrees with Metabase on a table template tag for another table than the checkpoint field's",
+      async () => {
+        const { output } = await runParity({
+          folder: withTableTag("products"),
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as mutated: refused (${JSON.stringify(TABLE_VARIABLE_REQUIRED)})\n`,
+        );
+        expect(output).not.toContain("FAIL  probe");
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "agrees with Metabase on a table template tag for the checkpoint field's table",
+      async () => {
+        const { output } = await runParity({
+          folder: withTableTag("orders"),
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as mutated: accepted\n`,
+        );
+        expect(output).not.toContain("FAIL  probe");
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails a probe whose mutation changes no transform",
+      async () => {
+        const folder = examplesWith(
+          "collections/transforms/python_hello_world.yaml",
+          (text) => text.replace("  schema: transforms\n", ""),
+        );
+        const { exitCode, output } = await runParity({
+          folder,
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          "FAIL  probe missing-target-schema: the mutation changes no transform\n",
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails a probe whose mutation changes a transform beyond what a probe carries",
+      async () => {
+        // The mutations write YAML 1.2, which reads 0o17 as the number 15;
+        // the lint reads YAML 1.1, where 0o17 is a string.
+        const folder = examplesWith(
+          "collections/transforms/python_hello_world.yaml",
+          (text) =>
+            text.replace("  type: python\n", "  type: python\n  x: 0o17\n"),
+        );
+        const { exitCode, output } = await runParity({
+          folder,
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          "FAIL  probe missing-target-schema: the mutation changes transform collections/transforms/python_hello_world.yaml beyond its target's type, schema and database and its incremental strategy, which no probe carries\n",
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails a probe whose mutation the folder cannot take",
+      async () => {
+        workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+        const folder = join(workdir, "repo");
+        cpSync(EXAMPLES, folder, { recursive: true });
+        rmSync(join(folder, "collections/transforms/python_hello_world.yaml"));
+        const { exitCode, output } = await runParity({
+          folder,
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          "FAIL  probe missing-target-schema: --probe-transforms needs --folder to be examples/v1 or a copy of it: ENOENT",
+        );
+        expect(output).toContain(
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as mutated:`,
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "skips a transform the token is not licensed for, and fails each rule left with no answer",
+      async () => {
+        const unlicensed =
+          "Premium features required for this transform type are not enabled.";
+        const { exitCode, output } = await runParity({
+          probeTransforms: true,
+          transformProbe: (body) =>
+            isPython(body)
+              ? { status: 402, body: unlicensed }
+              : saveTransform(body),
+        });
+        expect(output).toContain(
+          `SKIP  probe missing-target-schema, ${PYTHON}, as imported: Metabase answered the probe 402 ${unlicensed}\n`,
+        );
+        // Both rules probe only the Python transform.
+        for (const rule of [
+          "missing-target-schema",
+          "missing-target-database",
+        ]) {
+          expect(output).toContain(
+            `FAIL  probe ${rule}: compared no answer with Metabase: every probe failed or was skipped\n`,
+          );
+        }
+        expect(output).not.toContain(
+          "FAIL  probe missing-incremental-table-tag",
+        );
+        expect(output).toContain(
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as mutated: refused (${JSON.stringify(TABLE_VARIABLE_REQUIRED)})\n`,
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+  });
+});
+
+describe("mutateExamples", () => {
+  it("copies the given source folder, not examples/v1, and mutates the copy", () => {
+    workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+    const source = join(workdir, "source");
+    cpSync(EXAMPLES, source, { recursive: true });
+    writeFileSync(join(source, "marker.txt"), "source\n");
+    const fromSource = join(workdir, "from-source");
+    const fromExamples = join(workdir, "from-examples");
+    mutateExamples("missing-target-schema", fromSource, source);
+    mutateExamples("missing-target-schema", fromExamples);
+    expect(readFileSync(join(fromSource, "marker.txt"), "utf8")).toBe(
+      "source\n",
+    );
+    expect(existsSync(join(fromExamples, "marker.txt"))).toBe(false);
+    const python = YAML.parse(
+      readFileSync(
+        join(fromSource, "collections/transforms/python_hello_world.yaml"),
+        "utf8",
+      ),
+    );
+    expect(isRecord(python) && isRecord(python.target)).toBe(true);
+    expect(python.target.schema).toBeUndefined();
+  });
 });
 
 describe("--default-schema", () => {
