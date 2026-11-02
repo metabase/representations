@@ -3288,52 +3288,22 @@ serdes/meta:
 - model: Card
 ```
 
-**`collections/data_apps/data_app__order_desk/update_order.yaml`** — a query action the app runs:
+**`collections/data_apps/data_app__order_desk/update_order.yaml`** — an implicit action on a table, the only kind Metabase allows in a data app's collection (no model, not archived, not public):
 
 ```yaml
 name: Update order
 entity_id: dApPaCtIoNcOpYExAmP12
 collection_id: dApPcOlLeCtIoN0ExAmP1
 creator_id: admin@example.com
-type: query
-implicit: []
-query:
-- database_id: Sample Database
-  dataset_query:
-    "lib/type": mbql/query
-    database: Sample Database
-    stages:
-      - "lib/type": mbql.stage/native
-        native: "UPDATE ORDERS SET DISCOUNT = {{discount}} WHERE ID = {{order_id}}"
-        template-tags:
-          discount:
-            type: number
-            name: discount
-            id: 3c1e6f0a-2b4d-4e8a-9f1c-5d6e7f8a9b0c
-            display-name: Discount
-          order_id:
-            type: number
-            name: order_id
-            id: 8a9b0c1d-2e3f-4a5b-8c6d-7e8f9a0b1c2d
-            display-name: Order ID
-parameters:
-- id: discount
-  name: Discount
-  slug: discount
-  type: number/=
-  target:
-  - variable
-  - - template-tag
-    - discount
-- id: order_id
-  name: Order ID
-  slug: order_id
-  type: number/=
-  required: true
-  target:
-  - variable
-  - - template-tag
-    - order_id
+type: implicit
+implicit:
+- kind: row/update
+  table_id:
+  - Sample Database
+  - null
+  - ORDERS
+query: []
+parameters: []
 parameter_mappings: []
 serdes/meta:
 - model: Action
