@@ -39,6 +39,19 @@ export const isRecord = (value: unknown): value is Record<string, unknown> => {
   return prototype === Object.prototype || prototype === null;
 };
 
+/**
+ * The template tags of a native stage's `template-tags`, a list or the legacy
+ * map by name; anything else, and any entry that is not a map, gives none.
+ */
+export function templateTagsOf(value: unknown): Record<string, unknown>[] {
+  const entries: readonly unknown[] = isUnknownArray(value)
+    ? value
+    : isRecord(value)
+      ? Object.values(value)
+      : [];
+  return entries.filter(isRecord);
+}
+
 /** The message of a thrown `Error`, or any other thrown value as text. */
 export function errorMessage(thrown: unknown): string {
   return thrown instanceof Error ? thrown.message : String(thrown);
@@ -60,6 +73,22 @@ export const escapeUnprintable = (text: string): string =>
       .map((unit) => `\\u${unit.charCodeAt(0).toString(16).padStart(4, "0")}`)
       .join(""),
   );
+
+/** `items` without repeats, keeping the first of each: two repeat when `key` gives them the same string. */
+export function uniqueBy<T>(
+  items: readonly T[],
+  key: (item: T) => string,
+): T[] {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const k = key(item);
+    if (seen.has(k)) {
+      return false;
+    }
+    seen.add(k);
+    return true;
+  });
+}
 
 /**
  * Java's `Character.isWhitespace`: a space, line or paragraph separator other

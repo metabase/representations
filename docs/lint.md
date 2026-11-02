@@ -8,7 +8,7 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 
 - The SQL dialect follows the database's engine, as Metabase maps drivers to dialects. The map is copied from Metabase, and the same CI job fails when it differs from Metabase's `master` or from the Metabase commit `vendor/sources.json` records for it.
 - Loading the parser takes a moment and some memory, once per process, and only when the lint reads SQL in the folder.
-- The parser reads SQL as given. Metabase first replaces each large literal list, such as an `IN` list of more than 100 literals, which can change the tables it finds; the parser does not. Metabase also stops a parse after 30 seconds (`sql-parsing-timeout-ms`); the parser has no time limit. A long literal list can take it seconds to read.
+- Before it reads tables, the lint replaces each large literal list, such as an `IN` list of more than 100 literals, as Metabase does. Metabase also stops a parse after 30 seconds (`sql-parsing-timeout-ms`); the parser has no time limit.
 - Pyodide is an optional peer dependency, which a plain install of the package leaves out. Install it with `npm install pyodide@314.0.7`, the version the package pins, where `@metabase/representations` is installed: a tool that depends on the package lists it among its own dependencies. Under `npx`, name both packages: `npx -p @metabase/representations -p pyodide@314.0.7 representations lint --experimental`; `npx` installs the package outside the project, where a Pyodide installed in the project is not found. Without Pyodide, a lint that reads SQL exits with code 2, and its message gives the `npm install` and `npx` commands.
 
 ## Which files are read

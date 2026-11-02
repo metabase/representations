@@ -1,0 +1,10 @@
+{
+  "defaultSchemas": {
+    "Sample Database": null,
+    "Sample Postgres": "public"
+  },
+  "engines": {
+    "Sample Database": "sqlite",
+    "Sample Postgres": "postgres"
+  }
+}

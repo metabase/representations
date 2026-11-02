@@ -1,4 +1,112 @@
+import { lstatSync, readFileSync } from "fs";
+import { resolve } from "path";
+
+import { errorMessage, isRecord, isStringOrNull } from "./values.js";
+
+/** The file, at the root of the linted folder, that gives the lint's settings. */
+export const CONFIG_FILE = ".metabase-lint.json";
+
 /** The lint cannot run: its settings are missing or invalid, or the SQL parser cannot start. */
 export class LintSetupError extends Error {
   override name = "LintSetupError";
+}
+
+/** What `CONFIG_FILE` gives, each by database name. */
+export type LintSettings = {
+  /** Each database's default schema; null for a database with no schemas. */
+  defaultSchemas: Readonly<Record<string, string | null>>;
+  /** Each database's engine, Metabase's driver name, such as `postgres`. */
+  engines: Readonly<Record<string, string>>;
+};
+
+const isMapOf = <T>(
+  value: unknown,
+  isValue: (v: unknown) => v is T,
+): value is Readonly<Record<string, T>> =>
+  isRecord(value) && Object.values(value).every(isValue);
+
+const isString = (v: unknown): v is string => typeof v === "string";
+
+const SETTINGS_KEYS = new Set(["defaultSchemas", "engines"]);
+
+/**
+ * The settings `CONFIG_FILE` in `folder` gives; none when there is no such
+ * file. Throws a `LintSetupError` when the file is not a regular file (a
+ * symbolic link is not), or not a JSON object of the form
+ * `{"defaultSchemas": {"<database>": "<schema>" | null}, "engines":
+ * {"<database>": "<engine>"}}`, each key optional. The error's message gives
+ * each key and parser message from the file as a JSON string.
+ */
+export function readSettingsFile(folder: string): LintSettings {
+  const path = resolve(folder, CONFIG_FILE);
+  const stats = lstatSync(path, { throwIfNoEntry: false });
+  if (stats === undefined) {
+    return { defaultSchemas: {}, engines: {} };
+  }
+  // A link or a device can point at what never ends, such as /dev/zero.
+  if (!stats.isFile()) {
+    throw new LintSetupError(
+      `${CONFIG_FILE} is not a regular file; replace it with a file`,
+    );
+  }
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(path, "utf8"));
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
+  } catch (e) {
+    throw new LintSetupError(
+      `${CONFIG_FILE} does not parse as JSON: ${JSON.stringify(errorMessage(e))}`,
+    );
+  }
+  if (!isRecord(settings)) {
+    throw new LintSetupError(`${CONFIG_FILE} is not a JSON object`);
+  }
+  const unknownKeys = Object.keys(settings).filter(
+    (key) => !SETTINGS_KEYS.has(key),
+  );
+  if (unknownKeys.length > 0) {
+    throw new LintSetupError(
+      `${CONFIG_FILE} has unknown keys: ${unknownKeys.map((key) => JSON.stringify(key)).join(", ")}`,
+    );
+  }
+  const { defaultSchemas = {}, engines = {} } = settings;
+  if (!isMapOf(defaultSchemas, isStringOrNull)) {
+    throw new LintSetupError(
+      `${CONFIG_FILE}: defaultSchemas must map each database name to a schema name or null`,
+    );
+  }
+  if (!isMapOf(engines, isString)) {
+    throw new LintSetupError(
+      `${CONFIG_FILE}: engines must map each database name to an engine name`,
+    );
+  }
+  return { defaultSchemas, engines };
+}
+
+/**
+ * The default schema of each database that `pairs`, the values of the
+ * `--default-schema` option, give as `DATABASE=SCHEMA`; `DATABASE=` gives
+ * null, a database with no schemas. A pair splits at its last `=`. Throws a
+ * `LintSetupError` on a pair with no database, and on a database that two
+ * pairs name.
+ */
+export function parseDefaultSchemas(
+  pairs: readonly string[],
+): Record<string, string | null> {
+  const schemas: Record<string, string | null> = {};
+  for (const pair of pairs) {
+    const at = pair.lastIndexOf("=");
+    if (at <= 0) {
+      throw new LintSetupError(
+        `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
+      );
+    }
+    const database = pair.slice(0, at);
+    if (Object.hasOwn(schemas, database)) {
+      throw new LintSetupError(`--default-schema names ${database} twice`);
+    }
+    const schema = pair.slice(at + 1);
+    schemas[database] = schema === "" ? null : schema;
+  }
+  return schemas;
 }

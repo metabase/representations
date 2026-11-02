@@ -1,18 +1,18 @@
 name: Product Summary
 entity_id: rT5vWxYz1aBcDeFgHiJkL
 creator_id: admin@example.com
-source_database_id: Sample Database
+source_database_id: Sample Postgres
 source:
   type: query
   query:
     "lib/type": mbql/query
-    database: Sample Database
+    database: Sample Postgres
     stages:
       - "lib/type": mbql.stage/mbql
         source-table:
-        - Sample Database
-        - null
-        - PRODUCTS
+        - Sample Postgres
+        - public
+        - products
         aggregation:
         - - count
           - {}
@@ -20,21 +20,21 @@ source:
           - {}
           - - field
             - base-type: type/Float
-            - - Sample Database
-              - null
-              - PRODUCTS
-              - PRICE
+            - - Sample Postgres
+              - public
+              - products
+              - price
         breakout:
         - - field
           - {}
-          - - Sample Database
-            - null
-            - PRODUCTS
-            - CATEGORY
+          - - Sample Postgres
+            - public
+            - products
+            - category
 target:
-  database: Sample Database
+  database: Sample Postgres
   type: table
-  schema: TRANSFORMS
+  schema: transforms
   name: product_summary
 serdes/meta:
 - model: Transform

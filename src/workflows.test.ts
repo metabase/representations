@@ -3,9 +3,11 @@ import { readdirSync, readFileSync } from "fs";
 import yaml from "js-yaml";
 import { join, resolve } from "path";
 
+import { readSettingsFile } from "./settings.js";
 import { isRecord } from "./values.js";
 
-const WORKFLOWS = resolve(import.meta.dirname, "..", ".github", "workflows");
+const ROOT = resolve(import.meta.dirname, "..");
+const WORKFLOWS = join(ROOT, ".github", "workflows");
 
 type Step = Record<string, unknown>;
 type RunStep = {
@@ -523,5 +525,24 @@ describe("workflows", () => {
         )
         .map((i) => i.where),
     ).toEqual([]);
+  });
+});
+
+describe("import.yml", () => {
+  it("connects, as the warehouse, the database the examples' settings file gives the engine postgres", () => {
+    const lines = runSteps()
+      .filter((s) => s.workflow === "import.yml")
+      .flatMap((s) => s.run.split("\n").map((line) => line.trim()))
+      .filter((line) => line.startsWith("WAREHOUSE="));
+    expect(lines).toHaveLength(1);
+    const { exitCode, stdout } = Bun.spawnSync(
+      ["bash", "-ec", `${lines[0]}\nprintf %s "$WAREHOUSE"`],
+      { cwd: ROOT },
+    );
+    expect(exitCode).toBe(0);
+    const warehouse = stdout.toString();
+    expect(
+      readSettingsFile(join(ROOT, "examples", "v1")).engines[warehouse],
+    ).toBe("postgres");
   });
 });
