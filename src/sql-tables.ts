@@ -10,6 +10,7 @@ import {
 import {
   cacheBySql,
   dialectOf,
+  isParseError,
   type ParsedTables,
   type SqlParser,
   type TableReplacement,
@@ -93,6 +94,13 @@ function tagOfPlaceholder(name: string): string | null {
     : `{{${Buffer.from(hex, "hex").toString("utf8")}}}`;
 }
 
+/** `unread`, its reason prefixed when SQLGlot could not parse the SQL. */
+function parseFailure(unread: Unread): Unread {
+  return isParseError(unread)
+    ? { ...unread, reason: `SQLGlot could not parse it: ${unread.reason}` }
+    : unread;
+}
+
 /** Why the lint does not read a native query of `engine`. */
 const notSql = (engine: string): Unread => ({
   status: "unread",
@@ -174,10 +182,7 @@ export function createSqlTableReader(
     }
     const result = parse(prepared.sql, prepared.dialect);
     if (result.status === "unread") {
-      return {
-        status: "unread",
-        reason: `SQLGlot could not parse it: ${result.reason}`,
-      };
+      return parseFailure(result);
     }
     return {
       status: "read",
@@ -228,11 +233,6 @@ export function createRewrittenTableReader(
       replaced.status === "read"
         ? parser.referencedTables(stripLargeLiteralLists(replaced.sql), dialect)
         : replaced;
-    return result.status === "read"
-      ? result
-      : {
-          status: "unread",
-          reason: `SQLGlot could not parse it: ${result.reason}`,
-        };
+    return result.status === "read" ? result : parseFailure(result);
   };
 }

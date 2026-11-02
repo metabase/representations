@@ -6,10 +6,10 @@ import type { TableName } from "./tables.js";
 import { errorMessage, isRecord, isUnknownArray } from "./values.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
-/** Why SQLGlot could not read a SQL text. */
+/** Why the lint could not read a SQL text. */
 export type Unread = { status: "unread"; reason: string };
 
-/** The tables a SQL text names, or why SQLGlot could not read it. */
+/** The tables a SQL text names, or why the lint could not read it. */
 export type ParsedTables = { status: "read"; tables: TableName[] } | Unread;
 
 /**
@@ -324,6 +324,14 @@ export function answerOf(
     status: "unread",
     reason: "the SQL parser answered with JSON that is not an answer",
   };
+}
+
+/**
+ * Whether `unread` is SQLGlot's failure to parse SQL: a parse or token error,
+ * or a statement nested deeper than Python's recursion limit.
+ */
+export function isParseError(unread: Unread): boolean {
+  return /^(ParseError|TokenError|RecursionError): /.test(unread.reason);
 }
 
 /** Unread: an answer whose shape the lint does not know. */

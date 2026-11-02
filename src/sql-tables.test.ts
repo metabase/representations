@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import type { EngineOf } from "./databases.js";
 import { loadSqlParser, type SqlParser } from "./sql-parser.js";
 import {
+  createRewrittenTableReader,
   createSqlTableReader,
   type SqlTableReader,
   valuedTagNames,
@@ -135,6 +136,29 @@ describe("a SQL table reader", () => {
       reason:
         "native queries on mongo are not SQL; the lint does not read them",
     });
+  });
+
+  it("names SQLGlot only when SQLGlot could not parse the SQL", () => {
+    const unexpected = {
+      status: "unread" as const,
+      reason: "the SQL parser answered in a shape the lint does not know",
+    };
+    const parser: SqlParser = {
+      referencedTables: () => unexpected,
+      fieldReferences: () => unexpected,
+      replaceNames: () => unexpected,
+      queryShape: () => unexpected,
+    };
+    expect(
+      createSqlTableReader(parser, engineOf)("SELECT * FROM a", "Warehouse"),
+    ).toEqual(unexpected);
+    expect(
+      createRewrittenTableReader(parser, engineOf)(
+        "SELECT * FROM a",
+        "Warehouse",
+        [],
+      ),
+    ).toEqual(unexpected);
   });
 
   it("refuses a query with a snippet left in it, which SQLGlot would parse", () => {
