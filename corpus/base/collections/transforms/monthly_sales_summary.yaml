@@ -1,0 +1,27 @@
+name: Monthly Sales Summary
+entity_id: w7EfUbsxLA7kXBHVXgeaZ
+creator_id: admin@example.com
+source_database_id: Sample Postgres
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Postgres
+    stages:
+      - "lib/type": mbql.stage/native
+        native: |-
+          SELECT
+            DATE_TRUNC('month', o.created_at) AS month,
+            p.category,
+            COUNT(*) AS order_count,
+            SUM(o.total) AS total_revenue
+          FROM orders o
+          JOIN products p ON o.product_id = p.id
+          GROUP BY 1, 2
+target:
+  database: Sample Postgres
+  type: table
+  schema: transforms
+  name: monthly_sales_summary
+serdes/meta:
+- model: Transform

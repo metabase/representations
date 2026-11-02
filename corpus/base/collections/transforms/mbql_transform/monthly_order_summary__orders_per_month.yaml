@@ -1,0 +1,28 @@
+name: 'Monthly Order Summary: orders per month'
+entity_id: 57lhlfQkXUllMLTaY9IRu
+transform_id: 1fNzUt_CgppinjPk7pGKH
+creator_id: admin@example.com
+description: 'Cases: two orders in one month are counted and summed; the next month stands alone.'
+inputs:
+- table:
+    schema: public
+    name: orders
+  format: rows
+  columns:
+  - name: created_at
+    cast_type: TIMESTAMP
+  - name: total
+    cast_type: DOUBLE PRECISION
+  rows:
+  - created_at: '2024-01-05 09:00:00'
+    total: 10.0
+  - created_at: '2024-01-20 17:30:00'
+    total: 15.0
+  - created_at: '2024-02-02 12:00:00'
+    total: 20.0
+expectations:
+- type: empty
+  name: no negative revenue
+  sql: SELECT * FROM transforms.monthly_order_summary WHERE sum < 0
+serdes/meta:
+- model: TransformTest

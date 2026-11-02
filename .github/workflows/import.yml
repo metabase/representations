@@ -334,3 +334,14 @@ jobs:
           MB_URL=http://localhost:3000 scripts/wait-for-import.sh "$TASK_ID"
 
           bun run scripts/lint-parity.ts --url http://localhost:3000 --api-key "$API_KEY" --folder "$RUNNER_TEMP/sync-repo"
+
+      # Each case of corpus/cases holds what this Metabase's build answered
+      # when it was recorded; corpus.test.ts compares the lint with those
+      # answers. Record each case again, on a branch of its own that replaces
+      # the content above, and fail when Metabase now answers differently.
+      # A failure above does not hide a change in Metabase's answers.
+      - name: Check the corpus's recorded answers against Metabase
+        if: ${{ !cancelled() }}
+        run: |
+          bun run scripts/record-corpus.ts --url http://localhost:3000 --api-key "$API_KEY" \
+            --repo "$RUNNER_TEMP/sync-repo" --check

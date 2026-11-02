@@ -49,6 +49,12 @@ import {
   testVerdictDiffers,
   transformVerdictDiffers,
 } from "./parity.js";
+import {
+  type Answer,
+  createMetabase,
+  describe,
+  NO_TABLE_EXPECTATION,
+} from "./metabase-api.js";
 
 const { values } = parseArgs({
   options: {
@@ -83,139 +89,7 @@ for (const pair of values["default-schema"] ?? []) {
   defaultSchemas[pair.slice(0, at)] = pair.slice(at + 1);
 }
 
-const headers = { "X-API-Key": apiKey, "Content-Type": "application/json" };
-
-/**
- * Metabase's answer: its status, and its body parsed as JSON, or undefined when
- * the body is not JSON. Metabase answers some refusals, such as a 403, in plain
- * text, which `text` keeps.
- */
-type Answer = { status: number; json: unknown; text: string };
-
-async function api(
-  method: string,
-  path: string,
-  body?: unknown,
-): Promise<Answer> {
-  const response = await fetch(`${url}${path}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const text = await response.text();
-  let json: unknown;
-  try {
-    json = text ? JSON.parse(text) : null;
-  } catch {
-    json = undefined;
-  }
-  return { status: response.status, json, text };
-}
-
-/** The answer as a failure message names it: its status and its body. */
-const describe = (answer: Answer) =>
-  `${answer.status} ${answer.text.trim() || "(empty body)"}`;
-
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
-
-/** Metabase's answer to creating a transform test. */
-type Probe =
-  | { kind: "accepted" }
-  /**
-   * Refused with a transform-test error code; `tables` when the refusal lists
-   * them. Metabase names the query an unremapped-reference refusal is about
-   * only in its localized message, so `refusal.onTransform` is false until
-   * locateRefusal sets it.
-   */
-  | { kind: "refused"; refusal: TestRefusal; tables: string[] | null }
-  /** Anything else, such as a 403: the probe did not run. */
-  | { kind: "failed"; answer: string };
-
-/** Metabase's answer to deleting a test, or null when it deleted it. */
-async function deleteTest(id: number): Promise<string | null> {
-  const answer = await api("DELETE", `/api/ee/transform-test/${id}`);
-  return answer.status >= 200 && answer.status < 300
-    ? null
-    : `DELETE /api/ee/transform-test/${id} answered ${describe(answer)}`;
-}
-
-async function probe(test: {
-  transform_id: number;
-  inputs: unknown;
-  expectations: unknown;
-}): Promise<Probe> {
-  const answer = await api("POST", "/api/ee/transform-test", {
-    name: "lint parity probe",
-    ...test,
-  });
-  const json = isRecord(answer.json) ? answer.json : {};
-  if (answer.status === 200 && typeof json.id === "number") {
-    const refused = await deleteTest(json.id);
-    return refused === null
-      ? { kind: "accepted" }
-      : {
-          kind: "failed",
-          answer: `200, but the created test was not deleted: ${refused}`,
-        };
-  }
-  const code = json["error-code"] ?? json.error_code;
-  if (typeof code === "string" && code.startsWith("transform-test.")) {
-    return {
-      kind: "refused",
-      refusal: {
-        code,
-        message: typeof json.message === "string" ? json.message : null,
-        onTransform: false,
-      },
-      tables: isStringArray(json.tables) ? json.tables : null,
-    };
-  }
-  return { kind: "failed", answer: describe(answer) };
-}
-
-/** An expectation whose SQL reads no table, which no test is refused for. */
-const NO_TABLE_EXPECTATION = {
-  type: "empty",
-  name: "probe",
-  sql: "SELECT 1 WHERE 1 = 0",
-};
-
-/** `refusal` with `onTransform` set, or the answer of a locate probe that did not run. */
-type Located =
-  | { kind: "located"; refusal: TestRefusal }
-  | { kind: "failed"; answer: string };
-
-/**
- * `refusal` of `test`, located on the transform or on an expectation. Metabase
- * checks the transform's SQL before the expectations', and names the query an
- * unremapped-reference refusal is about only in its localized message. The
- * test with only an expectation that reads no table tells: Metabase refuses it
- * with the same code when the transform's SQL is at fault, and accepts it when
- * an expectation is. Any other answer is a failure.
- */
-async function locateRefusal(
-  refusal: TestRefusal,
-  test: { transform_id: number; inputs: unknown },
-): Promise<Located> {
-  if (refusal.code !== "transform-test.unremapped-reference") {
-    return { kind: "located", refusal };
-  }
-  const answer = await probe({ ...test, expectations: [NO_TABLE_EXPECTATION] });
-  if (answer.kind === "accepted") {
-    return { kind: "located", refusal };
-  }
-  if (answer.kind === "refused" && answer.refusal.code === refusal.code) {
-    return { kind: "located", refusal: { ...refusal, onTransform: true } };
-  }
-  return {
-    kind: "failed",
-    answer:
-      answer.kind === "failed"
-        ? answer.answer
-        : `a refusal with ${describeRefusal(answer.refusal)}`,
-  };
-}
+const { api, probe, locateRefusal } = createMetabase(url, apiKey);
 
 let failed = false;
 const fail = (line: string) => {

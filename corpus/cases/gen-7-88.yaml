@@ -1,0 +1,65 @@
+description: alias-upper, name-lower, name-mixed, name-upper, nested-optional-clause, schema-lower, schema-none, sql
+origin: corpus-gen.ts, seed 7, case 88, shrunk to 1 of 1 edits
+known: "collections/transforms/monthly_sales_summary.yaml: Metabase refuses the probe with transform-test.unparseable-source, which the lint does not explain"
+edits:
+  collections/transforms/monthly_sales_summary.yaml: |
+    name: Monthly Sales Summary
+    entity_id: w7EfUbsxLA7kXBHVXgeaZ
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT * FROM transforms.daily_order_summary AS T WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM ORDERS AS T [[WHERE 1 IN (SELECT 1 FROM Products)]])]]
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: monthly_sales_summary
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      refused: transform-test.unparseable-source
+      message: |-
+        The transform source SQL could not be parsed for test input validation: ParseError: Expecting ). Line 1, Col: 101.
+          SELECT * FROM transforms.daily_order_summary AS T WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM ORDERS AS T [[WHERE 1 IN (SELECT 1 FROM Products)]])]]
+                                                                                                              ^
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      accepted: true
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true

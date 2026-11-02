@@ -1,0 +1,6 @@
+name: Sample Postgres
+engine: postgres
+description: Metabase's Sample Database on Postgres, where the transforms read and write.
+serdes/meta:
+- model: Database
+  id: Sample Postgres

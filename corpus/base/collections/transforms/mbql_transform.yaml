@@ -1,0 +1,40 @@
+name: Monthly Order Summary
+entity_id: 1fNzUt_CgppinjPk7pGKH
+creator_id: admin@example.com
+source_database_id: Sample Postgres
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Postgres
+    stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Postgres
+        - public
+        - orders
+        aggregation:
+        - - count
+          - {}
+        - - sum
+          - {}
+          - - field
+            - base-type: type/Float
+            - - Sample Postgres
+              - public
+              - orders
+              - total
+        breakout:
+        - - field
+          - temporal-unit: month
+          - - Sample Postgres
+            - public
+            - orders
+            - created_at
+target:
+  database: Sample Postgres
+  type: table
+  schema: transforms
+  name: monthly_order_summary
+serdes/meta:
+- model: Transform

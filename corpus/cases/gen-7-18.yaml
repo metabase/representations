@@ -1,0 +1,107 @@
+description: alias-quoted, alias-quoted-upper, alias-upper, name-lower, name-mixed, name-quoted, nested-optional-tags-d1-n2, optional-clause, schema-lower, schema-none, schema-quoted, schema-upper, sql
+origin: corpus-gen.ts, seed 7, case 18, shrunk to 2 of 3 edits
+known: |-
+  collections/transforms/daily_order_summary.yaml: only Metabase reads public.orders
+  collections/transforms/monthly_sales_summary.yaml: Metabase refuses the probe with transform-test.unparseable-source, which the lint does not explain
+edits:
+  collections/transforms/daily_order_summary.yaml: |
+    name: Daily Order Summary
+    entity_id: 7XqqzlsonSq4KFyOvtrAm
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT * FROM public.Products AS "t" [[JOIN "public"."orders" ON 1 = {{d1}} [[JOIN PUBLIC.people "T" ON 1 = {{n2}}]] ]]
+            template-tags:
+              - type: number
+                name: d1
+                id: aa000000-0000-0000-0000-000000000000
+                display-name: d1
+                default: 1
+              - type: number
+                name: n2
+                id: aa000000-0000-0000-0000-000000000001
+                display-name: n2
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: daily_order_summary
+    tags:
+      - entity_id: qJU4-opN0IFLKDEdmXiYh
+        position: 0
+        tag_id: dUW7nvQHQBdA0Rx0gJckI
+      - entity_id: hTtmHg0mopz6qzrEDukSm
+        position: 1
+        tag_id: 1uWng5tP1gyxr44PJ5FPb
+    serdes/meta:
+      - model: Transform
+  collections/transforms/monthly_sales_summary.yaml: |
+    name: Monthly Sales Summary
+    entity_id: w7EfUbsxLA7kXBHVXgeaZ
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT * FROM TRANSFORMS."product_revenue_report" AS T WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM People)]]
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: monthly_sales_summary
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - public.orders
+        - public.Products
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      refused: transform-test.unparseable-source
+      message: |-
+        The transform source SQL could not be parsed for test input validation: ParseError: Required keyword: 'this' missing. Line 1, Col: 101.
+          SELECT * FROM TRANSFORMS."product_revenue_report" AS T WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM People)]]
+                                                                                                              ^
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      refused: transform-test.missing-inputs
+      message: "The transform reads table(s) with no declared test input: public.orders, public.Products. Add an input for each."
+      on_transform: false
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      accepted: true
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true

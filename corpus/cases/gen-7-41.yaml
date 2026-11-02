@@ -1,0 +1,129 @@
+description: alias, alias-quoted, duplicate-input, expectation, expectation-sql, line-comment, name-mixed, name-quoted, name-upper, schema-lower, schema-none, sql, union
+origin: corpus-gen.ts, seed 7, case 41
+known: null
+edits:
+  collections/transforms/daily_order_summary.yaml: |
+    name: Daily Order Summary
+    entity_id: 7XqqzlsonSq4KFyOvtrAm
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT * FROM "orders" t -- FROM transforms.DAILY_ORDER_SUMMARY t
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: daily_order_summary
+    tags:
+      - entity_id: qJU4-opN0IFLKDEdmXiYh
+        position: 0
+        tag_id: dUW7nvQHQBdA0Rx0gJckI
+      - entity_id: hTtmHg0mopz6qzrEDukSm
+        position: 1
+        tag_id: 1uWng5tP1gyxr44PJ5FPb
+    serdes/meta:
+      - model: Transform
+  collections/transforms/native_transform/product_revenue_report__category_totals.yaml: |
+    name: "Product Revenue Report: category totals"
+    entity_id: aRvM7DLesF1fOV4kRHidq
+    transform_id: 7JwIkkAG-06-nsl4jzsaq
+    creator_id: admin@example.com
+    description: "Cases: two orders of one category are summed and averaged; a category with one order stands alone."
+    inputs:
+      - table:
+          name: orders
+        format: rows
+        columns:
+          - name: id
+            cast_type: INTEGER
+          - name: product_id
+            cast_type: INTEGER
+          - name: total
+            cast_type: DOUBLE PRECISION
+        rows:
+          - id: 1
+            product_id: 1
+            total: 10
+          - id: 2
+            product_id: 1
+            total: 30
+          - id: 3
+            product_id: 2
+            total: 25
+      - table:
+          name: products
+        format: sql
+        sql: SELECT 1 AS id, 'Gadget' AS category UNION ALL SELECT 2, 'Widget'
+      - table:
+          name: orders
+        format: rows
+        columns:
+          - name: id
+            cast_type: INTEGER
+          - name: product_id
+            cast_type: INTEGER
+          - name: total
+            cast_type: DOUBLE PRECISION
+        rows:
+          - id: 1
+            product_id: 1
+            total: 10
+          - id: 2
+            product_id: 1
+            total: 30
+          - id: 3
+            product_id: 2
+            total: 25
+    expectations:
+      - type: empty
+        name: generated
+        sql: SELECT 1 FROM public.ORDERS UNION ALL SELECT 1 FROM transforms.Daily_order_summary AS "t"
+    serdes/meta:
+      - model: TransformTest
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      refused: transform-test.duplicate-input-table
+      message: "Duplicate test inputs; each input table may be declared only once: orders, orders"
+      on_transform: false
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true

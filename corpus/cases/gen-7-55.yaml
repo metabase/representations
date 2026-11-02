@@ -1,0 +1,95 @@
+description: alias, alias-upper, line-comment, multi-statement, name-lower, name-mixed, name-quoted, name-upper, nested-optional-tags-n1-n2, schema-lower, schema-none, schema-quoted, schema-upper, sql
+origin: corpus-gen.ts, seed 7, case 55
+known: null
+edits:
+  collections/transforms/native_transform.yaml: |
+    name: Product Revenue Report
+    entity_id: 7JwIkkAG-06-nsl4jzsaq
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT * FROM transforms.Daily_order_summary AS T [[JOIN "public".products t ON 1 = {{n1}} [[JOIN PUBLIC.People AS T ON 1 = {{n2}}]] ]]
+            template-tags:
+              - type: number
+                name: n1
+                id: aa000000-0000-0000-0000-000000000000
+                display-name: n1
+              - type: number
+                name: n2
+                id: aa000000-0000-0000-0000-000000000001
+                display-name: n2
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: product_revenue_report
+    serdes/meta:
+      - model: Transform
+  collections/transforms/monthly_sales_summary.yaml: |
+    name: Monthly Sales Summary
+    entity_id: w7EfUbsxLA7kXBHVXgeaZ
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: |-
+              SELECT * FROM transforms."daily_order_summary";
+              SELECT * FROM transforms.DAILY_ORDER_SUMMARY AS T
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: monthly_sales_summary
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - transforms.daily_order_summary
+        - transforms.DAILY_ORDER_SUMMARY
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - transforms.Daily_order_summary
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      refused: transform-test.missing-inputs
+      message: "The transform reads table(s) with no declared test input: transforms.Daily_order_summary. Add an input for each."
+      on_transform: false
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true
