@@ -1385,6 +1385,41 @@ describe("lint", () => {
       ]);
     });
 
+    it("reads a test's SQL input in a folder that holds no other SQL", async () => {
+      const files = [
+        CONFIG_FILE,
+        MBQL_TRANSFORM,
+        "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml",
+      ];
+      for (const file of files) {
+        mkdirSync(join(workdir, file, ".."), { recursive: true });
+        cpSync(join(EXAMPLES, file), join(workdir, file));
+      }
+      edit(workdir, files[2], (test) => {
+        test.inputs = [
+          {
+            table: { schema: "public", name: "orders" },
+            format: "sql",
+            sql: "SELECT * FROM orders",
+          },
+        ];
+        test.expectations = [
+          {
+            type: "equals",
+            name: "no months",
+            format: "rows",
+            columns: [{ name: "count", cast_type: "INTEGER" }],
+            rows: [],
+          },
+        ];
+      });
+      expect(
+        (await findings(workdir)).map((f) => `${f.rule}: ${f.message}`),
+      ).toEqual([
+        "live-sql-input: input public.orders reads orders; Metabase runs an input's SQL on the database as written, so the test depends on live data",
+      ]);
+    });
+
     // The test of this transform has inputs; were the reads taken as empty,
     // each input would be reported unused.
     it.each([
@@ -2354,6 +2389,124 @@ describe("lint", () => {
       expect(await cycles({})).toBe(0);
       expect(await cycles({ [POSTGRES_DB]: null })).toBe(1);
       expect(await cycles({ [POSTGRES_DB]: "public" })).toBe(0);
+    });
+
+    it("compares a test input with another transform's target where the default schema does not decide it", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      mutateExamples("upstream-column-mismatch", workdir);
+      const upstream = async (defaultSchemas: Record<string, string>) =>
+        (await lint({ folder: workdir, defaultSchemas })).findings
+          .filter((f) => f.rule === "upstream-column-mismatch")
+          .map((f) => f.file);
+      writeFileSync(
+        join(workdir, CONFIG_FILE),
+        JSON.stringify({
+          defaultSchemas: { "Sample Database": null },
+          engines: { "Sample Database": "sqlite", [POSTGRES_DB]: "postgres" },
+        }),
+      );
+      const TEST =
+        "collections/transforms/top_categories/top_categories__three_highest.yaml";
+      // The input and the target both name the schema transforms.
+      expect(await upstream({})).toEqual([TEST]);
+      // An unqualified input is the target only in the default schema.
+      edit(workdir, TEST, (doc) => {
+        delete mapAt(doc, "inputs", 0, "table").schema;
+      });
+      expect(await upstream({})).toEqual([]);
+      expect(await upstream({ [POSTGRES_DB]: "public" })).toEqual([]);
+      expect(await upstream({ [POSTGRES_DB]: "transforms" })).toEqual([TEST]);
+    });
+
+    describe("upstream columns of a test whose files need the default schema", () => {
+      // U returns n; the test's input for U's target declares m, which U does
+      // not return. Every name the comparison reads is qualified.
+      const writeTest = (expectationSql: string) =>
+        writeFileSync(
+          join(workdir, "collections/transforms/t__test.yaml"),
+          yaml.dump({
+            name: "T: test",
+            entity_id: "NoDefaultTransformTst",
+            transform_id: "NoDefaultTransformT01",
+            creator_id: "admin@example.com",
+            inputs: [
+              {
+                table: { schema: "transforms", name: "u" },
+                format: "rows",
+                columns: [{ name: "m", cast_type: "INTEGER" }],
+                rows: [{ m: 1 }],
+              },
+            ],
+            expectations: [
+              { type: "empty", name: "none", sql: expectationSql },
+            ],
+            "serdes/meta": [{ model: "TransformTest" }],
+          }),
+        );
+      const upstream = async (defaultSchemas: Record<string, string> = {}) =>
+        (await lint({ folder: workdir, defaultSchemas })).findings
+          .filter((f) => f.rule === "upstream-column-mismatch")
+          .map((f) => f.file);
+
+      beforeEach(() => {
+        writeTransform("u.yaml", "NoDefaultTransformU01", "SELECT 1 AS n", {
+          schema: "transforms",
+          name: "u",
+        });
+      });
+
+      // Metabase runs the SQL of a stage with no template tags as written.
+      it("reads no columns of an upstream stage with no template tags whose optional clause does not parse as written", async () => {
+        writeTransform(
+          "u.yaml",
+          "NoDefaultTransformU01",
+          "SELECT 1 AS n [[, {{x}} AS m]]",
+          { schema: "transforms", name: "u" },
+        );
+        writeTransform(
+          "t.yaml",
+          "NoDefaultTransformT01",
+          "SELECT n FROM transforms.u",
+          { schema: "transforms", name: "t" },
+        );
+        writeTest("SELECT * FROM transforms.t");
+        expect(await upstream({ [POSTGRES_DB]: "public" })).toEqual([]);
+      });
+
+      it("compares a test whose own file needs it, where the names are qualified", async () => {
+        writeTransform(
+          "t.yaml",
+          "NoDefaultTransformT01",
+          "SELECT n FROM transforms.u",
+          {
+            schema: "transforms",
+            name: "t",
+          },
+        );
+        writeTest("SELECT * FROM transforms.t JOIN x ON true");
+        expect(await upstream()).toEqual([
+          "collections/transforms/t__test.yaml",
+        ]);
+        expect(await upstream({ [POSTGRES_DB]: "public" })).toEqual([
+          "collections/transforms/t__test.yaml",
+        ]);
+      });
+
+      it("compares a test whose transform's file needs it, where the names are qualified", async () => {
+        writeTransform(
+          "t.yaml",
+          "NoDefaultTransformT01",
+          "SELECT n FROM transforms.u JOIN y ON true",
+          { schema: "transforms", name: "t" },
+        );
+        writeTest("SELECT * FROM transforms.t");
+        expect(await upstream()).toEqual([
+          "collections/transforms/t__test.yaml",
+        ]);
+        expect(await upstream({ [POSTGRES_DB]: "public" })).toEqual([
+          "collections/transforms/t__test.yaml",
+        ]);
+      });
     });
 
     it("compares the same files once the default schema is given", async () => {

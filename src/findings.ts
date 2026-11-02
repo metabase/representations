@@ -37,6 +37,8 @@ export const LINT_RULE_SEVERITY = {
   "duplicate-expectation-name": "error",
   "null-schema-reference": "error",
   "no-expectations": "warning",
+  "upstream-column-mismatch": "warning",
+  "live-sql-input": "warning",
   "reads-not-checked": "warning",
 } as const satisfies Record<string, LintSeverity>;
 

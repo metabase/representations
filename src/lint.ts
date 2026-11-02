@@ -39,6 +39,7 @@ import { engineFacts } from "./engines.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas } from "./schemas.js";
 import { CONFIG_FILE, readSettingsFile } from "./settings.js";
+import { createSqlColumnReader } from "./sql-columns.js";
 import { withSqlParser } from "./sql-parser.js";
 import {
   createSqlParseCheck,
@@ -67,6 +68,7 @@ import {
   testedTransformsOf,
   testInputs,
 } from "./test-checks.js";
+import { createQueryReader, reportTestSql } from "./test-sql-checks.js";
 import {
   reportCollectionNamespaces,
   reportEmptyNativeQueries,
@@ -702,6 +704,18 @@ export async function lint({
     reportExpectationNames(docs, report);
     reportEmptyExpectations(docs, report);
     reportUntestableEngines(tested, engineOf, report);
+    reportTestSql(
+      {
+        transforms,
+        tested,
+        compare: createTableComparisons(defaultSchemaOf, unknownDatabases),
+        engineOf,
+        queryOf: createQueryReader(byEntityId, findSources),
+        readSql,
+        columns: createSqlColumnReader(parser, engineOf),
+      },
+      report,
+    );
     return {
       files,
       findings: findings.sort(byRuleThenFile),

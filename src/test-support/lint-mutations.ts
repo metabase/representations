@@ -780,6 +780,32 @@ export const MUTATIONS: Mutation[] = [
       }),
   },
   {
+    name: "upstream-column-mismatch",
+    description:
+      "Product Revenue Report renames its total_revenue column; the test of Top Categories, which reads it, keeps the old name.",
+    findings: [
+      {
+        rule: "upstream-column-mismatch",
+        file: TOP_CATEGORIES_TEST,
+        related: [PRODUCT_REVENUE_REPORT],
+      },
+    ],
+    apply: (folder) =>
+      editNativeSql(folder, PRODUCT_REVENUE_REPORT, (sql) =>
+        sql.replace("AS total_revenue", "AS revenue"),
+      ),
+  },
+  {
+    name: "live-sql-input",
+    description:
+      "A test's SQL input reads the real products table, so the test depends on live data.",
+    findings: [{ rule: "live-sql-input", file: CATEGORY_TOTALS_TEST }],
+    apply: (folder) =>
+      edit(folder, CATEGORY_TOTALS_TEST, (doc) => {
+        mapAt(doc, "inputs", 1).sql = "SELECT id, category FROM products";
+      }),
+  },
+  {
     name: "null-schema-reference",
     description:
       "A card counts products by a reference with a null schema, on a Postgres database; Metabase refuses to run it for a user, since the reference names an inactive table.",

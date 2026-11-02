@@ -80,6 +80,7 @@ The lint finds the tables native SQL reads with Metabase's own code: SQLGlot, at
 - The SQL dialect follows the database's engine, as Metabase maps drivers to dialects. The map is copied from Metabase, and the same CI job fails when it differs from Metabase's `master` or from the Metabase commit `vendor/sources.json` records for it.
 - Before parsing, the lint pastes in each snippet by its template tag, as Metabase does, keeps each optional clause `[[…]]` Metabase keeps when it compiles with no parameter values, and puts a placeholder word for each template tag. A `table` tag reads its table where it stands in a table's place in the SQL that is kept. A `card` tag reads its card's tables where the SQL keeps the tag. A `dimension` or `temporal-unit` tag reads no table: Metabase writes its field as a column. In a stage with no template tags, Metabase substitutes nothing and runs the SQL as written, and the lint reads it as written: a `[[`, a `{{…}}` or a snippet reference there does not parse, and is reported as `reads-not-checked`. The lint finds snippets, tags and clauses as Metabase's parser does: inside a `--` or `/* */` comment they are text. A transform test's own SQL, in an input or an expectation, is read as written, as Metabase runs it: a `[[`, a template tag or a snippet there does not parse, and is reported as `reads-not-checked`.
 - Before it reads tables or columns, the lint replaces each large literal list as Metabase does: a `VALUES` clause of more than 100 tuples becomes one tuple of `NULL`s, and an `IN` list or `ARRAY` literal of only literals with at least 100 commas becomes `IN (NULL)` or `ARRAY[NULL]`.
+- The columns a query returns come from Metabase's `field_references`.
 - Loading the parser takes a moment and some memory, once per process, and only when the lint reads SQL in the folder.
 - Pyodide is an optional peer dependency, which a plain install of the package leaves out. Install it with `npm install pyodide@314.0.7`, the version the package pins, where `@metabase/representations` is installed: a tool that depends on the package lists it among its own dependencies. Under `npx`, name both packages: `npx -p @metabase/representations -p pyodide@314.0.7 representations lint --experimental`; `npx` installs the package outside the project, where a Pyodide installed in the project is not found. Without Pyodide, a lint that reads SQL exits with code 2, and its message gives the `npm install` and `npx` commands.
 
@@ -128,6 +129,7 @@ A query near Metabase's limit of 10,000,000 characters takes the parser a long t
 - Template tags Metabase cannot parse, such as an unmatched `[[`, an empty `{{}}`, or an optional clause with no tag. Metabase refuses to run such a query.
 - Snippets Metabase refuses to paste: a snippet that uses itself through any chain of snippets, more than 10,000 pastes in one query, or SQL longer than 10,000,000 characters after pasting.
 - A native query on an engine whose native queries are not SQL, such as MongoDB. The lint does not parse it.
+- SQL whose tables the parser finds but whose columns it cannot, such as two statements, an `INSERT` or an `UPDATE`, when a column check reads it. The lint reports it once for each query.
 
 ### Not reported
 
@@ -142,3 +144,11 @@ Some queries fail in Metabase on every run, and the lint gives no finding:
 - In ClickHouse, `WHERE id IN db.u` misses `db.u`, and `WITH 1 AS orders SELECT * FROM orders` reads no table.
 - The table an `INSERT`, `UPDATE`, `DELETE` or `MERGE` writes counts as read.
 - A three-part name keeps its schema and table and drops the first part, even in MySQL, which has no three-part names.
+
+### Column checks
+
+`upstream-column-mismatch` is a warning, and gives no finding where it cannot decide:
+
+- A transform's output columns are known only when its query is one native stage with a name for each column: no `*` or `table.*`, and an alias for each expression.
+- Names compare ignoring case.
+- SQL whose columns the parser cannot read gives no column finding, and is reported as `reads-not-checked`.

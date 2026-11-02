@@ -242,6 +242,18 @@ describe("inputs of an MBQL transform", () => {
   });
 });
 
+describe("tables the transform's SQL reads", () => {
+  it("a field-filter tag's field in another case needs no input", async () => {
+    expect(
+      await lintTest({
+        sql: "SELECT id, created_at FROM orders WHERE {{d}}",
+        tags: [dimensionTag("d", [PG, "public", "Orders", "created_at"])],
+        inputs: [rowsInput("orders", ["id", "created_at"])],
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("inputs that stand in for one table", () => {
   it("the duplicate-input message lists only the inputs that collide", async () => {
     const found = await lintTest({
