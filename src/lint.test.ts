@@ -2376,6 +2376,66 @@ describe("lint", () => {
       expect(await nullSchemaFindings()).toEqual([]);
     });
 
+    it("reports a transform whose field-filter tag names a table with a null schema", async () => {
+      rmSync(join(workdir, "collections/transforms"), { recursive: true });
+      mkdirSync(join(workdir, "collections/transforms"), { recursive: true });
+      writeSettings({
+        engines: { [POSTGRES_DB]: "postgres" },
+        defaultSchemas: { [POSTGRES_DB]: "public" },
+      });
+      const file = "collections/transforms/filtered.yaml";
+      const writeFiltered = (schema: string | null) =>
+        writeFileSync(
+          join(workdir, file),
+          yaml.dump({
+            name: "Filtered",
+            entity_id: "FilteredTransform0001",
+            creator_id: "admin@example.com",
+            source_database_id: POSTGRES_DB,
+            source: {
+              type: "query",
+              query: {
+                "lib/type": "mbql/query",
+                database: POSTGRES_DB,
+                stages: [
+                  {
+                    "lib/type": "mbql.stage/native",
+                    native: "SELECT id FROM public.people WHERE {{d}}",
+                    "template-tags": [
+                      {
+                        type: "dimension",
+                        name: "d",
+                        id: "bb000001-0000-0000-0000-000000000001",
+                        "display-name": "d",
+                        dimension: [
+                          "field",
+                          {},
+                          [POSTGRES_DB, schema, "orders", "id"],
+                        ],
+                        "widget-type": "number/=",
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            target: {
+              database: POSTGRES_DB,
+              type: "table",
+              schema: "public",
+              name: "filtered",
+            },
+            "serdes/meta": [{ model: "Transform" }],
+          }),
+        );
+      writeFiltered("public");
+      expect(await nullSchemaFindings()).toEqual([]);
+      writeFiltered(null);
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError(file, "postgres"),
+      ]);
+    });
+
     it("reports a Card whose query names a table with a null schema, as a field's table too", async () => {
       writeDatabase({ engine: "postgres", default_schema: "public" });
       rmSync(join(workdir, "collections/transforms"), { recursive: true });

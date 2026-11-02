@@ -57,6 +57,7 @@ import {
   tableLabel,
   type TableKey,
   type TableName,
+  uniqueTables,
 } from "./tables.js";
 import {
   reportEmptyExpectations,
@@ -201,8 +202,8 @@ function reportDuplicateTargets(
 }
 
 /**
- * Reports each table a transform reads, or a Card's query names, by a
- * reference with a null schema (`nullSchema` `"none"`) in a database whose
+ * Reports each table a transform reads, or a Card's query names, and the
+ * table of each field-filter tag of either, by a reference with a null schema (`nullSchema` `"none"`) in a database whose
  * engine has schemas. Metabase imports such a reference as the table with no
  * schema, and creates an inactive table when none exists
  * (`resolve/default.clj` `import-table-fk`), so every query on it fails. A
@@ -225,16 +226,23 @@ function reportNullSchemaReferences(
     ...targetsOf(transforms),
   ].filter((t) => t.schema === null);
   const readers = [
-    ...transforms.flatMap(({ doc, reads }) =>
-      reads.status === "read" ? [{ doc, tables: reads.tables }] : [],
-    ),
+    ...transforms.map(({ doc, reads }) => ({
+      doc,
+      tables: uniqueTables([
+        ...(reads.status === "read" ? reads.tables : []),
+        ...findSources(doc.body, doc.model).fieldFilterTables,
+      ]),
+    })),
     ...docs
       .filter((doc) => doc.model === "Card")
       .map((doc) => {
         const sources = findSources(doc.body, doc.model);
         return {
           doc,
-          tables: [...sources.tables, ...sources.fieldFilterTables],
+          tables: uniqueTables([
+            ...sources.tables,
+            ...sources.fieldFilterTables,
+          ]),
         };
       }),
   ];
