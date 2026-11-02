@@ -295,6 +295,25 @@ describe("lint", () => {
       expect(await danglingMessages()).toEqual(suggestion);
     });
 
+    it("suggests no transform for a dangling transform_id when two transforms have the test's name", async () => {
+      mutateExamples("dangling-transform-id", workdir);
+      fs.renameSync(
+        join(workdir, "collections/transforms/native_transform"),
+        join(workdir, "collections/transforms/elsewhere"),
+      );
+      const copy = "collections/transforms/native_transform_copy.yaml";
+      cpSync(join(workdir, NATIVE_TRANSFORM), join(workdir, copy));
+      edit(workdir, copy, (doc) => {
+        doc.entity_id = "ProductRevenueCopy001";
+        doc.target.name = "product_revenue_copy";
+      });
+      expect(
+        (await findings(workdir))
+          .filter((f) => f.rule === "dangling-transform-id")
+          .map((f) => [f.message, f.related]),
+      ).toEqual([["transform_id MissingTransform00000 matches no entity", []]]);
+    });
+
     it("names the table an implicit join reads", async () => {
       mutateExamples("implicit-join", workdir);
       expect((await findings(workdir)).map((f) => f.message)).toEqual([

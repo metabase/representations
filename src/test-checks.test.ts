@@ -269,3 +269,23 @@ describe("columns an input lacks", () => {
     ]);
   });
 });
+
+describe("inputs that stand in for one table", () => {
+  it("the duplicate-input message lists only the inputs that collide", async () => {
+    const found = await lintTest({
+      sql: "SELECT t.id, u.id AS uid FROM a.t JOIN b.u ON t.id = u.id",
+      inputs: [
+        rowsInput("a.t", ["id"]),
+        rowsInput("a.t", ["id"]),
+        rowsInput("b.u", ["id"]),
+      ],
+    });
+    expect(found.filter((f) => f.rule === "duplicate-input")).toEqual([
+      {
+        severity: "error",
+        rule: "duplicate-input",
+        message: "inputs stand in for the same table: a.t, a.t",
+      },
+    ]);
+  });
+});
