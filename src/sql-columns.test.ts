@@ -168,7 +168,7 @@ describe("readColumns", () => {
 });
 
 describe("readColumns on other engines", () => {
-  const onEngine = (engine: string) =>
+  const onEngine = (engine: string | null) =>
     createSqlColumnReader(sharedParser, () => engine);
 
   it("reads no lateral alias on Redshift, and no SYSDATE", () => {
@@ -230,6 +230,30 @@ describe("readColumns on other engines", () => {
     const grouped = "SELECT lower(name) AS n FROM people GROUP BY n";
     expect(names("postgres", grouped)).toEqual(["name"]);
     expect(names("mysql", grouped)).toEqual(["name"]);
+  });
+
+  it("reads no alias that ORDER BY, GROUP BY or HAVING names, on any engine", () => {
+    for (const engine of [
+      "postgres",
+      "mysql",
+      "redshift",
+      "clickhouse",
+      "snowflake",
+      "h2",
+      "sqlserver",
+      null,
+    ]) {
+      for (const sql of [
+        "SELECT 1 AS y FROM t ORDER BY y",
+        "SELECT 1 AS y FROM t GROUP BY y",
+        "SELECT count(*) AS c FROM t GROUP BY x HAVING c > 1",
+      ]) {
+        expect([
+          engine,
+          onEngine(engine).readColumns(sql, "Warehouse"),
+        ]).toEqual([engine, { status: "read", columns: [] }]);
+      }
+    }
   });
 
   it("reads no ClickHouse ARRAY JOIN alias", () => {

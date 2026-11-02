@@ -100,29 +100,26 @@ const POSTGRES_IMPLICIT_COLUMNS = [
  */
 const IMPLICIT_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   postgres: POSTGRES_IMPLICIT_COLUMNS,
-  redshift: [...POSTGRES_IMPLICIT_COLUMNS, "sysdate"],
+  redshift: POSTGRES_IMPLICIT_COLUMNS,
 };
 
-// Every engine reads an output column's alias in ORDER BY. Postgres reads one
-// in GROUP BY too (its SELECT documentation), and MySQL in GROUP BY and
-// HAVING (its SELECT statement documentation). Redshift reads an alias later
-// in the same SELECT list, a lateral alias (its "SELECT list" documentation).
-// ClickHouse reads an alias anywhere in its query or subquery (its "Syntax",
-// "Expression Aliases").
+// field_references reads no alias that ORDER BY, GROUP BY or HAVING names,
+// in any dialect. Redshift also reads an alias later in the same SELECT list,
+// a lateral alias (its "SELECT list" documentation). ClickHouse reads an
+// alias anywhere in its query or subquery (its "Syntax", "Expression
+// Aliases").
 const ALIAS_CLAUSES_BY_ENGINE: Readonly<
   Record<string, readonly AliasClause[]>
 > = {
-  postgres: ["order", "group"],
-  mysql: ["order", "group", "having"],
-  redshift: ["order", "select"],
-  clickhouse: ["order", "select", "where", "group", "having", "other"],
+  redshift: ["select"],
+  clickhouse: ["select", "where", "other"],
 };
 
-/** The clauses where the engine reads an alias of the SELECT list. */
+/** The clauses, besides ORDER BY, GROUP BY and HAVING, where the engine reads an alias of the SELECT list. */
 function aliasClausesOf(engine: string | null): readonly AliasClause[] {
   return engine !== null && Object.hasOwn(ALIAS_CLAUSES_BY_ENGINE, engine)
     ? ALIAS_CLAUSES_BY_ENGINE[engine]
-    : ["order"];
+    : [];
 }
 
 /**
