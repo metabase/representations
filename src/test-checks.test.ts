@@ -200,6 +200,16 @@ describe("tables the transform's SQL reads after the rewrite", () => {
       },
     ]);
   });
+
+  it("a field-filter tag's field in another case needs no input", async () => {
+    expect(
+      await lintTest({
+        sql: "SELECT id, created_at FROM orders WHERE {{d}}",
+        tags: [dimensionTag("d", [PG, "public", "Orders", "created_at"])],
+        inputs: [rowsInput("orders", ["id", "created_at"])],
+      }),
+    ).toEqual([]);
+  });
 });
 
 describe("expectation SQL that Metabase refuses", () => {
