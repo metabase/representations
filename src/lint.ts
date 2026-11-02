@@ -346,6 +346,20 @@ function reportUnreadableFiles(
 }
 
 /**
+ * Warns on each file that is not valid UTF-8. Remote sync decodes a file as
+ * Java's `String` does, with no error.
+ */
+function reportInvalidUtf8(files: readonly string[], report: Report): void {
+  for (const file of files) {
+    report(
+      "invalid-utf8",
+      { file, model: null, body: {} },
+      "the file is not valid UTF-8, and Metabase reads each invalid byte as U+FFFD; save the file as UTF-8",
+    );
+  }
+}
+
+/**
  * Warns on each key a document's map holds more than once. Metabase keeps the
  * last value with no message (`readYaml`), so the others are lost.
  */
@@ -589,7 +603,7 @@ export async function lint({
 }: LintOptions): Promise<LintResult> {
   const settings = readSettingsFile(folder);
   const schemas = loadSchemas();
-  const { docs, skipped, unreadable, duplicatedKeys } = loadDocs(
+  const { docs, skipped, unreadable, duplicatedKeys, invalidUtf8 } = loadDocs(
     folder,
     schemas,
   );
@@ -619,6 +633,7 @@ export async function lint({
     const findSources = createSourceFinder(schemas);
 
     reportUnreadableFiles(unreadable, report);
+    reportInvalidUtf8(invalidUtf8, report);
     reportSkippedFiles(skipped, report);
     reportDuplicateKeys(duplicatedKeys, report);
     reportSchemaMismatches(docs, report);

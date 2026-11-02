@@ -648,16 +648,35 @@ describe("lint", () => {
       ).toEqual(["a1", "a2", "a3", "a4"].map((n) => `collections/${n}.yaml`));
     });
 
-    it("reports a file that is not valid UTF-8 as such", async () => {
+    it("warns on a transform file with an invalid UTF-8 byte, which Metabase reads as U+FFFD, and lints its text", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
-      const binary = "collections/transforms/binary.yaml";
+      const python = "collections/transforms/python_hello_world.yaml";
+      const path = join(workdir, python);
+      const text = readFileSync(path, "utf8");
+      expect(text).toContain("name: Python Hello World\n");
+      const [before, after] = text.split("Python Hello World");
+      writeFileSync(path, `${before}Python Café${after}`);
+      expect(await findings(workdir)).toEqual([]);
       writeFileSync(
-        join(workdir, binary),
-        Buffer.from([0x6e, 0x61, 0x6d, 0x65, 0x3a, 0x20, 0xc3, 0x28, 0x0a]),
+        path,
+        Buffer.concat([
+          Buffer.from(`${before}Python Caf`),
+          Buffer.from([0xe9]),
+          Buffer.from(after),
+        ]),
       );
       expect(
-        (await findings(workdir)).map((f) => `${f.file}: ${f.message}`),
-      ).toEqual([`${binary}: the file is not valid UTF-8`]);
+        (await findings(workdir)).map(
+          (f) => `${f.severity} ${f.rule} ${f.file}: ${f.message}`,
+        ),
+      ).toEqual([
+        `warning invalid-utf8 ${python}: the file is not valid UTF-8, and Metabase reads each invalid byte as U+FFFD; save the file as UTF-8`,
+      ]);
+      expect(
+        (await transformReads({ folder: workdir })).find(
+          (t) => t.file === python,
+        )?.name,
+      ).toBe("Python Caf\uFFFD");
     });
 
     it("warns on a file with no serdes/meta, which Metabase skips, and reads no entity from it", async () => {

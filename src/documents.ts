@@ -241,7 +241,8 @@ export type DuplicatedKeys = { doc: Doc; keys: readonly DuplicateKey[] };
  * Metabase skips for having no `serdes/meta`, or as unreadable files, which
  * do not parse to a YAML map, or whose `serdes/meta` names no model or a model
  * Metabase does not import. Also each document whose maps hold a key more
- * than once.
+ * than once, and each file that is not valid UTF-8, which is read with each
+ * invalid byte as U+FFFD, as Metabase reads it.
  */
 export function loadDocs(
   folder: string,
@@ -251,16 +252,17 @@ export function loadDocs(
   skipped: string[];
   unreadable: UnreadableFile[];
   duplicatedKeys: DuplicatedKeys[];
+  invalidUtf8: string[];
 } {
   const docs: Doc[] = [];
   const skipped: string[] = [];
   const unreadable: UnreadableFile[] = [];
   const duplicatedKeys: DuplicatedKeys[] = [];
+  const invalidUtf8: string[] = [];
   for (const file of entityFiles(folder)) {
     const entity = readEntityFile(folder, file, schemas);
     if (entity.invalidUtf8) {
-      unreadable.push({ file, reason: "is not valid UTF-8" });
-      continue;
+      invalidUtf8.push(file);
     }
     if (entity.status === "unparsed") {
       const { error } = entity;
@@ -298,7 +300,7 @@ export function loadDocs(
       }
     }
   }
-  return { docs, skipped, unreadable, duplicatedKeys };
+  return { docs, skipped, unreadable, duplicatedKeys, invalidUtf8 };
 }
 
 /** Every document with an entity_id, keyed by it; several when the id is duplicated. */
