@@ -181,6 +181,27 @@ describe("inputs of a transform with a field-filter tag", () => {
   });
 });
 
+describe("tables the transform's SQL reads after the rewrite", () => {
+  it("a quoted table name whose case is not the input's is an error", async () => {
+    const errors = async (table: string) =>
+      (
+        await lintTest({
+          sql: `SELECT o.id FROM ${table} o`,
+          inputs: [rowsInput("orders", ["id"])],
+        })
+      ).filter((f) => f.severity === "error");
+    expect(await errors('"orders"')).toEqual([]);
+    expect(await errors('"Orders"')).toEqual([
+      {
+        severity: "error",
+        rule: "missing-input",
+        message:
+          "no input for Orders, which transform T reads: Metabase replaces a quoted name only in its exact case, so input orders does not stand in for it. Name the input Orders, or write the name in the SQL as the input does",
+      },
+    ]);
+  });
+});
+
 describe("expectation SQL that Metabase refuses", () => {
   const transform = {
     sql: "SELECT o.id FROM orders o",

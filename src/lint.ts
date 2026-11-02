@@ -696,12 +696,8 @@ export async function lint({
     );
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
-    reportTestFindings(
-      tested,
-      defaultSchemaOf,
-      createRewrittenTableReader(parser, engineOf),
-      report,
-    );
+    const readRewritten = createRewrittenTableReader(parser, engineOf);
+    reportTestFindings(tested, defaultSchemaOf, readRewritten, report);
     reportRowsColumns(docs, report);
     reportExpectationNames(docs, report);
     reportEmptyExpectations(docs, report);
@@ -716,6 +712,7 @@ export async function lint({
         engineOf,
         schemas,
         readSql,
+        readRewritten,
         columns: createSqlColumnReader(parser, engineOf),
       },
       report,

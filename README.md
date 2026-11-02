@@ -113,7 +113,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
 | `unknown-engine` | warning | A database that a transform or card writes to or reads and that has no engine the lint knows, so the checks that depend on the engine give no finding. Give it under `engines` in the settings file; an engine missing from the lint's table, such as a third-party driver, keeps the warning. |
 | `empty-native-query` | warning | A transform whose native query is empty or only whitespace. Metabase accepts it, and every run fails. |
-| `missing-input` | error | A test with no input for a table its transform reads. |
+| `missing-input` | error | A test with no input for a table its transform reads, or whose input differs in case from a quoted name, which Metabase does not replace. |
 | `unused-input` | error | A test with an input for a table its transform does not read. |
 | `untestable-transform` | error | A test of a transform that is not a query transform. |
 | `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |

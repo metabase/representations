@@ -7,7 +7,12 @@ import {
 } from "./documents.js";
 import { FOLDS_ALL_IDENTIFIERS } from "./engines.js";
 import type { Report } from "./findings.js";
-import { inputCovers, standInReplacements } from "./input-match.js";
+import {
+  inputCovers,
+  isStandIn,
+  replacesQuoted,
+  standInReplacements,
+} from "./input-match.js";
 import { createSourceFinder } from "./query-sources.js";
 import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
 import type { Schemas } from "./schemas.js";
@@ -17,7 +22,7 @@ import type {
   SqlColumnReader,
 } from "./sql-columns.js";
 import type { Unread } from "./sql-parser.js";
-import type { SqlTableReader } from "./sql-tables.js";
+import type { RewrittenTableReader, SqlTableReader } from "./sql-tables.js";
 import {
   type ColumnKey,
   type DefaultSchemaOf,
@@ -27,7 +32,7 @@ import {
   tableLabel,
   type TableName,
 } from "./tables.js";
-import type { TestedTransform } from "./test-checks.js";
+import { type TestedTransform, testInputs } from "./test-checks.js";
 import { nativeOnlyStage } from "./transform-checks.js";
 
 /** What the checks of a transform test's SQL read. */
@@ -41,6 +46,7 @@ export type TestSqlChecks = {
   engineOf: EngineOf;
   schemas: Schemas;
   readSql: SqlTableReader;
+  readRewritten: RewrittenTableReader;
   columns: SqlColumnReader;
 };
 
@@ -582,6 +588,82 @@ export function reportQualifiedColumns(
 }
 
 /**
+ * Reports each table a test's transform reads that an input covers ignoring
+ * case (`inputCovers`) but that Metabase's rewrite (`standInReplacements`)
+ * leaves real, because the query quotes a part of its name in another case:
+ * Metabase refuses the test. The tables of the transform's native SQL are
+ * read after the rewrite; an MBQL reference, which Metabase compiles with
+ * every part quoted, must match an input exactly (`replacesQuoted`). A
+ * transform whose tables were not read gets no finding.
+ */
+export function reportUnreplacedReads(
+  checks: TestSqlChecks,
+  report: Report,
+): void {
+  const queryOf = createQueryReader(checks);
+  for (const { test, transform } of checks.tested) {
+    if (transform.reads.status !== "read") {
+      continue;
+    }
+    const defaultSchema = checks.defaultSchemaOf(
+      queryDatabaseOf(transform.doc),
+    );
+    const inputs = testInputs(test, transform);
+    const replacements = standInReplacements(
+      [...inputs, transform.target],
+      defaultSchema,
+    );
+    const transformName = displayName(transform.doc);
+    const reported = new Set<string>();
+    const reportRead = (read: TableKey, mbql: boolean) => {
+      const input = inputs.find((i) => inputCovers(read, i, defaultSchema));
+      const label = tableLabel(read);
+      if (input === undefined || reported.has(label)) {
+        return;
+      }
+      reported.add(label);
+      report(
+        "missing-input",
+        test,
+        mbql
+          ? `no input for ${label}, which transform ${transformName} reads: Metabase quotes each table name of an MBQL query, and replaces a quoted name only in its exact case, so input ${tableLabel(input)} does not stand in for it. Name the input ${label}`
+          : `no input for ${label}, which transform ${transformName} reads: Metabase replaces a quoted name only in its exact case, so input ${tableLabel(input)} does not stand in for it. Name the input ${label}, or write the name in the SQL as the input does`,
+        [transform.doc.file],
+      );
+    };
+    for (const { sql, database, valuedTags } of queryOf(transform).natives) {
+      const result = checks.readRewritten(
+        sql,
+        database,
+        replacements,
+        valuedTags,
+      );
+      if (result.status === "unread") {
+        continue;
+      }
+      for (const table of result.tables) {
+        if (!isStandIn(table)) {
+          reportRead(
+            {
+              database,
+              ...table,
+              nullSchema: "default",
+              caseMatters: false,
+            },
+            false,
+          );
+        }
+      }
+    }
+    for (const read of transform.reads.tables) {
+      if (read.caseMatters && !replacesQuoted(read, inputs, defaultSchema)) {
+        reportRead(read, true);
+      }
+    }
+  }
+}
+
+/**
  * Runs every check of a transform test's SQL. A query whose columns cannot
  * be read is reported once, however many rules read it.
  */
@@ -591,4 +673,5 @@ export function reportTestSql(checks: TestSqlChecks, report: Report): void {
   reportUpstreamColumns(checks, report, reportUnread);
   reportQualifiedColumns(checks, report, reportUnread);
   reportLiveSqlInputs(checks, report);
+  reportUnreplacedReads(checks, report);
 }

@@ -7,13 +7,17 @@ import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas } from "./schemas.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { loadSqlParser } from "./sql-parser.js";
-import { createSqlTableReader } from "./sql-tables.js";
+import {
+  createRewrittenTableReader,
+  createSqlTableReader,
+} from "./sql-tables.js";
 import { testedTransformsOf } from "./test-checks.js";
 import {
   reportLiveSqlInputs,
   reportMissingReadColumns,
   reportQualifiedColumns,
   reportTestSql,
+  reportUnreplacedReads,
   reportUpstreamColumns,
   type TestSqlChecks,
 } from "./test-sql-checks.js";
@@ -53,6 +57,7 @@ beforeAll(async () => {
       engineOf,
       schemas,
       readSql,
+      readRewritten: createRewrittenTableReader(parser, engineOf),
       columns,
     };
   };
@@ -667,6 +672,90 @@ describe("reportQualifiedColumns", () => {
       unreadColumns(transform.file, "this transform reads or returns"),
       unreadColumns(test.file, "expectation no ids reads"),
     ]);
+  });
+});
+
+describe("reportUnreplacedReads", () => {
+  const mbqlTransform = (schema: string, name: string) =>
+    transformDoc("orders_ids", [
+      {
+        "lib/type": "mbql.stage/mbql",
+        "source-table": [DB, schema, name],
+      },
+    ]);
+  const rules = (docs: readonly Doc[]) =>
+    run(reportUnreplacedReads, docs).map((f) => [f.rule, f.message]);
+
+  it("reports an MBQL reference whose case is not the input's", () => {
+    const transform = mbqlTransform("public", "Orders");
+    expect(
+      rules([
+        transform,
+        testDoc(transform, [rowsInput("public", "orders", [])]),
+      ]),
+    ).toEqual([
+      [
+        "missing-input",
+        "no input for public.Orders, which transform orders_ids reads: Metabase quotes each table name of an MBQL query, and replaces a quoted name only in its exact case, so input public.orders does not stand in for it. Name the input public.Orders",
+      ],
+    ]);
+    for (const input of [
+      rowsInput("public", "Orders", []),
+      rowsInput(null, "Orders", []),
+      rowsInput("PUBLIC", "Orders", []),
+    ]) {
+      expect(rules([transform, testDoc(transform, [input])])).toEqual([]);
+    }
+  });
+
+  it("reports a quoted name in the transform's SQL that keeps its table after the rewrite", () => {
+    const native = (sql: string) =>
+      transformDoc("orders_ids", [nativeStage(sql)]);
+    const reported = (sql: string, schema: string | null, name: string) => {
+      const transform = native(sql);
+      return rules([
+        transform,
+        testDoc(transform, [rowsInput(schema, name, [])]),
+      ]).length;
+    };
+    expect(reported('SELECT id FROM "Orders"', null, "orders")).toBe(1);
+    expect(reported('SELECT id FROM public."Orders"', "public", "orders")).toBe(
+      1,
+    );
+    expect(
+      reported('SELECT id FROM "ANALYTICS".orders', "analytics", "orders"),
+    ).toBe(1);
+    // The rewrite also tries the bare table name, which an input in the
+    // default schema gives.
+    expect(reported('SELECT id FROM "PUBLIC".orders', "public", "orders")).toBe(
+      0,
+    );
+    expect(reported('SELECT id FROM "orders"', null, "orders")).toBe(0);
+    expect(reported("SELECT id FROM ORDERS", "public", "orders")).toBe(0);
+    expect(
+      reported('SELECT id FROM "public"."orders"', "PUBLIC", "orders"),
+    ).toBe(0);
+    // No input covers the table at all: another check reports it.
+    expect(reported('SELECT id FROM "Products"', null, "orders")).toBe(0);
+  });
+
+  it("reads the SQL as Metabase compiles it, with template tags", () => {
+    const transform = transformDoc("orders_ids", [
+      {
+        ...nativeStage('SELECT id FROM "Orders" [[WHERE id = {{id}}]]'),
+        "template-tags": [
+          {
+            type: "number",
+            name: "id",
+            id: "bb000001-0000-0000-0000-000000000001",
+            "display-name": "id",
+          },
+        ],
+      },
+    ]);
+    expect(
+      rules([transform, testDoc(transform, [rowsInput(null, "orders", [])])]),
+    ).toHaveLength(1);
   });
 });
 

@@ -1,6 +1,12 @@
-import { describe, expect, it } from "bun:test";
+import { beforeAll, describe, expect, it } from "bun:test";
 
-import { inputCovers } from "./input-match.js";
+import {
+  inputCovers,
+  isStandIn,
+  replacesQuoted,
+  standInReplacements,
+} from "./input-match.js";
+import { loadSqlParser, type SqlParser } from "./sql-parser.js";
 
 const t = (schema: string | null, name: string) => ({ schema, name });
 
@@ -87,5 +93,42 @@ describe("inputCovers", () => {
     ["two names", sql(null, "ORDERS"), t(null, "PEOPLE"), "public", false],
   ] as const)("%s", (_, read, input, defaultSchema, expected) => {
     expect(inputCovers(read, input, defaultSchema)).toBe(expected);
+  });
+});
+
+describe("replacesQuoted", () => {
+  let parser: SqlParser;
+  beforeAll(async () => {
+    parser = await loadSqlParser();
+  }, 60_000);
+
+  it("agrees with Metabase's rewrite of a reference with every part quoted", () => {
+    const schemas = [null, "public", "PUBLIC", "analytics"];
+    const names = ["orders", "Orders"];
+    const tables = schemas.flatMap((schema) =>
+      names.map((name) => t(schema, name)),
+    );
+    for (const read of tables) {
+      const sql = `SELECT * FROM ${read.schema === null ? "" : `"${read.schema}".`}"${read.name}"`;
+      for (const input of tables) {
+        const rewritten = parser.replaceNames(
+          sql,
+          standInReplacements([input], "public"),
+          "postgres",
+        );
+        if (rewritten.status !== "read") {
+          throw new Error(rewritten.reason);
+        }
+        const after = parser.referencedTables(rewritten.sql, "postgres");
+        if (after.status !== "read") {
+          throw new Error(after.reason);
+        }
+        expect({
+          sql,
+          input,
+          replaced: replacesQuoted(read, [input], "public"),
+        }).toEqual({ sql, input, replaced: after.tables.every(isStandIn) });
+      }
+    }
   });
 });

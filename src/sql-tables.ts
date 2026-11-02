@@ -197,16 +197,19 @@ export function createSqlTableReader(
 
 /**
  * The tables SQL reads once `replacements` replace the tables they name, in
- * the database `database`: Metabase's `replace_names` on the SQL as written,
- * then `referenced_tables` with large literal lists stripped
- * (`stripLargeLiteralLists`), in the dialect of the database's engine. A quoted name matches a replacement only in its own
- * case. Unread when the engine's native queries are not SQL, or SQLGlot
- * cannot parse the SQL.
+ * the database `database`: Metabase's `replace_names` on the SQL as
+ * `prepareSql` gives it, then `referenced_tables` with large literal lists
+ * stripped (`stripLargeLiteralLists`), in the dialect of the database's
+ * engine. `valuedTags` is as for `SqlTableReader`; each template tag stays a
+ * placeholder (`isTagPlaceholder`). A quoted name matches a replacement only
+ * in its own case. Unread when `prepareSql` refuses the SQL, or SQLGlot
+ * cannot parse it.
  */
 export type RewrittenTableReader = (
   sql: string,
   database: string | null,
   replacements: readonly TableReplacement[],
+  valuedTags?: ReadonlySet<string>,
 ) => ParsedTables;
 
 /** Returns a `RewrittenTableReader` that parses with `parser`. */
@@ -214,13 +217,13 @@ export function createRewrittenTableReader(
   parser: SqlParser,
   engineOf: EngineOf,
 ): RewrittenTableReader {
-  return (sql, database, replacements) => {
-    const engine = engineOf(database);
-    if (engine !== null && !nativeQueriesAreSql(engine)) {
-      return notSql(engine);
+  return (sql, database, replacements, valuedTags) => {
+    const prepared = prepareSql(sql, engineOf(database), valuedTags);
+    if (prepared.status === "unread") {
+      return prepared;
     }
-    const dialect = dialectOf(engine);
-    const replaced = parser.replaceNames(sql, replacements, dialect);
+    const { dialect } = prepared;
+    const replaced = parser.replaceNames(prepared.sql, replacements, dialect);
     const result =
       replaced.status === "read"
         ? parser.referencedTables(stripLargeLiteralLists(replaced.sql), dialect)

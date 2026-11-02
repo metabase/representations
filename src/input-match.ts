@@ -73,3 +73,22 @@ export function isStandIn(table: TableName): boolean {
     new RegExp(`^${STAND_IN_PREFIX}[0-9]+__$`).test(table.name)
   );
 }
+
+/**
+ * Whether Metabase's rewrite (`standInReplacements`) replaces `read`, named
+ * with every part quoted, as Metabase compiles an MBQL reference, by the
+ * stand-in of one of `inputs`: a quoted part matches only in its own case.
+ */
+export function replacesQuoted(
+  read: TableName,
+  inputs: readonly TableName[],
+  defaultSchema: string | null,
+): boolean {
+  return inputs.some((input) =>
+    tableKeys(input, defaultSchema).some(
+      (key) =>
+        key.table === read.name &&
+        (key.schema === undefined || key.schema === read.schema),
+    ),
+  );
+}
