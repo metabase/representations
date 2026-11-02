@@ -114,7 +114,7 @@ describe("testVerdictDiffers", () => {
 
   it("differs when the transform's unremapped reference meets the expectation's error", () => {
     expect(testVerdictDiffers(unremapped(true), [otherTable])).toBe(
-      'Metabase refuses it with transform-test.unremapped-reference on the transform ("people"), which no lint rule predicts',
+      'Metabase refuses it with transform-test.unremapped-reference on the transform ("people"), which no error rule predicts',
     );
   });
 

@@ -68,8 +68,9 @@ export const RULE_OF_REFUSAL: ReadonlyMap<string, LintRule> = new Map([
  * and stops at the first refusal: whether the transform is a query transform,
  * then missing, unused and duplicate inputs, then whether the transform's SQL,
  * and then each expectation's, reads only the test's tables. The transform's
- * own unremapped reference has no rule; it sits between duplicate-input and
- * expectation-reads-other-table.
+ * own unremapped reference has no error rule (the warning
+ * table-qualified-column predicts one form of it); it sits between
+ * duplicate-input and expectation-reads-other-table.
  */
 export const TEST_RULE_ORDER: readonly LintRule[] = [
   "untestable-transform",
@@ -109,8 +110,8 @@ export function describeRefusal(refusal: TestRefusal): string {
  * that the checks before it passed, and says nothing of the checks after it. A
  * refusal agrees when the lint reports that refusal's rule and no rule Metabase
  * checks earlier; the lint's errors on later rules are ignored. A refusal with
- * no rule, such as an unremapped reference in the transform's own SQL, is a
- * difference. Returns null when the two agree, else the difference.
+ * no error rule, such as an unremapped reference in the transform's own SQL,
+ * is a difference. Returns null when the two agree, else the difference.
  */
 export function testVerdictDiffers(
   refusal: TestRefusal | null,
@@ -130,7 +131,7 @@ export function testVerdictDiffers(
     ? undefined
     : RULE_OF_REFUSAL.get(refusal.code);
   if (rule === undefined) {
-    return `Metabase refuses it with ${describeRefusal(refusal)}, which no lint rule predicts`;
+    return `Metabase refuses it with ${describeRefusal(refusal)}, which no error rule predicts`;
   }
   const earlier = TEST_RULE_ORDER.slice(
     0,

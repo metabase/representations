@@ -359,7 +359,7 @@ describe("lint-parity", () => {
             : { status: 200, body: { id: 999 } },
       });
       expect(output).toContain(
-        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}), which no lint rule predicts\n`,
+        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}), which no error rule predicts\n`,
       );
       expect(exitCode).toBe(1);
     },
