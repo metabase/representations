@@ -2,7 +2,7 @@
 
 Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
-This repository holds the specification and examples of the Metabase Representation Format, and the `@metabase/representations` package. The package's CLI validates a folder of YAML files against the schemas, and lints the references between transforms, tables and transform tests.
+This repository holds the specification and examples of the Metabase Representation Format, and the `@metabase/representations` package. The package's CLI validates a folder of YAML files against the schemas, and lints the transforms, transform tests and tables in a folder, and the references between them, for what Metabase refuses or likely gets wrong.
 
 ## Contents
 
@@ -45,7 +45,7 @@ The validator reads YAML as Metabase does, with a few [known differences](https:
 
 The lint is experimental. It is outside the package's semver guarantees: its rules, findings, output and options can change in any release. The `lint` command runs only with `--experimental`, and its programmatic API comes from `@metabase/representations/experimental`.
 
-Check the references between transforms, tables and transform tests in a folder, without a Metabase. The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Under `npx`, name both packages, Pyodide at the version the package pins:
+Check the transforms, transform tests and tables in a folder, and the references between them, for what Metabase refuses or likely gets wrong, without a Metabase. The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Under `npx`, name both packages, Pyodide at the version the package pins:
 
 ```sh
 npx -p @metabase/representations -p pyodide@314.0.7 representations lint --experimental --folder ./my-export

@@ -613,8 +613,9 @@ function comparedTables(
 }
 
 /**
- * Checks the references between transforms, tables and transform tests in a
- * folder of representation files. Reads only the files; needs no Metabase.
+ * Checks the transforms, transform tests and tables in a folder of
+ * representation files, and the references between them, for what Metabase
+ * refuses or likely gets wrong. Reads only the files; needs no Metabase.
  * Findings are grouped by rule, in the order of `LINT_RULES`, then by file.
  * Native SQL is parsed by Metabase's own code, loaded once per process, the
  * first time a check reads SQL (`withSqlParser`).

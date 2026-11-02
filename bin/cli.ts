@@ -42,9 +42,11 @@ Commands:
 
   lint               Experimental: its rules, output and options can change
                      in any release, and it runs only with --experimental.
-                     Checks references between transforms, tables and
-                     transform tests; prints one JSON finding per line,
-                     grouped by rule, then by file. Rules and finding
+                     Checks the transforms, transform tests and tables
+                     in a folder, and the references between them, for
+                     what Metabase refuses or likely gets wrong; prints
+                     one JSON finding per line, grouped by rule, then by
+                     file. Rules and finding
                      fields: ${DOCS_URL}
     --experimental     Run the experimental lint (required)
     --folder <path>    Folder to lint (default: cwd)
