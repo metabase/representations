@@ -4,6 +4,8 @@ import {
   errorMessage,
   escapeUnprintable,
   isRecord,
+  isStringArray,
+  isStringOrNull,
   unescapePointer,
 } from "./values.js";
 
@@ -31,6 +33,21 @@ describe("errorMessage", () => {
   it("gives any other thrown value as text", () => {
     expect(errorMessage("bad input")).toBe("bad input");
     expect(errorMessage(undefined)).toBe("undefined");
+  });
+});
+
+describe("isStringOrNull and isStringArray", () => {
+  it("accept only a string or null, and only an array of strings", () => {
+    expect([null, "", "a", undefined, 1].map(isStringOrNull)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
+    expect(
+      [[], ["a"], ["a", null], "a", { 0: "a" }].map(isStringArray),
+    ).toEqual([true, true, false, false, false]);
   });
 });
 

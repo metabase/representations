@@ -124,6 +124,7 @@ export function unreadableFolders(folder: string): UnreadableFolder[] {
     let entries;
     try {
       entries = readdirSync(resolve(folder, dir), { withFileTypes: true });
+      // eslint-disable-next-line no-restricted-syntax -- wraps listing a folder only
     } catch (error) {
       found.push({ folder: dir, error });
       return;
@@ -469,6 +470,7 @@ export function readEntityFile(
   let bytes: Buffer;
   try {
     bytes = readFileSync(path);
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (error) {
     return { status: "unreadable", error };
   }
@@ -476,6 +478,7 @@ export function readEntityFile(
   let read: YamlDocument;
   try {
     read = readYaml(text);
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
   } catch (error) {
     return { status: "unparsed", invalidUtf8, error };
   }

@@ -51,6 +51,7 @@ export function decodeUtf8(bytes: Uint8Array): {
       ),
       invalidUtf8: false,
     };
+    // eslint-disable-next-line no-restricted-syntax -- decodes bytes only; reads no SQL
   } catch {
     return {
       text: new TextDecoder("utf-8", { ignoreBOM: true }).decode(bytes),

@@ -45,4 +45,21 @@ export default [
       curly: ["warn", "all"],
     },
   },
+  {
+    // The checks run first with a stand-in SQL parser that throws
+    // (`withSqlParser`); a catch that swallows that throw makes the lint skip
+    // loading the parser and report wrong findings.
+    files: ["src/**/*.ts"],
+    ignores: ["src/**/*.test.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CatchClause",
+          message:
+            "A catch in the lint can swallow the stand-in SQL parser's throw (withSqlParser). Catch only around code that never reads SQL, and say so in the eslint-disable comment.",
+        },
+      ],
+    },
+  },
 ];
