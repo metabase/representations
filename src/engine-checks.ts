@@ -1,4 +1,4 @@
-import type { EngineOf } from "./databases.js";
+import { databasesOf, type EngineOf } from "./databases.js";
 import {
   displayName,
   type Doc,
@@ -14,7 +14,7 @@ import type { SourceFinder } from "./query-sources.js";
 import type { Report } from "./findings.js";
 import type { TestedTransform } from "./test-checks.js";
 import { CONFIG_FILE } from "./settings.js";
-import { isJavaBlank, isRecord, stringOrNull } from "./values.js";
+import { isJavaBlank } from "./values.js";
 
 /** Whether `schema` is what Clojure's `str/blank?` calls blank: absent, empty or Java whitespace. */
 const isBlank = (schema: string | null | undefined): boolean =>
@@ -126,41 +126,6 @@ export function reportUntestableEngines(
       );
     }
   }
-}
-
-/** The database a Card's query runs on, or null when it names none. */
-function cardDatabaseOf(card: Doc): string | null {
-  const query = card.body.dataset_query;
-  return isRecord(query) ? stringOrNull(query.database) : null;
-}
-
-/**
- * The databases `doc`, a transform or a Card, writes to or reads, each once:
- * a transform's target database (`targetDatabaseOf`) and its Python source
- * tables' databases, a Card's query's database, and the databases of the
- * tables and native queries either names.
- */
-function databasesOf(doc: Doc, findSources: SourceFinder): string[] {
-  const named: (string | null)[] = [];
-  const transform = validDocsOf([doc], "Transform")[0];
-  if (transform !== undefined) {
-    named.push(targetDatabaseOf(transform));
-    const { source } = transform.body;
-    if (isPythonSource(source)) {
-      for (const table of source["source-tables"]) {
-        named.push(table.table_id?.[0] ?? table.database_id);
-      }
-    }
-  } else {
-    named.push(cardDatabaseOf(doc));
-  }
-  const sources = findSources(doc.body, doc.model);
-  named.push(
-    ...sources.tables.map((t) => t.database),
-    ...sources.fieldFilterTables.map((t) => t.database),
-    ...sources.natives.map((n) => n.database),
-  );
-  return [...new Set(named.filter((d) => d !== null))];
 }
 
 /**

@@ -1,6 +1,7 @@
 import {
   createEngineOf,
   databaseDefaultSchemas,
+  databasesOf,
   type EngineOf,
 } from "./databases.js";
 import {
@@ -17,7 +18,6 @@ import {
   isQuerySource,
   loadDocs,
   queryDatabaseOf,
-  targetDatabaseOf,
   type UnreadableFile,
   validDocsOf,
   type ValidDoc,
@@ -93,8 +93,8 @@ export type LintResult = {
   findings: LintFinding[];
   /**
    * The names of the databases the files name, sorted: Database and table
-   * files, and the databases of queries, table references and transform
-   * targets. SQL is not read.
+   * files, and the databases each file writes to or reads (`databasesOf`).
+   * SQL is not read.
    */
   databases: string[];
 };
@@ -472,26 +472,17 @@ export async function transformReads({
 function namedDatabases(docs: readonly Doc[], schemas: Schemas): string[] {
   const findSources = createSourceFinder(schemas);
   const names = new Set<string>();
-  const add = (name: unknown) => {
+  for (const doc of docs) {
+    databasesOf(doc, findSources).forEach((d) => names.add(d));
+    const name =
+      doc.model === "Database"
+        ? doc.body.name
+        : doc.model === "Table"
+          ? doc.body.db_id
+          : null;
     if (typeof name === "string") {
       names.add(name);
     }
-  };
-  for (const doc of docs) {
-    const sources = findSources(doc.body, doc.model);
-    [...sources.tables, ...sources.fieldFilterTables].forEach((t) =>
-      add(t.database),
-    );
-    sources.natives.forEach((n) => add(n.database));
-    if (doc.model === "Database") {
-      add(doc.body.name);
-    }
-    if (doc.model === "Table") {
-      add(doc.body.db_id);
-    }
-  }
-  for (const transform of validDocsOf(docs, "Transform")) {
-    add(targetDatabaseOf(transform));
   }
   return [...names].sort();
 }
