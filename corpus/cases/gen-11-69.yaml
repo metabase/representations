@@ -1,0 +1,79 @@
+description: alias-quoted, expectation, expectation-sql, name-mixed, name-quoted-mixed, optional-tag-n1, schema-upper
+origin: corpus-gen.ts, seed 11, case 69, shrunk to 1 of 3 edits
+known: 'collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Invalid expression / Unexpected token. Line 1, Col: 53.\n  SELECT * FROM TRANSFORMS.Daily_order_summary AS \"t\" [[JOIN PUBLIC.\"Orders\" ON 1 = {{n1}}]]\n                                                      ^"), which no lint rule predicts'
+edits:
+  collections/transforms/top_categories/top_categories__three_highest.yaml: |
+    name: "Top Categories: three highest"
+    entity_id: r6q1WcFoBcq1eCQC9Yztl
+    transform_id: jf55MTi7z8cWQjPG2PEgz
+    creator_id: admin@example.com
+    description: "Cases: four categories, of which the lowest is left out."
+    inputs:
+      - table:
+          schema: transforms
+          name: product_revenue_report
+        format: rows
+        columns:
+          - name: category
+            cast_type: TEXT
+          - name: total_revenue
+            cast_type: DOUBLE PRECISION
+        rows:
+          - category: Doohickey
+            total_revenue: 10
+          - category: Gadget
+            total_revenue: 40
+          - category: Gizmo
+            total_revenue: 30
+          - category: Widget
+            total_revenue: 20
+    expectations:
+      - type: empty
+        name: generated
+        sql: SELECT * FROM TRANSFORMS.Daily_order_summary AS "t" [[JOIN PUBLIC."Orders" ON 1 = {{n1}}]]
+    serdes/meta:
+      - model: TransformTest
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      accepted: true
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      refused: transform-test.unparseable-source
+      message: |-
+        Expectation "generated" has SQL that could not be parsed: ParseError: Invalid expression / Unexpected token. Line 1, Col: 53.
+          SELECT * FROM TRANSFORMS.Daily_order_summary AS "t" [[JOIN PUBLIC."Orders" ON 1 = {{n1}}]]
+                                                              ^
+      on_transform: false

@@ -7,6 +7,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
 
+// Metabase and the lint read YAML 1.1, where an unquoted 2024-01-01 09:00:00
+// is a timestamp and yes a boolean: write with 1.1's rules, which quote them.
+
 import { BASE, type Observation } from "./corpus.js";
 
 /** The native SQL transforms of the base, by file. */
@@ -64,7 +67,14 @@ const tableRef: fc.Arbitrary<Sql> = fc
       { schema: "transforms", name: "daily_order_summary" },
     ),
     qualify: fc.constantFrom("none", "lower", "upper", "quoted"),
-    name: fc.constantFrom("lower", "upper", "mixed", "quoted"),
+    name: fc.constantFrom(
+      "lower",
+      "upper",
+      "mixed",
+      "quoted",
+      "quoted-upper",
+      "quoted-mixed",
+    ),
   })
   .map(({ table, qualify, name }) => {
     const spell = (s: string, how: string) =>
@@ -74,7 +84,11 @@ const tableRef: fc.Arbitrary<Sql> = fc
           ? s[0]!.toUpperCase() + s.slice(1)
           : how === "quoted"
             ? `"${s}"`
-            : s;
+            : how === "quoted-upper"
+              ? `"${s.toUpperCase()}"`
+              : how === "quoted-mixed"
+                ? `"${s[0]!.toUpperCase()}${s.slice(1)}"`
+                : s;
     // A transform's target needs its schema: the default schema is public.
     const q =
       qualify === "none" && table.schema !== "public" ? "lower" : qualify;
@@ -313,7 +327,10 @@ export function applyOps(ops: readonly Op[]): Record<string, string> {
     }
   }
   return Object.fromEntries(
-    [...docs].map(([file, d]) => [file, stringify(d, { lineWidth: 0 })]),
+    [...docs].map(([file, d]) => [
+      file,
+      stringify(d, { lineWidth: 0, version: "1.1" }),
+    ]),
   );
 }
 
@@ -353,9 +370,9 @@ const differenceKind = (difference: string) =>
     .replace(/ reads? .*/s, " reads");
 
 /**
- * Which generated cases of one run the corpus keeps. A disagreement is kept
+ * Which generated cases the corpus keeps, given the cases it holds (prime). A disagreement is kept
  * once per SQL shape and kind of difference. An agreeing case is kept when it
- * covers a tag or an answer that no case kept earlier in the run covers, so
+ * covers a tag or an answer that no case already kept covers, so
  * every shape and every spelling of a name is compared at least once. A case
  * whose import failed compares no shape, and covers no tag.
  */
@@ -363,6 +380,19 @@ export function createKeeper() {
   const causes = new Set<string>();
   const covered = new Set<string>();
   return {
+    /** Counts `c`, a case already in the corpus, as kept. */
+    prime(c: {
+      description: string;
+      known: string | null;
+      observation: Observation;
+    }): void {
+      const tags = c.description.split(", ");
+      if (c.known === null) {
+        this.keepAgreeing(tags, c.observation);
+      } else {
+        this.keepDisagreeing(tags, c.known.split("\n"));
+      }
+    },
     keepDisagreeing(
       tags: readonly string[],
       differences: readonly string[],

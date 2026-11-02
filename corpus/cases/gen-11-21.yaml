@@ -1,0 +1,98 @@
+description: alias-quoted, alias-quoted-upper, alias-upper, name-lower, name-mixed, name-quoted-mixed, nested-optional-tags-d1-d2, schema-lower, schema-quoted, schema-upper, sql, string-literal
+origin: corpus-gen.ts, seed 11, case 21
+known: null
+edits:
+  collections/transforms/top_categories.yaml: |
+    name: Top Categories
+    entity_id: jf55MTi7z8cWQjPG2PEgz
+    creator_id: admin@example.com
+    description: The three categories with the most revenue, read from the Product Revenue Report transform's table.
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT 'FROM TRANSFORMS."Product_revenue_report" "T"' AS s FROM PUBLIC.products AS T
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: top_categories
+    serdes/meta:
+      - model: Transform
+  collections/transforms/monthly_sales_summary.yaml: |
+    name: Monthly Sales Summary
+    entity_id: w7EfUbsxLA7kXBHVXgeaZ
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT * FROM "transforms".Daily_order_summary AS "t" [[JOIN public.Products ON 1 = {{d1}} [[JOIN public."Orders" AS "t" ON 1 = {{d2}}]] ]]
+            template-tags:
+              - type: number
+                name: d1
+                id: aa000000-0000-0000-0000-000000000000
+                display-name: d1
+                default: 1
+              - type: number
+                name: d2
+                id: aa000000-0000-0000-0000-000000000001
+                display-name: d2
+                default: 1
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: monthly_sales_summary
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - public.Products
+        - public.Orders
+        - transforms.Daily_order_summary
+    collections/transforms/top_categories.yaml:
+      reads:
+        - PUBLIC.products
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      accepted: true
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      refused: transform-test.missing-inputs
+      message: "The transform reads table(s) with no declared test input: PUBLIC.products. Add an input for each."
+      on_transform: false

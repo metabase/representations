@@ -1,0 +1,63 @@
+description: alias-quoted, join, name-quoted, name-quoted-upper, schema-lower, schema-quoted, sql
+origin: corpus-gen.ts, seed 11, case 5
+known: null
+edits:
+  collections/transforms/monthly_sales_summary.yaml: |
+    name: Monthly Sales Summary
+    entity_id: w7EfUbsxLA7kXBHVXgeaZ
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT * FROM "public"."PEOPLE" AS "t" JOIN transforms."daily_order_summary" ON 1 = 1
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: monthly_sales_summary
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - public.PEOPLE
+        - transforms.daily_order_summary
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      accepted: true
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true

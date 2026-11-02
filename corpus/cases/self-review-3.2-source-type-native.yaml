@@ -1,0 +1,39 @@
+description: A transform's source type is native, neither query nor python.
+origin: "self-review of #40 at 6405d92, section 3.2"
+known: 'Metabase refuses the import ("Import failed: could not save Transform `Product Revenue Report` (`7JwIkkAG-06-nsl4jzsaq`). Unknown transform source type: native."); the lint reports no error that explains it'
+edits:
+  collections/transforms/native_transform.yaml: |
+    name: Product Revenue Report
+    entity_id: 7JwIkkAG-06-nsl4jzsaq
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: native
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: |-
+              SELECT
+                p.category,
+                COUNT(DISTINCT o.id) AS order_count,
+                SUM(o.total) AS total_revenue,
+                AVG(o.total) AS avg_order_value
+              FROM orders o
+              JOIN products p ON o.product_id = p.id
+              GROUP BY p.category
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: product_revenue_report
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: failed
+    message: "Import failed: could not save Transform `Product Revenue Report` (`7JwIkkAG-06-nsl4jzsaq`). Unknown transform source type: native."
+  transforms: {}
+  tests: {}

@@ -378,6 +378,9 @@ async function shrink(
 }
 
 const keeper = createKeeper();
+for (const file of caseFiles()) {
+  keeper.prime(readCase(file));
+}
 let written = 0;
 let disagreements = 0;
 function write(name: string, c: Case): void {

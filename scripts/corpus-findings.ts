@@ -5,6 +5,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parse, stringify } from "yaml";
 
+// Metabase and the lint read YAML 1.1, where an unquoted 2024-01-01 09:00:00
+// is a timestamp and yes a boolean: write with 1.1's rules, which quote them.
+
 import { BASE } from "./corpus.js";
 
 type Doc = Record<string, any>; // Representation files are YAML maps.
@@ -17,6 +20,10 @@ export type FindingCase = {
 };
 
 const DAILY = "collections/transforms/daily_order_summary.yaml";
+const DAILY_TEST =
+  "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+const NATIVE = "collections/transforms/native_transform.yaml";
+const PYTHON = "collections/transforms/python_hello_world.yaml";
 const MONTHLY = "collections/transforms/mbql_transform.yaml";
 
 function edited(
@@ -25,7 +32,7 @@ function edited(
 ): Record<string, string> {
   const doc = parse(readFileSync(join(BASE, file), "utf8")) as Doc;
   change(doc);
-  return { [file]: stringify(doc, { lineWidth: 0 }) };
+  return { [file]: stringify(doc, { lineWidth: 0, version: "1.1" }) };
 }
 
 /** The daily transform with `sql` as its query, and `tags` as its template tags. */
@@ -37,6 +44,16 @@ const dailySql = (sql: string, tags: Doc[] = []) =>
       stage["template-tags"] = tags;
     }
   });
+
+/** A field-filter tag on `field` of the warehouse's `table`, in the public schema. */
+const dimensionTag = (name: string, table: string, field: string): Doc => ({
+  type: "dimension",
+  name,
+  id: "bb000001-0000-0000-0000-000000000001",
+  "display-name": name,
+  dimension: ["field", {}, ["Sample Postgres", "public", table, field]],
+  "widget-type": "date/all-options",
+});
 
 const numberTag = (name: string, id: string, fields: Doc = {}): Doc => ({
   type: "number",
@@ -100,6 +117,84 @@ export const FINDING_CASES: FindingCase[] = [
             : x;
         stage.aggregation = nullSchema(stage.aggregation);
         stage.breakout = nullSchema(stage.breakout);
+      }),
+  },
+  {
+    name: "self-review-2.1-python-table-id-null",
+    description:
+      "A Python transform reads another transform's target, which does not exist yet, so its source table has table_id: null, as Metabase writes it.",
+    origin: "self-review of #40 at 6405d92, section 2.1",
+    edits: () =>
+      edited(PYTHON, (doc) => {
+        doc.source = {
+          type: "python",
+          body: "def transform(up):\n    return up",
+          "source-tables": [
+            {
+              alias: "up",
+              database_id: "Sample Postgres",
+              schema: "transforms",
+              table: "product_revenue_report",
+              table_id: null,
+            },
+          ],
+        };
+      }),
+  },
+  {
+    name: "self-review-2.2-field-filter-input",
+    description:
+      "A transform filters by a field-filter tag on orders.created_at; its test gives orders.",
+    origin: "self-review of #40 at 6405d92, section 2.2",
+    edits: () =>
+      dailySql("SELECT created_at, total FROM orders WHERE {{d}}", [
+        dimensionTag("d", "orders", "created_at"),
+      ]),
+  },
+  {
+    name: "self-review-2.2-field-filter-unused-input",
+    description:
+      "A transform filters by a field-filter tag on products.category, and its test gives an input for products too.",
+    origin: "self-review of #40 at 6405d92, section 2.2",
+    edits: () => ({
+      ...dailySql("SELECT created_at, total FROM orders WHERE {{p}}", [
+        dimensionTag("p", "products", "category"),
+      ]),
+      ...edited(DAILY_TEST, (doc) => {
+        doc.inputs.push({
+          table: { schema: "public", name: "products" },
+          format: "rows",
+          columns: [{ name: "category", cast_type: "TEXT" }],
+          rows: [{ category: "Gadget" }],
+        });
+      }),
+    }),
+  },
+  {
+    name: "self-review-2.3-empty-list-and-string",
+    description:
+      "Two files hold only an empty YAML list and an empty YAML string.",
+    origin: "self-review of #40 at 6405d92, section 2.3",
+    edits: () => ({
+      "collections/transforms/empty_list.yaml": "[]\n",
+      "collections/transforms/empty_string.yaml": "''\n",
+    }),
+  },
+  {
+    name: "self-review-3.1-quoted-name-case",
+    description:
+      'A transform reads "Orders", a quoted name in another case than the table and its test input orders.',
+    origin: "self-review of #40 at 6405d92, section 3.1",
+    edits: () => dailySql('SELECT o.created_at, o.total FROM "Orders" o'),
+  },
+  {
+    name: "self-review-3.2-source-type-native",
+    description:
+      "A transform's source type is native, neither query nor python.",
+    origin: "self-review of #40 at 6405d92, section 3.2",
+    edits: () =>
+      edited(NATIVE, (doc) => {
+        doc.source.type = "native";
       }),
   },
 ];

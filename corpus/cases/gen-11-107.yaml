@@ -1,0 +1,107 @@
+description: add-input, alias-quoted-upper, drop-input, expectation, expectation-sql, name-quoted, name-upper, optional-clause, schema-quoted
+origin: corpus-gen.ts, seed 11, case 107, shrunk to 3 of 3 edits
+known: |-
+  collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform ("The transform test could not fully remap the source to test tables; these reference(s) remain: public.orders. Alias each source table and qualify its columns by the alias (e.g. `FROM my_table t ... t.col`), not by the table name."), which no lint rule predicts
+  collections/transforms/native_transform/product_revenue_report__category_totals.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Required keyword: 'this' missing. Line 1, Col: 112.\n  OM \"public\".PEOPLE \"T\" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM \"transforms\".\"daily_order_summary\" \"T\")]]\n                                                                                                      ^"), which no lint rule predicts
+edits:
+  collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: |
+    name: "Monthly Order Summary: orders per month"
+    entity_id: 57lhlfQkXUllMLTaY9IRu
+    transform_id: 1fNzUt_CgppinjPk7pGKH
+    creator_id: admin@example.com
+    description: "Cases: two orders in one month are counted and summed; the next month stands alone."
+    inputs:
+      - table:
+          schema: PUBLIC
+          name: ORDERS
+        format: sql
+        sql: SELECT 1 AS id
+    expectations:
+      - type: empty
+        name: no negative revenue
+        sql: SELECT * FROM transforms.monthly_order_summary WHERE sum < 0
+    serdes/meta:
+      - model: TransformTest
+  collections/transforms/native_transform/product_revenue_report__category_totals.yaml: |
+    name: "Product Revenue Report: category totals"
+    entity_id: aRvM7DLesF1fOV4kRHidq
+    transform_id: 7JwIkkAG-06-nsl4jzsaq
+    creator_id: admin@example.com
+    description: "Cases: two orders of one category are summed and averaged; a category with one order stands alone."
+    inputs:
+      - table:
+          name: orders
+        format: rows
+        columns:
+          - name: id
+            cast_type: INTEGER
+          - name: product_id
+            cast_type: INTEGER
+          - name: total
+            cast_type: DOUBLE PRECISION
+        rows:
+          - id: 1
+            product_id: 1
+            total: 10
+          - id: 2
+            product_id: 1
+            total: 30
+          - id: 3
+            product_id: 2
+            total: 25
+      - table:
+          name: products
+        format: sql
+        sql: SELECT 1 AS id, 'Gadget' AS category UNION ALL SELECT 2, 'Widget'
+    expectations:
+      - type: empty
+        name: generated
+        sql: SELECT * FROM "public".PEOPLE "T" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM "transforms"."daily_order_summary" "T")]]
+    serdes/meta:
+      - model: TransformTest
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      refused: transform-test.unremapped-reference
+      message: "The transform test could not fully remap the source to test tables; these reference(s) remain: public.orders. Alias each source table and qualify its columns by the alias (e.g. `FROM my_table t ... t.col`), not by the table name."
+      on_transform: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      refused: transform-test.unparseable-source
+      message: |-
+        Expectation "generated" has SQL that could not be parsed: ParseError: Required keyword: 'this' missing. Line 1, Col: 112.
+          OM "public".PEOPLE "T" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM "transforms"."daily_order_summary" "T")]]
+                                                                                                              ^
+      on_transform: false
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true

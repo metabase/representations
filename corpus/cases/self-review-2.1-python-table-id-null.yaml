@@ -1,0 +1,68 @@
+description: "A Python transform reads another transform's target, which does not exist yet, so its source table has table_id: null, as Metabase writes it."
+origin: "self-review of #40 at 6405d92, section 2.1"
+known: |-
+  collections/transforms/python_hello_world.yaml: Metabase imports it; the lint reports schema: Transform does not match its schema: /source/source-tables/0/table_id must be array
+  collections/transforms/python_hello_world.yaml: Metabase has the transform; the lint does not read it
+edits:
+  collections/transforms/python_hello_world.yaml: |
+    name: Python Hello World
+    entity_id: g2cRYwopfoL1BW9Y4n3wb
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: python
+      body: |-
+        def transform(up):
+            return up
+      source-tables:
+        - alias: up
+          database_id: Sample Postgres
+          schema: transforms
+          table: product_revenue_report
+          table_id: null
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: hello_world
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      accepted: true
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true

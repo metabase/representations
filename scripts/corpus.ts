@@ -123,7 +123,7 @@ const entityIdsIn = (message: string | null) =>
  * empty when they agree. A failed import must come with a lint error that is
  * not a transform test's rule (those are refused when a test is created, not
  * imported), on an entity the import's message names when it names one. After
- * an import, each transform's reads and each test's verdict are compared as
+ * an import, no file may have a schema error, each transform's reads and each test's verdict are compared as
  * lint-parity.ts compares them, and every transform and test must have an
  * answer that was not skipped.
  */
@@ -148,6 +148,15 @@ export async function compare(
       );
     }
     return differences;
+  }
+  // An error is a refusal (findings.ts); a schema error says Metabase
+  // refuses the file at import, and Metabase imported the folder.
+  for (const f of findings) {
+    if (f.severity === "error" && f.rule === "schema") {
+      differences.push(
+        `${f.file}: Metabase imports it; the lint reports schema: ${f.message}`,
+      );
+    }
   }
   const reads = new Map(
     (await transformReads({ folder })).map((t) => [t.file, t]),

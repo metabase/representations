@@ -1,0 +1,85 @@
+description: A transform filters by a field-filter tag on orders.created_at; its test gives orders.
+origin: "self-review of #40 at 6405d92, section 2.2"
+known: |-
+  collections/transforms/daily_order_summary.yaml: only the lint reads public.orders
+  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase accepts it; the lint reports missing-input
+edits:
+  collections/transforms/daily_order_summary.yaml: |
+    name: Daily Order Summary
+    entity_id: 7XqqzlsonSq4KFyOvtrAm
+    creator_id: admin@example.com
+    source_database_id: Sample Postgres
+    source:
+      type: query
+      query:
+        lib/type: mbql/query
+        database: Sample Postgres
+        stages:
+          - lib/type: mbql.stage/native
+            native: SELECT created_at, total FROM orders WHERE {{d}}
+            template-tags:
+              - type: dimension
+                name: d
+                id: bb000001-0000-0000-0000-000000000001
+                display-name: d
+                dimension:
+                  - field
+                  - {}
+                  - - Sample Postgres
+                    - public
+                    - orders
+                    - created_at
+                widget-type: date/all-options
+    target:
+      database: Sample Postgres
+      type: table
+      schema: transforms
+      name: daily_order_summary
+    tags:
+      - entity_id: qJU4-opN0IFLKDEdmXiYh
+        position: 0
+        tag_id: dUW7nvQHQBdA0Rx0gJckI
+      - entity_id: hTtmHg0mopz6qzrEDukSm
+        position: 1
+        tag_id: 1uWng5tP1gyxr44PJ5FPb
+    serdes/meta:
+      - model: Transform
+observation:
+  metabase: vUNKNOWN (cb1d8f2)
+  import:
+    status: successful
+  transforms:
+    collections/transforms/daily_order_summary.yaml:
+      reads:
+        - orders
+    collections/transforms/mbql_transform.yaml:
+      reads:
+        - public.orders
+    collections/transforms/monthly_sales_summary.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/top_categories.yaml:
+      reads:
+        - transforms.product_revenue_report
+    collections/transforms/product_summary.yaml:
+      reads:
+        - public.products
+    collections/transforms/hourly_product_stats.yaml:
+      reads:
+        - public.products
+    collections/transforms/native_transform.yaml:
+      reads:
+        - orders
+        - products
+    collections/transforms/python_hello_world.yaml:
+      untestable: true
+  tests:
+    collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml:
+      accepted: true
+    collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml:
+      accepted: true
+    collections/transforms/native_transform/product_revenue_report__category_totals.yaml:
+      accepted: true
+    collections/transforms/top_categories/top_categories__three_highest.yaml:
+      accepted: true
