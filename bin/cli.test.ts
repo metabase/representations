@@ -606,7 +606,16 @@ describe("cli", () => {
       "warns, and checks the rest, when a database's default schema is unknown",
       () => {
         mutateExamples("missing-input", workdir);
-        rmSync(join(workdir, ".metabase-lint.json"));
+        // The engines alone: no default schema for Sample Postgres.
+        writeFileSync(
+          join(workdir, ".metabase-lint.json"),
+          JSON.stringify({
+            engines: {
+              "Sample Database": "sqlite",
+              "Sample Postgres": "postgres",
+            },
+          }),
+        );
         const unknown = runCli(["lint", "--experimental", "--folder", workdir]);
         expect(
           unknown.stdout

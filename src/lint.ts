@@ -18,6 +18,12 @@ import {
   validDocsOf,
 } from "./documents.js";
 import {
+  reportMissingTargetSchemas,
+  reportUnknownEngines,
+  reportUnsupportedTransformEngines,
+  reportUntestableEngines,
+} from "./engine-checks.js";
+import {
   type FindingSubject,
   LINT_RULE_SEVERITY,
   LINT_RULES,
@@ -56,6 +62,12 @@ import {
   testedTransformsOf,
   testInputs,
 } from "./test-checks.js";
+import {
+  reportCollectionNamespaces,
+  reportEmptyNativeQueries,
+  reportIncrementalTags,
+  reportMissingTargetDatabases,
+} from "./transform-checks.js";
 import { isRecord, stringOrNull } from "./values.js";
 
 export type LintOptions = {
@@ -643,6 +655,13 @@ export async function lint({
     reportDuplicateTargets(transforms, same, report);
 
     reportCycles(transforms, same, report);
+    reportCollectionNamespaces(docs, byEntityId, report);
+    reportIncrementalTags(docs, defaultSchemaOf, report);
+    reportMissingTargetDatabases(docs, report);
+    reportMissingTargetSchemas(docs, engineOf, report);
+    reportUnsupportedTransformEngines(docs, engineOf, report);
+    reportUnknownEngines(docs, engineOf, findSources, report);
+    reportEmptyNativeQueries(docs, findSources, report);
 
     // A null default schema that the user gives says the database has no
     // schemas, over what its engine allows.
@@ -674,6 +693,7 @@ export async function lint({
       createSqlParseCheck(parser, engineOf),
       report,
     );
+    reportUntestableEngines(tested, engineOf, report);
     return {
       files,
       findings: findings.sort(byRuleThenFile),

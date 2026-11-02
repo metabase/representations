@@ -29,11 +29,14 @@ const PYTHON_TEST =
   "collections/transforms/daily_order_summary/python_hello_world__greetings.yaml";
 const PYTHON_HELLO_WORLD = "collections/transforms/python_hello_world.yaml";
 const DAILY_ORDER_SUMMARY = "collections/transforms/daily_order_summary.yaml";
+const MONTHLY_SALES_SUMMARY =
+  "collections/transforms/monthly_sales_summary.yaml";
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const DAILY_TAG_ENTITY_ID = "dUW7nvQHQBdA0Rx0gJckI";
 const ORDERS_MODEL = "collections/main/queries/orders_model.yaml";
 const NULL_SCHEMA_CARD = "collections/main/queries/null_schema_products.yaml";
 const ORDERS_MODEL_ENTITY_ID = "4eroqa4ZYl4WkNjP8XTvu";
+const QUERIES_COLLECTION_ENTITY_ID = "cOlQuErIeS0ExAmPlE2x1";
 const POSTGRES_DB = "Sample Postgres";
 const POSTGRES_PRODUCTS = [POSTGRES_DB, "public", "products"] as const;
 const WIDGETS_SEGMENT_ENTITY_ID = "WarehouseWidgets00001";
@@ -201,6 +204,18 @@ function writeProductsDefinition(
       "serdes/meta": [{ model }],
     },
   );
+}
+
+/** Moves the transform in `file`, its query and its target to `database`. */
+function moveTransform(folder: string, file: string, database: string): void {
+  edit(folder, file, (doc) => {
+    doc.source_database_id = database;
+    const source = mapAt(doc, "source");
+    if (source.query !== undefined) {
+      mapAt(source, "query").database = database;
+    }
+    mapAt(doc, "target").database = database;
+  });
 }
 
 function editNativeSql(
@@ -579,6 +594,104 @@ export const MUTATIONS: Mutation[] = [
     },
   },
   {
+    name: "transform-collection",
+    description:
+      "A transform is put in a collection of the default namespace, where Metabase refuses it.",
+    findings: [
+      {
+        rule: "transform-collection",
+        file: PRODUCT_REVENUE_REPORT,
+        related: ["collections/main/queries.yaml"],
+      },
+    ],
+    apply: (folder) =>
+      edit(folder, PRODUCT_REVENUE_REPORT, (doc) => {
+        doc.collection_id = QUERIES_COLLECTION_ENTITY_ID;
+      }),
+  },
+  {
+    name: "missing-incremental-table-tag",
+    description:
+      "A native transform writes an incremental table, but its query has no template tag of type table for the range filter.",
+    findings: [
+      { rule: "missing-incremental-table-tag", file: PRODUCT_REVENUE_REPORT },
+    ],
+    apply: (folder) =>
+      edit(folder, PRODUCT_REVENUE_REPORT, (doc) => {
+        mapAt(doc, "target").type = "table-incremental";
+        mapAt(doc, "source")["source-incremental-strategy"] = {
+          type: "checkpoint",
+          "checkpoint-filter-field-id": [
+            POSTGRES_DB,
+            "public",
+            "orders",
+            "created_at",
+          ],
+        };
+      }),
+  },
+  {
+    name: "missing-target-database",
+    description:
+      "A Python transform's target names no database, which Metabase requires for a Python transform.",
+    findings: [{ rule: "missing-target-database", file: PYTHON_HELLO_WORLD }],
+    apply: (folder) =>
+      edit(folder, PYTHON_HELLO_WORLD, (doc) => {
+        delete mapAt(doc, "target").database;
+      }),
+  },
+  {
+    name: "blank-target-schema",
+    description:
+      "A transform's target schema is blank, which Metabase's API and a pull both refuse.",
+    findings: [{ rule: "blank-target-schema", file: PYTHON_HELLO_WORLD }],
+    apply: (folder) =>
+      edit(folder, PYTHON_HELLO_WORLD, (doc) => {
+        mapAt(doc, "target").schema = "";
+      }),
+  },
+  {
+    name: "missing-target-schema",
+    description:
+      "A transform's target names no schema, on a Postgres database, which has schemas.",
+    findings: [{ rule: "missing-target-schema", file: PYTHON_HELLO_WORLD }],
+    apply: (folder) =>
+      edit(folder, PYTHON_HELLO_WORLD, (doc) => {
+        delete mapAt(doc, "target").schema;
+      }),
+  },
+  {
+    name: "unsupported-transform-engine",
+    description:
+      "Python Hello World moves to an H2 database, whose driver runs no Python transform.",
+    findings: [
+      { rule: "unsupported-transform-engine", file: PYTHON_HELLO_WORLD },
+    ],
+    apply: (folder) => {
+      writeSettings(folder, { engines: { Legacy: "h2" } });
+      moveTransform(folder, PYTHON_HELLO_WORLD, "Legacy");
+    },
+  },
+  {
+    name: "untestable-engine",
+    description:
+      "Daily Order Summary, which a test tests, moves to a Snowflake database, whose driver runs no transform test.",
+    findings: [
+      {
+        rule: "untestable-engine",
+        file: DAILY_ORDER_SUMMARY_TEST,
+        related: [DAILY_ORDER_SUMMARY],
+      },
+    ],
+    apply: (folder) => {
+      writeSettings(folder, {
+        engines: { Warehouse: "snowflake" },
+        defaultSchemas: { Warehouse: "PUBLIC" },
+      });
+      moveTransform(folder, DAILY_ORDER_SUMMARY, "Warehouse");
+    },
+  },
+  {
     name: "missing-input",
     description: "A test drops the input for a table its transform reads.",
     findings: [
@@ -740,6 +853,22 @@ export const MUTATIONS: Mutation[] = [
         join(folder, TOP_CATEGORIES),
         Buffer.from("# caf\xe9\n", "latin1"),
       ),
+  },
+  {
+    name: "unknown-engine",
+    description:
+      "Python Hello World moves to a database whose engine is a driver the lint does not know.",
+    findings: [{ rule: "unknown-engine", file: PYTHON_HELLO_WORLD }],
+    apply: (folder) => {
+      writeSettings(folder, { engines: { Legacy: "third-party-driver" } });
+      moveTransform(folder, PYTHON_HELLO_WORLD, "Legacy");
+    },
+  },
+  {
+    name: "empty-native-query",
+    description: "A native transform's query is only whitespace.",
+    findings: [{ rule: "empty-native-query", file: MONTHLY_SALES_SUMMARY }],
+    apply: (folder) => editNativeSql(folder, MONTHLY_SALES_SUMMARY, () => " "),
   },
   {
     name: "invalid-test",
