@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
 import { type Doc, indexByEntityId } from "./documents.js";
-import { createSnippetFinder } from "./reads.js";
+import { createReader, createSnippetFinder } from "./reads.js";
+import { loadSchemas } from "./schemas.js";
 
 const SNIPPET_ID = "SnippetId000000000001";
 
@@ -47,5 +48,44 @@ describe("createSnippetFinder", () => {
       content: "status = 'closed'",
     });
     expect(find([snippet, later])).toEqual({ content: "status = 'closed'" });
+  });
+});
+
+describe("createReader", () => {
+  it("reads a Python source table with a null table_id by its name", () => {
+    const python = doc("collections/python.yaml", "Transform", {
+      name: "Python",
+      source: {
+        type: "python",
+        body: "def transform(up):\n    return up",
+        "source-tables": [
+          {
+            alias: "up",
+            database_id: "Warehouse",
+            schema: "analytics",
+            table: "upstream_out",
+            table_id: null,
+          },
+        ],
+      },
+    });
+    const readsOf = createReader(
+      [python],
+      indexByEntityId([python]),
+      loadSchemas(),
+      () => ({ status: "unread", reason: "no SQL" }),
+    );
+    expect(readsOf(python)).toEqual({
+      status: "read",
+      tables: [
+        {
+          database: "Warehouse",
+          schema: "analytics",
+          name: "upstream_out",
+          nullSchema: "none",
+          caseMatters: true,
+        },
+      ],
+    });
   });
 });

@@ -118,7 +118,7 @@ function nativeReads(
 function pythonReads(source: PythonSource): Reads {
   const tables: TableKey[] = [];
   for (const t of source["source-tables"]) {
-    if (t.table_id !== undefined) {
+    if (t.table_id !== undefined && t.table_id !== null) {
       const [database, schema, name] = t.table_id;
       tables.push({
         database,

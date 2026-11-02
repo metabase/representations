@@ -35,8 +35,11 @@ type PythonSourceTable = {
   database_id: string;
   schema?: string | null;
   table?: string;
-  /** `[database, schema, table]`, from `common/id.yaml#/$defs/table_id`. */
-  table_id?: readonly [string, string | null, string];
+  /**
+   * `[database, schema, table]`, from `common/id.yaml#/$defs/table_id`. Null
+   * for a table that did not exist at export, which Metabase finds by name.
+   */
+  table_id?: readonly [string, string | null, string] | null;
 };
 
 /** A schema-valid Python source, from `transform.yaml#/$defs/python_source`. */
