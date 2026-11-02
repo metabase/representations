@@ -392,17 +392,20 @@ function write(name: string, c: Case): void {
 }
 
 /**
- * `o` without the Metabase that answered, with its keys sorted, for comparing
- * answers across versions. Metabase's messages are compared too: the probes
- * run in English, and a reworded refusal is worth a look.
+ * `o`'s answers, with its keys sorted, for comparing them across builds:
+ * whether Metabase imported the folder, each refusal's code and the tables
+ * read. Messages are left out: a dev build of Metabase validates rows on
+ * insert, and words the same refusal of an import differently.
  */
 const answers = (o: Observation) =>
-  JSON.stringify({ ...o, metabase: null }, (_, v: unknown) =>
-    isRecord(v) && !Array.isArray(v)
-      ? Object.fromEntries(
-          Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)),
-        )
-      : v,
+  JSON.stringify({ ...o, metabase: null }, (k, v: unknown) =>
+    k === "message"
+      ? undefined
+      : isRecord(v) && !Array.isArray(v)
+        ? Object.fromEntries(
+            Object.entries(v).sort(([a], [b]) => (a < b ? -1 : 1)),
+          )
+        : v,
   );
 
 try {

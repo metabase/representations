@@ -27,7 +27,8 @@ bun run scripts/record-corpus.ts --url URL --api-key KEY --repo SYNC_REPO --find
 # Generate N cases (scripts/corpus-gen.ts) and keep the useful ones.
 bun run scripts/record-corpus.ts --url URL --api-key KEY --repo SYNC_REPO --runs N --seed S
 
-# Record every case again; exit 1 if Metabase now answers any of them differently.
+# Record every case again; exit 1 if Metabase now answers any of them differently
+# (import status, refusal codes, tables read; not the wording of messages).
 bun run scripts/record-corpus.ts --url URL --api-key KEY --repo SYNC_REPO --check
 ```
 
@@ -46,5 +47,7 @@ bun run scripts/refresh-known.ts
 ```
 
 It updates `known` for each case, prints what changed, and never touches the recorded answers. Review the diff: a `known` that grows is a new disagreement.
+
+Record committed cases with the Metabase image the Import workflow uses, `metabase/metabase-enterprise-head`; each case's `observation.metabase` names the build that answered. A Metabase run from source is useful for `--check`, to see whether master has moved since the image.
 
 The Import workflow runs `--check` against the latest Metabase build. If it fails, Metabase changed. Look at the case's new answers: either record the case again and fix the lint, or report the change to Metabase.
