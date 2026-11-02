@@ -2623,3 +2623,128 @@ describe("lint", () => {
     });
   });
 });
+
+describe("stand-ins of a transform test", () => {
+  const H2_DB = "Sample Database";
+  const DAILY_ORDER_SUMMARY = "collections/transforms/daily_order_summary.yaml";
+  const DAILY_ORDER_SUMMARY_TEST =
+    "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+  let workdir: string;
+
+  beforeEach(() => {
+    workdir = mkdtempSync(join(tmpdir(), "representations-lint-stand-ins-"));
+  });
+
+  afterEach(() => {
+    rmSync(workdir, { recursive: true, force: true });
+  });
+
+  const writeYaml = (file: string, doc: Record<string, unknown>) => {
+    mkdirSync(join(workdir, file, ".."), { recursive: true });
+    writeFileSync(join(workdir, file), yaml.dump(doc, { lineWidth: -1 }));
+  };
+
+  const editYaml = (
+    file: string,
+    change: (doc: Record<string, any>) => void,
+  ) => {
+    const doc: unknown = yaml.load(readFileSync(join(workdir, file), "utf8"));
+    if (!isRecord(doc)) {
+      throw new Error(`${file} is not a YAML map`);
+    }
+    change(doc);
+    writeYaml(file, doc);
+  };
+
+  const otherTableReads = async () =>
+    (await lint({ folder: workdir })).findings.filter(
+      (f) => f.rule === "expectation-reads-other-table",
+    );
+
+  it("an unqualified read of an input in the default schema written in another case reads no other table", async () => {
+    cpSync(EXAMPLES, workdir, { recursive: true });
+    editYaml(DAILY_ORDER_SUMMARY, (doc) => {
+      doc.source_database_id = H2_DB;
+      doc.source.query.database = H2_DB;
+      doc.target.database = H2_DB;
+    });
+    const readOrdersUnqualified = (inputSchema: string) =>
+      editYaml(DAILY_ORDER_SUMMARY_TEST, (doc) => {
+        doc.inputs[0].table.schema = inputSchema;
+        doc.expectations = [
+          {
+            type: "empty",
+            name: "orders read",
+            sql: "SELECT * FROM orders WHERE total < 0",
+          },
+        ];
+      });
+    readOrdersUnqualified("PUBLIC");
+    expect(await otherTableReads()).toEqual([]);
+    readOrdersUnqualified("public");
+    expect(await otherTableReads()).toEqual([]);
+  });
+
+  it("an expectation that reads the target of a test with ten inputs reads no other table", async () => {
+    const tables = Array.from({ length: 10 }, (_, i) => `t${i}`);
+    writeFileSync(
+      join(workdir, CONFIG_FILE),
+      JSON.stringify({
+        engines: { [POSTGRES_DB]: "postgres" },
+        defaultSchemas: { [POSTGRES_DB]: "public" },
+      }),
+    );
+    writeYaml("collections/transforms/wide.yaml", {
+      name: "Wide",
+      entity_id: "WideTransform00000001",
+      creator_id: "admin@example.com",
+      source_database_id: POSTGRES_DB,
+      source: {
+        type: "query",
+        query: {
+          "lib/type": "mbql/query",
+          database: POSTGRES_DB,
+          stages: [
+            {
+              "lib/type": "mbql.stage/native",
+              native: `SELECT t0.id FROM ${tables.join(", ")}`,
+            },
+          ],
+        },
+      },
+      target: {
+        database: POSTGRES_DB,
+        type: "table",
+        schema: "transforms",
+        name: "wide",
+      },
+      "serdes/meta": [{ model: "Transform" }],
+    });
+    writeYaml("collections/transforms/wide/wide__ten_inputs.yaml", {
+      name: "Wide: ten inputs",
+      entity_id: "WideTransformTest0001",
+      transform_id: "WideTransform00000001",
+      creator_id: "admin@example.com",
+      inputs: tables.map((name) => ({
+        table: { schema: "public", name },
+        format: "rows",
+        columns: [{ name: "id", cast_type: "INTEGER" }],
+        rows: [{ id: 1 }],
+      })),
+      expectations: [
+        {
+          type: "empty",
+          name: "no negative id",
+          sql: "SELECT * FROM transforms.wide WHERE id < 0",
+        },
+        {
+          type: "empty",
+          name: "no input id of zero",
+          sql: "SELECT * FROM t9 WHERE id = 0",
+        },
+      ],
+      "serdes/meta": [{ model: "TransformTest" }],
+    });
+    expect((await lint({ folder: workdir })).findings).toEqual([]);
+  });
+});
