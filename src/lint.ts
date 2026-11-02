@@ -229,8 +229,11 @@ function reportDuplicateTargets(
  * table of each field-filter tag of either, by a reference with a null schema
  * (`nullSchema` `"none"`) in a database whose engine has schemas. Metabase
  * imports such a reference as the table with no schema, and creates an
- * inactive table when none exists (`resolve/default.clj` `import-table-fk`),
- * so every query on it fails. A database whose engine is unknown gives no
+ * inactive table when none exists (`resolve/default.clj` `import-table-fk`).
+ * A query that reads that table fails on every run. A tag whose field names it
+ * names a table that Metabase cannot find at pull; the query can still run,
+ * since a tag with no value compiles to `1 = 1`. A table both read and named
+ * by a tag is reported as read. A database whose engine is unknown gives no
  * finding, nor does one in `noSchemaDatabases`, nor a table that a table file
  * or a transform target with no schema names. A transform reports the tables
  * of the cards it reads too; a Card, only those its own query names.
@@ -250,10 +253,8 @@ function reportNullSchemaReferences(
   const readers = [
     ...transforms.map(({ doc, reads }) => ({
       doc,
-      tables: uniqueTables([
-        ...(reads.status === "read" ? reads.tables : []),
-        ...findSources(doc.body, doc.model).fieldFilterTables,
-      ]),
+      reads: reads.status === "read" ? reads.tables : [],
+      tagTables: findSources(doc.body, doc.model).fieldFilterTables,
     })),
     ...docs
       .filter((doc) => doc.model === "Card")
@@ -261,29 +262,47 @@ function reportNullSchemaReferences(
         const sources = findSources(doc.body, doc.model);
         return {
           doc,
-          tables: uniqueTables([
-            ...sources.tables,
-            ...sources.fieldFilterTables,
-          ]),
+          reads: sources.tables,
+          tagTables: sources.fieldFilterTables,
         };
       }),
   ];
-  for (const { doc, tables } of readers) {
-    for (const table of tables) {
+  const missing = (table: TableKey, engine: string | null) =>
+    table.schema === null &&
+    table.nullSchema === "none" &&
+    engineFacts(engine)?.schemas === true &&
+    !(table.database !== null && noSchemaDatabases.has(table.database)) &&
+    !noSchemaTables.some(
+      (t) => t.database === table.database && t.name === table.name,
+    );
+  const cause = (engine: string | null) =>
+    `whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there`;
+  const fix =
+    "Name the table's schema, or, if the database has no schemas, give it a null default schema in .metabase-lint.json";
+  for (const { doc, reads, tagTables } of readers) {
+    const readTables = uniqueTables(reads);
+    // `uniqueTables` keeps the first of equal tables, so a tag's table that
+    // the query also reads stays among the reads.
+    const tagOnly = uniqueTables([...readTables, ...tagTables]).slice(
+      readTables.length,
+    );
+    for (const table of readTables) {
       const engine = engineOf(table.database);
-      if (
-        table.schema === null &&
-        table.nullSchema === "none" &&
-        engineFacts(engine)?.schemas === true &&
-        !(table.database !== null && noSchemaDatabases.has(table.database)) &&
-        !noSchemaTables.some(
-          (t) => t.database === table.database && t.name === table.name,
-        )
-      ) {
+      if (missing(table, engine)) {
         report(
           "null-schema-reference",
           doc,
-          `reads ${tableLabel(table)} in database ${table.database}, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema, or, if the database has no schemas, give it a null default schema in .metabase-lint.json`,
+          `reads ${tableLabel(table)} in database ${table.database}, ${cause(engine)}, so every run fails. ${fix}`,
+        );
+      }
+    }
+    for (const table of tagOnly) {
+      const engine = engineOf(table.database);
+      if (missing(table, engine)) {
+        report(
+          "null-schema-reference",
+          doc,
+          `a field-filter tag's field names ${tableLabel(table)} in database ${table.database}, ${cause(engine)} when it pulls this file. ${fix}`,
         );
       }
     }

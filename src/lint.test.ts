@@ -2302,8 +2302,9 @@ describe("lint", () => {
       writeFiltered("public");
       expect(await nullSchemaFindings()).toEqual([]);
       writeFiltered(null);
+      // The tag compiles to `1 = 1` without a value, so the query still runs.
       expect(await nullSchemaFindings()).toEqual([
-        ordersError(file, "postgres"),
+        `${file}: error: a field-filter tag's field names orders (no schema) in database Sample Postgres, whose engine postgres has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there when it pulls this file. Name the table's schema, or, if the database has no schemas, give it a null default schema in .metabase-lint.json`,
       ]);
     });
 
