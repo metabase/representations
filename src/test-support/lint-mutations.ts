@@ -9,6 +9,7 @@ import yaml from "js-yaml";
 import { dirname, join, resolve } from "path";
 
 import type { LintRule } from "../findings.js";
+import { CONFIG_FILE } from "../settings.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "..", "examples", "v1");
 
@@ -50,7 +51,8 @@ export type Mutation = {
   apply: (folder: string) => void;
 };
 
-function edit(
+/** Reads the YAML map in `file`, passes it to `change`, and writes it back. */
+export function edit(
   folder: string,
   file: string,
   change: (doc: Record<string, any>) => void,
@@ -62,7 +64,7 @@ function edit(
 }
 
 /** Writes `doc` as YAML to `file`, creating its folder. */
-function write(
+export function write(
   folder: string,
   file: string,
   doc: Readonly<Record<string, unknown>>,
@@ -70,6 +72,32 @@ function write(
   const path = join(folder, file);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, yaml.dump(doc, { lineWidth: -1 }));
+}
+
+/** The settings of `examples/v1`, as `CONFIG_FILE` gives them. */
+type Settings = {
+  defaultSchemas: Record<string, string | null>;
+  engines: Record<string, string>;
+};
+
+/**
+ * Writes `CONFIG_FILE` to `folder`: the settings of `examples/v1`, with each
+ * entry of `change` over the example's entry for its database.
+ */
+export function writeSettings(
+  folder: string,
+  change: Partial<Settings> = {},
+): void {
+  const settings = JSON.parse(
+    readFileSync(join(EXAMPLES, CONFIG_FILE), "utf8"),
+  ) as Settings; // The example's settings file is valid.
+  writeFileSync(
+    join(folder, CONFIG_FILE),
+    JSON.stringify({
+      defaultSchemas: { ...settings.defaultSchemas, ...change.defaultSchemas },
+      engines: { ...settings.engines, ...change.engines },
+    }),
+  );
 }
 
 /** Writes a Database file for `name` with `engine` and any other `fields`. */
