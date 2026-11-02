@@ -2159,6 +2159,38 @@ describe("lint", () => {
       writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("y"), "out2");
       expect(await lintRules()).toEqual([]);
     });
+
+    it("finds a cycle through an MBQL reference in any case on Redshift, which folds every name", async () => {
+      const database = join(
+        workdir,
+        "databases/sample_postgres/sample_postgres.yaml",
+      );
+      const text = readFileSync(database, "utf8");
+      expect(text).toContain("engine: postgres\n");
+      writeFileSync(
+        database,
+        text.replace("engine: postgres\n", "engine: redshift\n"),
+      );
+      writeTransform("a.yaml", "CaseTransformA0000001", mbqlRead("Foo"), "bar");
+      writeTransform("b.yaml", "CaseTransformB0000001", mbqlRead("bar"), "foo");
+      const { findings } = await lint({ folder: workdir });
+      expect(
+        findings.map(({ rule, file, related, message }) => ({
+          rule,
+          file,
+          related,
+          message,
+        })),
+      ).toEqual([
+        {
+          rule: "transform-cycle",
+          file: "collections/transforms/a.yaml",
+          related: ["collections/transforms/b.yaml"],
+          message:
+            "transforms read each other's targets: a.yaml reads public.Foo, the target of b.yaml -> b.yaml reads public.bar, the target of a.yaml. Remove one of these reads, or write one of these targets elsewhere",
+        },
+      ]);
+    });
   });
 
   describe("with two transforms that write one schema and name", () => {

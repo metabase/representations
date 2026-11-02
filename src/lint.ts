@@ -38,7 +38,7 @@ import {
   type LintRule,
   type Report,
 } from "./findings.js";
-import { cyclePath, cycles } from "./graph.js";
+import { cyclePath, cycles, type Edge } from "./graph.js";
 import { createSourceFinder, type SourceFinder } from "./query-sources.js";
 import { engineFacts, FOLDS_ALL_IDENTIFIERS } from "./engines.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
@@ -120,14 +120,37 @@ function entityOf({ model, body }: FindingSubject): LintEntity {
 }
 
 /**
- * For each transform whose sources were read, by index: the indexes of the
- * transforms whose target it reads.
+ * Whether two table names are one table in the warehouse (`sameTable`). On an
+ * engine that folds every name (`FOLDS_ALL_IDENTIFIERS`), names compare
+ * ignoring case, also a target's, which Metabase creates in quotes as named.
+ */
+function sameWarehouseTable(
+  a: TableKey,
+  b: TableKey,
+  defaultSchemaOf: DefaultSchemaOf,
+  engineOf: EngineOf,
+): boolean {
+  const folds = FOLDS_ALL_IDENTIFIERS.has(
+    engineOf(a.database ?? b.database) ?? "",
+  );
+  const inWarehouse = (table: TableKey): TableKey =>
+    folds ? { ...table, caseMatters: false } : table;
+  return sameTable(inWarehouse(a), inWarehouse(b), defaultSchemaOf);
+}
+
+/** A transform's read of another transform's target: that transform's index, and the table read. */
+type ReadEdge = Edge & { read: TableKey };
+
+/**
+ * For each transform whose sources were read, by index: each transform whose
+ * target it reads (`sameWarehouseTable`), with the first table it reads there.
  */
 function readEdges(
   transforms: readonly Transform[],
   defaultSchemaOf: DefaultSchemaOf,
-): Map<number, number[]> {
-  const edges = new Map<number, number[]>();
+  engineOf: EngineOf,
+): Map<number, ReadEdge[]> {
+  const edges = new Map<number, ReadEdge[]>();
   transforms.forEach((transform, i) => {
     if (transform.reads.status !== "read") {
       return;
@@ -135,12 +158,15 @@ function readEdges(
     const reads = transform.reads.tables;
     edges.set(
       i,
-      transforms.flatMap(({ target }, j) =>
-        target !== null &&
-        reads.some((t) => sameTable(t, target, defaultSchemaOf))
-          ? [j]
-          : [],
-      ),
+      transforms.flatMap(({ target }, to) => {
+        const read =
+          target === null
+            ? undefined
+            : reads.find((t) =>
+                sameWarehouseTable(t, target, defaultSchemaOf, engineOf),
+              );
+        return read === undefined ? [] : [{ to, read }];
+      }),
     );
   });
   return edges;
@@ -169,7 +195,7 @@ function reportUnreadSources(
 
 /**
  * A warning for each transform whose target another transform also writes
- * (`sameTable`), ignoring case on an engine that folds every name.
+ * (`sameWarehouseTable`).
  */
 function reportDuplicateTargets(
   transforms: readonly Transform[],
@@ -181,16 +207,11 @@ function reportDuplicateTargets(
     if (target === null) {
       continue;
     }
-    // Metabase creates the target in quotes, as named; an engine that folds
-    // every name puts two names that differ in case in one table.
-    const folds = FOLDS_ALL_IDENTIFIERS.has(engineOf(target.database) ?? "");
-    const asCreated = (table: TableKey): TableKey =>
-      folds ? { ...table, caseMatters: false } : table;
     const clashes = transforms.filter(
       (other) =>
         other.doc !== doc &&
         other.target !== null &&
-        sameTable(asCreated(target), asCreated(other.target), defaultSchemaOf),
+        sameWarehouseTable(target, other.target, defaultSchemaOf, engineOf),
     );
     if (clashes.length > 0) {
       report(
@@ -285,25 +306,17 @@ function tableOfFile(doc: ValidDoc<"Table">): TableKey {
 function reportCycles(
   transforms: readonly Transform[],
   defaultSchemaOf: DefaultSchemaOf,
+  engineOf: EngineOf,
   report: Report,
 ): void {
-  const edges = readEdges(transforms, defaultSchemaOf);
-  const step = (from: Transform, to: Transform): string => {
-    const read =
-      from.reads.status === "read" && to.target !== null
-        ? from.reads.tables.find(
-            (t) =>
-              to.target !== null && sameTable(t, to.target, defaultSchemaOf),
-          )
-        : undefined;
-    return read === undefined
-      ? `${displayName(from.doc)} reads the target of ${displayName(to.doc)}`
-      : `${displayName(from.doc)} reads ${tableLabel(read)}, the target of ${displayName(to.doc)}`;
-  };
+  const edges = readEdges(transforms, defaultSchemaOf, engineOf);
   for (const component of cycles(edges, transforms.length)) {
     const [first, ...rest] = component.map((i) => transforms[i]);
-    const path = cyclePath(edges, component).map((i) => transforms[i]);
-    const steps = path.slice(1).map((to, i) => step(path[i], to));
+    const path = cyclePath(edges, component);
+    const steps = path.map(({ to, read }, i) => {
+      const from = i === 0 ? first : transforms[path[i - 1].to];
+      return `${displayName(from.doc)} reads ${tableLabel(read)}, the target of ${displayName(transforms[to].doc)}`;
+    });
     report(
       "transform-cycle",
       first.doc,
@@ -664,7 +677,7 @@ export async function lint({
     reportUnreadSources(transforms, report);
     reportDuplicateTargets(transforms, defaultSchemaOf, engineOf, report);
 
-    reportCycles(transforms, defaultSchemaOf, report);
+    reportCycles(transforms, defaultSchemaOf, engineOf, report);
     reportCollectionNamespaces(docs, byEntityId, report);
     reportIncrementalTags(docs, defaultSchemaOf, report);
     reportMissingTargetDatabases(docs, report);
