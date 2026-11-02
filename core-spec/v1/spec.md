@@ -2931,7 +2931,7 @@ serdes/meta:
 
 A transform generates a table in the database by running a query or Python script. Transforms allow materializing results as persistent database tables. Transform entities, and their tests, are stored under `collections/transforms/`. Transform jobs and tags are stored separately under the top-level `transforms/` directory.
 
-The `source` defines how data is produced — either an MBQL/native query (`type: query`) or a Python script (`type: python`). The `target` specifies where the resulting table is written.
+The `source` defines how data is produced — either an MBQL/native query (`type: query`) or a Python script (`type: python`). Metabase refuses any other `type`. The `target` specifies where the resulting table is written.
 
 ### Schema
 
@@ -2987,7 +2987,7 @@ Each entry in `source-tables`:
 | `database_id` | string | Yes | Database FK (database name) |
 | `schema` | string | No | Schema name |
 | `table` | string | No | Table name |
-| `table_id` | integer | No | Metabase table ID |
+| `table_id` | array or null | No | Table FK `[database, schema, table]`. `null` when the table does not exist in Metabase yet; Metabase then finds the table by `schema` and `table` at run time |
 
 ```yaml
 source:

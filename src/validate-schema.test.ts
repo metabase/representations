@@ -313,6 +313,53 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("transform source", () => {
+      const example = yaml.load(
+        readFileSync(
+          join(
+            EXAMPLES,
+            "collections",
+            "transforms",
+            "python_hello_world.yaml",
+          ),
+          "utf8",
+        ),
+      ) as Record<string, any>; // The example transform is a YAML map.
+
+      const validateSource = (source: Record<string, unknown>) => {
+        mkdirSync(join(workdir, "collections", "transforms"), {
+          recursive: true,
+        });
+        writeFileSync(
+          join(workdir, "collections", "transforms", "source.yaml"),
+          yaml.dump({ ...example, source }),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      it("accepts a Python source table whose table_id is null", () => {
+        const source = {
+          ...example.source,
+          "source-tables": [
+            {
+              alias: "orders",
+              database_id: "Sample Database",
+              schema: "TRANSFORMS",
+              table: "order_totals",
+              table_id: null,
+            },
+          ],
+        };
+        expect(validateSource(source).failed).toBe(0);
+      });
+
+      it("rejects a source type other than query or python", () => {
+        expect(
+          validateSource({ ...example.source, type: "native" }).failed,
+        ).toBe(1);
+      });
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(

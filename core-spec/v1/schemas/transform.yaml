@@ -25,6 +25,12 @@ properties:
       Source definition — either a query (type: query) or a Python script
       (type: python).
     type: object
+    properties:
+      type:
+        type: string
+        enum:
+          - query
+          - python
     allOf:
       - if:
           properties:
@@ -174,7 +180,13 @@ $defs:
               type: string
               description: Table name
             table_id:
-              $ref: "common/id.yaml#/$defs/table_id"
+              description: >
+                Table FK [database, schema, table]; null when the table does
+                not exist in Metabase yet. Metabase then finds the table by
+                schema and table at run time.
+              oneOf:
+                - $ref: "common/id.yaml#/$defs/table_id"
+                - type: "null"
       source-database:
         $ref: "common/id.yaml#/$defs/database_id"
       source-incremental-strategy:
