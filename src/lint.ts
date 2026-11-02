@@ -6,8 +6,10 @@ import {
 } from "./databases.js";
 import {
   type DefaultSchemas,
+  MissingDefaultSchemasError,
   type NamedTable,
   resolveDefaultSchemas,
+  type TestTables,
 } from "./default-schemas.js";
 import {
   displayName,
@@ -16,6 +18,7 @@ import {
   indexByEntityId,
   isQuerySource,
   loadDocs,
+  queryDatabaseOf,
   type UnreadableFile,
   validDocsOf,
   type ValidDoc,
@@ -37,16 +40,28 @@ import { createReader, type Transform, transformOf } from "./reads.js";
 import { loadSchemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
 import { withSqlParser } from "./sql-parser.js";
-import { createSqlTableReader, type SqlTableReader } from "./sql-tables.js";
+import {
+  createRewrittenTableReader,
+  createSqlTableReader,
+  type SqlTableReader,
+} from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
   exactTable,
   sameTable,
+  sqlTable,
   tableLabel,
   type TableKey,
   type TableName,
   uniqueTables,
 } from "./tables.js";
+import {
+  reportTestFindings,
+  reportTransformIds,
+  type TestedTransform,
+  testedTransformsOf,
+  testInputs,
+} from "./test-checks.js";
 import { isRecord, stringOrNull } from "./values.js";
 
 export type LintOptions = {
@@ -543,17 +558,56 @@ function createReport(findings: LintFinding[]): Report {
     findings.push(findingOf(rule, subject, message, related) as LintFinding);
 }
 
+/** The tables the SQL of a test's expectations reads, in its transform's database. */
+function expectationReads(
+  { test, transform }: TestedTransform,
+  readSql: SqlTableReader,
+): TableKey[] {
+  const database = queryDatabaseOf(transform.doc);
+  return test.body.expectations.flatMap((expectation) => {
+    const result =
+      "sql" in expectation ? readSql(expectation.sql, database) : null;
+    return result?.status === "read"
+      ? result.tables.map((t) => sqlTable(database, t))
+      : [];
+  });
+}
+
+/**
+ * For each test of a query transform, with the test's file, the tables it
+ * compares by the default schema: the tables its rewrite replaces (its inputs
+ * and the transform's target), the tables its expectations read, and the
+ * tables the transform reads, which the test matches to its inputs.
+ */
+function testRewriteTables(
+  tested: readonly TestedTransform[],
+  readSql: SqlTableReader,
+): TestTables[] {
+  return tested.map(({ test, transform }) => ({
+    file: test.file,
+    tables: [
+      ...testInputs(test, transform),
+      transform.target,
+      ...expectationReads({ test, transform }, readSql),
+      ...(transform.reads.status === "read" ? transform.reads.tables : []),
+    ],
+  }));
+}
+
 /** `tables`, each named by `file`. */
 const namedBy = (file: string, tables: readonly TableKey[]): NamedTable[] =>
   tables.map((table) => ({ ...table, file }));
 
 /**
  * Every table the checks compare, in its database, with the file that names
- * it: table files, transform targets and reads.
+ * it: table files, transform targets and reads, and, for each test of a query
+ * transform, its inputs and the tables its SQL expectations read.
  */
 function comparedTables(
   docs: readonly Doc[],
   transforms: readonly Transform[],
+  tested: readonly TestedTransform[],
+  readSql: SqlTableReader,
 ): NamedTable[] {
   return [
     ...validDocsOf(docs, "Table").map((doc) => ({
@@ -564,6 +618,12 @@ function comparedTables(
       namedBy(doc.file, [
         ...(target === null ? [] : [target]),
         ...(reads.status === "read" ? reads.tables : []),
+      ]),
+    ),
+    ...tested.flatMap(({ test, transform }) =>
+      namedBy(test.file, [
+        ...testInputs(test, transform),
+        ...expectationReads({ test, transform }, readSql),
       ]),
     ),
   ];
@@ -578,9 +638,10 @@ function comparedTables(
  * first time a check reads SQL (`withSqlParser`).
  *
  * Rejects with a `LintSetupError` before any check when the settings file is
- * invalid, and a `MissingDefaultSchemasError` when a database needs a default
- * schema that neither `defaultSchemas`, the settings file, its Database file
- * nor its engine gives (`resolveDefaultSchemas`), each over the next.
+ * invalid, and a `MissingDefaultSchemasError`, with `LintResult.databases`,
+ * when a database needs a default schema that neither `defaultSchemas`, the
+ * settings file, its Database file nor its engine gives
+ * (`resolveDefaultSchemas`), each over the next.
  * Rejects with a `LintSetupError` when the SQL parser cannot start.
  */
 export async function lint({
@@ -600,16 +661,30 @@ export async function lint({
   return withSqlParser((parser) => {
     const readSql = createSqlTableReader(parser, engineOf);
     const transforms = transformsOf(docs, byEntityId, findSources, readSql);
-    const defaultSchemaOf = resolveDefaultSchemas({
-      names: comparedTables(docs, transforms),
-      testTables: [],
+    const transformOfDoc = new Map<Doc, Transform>(
+      transforms.map((t) => [t.doc, t]),
+    );
+    const tested = testedTransformsOf(docs, byEntityId, transformOfDoc);
+    const databases = namedDatabases(docs, findSources);
+    const defaultSchemaInputs = {
+      names: comparedTables(docs, transforms, tested, readSql),
+      testTables: testRewriteTables(tested, readSql),
       given: {
         ...databaseDefaultSchemas(docs, engineOf),
         ...settings.defaultSchemas,
         ...defaultSchemas,
       },
       engineOf,
-    });
+    };
+    let defaultSchemaOf: DefaultSchemaOf;
+    try {
+      defaultSchemaOf = resolveDefaultSchemas(defaultSchemaInputs);
+      // eslint-disable-next-line no-restricted-syntax -- resolves default schemas only; reads no SQL
+    } catch (error) {
+      throw error instanceof MissingDefaultSchemasError
+        ? new MissingDefaultSchemasError(error.databases, databases)
+        : error;
+    }
 
     const findings: LintFinding[] = [];
     const report = createReport(findings);
@@ -642,10 +717,13 @@ export async function lint({
       report,
     );
 
+    reportTransformIds(docs, byEntityId, transformOfDoc, report);
+    const readRewritten = createRewrittenTableReader(parser, engineOf);
+    reportTestFindings(tested, defaultSchemaOf, readRewritten, report);
     return {
       files,
       findings: findings.sort(byRuleThenFile),
-      databases: namedDatabases(docs, findSources),
+      databases,
     };
   });
 }
