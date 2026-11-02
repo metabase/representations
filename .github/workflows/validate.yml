@@ -9,12 +9,12 @@ jobs:
   validate-schema:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.3.9"
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - run: bun run bin/cli.ts validate-schema --folder examples/v1

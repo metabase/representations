@@ -9,6 +9,7 @@ This repository contains the specification and examples for the Metabase Represe
 - **[core-spec/v1/spec.md](core-spec/v1/spec.md)** — Full specification (v1.0.0) covering entity keys, folder structure, MBQL and native queries, parameters, and all entity types.
 - **[core-spec/v1/schemas/](core-spec/v1/schemas/)** — YAML schemas (JSON Schema format) for each entity type.
 - **[examples/v1/](examples/v1/)** — Complete examples using the Sample Database.
+- **[CONTRIBUTING.md](https://github.com/metabase/representations/blob/main/CONTRIBUTING.md)** — How releases and alpha builds from a pull request are published.
 
 ## Entity Types
 
@@ -99,11 +100,3 @@ for (const result of results) {
 const entityId = generateEntityId(); // "LZfXLFzPPR4NNrgjlWDxn"
 const uuid = generateUuid(); // "1d4e9fdf-49ae-4fbe-ae27-05e7c6a5cfe8"
 ```
-
-## Publishing to NPM
-
-Releases are published automatically by the **Release to NPM** GitHub Actions workflow on every push to `main`. The workflow compares the `version` in `package.json` against the version published on npm and publishes (with the `latest` dist-tag) if they differ.
-
-To cut a release, bump `version` in `package.json` and merge to `main`.
-
-The workflow requires an `NPM_RELEASE_TOKEN` secret with publish access to the `@metabase` npm org.
