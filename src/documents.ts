@@ -1,22 +1,12 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-
 import type { Schemas } from "./schemas.js";
 import {
-  checkSchema,
   entityFiles,
+  readEntityFile,
   type SchemaCheck,
   type ValidationError,
 } from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
-import {
-  decodeUtf8,
-  type DuplicateKey,
-  type NonStringKey,
-  readYaml,
-  type YamlDocument,
-  YamlReadError,
-} from "./yaml.js";
+import { type DuplicateKey, type NonStringKey, YamlReadError } from "./yaml.js";
 
 /** A file of `entityFiles` that parses to a YAML map whose `serdes/meta` names a model. */
 export type Doc = {
@@ -267,27 +257,25 @@ export function loadDocs(
   const unreadable: UnreadableFile[] = [];
   const duplicatedKeys: DuplicatedKeys[] = [];
   for (const file of entityFiles(folder)) {
-    const text = decodeUtf8(readFileSync(resolve(folder, file)));
-    if (text === null) {
+    const entity = readEntityFile(folder, file, schemas);
+    if (entity.invalidUtf8) {
       unreadable.push({ file, reason: "is not valid UTF-8" });
       continue;
     }
-    let read: YamlDocument;
-    try {
-      read = readYaml(text);
-      // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
-    } catch (e) {
-      const reason = e instanceof YamlReadError ? e.reason : errorMessage(e);
+    if (entity.status === "unparsed") {
+      const { error } = entity;
+      const reason =
+        error instanceof YamlReadError ? error.reason : errorMessage(error);
       unreadable.push({ file, reason: `does not parse as YAML: ${reason}` });
       continue;
     }
+    const { read, check } = entity;
     const { value: body, nonStringKeys, duplicateKeys } = read;
-    const check = checkSchema(read, schemas);
     if (check.status === "bad-timestamp") {
       unreadable.push({ file, reason: `fails to load: ${check.message}` });
     } else if (check.status === "skipped") {
       skipped.push(file);
-    } else if (!isRecord(body)) {
+    } else if (check.status === "not-a-map" || !isRecord(body)) {
       unreadable.push({ file, reason: "is not a YAML map" });
     } else if (check.status === "no-model") {
       unreadable.push({ file, reason: "names no model in serdes/meta" });

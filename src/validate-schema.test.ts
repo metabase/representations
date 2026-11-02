@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +12,7 @@ import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
+import { lint } from "./lint.js";
 import { loadSchemas } from "./schemas.js";
 import {
   checkSchema,
@@ -445,6 +447,33 @@ describe("validateSchema", () => {
       ]);
     });
 
+    // validate-schema checks the format; the lint predicts what Metabase does,
+    // and Metabase keeps the last value.
+    it("fails a file with a duplicate key that the lint warns on, as the docs say", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "transforms/transform_tags/duplicate.yaml";
+      writeFileSync(
+        join(workdir, file),
+        "name: daily\nname: daily2\nentity_id: dUW7nvQHQBdA0Rx0gJckX\nbuilt_in_type: null\nserdes/meta:\n- model: TransformTag\n",
+      );
+
+      const validated = validateSchema({ folder: workdir }).results.filter(
+        (r) => r.status === "fail",
+      );
+      const { findings } = await lint({ folder: workdir });
+      expect(validated.map((r) => r.file)).toEqual([file]);
+      expect(
+        findings
+          .filter((f) => f.file === file)
+          .map((f) => `${f.severity} ${f.rule}`),
+      ).toEqual(["warning duplicate-yaml-key"]);
+      expect(
+        readFileSync(resolve(EXAMPLES, "..", "..", "docs", "lint.md"), "utf8"),
+      ).toContain(
+        "`validate-schema` checks that a file is well formed, and `lint` predicts what Metabase does with it",
+      );
+    }, 60_000);
+
     it.each([
       ["Reports", 0],
       ["yes", 1],
@@ -772,7 +801,6 @@ describe("validateSchema", () => {
       ["an entry with no model", "serdes/meta:\n- id: x\n"],
       ["an empty serdes/meta", "serdes/meta: []\n"],
       ["a serdes/meta that is not a list", "serdes/meta: 5\n"],
-      ["a list in place of a map", "- serdes/meta\n"],
     ])("fails a file with %s as having no model", (_, content) => {
       mkdirSync(join(workdir, "transforms"), { recursive: true });
       writeFileSync(join(workdir, "transforms", "listed.yaml"), content);
@@ -781,7 +809,23 @@ describe("validateSchema", () => {
         {
           file: join("transforms", "listed.yaml"),
           status: "fail",
-          errors: [{ path: "/", message: "missing serdes/meta or model" }],
+          errors: [{ path: "/", message: "serdes/meta names no model" }],
+        },
+      ]);
+    });
+
+    it("fails a file that is a YAML list as not a map", () => {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(
+        join(workdir, "transforms", "listed.yaml"),
+        "- serdes/meta\n",
+      );
+
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("transforms", "listed.yaml"),
+          status: "fail",
+          errors: [{ path: "/", message: "not a YAML map" }],
         },
       ]);
     });

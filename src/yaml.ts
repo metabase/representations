@@ -31,15 +31,22 @@ export class YamlReadError extends Error {
 }
 
 /**
- * The text of a file's bytes, decoded as UTF-8; null when they are not valid
- * UTF-8.
+ * The text of a file's bytes, decoded as UTF-8 as Java's `String` decodes
+ * them: each invalid byte sequence reads as U+FFFD. `invalidUtf8` says
+ * whether there was one.
  */
-export function decodeUtf8(bytes: Uint8Array): string | null {
+export function decodeUtf8(bytes: Uint8Array): {
+  text: string;
+  invalidUtf8: boolean;
+} {
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    return {
+      text: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+      invalidUtf8: false,
+    };
     // eslint-disable-next-line no-restricted-syntax -- decodes bytes only; reads no SQL
   } catch {
-    return null;
+    return { text: new TextDecoder("utf-8").decode(bytes), invalidUtf8: true };
   }
 }
 

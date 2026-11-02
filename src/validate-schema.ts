@@ -161,6 +161,8 @@ export type SchemaCheck =
   | { status: "bad-timestamp"; key: string; message: string }
   // Metabase skips the file without an error: it has no `serdes/meta`.
   | { status: "skipped" }
+  // Metabase reads the file and cannot load it: it is not a YAML map.
+  | { status: "not-a-map" }
   // Metabase reads the file and cannot load it: its `serdes/meta` names no model.
   | { status: "no-model" }
   // Metabase reads the file and cannot load it: it imports no such model.
@@ -268,8 +270,9 @@ const rootError = (message: string): ValidationError[] => [
  * Checks each of `entityFiles(folder)`, in path order, against the schema of
  * its model. A file Metabase skips, with no `serdes/meta`, is skipped with a
  * warning. A file of a model Metabase imports and no schema describes is not
- * checked. A file that does not parse as YAML, has no model, or names a model
- * Metabase does not import fails with one error at "/".
+ * checked. A file that is not valid UTF-8, does not parse as YAML, holds a
+ * key twice in one map, is not a map, has no model, or names a model Metabase
+ * does not import fails with one error at "/".
  */
 export function validateSchema({
   folder,
@@ -289,37 +292,73 @@ export function validateSchema({
   };
 }
 
+/** An entity file as `readEntityFile` reads it. */
+export type EntityFileRead =
+  | { status: "unparsed"; invalidUtf8: boolean; error: unknown }
+  | {
+      status: "parsed";
+      invalidUtf8: boolean;
+      read: YamlDocument;
+      check: SchemaCheck;
+    };
+
+/**
+ * The file `file` of `folder`, one of `entityFiles(folder)`, as Metabase reads
+ * it: its bytes decoded as UTF-8 with each invalid byte read as U+FFFD, and
+ * the text parsed as YAML (`readYaml`) and checked against its model's schema
+ * (`checkSchema`). `invalidUtf8` says whether the bytes held an invalid byte.
+ * An `unparsed` file holds the error `readYaml` threw.
+ */
+export function readEntityFile(
+  folder: string,
+  file: string,
+  schemas: Schemas,
+): EntityFileRead {
+  const { text, invalidUtf8 } = decodeUtf8(readFileSync(resolve(folder, file)));
+  let read: YamlDocument;
+  try {
+    read = readYaml(text);
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
+  } catch (error) {
+    return { status: "unparsed", invalidUtf8, error };
+  }
+  return {
+    status: "parsed",
+    invalidUtf8,
+    read,
+    check: checkSchema(read, schemas),
+  };
+}
+
+// This command checks the format: it fails a file with an invalid byte or a
+// key written twice, where `lint` warns that Metabase reads the file.
 function validateFile(
   folder: string,
   file: string,
   schemas: Schemas,
 ): ValidationResult {
-  const text = decodeUtf8(readFileSync(resolve(folder, file)));
-  if (text === null) {
+  const entity = readEntityFile(folder, file, schemas);
+  if (entity.invalidUtf8) {
     return { file, status: "fail", errors: rootError("not valid UTF-8") };
   }
-  let read: YamlDocument;
-  try {
-    read = readYaml(text);
-    const [duplicate] = read.duplicateKeys;
-    if (duplicate !== undefined) {
-      return {
-        file,
-        status: "fail",
-        errors: rootError(
-          `invalid YAML: duplicated mapping key (${duplicate.line}:${duplicate.column})`,
-        ),
-      };
-    }
-    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
-  } catch (e) {
+  if (entity.status === "unparsed") {
     return {
       file,
       status: "fail",
-      errors: rootError(`invalid YAML: ${errorMessage(e)}`),
+      errors: rootError(`invalid YAML: ${errorMessage(entity.error)}`),
     };
   }
-  const check = checkSchema(read, schemas);
+  const [duplicate] = entity.read.duplicateKeys;
+  if (duplicate !== undefined) {
+    return {
+      file,
+      status: "fail",
+      errors: rootError(
+        `invalid YAML: duplicated mapping key (${duplicate.line}:${duplicate.column})`,
+      ),
+    };
+  }
+  const { check } = entity;
   switch (check.status) {
     case "bad-timestamp":
       return {
@@ -333,11 +372,13 @@ function validateFile(
         status: "skipped",
         warning: "Metabase skips this file because it has no serdes/meta",
       };
+    case "not-a-map":
+      return { file, status: "fail", errors: rootError("not a YAML map") };
     case "no-model":
       return {
         file,
         status: "fail",
-        errors: rootError("missing serdes/meta or model"),
+        errors: rootError("serdes/meta names no model"),
       };
     case "unknown-model":
       return {
@@ -449,6 +490,9 @@ export function checkSchema(
   }
   if (skippedByMetabase(doc)) {
     return { status: "skipped" };
+  }
+  if (!isRecord(doc)) {
+    return { status: "not-a-map" };
   }
   const model = getModel(doc);
   if (model === null) {
