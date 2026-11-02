@@ -230,7 +230,13 @@ function reportNullSchemaReferences(
     ),
     ...docs
       .filter((doc) => doc.model === "Card")
-      .map((doc) => ({ doc, tables: findSources(doc.body, doc.model).tables })),
+      .map((doc) => {
+        const sources = findSources(doc.body, doc.model);
+        return {
+          doc,
+          tables: [...sources.tables, ...sources.fieldFilterTables],
+        };
+      }),
   ];
   for (const { doc, tables } of readers) {
     for (const table of tables) {
@@ -452,7 +458,9 @@ function namedDatabases(docs: readonly Doc[], schemas: Schemas): string[] {
   };
   for (const doc of docs) {
     const sources = findSources(doc.body, doc.model);
-    sources.tables.forEach((t) => add(t.database));
+    [...sources.tables, ...sources.fieldFilterTables].forEach((t) =>
+      add(t.database),
+    );
     sources.natives.forEach((n) => add(n.database));
     if (doc.model === "Database") {
       add(doc.body.name);

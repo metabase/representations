@@ -1,0 +1,181 @@
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "fs";
+import yaml from "js-yaml";
+import { tmpdir } from "os";
+import { join } from "path";
+
+import { lint } from "./lint.js";
+import { CONFIG_FILE } from "./settings.js";
+import { loadSqlParser } from "./sql-parser.js";
+
+type Found = { severity: string; rule: string; message: string };
+
+const PG = "Warehouse";
+
+beforeAll(async () => {
+  await loadSqlParser();
+}, 60_000);
+
+let workdir: string;
+
+beforeEach(() => {
+  workdir = mkdtempSync(join(tmpdir(), "representations-test-checks-"));
+  writeFileSync(
+    join(workdir, CONFIG_FILE),
+    JSON.stringify({
+      engines: { [PG]: "postgres" },
+      defaultSchemas: { [PG]: "public" },
+    }),
+  );
+});
+
+afterEach(() => {
+  rmSync(workdir, { recursive: true, force: true });
+});
+
+const TRANSFORM_ID = "TestChecksTransform01";
+
+/** A `dimension` template tag on the field `[database, schema, table, field]`. */
+function dimensionTag(
+  name: string,
+  [database, schema, table, field]: [string, string, string, string],
+) {
+  return {
+    type: "dimension",
+    name,
+    id: "bb000001-0000-0000-0000-000000000001",
+    "display-name": name,
+    dimension: ["field", {}, [database, schema, table, field]],
+    "widget-type": "date/all-options",
+  };
+}
+
+/** A rows input of `table` (`schema.name` or `name`) with `columns`, all TEXT unless typed. */
+function rowsInput(table: string, columns: (string | [string, string])[]) {
+  const dot = table.indexOf(".");
+  return {
+    table:
+      dot === -1
+        ? { name: table }
+        : { schema: table.slice(0, dot), name: table.slice(dot + 1) },
+    format: "rows",
+    columns: columns.map((c) =>
+      typeof c === "string"
+        ? { name: c, cast_type: "TEXT" }
+        : { name: c[0], cast_type: c[1] },
+    ),
+    rows: [],
+  };
+}
+
+/**
+ * Lints a folder holding one native transform on `database` writing
+ * `<targetSchema>.out` and one test of it, and returns every finding.
+ */
+async function lintTest({
+  database = PG,
+  targetSchema = "transforms",
+  sql,
+  tags,
+  inputs,
+  expectationSql = `SELECT * FROM ${targetSchema}.out WHERE 1 = 0`,
+}: {
+  database?: string;
+  targetSchema?: string;
+  sql: string;
+  tags?: object[];
+  inputs: object[];
+  expectationSql?: string;
+}): Promise<Found[]> {
+  const folder = join(workdir, "collections", "transforms");
+  mkdirSync(join(folder, "t"), { recursive: true });
+  writeFileSync(
+    join(folder, "t.yaml"),
+    yaml.dump({
+      name: "T",
+      entity_id: TRANSFORM_ID,
+      creator_id: "admin@example.com",
+      source_database_id: database,
+      source: {
+        type: "query",
+        query: {
+          "lib/type": "mbql/query",
+          database,
+          stages: [
+            {
+              "lib/type": "mbql.stage/native",
+              native: sql,
+              ...(tags === undefined ? {} : { "template-tags": tags }),
+            },
+          ],
+        },
+      },
+      target: { database, type: "table", schema: targetSchema, name: "out" },
+      "serdes/meta": [{ model: "Transform" }],
+    }),
+  );
+  writeFileSync(
+    join(folder, "t", "test.yaml"),
+    yaml.dump({
+      name: "T: test",
+      entity_id: "TestChecksTest0000001",
+      transform_id: TRANSFORM_ID,
+      creator_id: "admin@example.com",
+      inputs,
+      expectations: [{ type: "empty", name: "e", sql: expectationSql }],
+      "serdes/meta": [{ model: "TransformTest" }],
+    }),
+  );
+  return (await lint({ folder: workdir })).findings.map((f) => ({
+    severity: f.severity,
+    rule: f.rule,
+    message: f.message,
+  }));
+}
+
+describe("inputs of a transform with a field-filter tag", () => {
+  it("a field-filter tag's table is not a read that needs an input", async () => {
+    expect(
+      await lintTest({
+        sql: "SELECT id, created_at FROM orders",
+        inputs: [rowsInput("orders", ["id", "created_at"])],
+      }),
+    ).toEqual([]);
+    expect(
+      await lintTest({
+        sql: "SELECT id, created_at FROM orders WHERE {{d}}",
+        tags: [dimensionTag("d", [PG, "public", "orders", "created_at"])],
+        inputs: [rowsInput("orders", ["id", "created_at"])],
+      }),
+    ).toEqual([]);
+  });
+
+  it("an input for only a field-filter tag's table is unused", async () => {
+    const unused = {
+      severity: "error",
+      rule: "unused-input",
+      message: "input public.products is not read by transform T",
+    };
+    const inputs = [
+      rowsInput("orders", ["id"]),
+      rowsInput("public.products", ["category"]),
+    ];
+    expect(
+      await lintTest({ sql: "SELECT id FROM orders WHERE 1 = 1", inputs }),
+    ).toEqual([unused]);
+    expect(
+      await lintTest({
+        sql: "SELECT id FROM orders WHERE {{p}}",
+        tags: [dimensionTag("p", [PG, "public", "products", "category"])],
+        inputs,
+      }),
+    ).toEqual([unused]);
+  });
+});

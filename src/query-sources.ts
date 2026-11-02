@@ -26,8 +26,15 @@ export type EntityRef = { id: string; model: string };
 
 /** The data sources a document names, found where its schema types them. */
 export type DataSources = {
+  /** The tables the document reads: none a field-filter tag names. */
   tables: TableKey[];
-  /** The column of each field id inside a query. */
+  /**
+   * The table of each field-filter (`dimension`, `temporal-unit`) template
+   * tag. A query with no value for the tag reads no table for it: Metabase
+   * writes the tag as `1 = 1`.
+   */
+  fieldFilterTables: TableKey[];
+  /** The column of each field id inside a query, but a field-filter tag's. */
   fields: ColumnKey[];
   /** The cards, metrics, measures, segments and snippets a query uses, each once. */
   entities: EntityRef[];
@@ -39,13 +46,20 @@ export type SourceFinder = (doc: unknown, model: string) => DataSources;
 
 type Node = { file: string; pointer: string };
 
-type Context = { inQuery: boolean; database: string | null };
+type Context = {
+  inQuery: boolean;
+  /** Inside a field-filter template tag. */
+  inFieldFilter: boolean;
+  database: string | null;
+};
 
 const TABLE_ID = "common/id.yaml#/$defs/table_id";
 const FIELD_ID = "common/id.yaml#/$defs/field_id";
 const ENTITY_ID = "common/id.yaml#/$defs/entity_id";
 const QUERY = "common/query.yaml#";
 const NATIVE_STAGE = "common/query.yaml#/$defs/native_stage";
+const TEMPLATE_TAG = "common/query.yaml#/$defs/template_tag";
+const FIELD_FILTER_TAG_TYPES = new Set(["dimension", "temporal-unit"]);
 /**
  * The model of the entity each reference clause names, as Metabase imports
  * it (`serialization.clj` `import-mbql-update-refs`): a metric is a Card.
@@ -78,7 +92,8 @@ const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
  * Returns a function that finds the data sources in a representation
  * document. It walks the document alongside its entity schema and collects
  * each value the schema types as a table id (`common/id.yaml#/$defs/table_id`);
- * inside a query it also collects each field id, with its table, each entity id
+ * inside a query it also collects each field id, with its table (a
+ * field-filter tag's table apart, and not its field), each entity id
  * (a source card, a template tag's card or snippet), each metric, measure and
  * segment reference, and the SQL of each native stage. Where a value may
  * match several branches (`anyOf`, `oneOf`, `if`), the walk follows the
@@ -122,6 +137,7 @@ export function createSourceFinder({
   return function findSources(doc: unknown, model: string): DataSources {
     const sources: DataSources = {
       tables: [],
+      fieldFilterTables: [],
       fields: [],
       entities: [],
       natives: [],
@@ -142,10 +158,15 @@ export function createSourceFinder({
           ? tableOfRef(value)
           : null;
       if (table !== null) {
-        sources.tables.push(table);
+        (context.inFieldFilter
+          ? sources.fieldFilterTables
+          : sources.tables
+        ).push(table);
       }
       const field =
-        context.inQuery && key === FIELD_ID ? columnOfRef(value) : null;
+        context.inQuery && !context.inFieldFilter && key === FIELD_ID
+          ? columnOfRef(value)
+          : null;
       if (field !== null) {
         sources.fields.push(field);
       }
@@ -203,9 +224,15 @@ export function createSourceFinder({
           key === QUERY
             ? {
                 inQuery: true,
+                inFieldFilter: false,
                 database: isRecord(value) ? stringOrNull(value.database) : null,
               }
-            : context;
+            : key === TEMPLATE_TAG &&
+                isRecord(value) &&
+                typeof value.type === "string" &&
+                FIELD_FILTER_TAG_TYPES.has(value.type)
+              ? { ...context, inFieldFilter: true }
+              : context;
         walk(value, target, inner);
       }
       if (isUnknownArray(schema.allOf)) {
@@ -253,9 +280,18 @@ export function createSourceFinder({
       }
     };
 
-    walk(doc, { file, pointer: "" }, { inQuery: false, database: null });
+    walk(
+      doc,
+      { file, pointer: "" },
+      {
+        inQuery: false,
+        inFieldFilter: false,
+        database: null,
+      },
+    );
     return {
       tables: uniqueTables(sources.tables),
+      fieldFilterTables: uniqueTables(sources.fieldFilterTables),
       fields: sources.fields,
       entities: uniqueBy(sources.entities, (e) => `${e.model} ${e.id}`),
       natives: sources.natives,

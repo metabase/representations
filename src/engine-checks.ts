@@ -152,6 +152,7 @@ function databasesOf(doc: Doc, findSources: SourceFinder): string[] {
   const sources = findSources(doc.body, doc.model);
   named.push(
     ...sources.tables.map((t) => t.database),
+    ...sources.fieldFilterTables.map((t) => t.database),
     ...sources.natives.map((n) => n.database),
   );
   return [...new Set(named.filter((d) => d !== null))];
