@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { type Doc, indexByEntityId } from "./documents.js";
 import { createReader, createSnippetFinder } from "./reads.js";
+import { createSourceFinder } from "./query-sources.js";
 import { loadSchemas } from "./schemas.js";
 
 const SNIPPET_ID = "SnippetId000000000001";
@@ -72,7 +73,7 @@ describe("createReader", () => {
     const readsOf = createReader(
       [python],
       indexByEntityId([python]),
-      loadSchemas(),
+      createSourceFinder(loadSchemas()),
       () => ({ status: "unread", reason: "no SQL" }),
     );
     expect(readsOf(python)).toEqual({

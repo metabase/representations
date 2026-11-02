@@ -13,9 +13,8 @@ import {
   replacesQuoted,
   standInReplacements,
 } from "./input-match.js";
-import { createSourceFinder } from "./query-sources.js";
+import type { SourceFinder } from "./query-sources.js";
 import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
-import type { Schemas } from "./schemas.js";
 import type {
   ColumnQuoting,
   ReadColumn,
@@ -38,14 +37,13 @@ import { nativeOnlyStage } from "./transform-checks.js";
 
 /** What the checks of a transform test's SQL read. */
 export type TestSqlChecks = {
-  docs: readonly Doc[];
-  byEntityId: ReadonlyMap<string, readonly Doc[]>;
   transforms: readonly Transform[];
   /** Each test of a query transform, with that transform. */
   tested: readonly TestedTransform[];
   defaultSchemaOf: DefaultSchemaOf;
   engineOf: EngineOf;
-  schemas: Schemas;
+  /** The query of each transform in `transforms`. */
+  queryOf: QueryReader;
   readSql: SqlTableReader;
   readRewritten: RewrittenTableReader;
   columns: SqlColumnReader;
@@ -59,7 +57,7 @@ type NativeQuery = {
 };
 
 /** What a query transform's query names, as the checks read it. */
-type TransformQuery = {
+export type TransformQuery = {
   /** Its native queries whose snippets could be pasted in. */
   natives: NativeQuery[];
   /** The column of each field id in it. */
@@ -68,12 +66,19 @@ type TransformQuery = {
   nativeOnly: boolean;
 };
 
-/** Returns the lookup of a query transform's `TransformQuery`, each read once. */
-function createQueryReader(
-  checks: TestSqlChecks,
-): (transform: Transform) => TransformQuery {
-  const findSources = createSourceFinder(checks.schemas);
-  const findSnippet = createSnippetFinder(checks.docs, checks.byEntityId);
+/** A query transform's `TransformQuery`. */
+export type QueryReader = (transform: Transform) => TransformQuery;
+
+/**
+ * Returns the `QueryReader` of the transforms among `docs`, each read once;
+ * their snippets are those among `docs`.
+ */
+export function createQueryReader(
+  docs: readonly Doc[],
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  findSources: SourceFinder,
+): QueryReader {
+  const findSnippet = createSnippetFinder(docs, byEntityId);
   const memo = new Map<Transform, TransformQuery>();
   return (transform) => {
     let query = memo.get(transform);
@@ -282,7 +287,6 @@ export function reportMissingReadColumns(
   report: Report,
   reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
-  const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const defaultSchema = checks.defaultSchemaOf(database);
@@ -290,7 +294,7 @@ export function reportMissingReadColumns(
     const warehouseName = createWarehouseName(engine);
     const read = readColumnsOf(
       transform,
-      queryOf(transform),
+      checks.queryOf(transform),
       checks.columns,
       reportUnread,
     );
@@ -451,7 +455,6 @@ export function reportUpstreamColumns(
   report: Report,
   reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
-  const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     for (const input of test.body.inputs) {
       if (input.format !== "rows") {
@@ -471,7 +474,7 @@ export function reportUpstreamColumns(
         }
         const names = returnedNamesOf(
           upstream,
-          queryOf(upstream),
+          checks.queryOf(upstream),
           checks.columns,
           reportUnread,
         );
@@ -510,7 +513,6 @@ export function reportQualifiedColumns(
   report: Report,
   reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
-  const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const replaced = [
@@ -543,7 +545,7 @@ export function reportQualifiedColumns(
         );
       }
     };
-    for (const native of queryOf(transform).natives) {
+    for (const native of checks.queryOf(transform).natives) {
       const result = checks.columns.danglingQualifiers(
         native.sql,
         native.database,
@@ -597,7 +599,6 @@ export function reportUnreplacedReads(
   checks: TestSqlChecks,
   report: Report,
 ): void {
-  const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     if (transform.reads.status !== "read") {
       continue;
@@ -628,7 +629,8 @@ export function reportUnreplacedReads(
         [transform.doc.file],
       );
     };
-    for (const { sql, database, valuedTags } of queryOf(transform).natives) {
+    for (const { sql, database, valuedTags } of checks.queryOf(transform)
+      .natives) {
       const result = checks.readRewritten(
         sql,
         database,

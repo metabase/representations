@@ -16,7 +16,7 @@ import {
   type TableKey,
   tableOfRef,
 } from "./tables.js";
-import type { DataSources } from "./query-sources.js";
+import type { SourceFinder } from "./query-sources.js";
 import { isJavaBlank, stringOrNull, templateTagsOf } from "./values.js";
 
 const TRANSFORMS_NAMESPACE = "transforms";
@@ -178,7 +178,7 @@ export function reportMissingTargetDatabases(
  */
 export function reportEmptyNativeQueries(
   docs: readonly Doc[],
-  findSources: (doc: unknown, model: string) => DataSources,
+  findSources: SourceFinder,
   report: Report,
 ): void {
   for (const transform of validDocsOf(docs, "Transform")) {

@@ -4,6 +4,7 @@ import type { EngineOf } from "./databases.js";
 import { type Doc, indexByEntityId, validDocsOf } from "./documents.js";
 import type { LintRule } from "./findings.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
+import { createSourceFinder } from "./query-sources.js";
 import { loadSchemas } from "./schemas.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { loadSqlParser } from "./sql-parser.js";
@@ -13,6 +14,7 @@ import {
 } from "./sql-tables.js";
 import { testedTransformsOf } from "./test-checks.js";
 import {
+  createQueryReader,
   reportLiveSqlInputs,
   reportMissingReadColumns,
   reportQualifiedColumns,
@@ -41,7 +43,8 @@ beforeAll(async () => {
     const readSql = createSqlTableReader(parser, engineOf);
     const columns = createSqlColumnReader(parser, engineOf);
     const byEntityId = indexByEntityId(docs);
-    const readsOf = createReader(docs, byEntityId, schemas, readSql);
+    const findSources = createSourceFinder(schemas);
+    const readsOf = createReader(docs, byEntityId, findSources, readSql);
     const transforms = validDocsOf(docs, "Transform").map((doc) =>
       transformOf(doc, readsOf),
     );
@@ -49,13 +52,11 @@ beforeAll(async () => {
       transforms.map((t) => [t.doc, t]),
     );
     return {
-      docs,
-      byEntityId,
       transforms,
       tested: testedTransformsOf(docs, byEntityId, transformOfDoc),
       defaultSchemaOf: () => "public",
       engineOf,
-      schemas,
+      queryOf: createQueryReader(docs, byEntityId, findSources),
       readSql,
       readRewritten: createRewrittenTableReader(parser, engineOf),
       columns,

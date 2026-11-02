@@ -10,8 +10,7 @@ import {
   validDocsOf,
   type ValidDoc,
 } from "./documents.js";
-import { createSourceFinder, type NativeSql } from "./query-sources.js";
-import type { Schemas } from "./schemas.js";
+import type { NativeSql, SourceFinder } from "./query-sources.js";
 import {
   type ExpandedSql,
   expandSnippets,
@@ -188,10 +187,9 @@ export function createSnippetFinder(
 export function createReader(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  schemas: Schemas,
+  findSources: SourceFinder,
   readSql: SqlTableReader,
 ): ReadsOf {
-  const findSources = createSourceFinder(schemas);
   const findSnippet = createSnippetFinder(docs, byEntityId);
   const memo = new Map<Doc, Reads>();
 

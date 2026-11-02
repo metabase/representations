@@ -31,6 +31,15 @@ function transform(stages: object[]) {
 const mbql = (stage: object) => ({ "lib/type": "mbql.stage/mbql", ...stage });
 
 describe("createSourceFinder", () => {
+  it("walks a document once per model, and a copy of it again", () => {
+    const doc = transform([mbql({ "source-table": [DB, null, "ORDERS"] })]);
+    const first = findSources(doc, "Transform");
+    expect(findSources(doc, "Transform")).toBe(first);
+    expect(findSources(structuredClone(doc), "Transform")).not.toBe(first);
+    expect(findSources(structuredClone(doc), "Transform")).toEqual(first);
+    expect(findSources(doc, "Card")).not.toBe(first);
+  });
+
   it("finds a stage's source table", () => {
     const sources = findSources(
       transform([mbql({ "source-table": [DB, null, "ORDERS"] })]),

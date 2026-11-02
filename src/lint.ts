@@ -42,7 +42,7 @@ import { cyclePath, cycles } from "./graph.js";
 import { createSourceFinder, type SourceFinder } from "./query-sources.js";
 import { engineFacts, FOLDS_ALL_IDENTIFIERS } from "./engines.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
-import { loadSchemas, type Schemas } from "./schemas.js";
+import { loadSchemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { withSqlParser } from "./sql-parser.js";
@@ -73,7 +73,7 @@ import {
   testedTransformsOf,
   testInputs,
 } from "./test-checks.js";
-import { reportTestSql } from "./test-sql-checks.js";
+import { createQueryReader, reportTestSql } from "./test-sql-checks.js";
 import {
   reportCollectionNamespaces,
   reportEmptyNativeQueries,
@@ -458,7 +458,7 @@ export async function transformReads({
     transformsOf(
       docs,
       byEntityId,
-      schemas,
+      createSourceFinder(schemas),
       createSqlTableReader(parser, engineOf),
     ),
   );
@@ -475,8 +475,10 @@ export async function transformReads({
 }
 
 /** `LintResult.databases` for `docs`. */
-function namedDatabases(docs: readonly Doc[], schemas: Schemas): string[] {
-  const findSources = createSourceFinder(schemas);
+function namedDatabases(
+  docs: readonly Doc[],
+  findSources: SourceFinder,
+): string[] {
   const names = new Set<string>();
   for (const doc of docs) {
     databasesOf(doc, findSources).forEach((d) => names.add(d));
@@ -497,10 +499,10 @@ function namedDatabases(docs: readonly Doc[], schemas: Schemas): string[] {
 function transformsOf(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  schemas: Schemas,
+  findSources: SourceFinder,
   readSql: SqlTableReader,
 ): Transform[] {
-  const readsOf = createReader(docs, byEntityId, schemas, readSql);
+  const readsOf = createReader(docs, byEntityId, findSources, readSql);
   return validDocsOf(docs, "Transform").map((doc) => transformOf(doc, readsOf));
 }
 
@@ -630,9 +632,10 @@ export async function lint({
   const engineOf = createEngineOf(docs, settings.engines);
   const byEntityId = indexByEntityId(docs);
   const files = docs.length + skipped.length + unreadable.length;
+  const findSources = createSourceFinder(schemas);
   return withSqlParser((parser) => {
     const readSql = createSqlTableReader(parser, engineOf);
-    const transforms = transformsOf(docs, byEntityId, schemas, readSql);
+    const transforms = transformsOf(docs, byEntityId, findSources, readSql);
     const transformOfDoc = new Map<Doc, Transform>(
       transforms.map((t) => [t.doc, t]),
     );
@@ -650,7 +653,6 @@ export async function lint({
 
     const findings: LintFinding[] = [];
     const report = createReport(findings);
-    const findSources = createSourceFinder(schemas);
 
     reportUnreadableFiles(unreadable, report);
     reportInvalidUtf8(invalidUtf8, report);
@@ -696,13 +698,11 @@ export async function lint({
     reportUntestableEngines(tested, engineOf, report);
     reportTestSql(
       {
-        docs,
-        byEntityId,
         transforms,
         tested,
         defaultSchemaOf,
         engineOf,
-        schemas,
+        queryOf: createQueryReader(docs, byEntityId, findSources),
         readSql,
         readRewritten,
         columns: createSqlColumnReader(parser, engineOf),
@@ -712,7 +712,7 @@ export async function lint({
     return {
       files,
       findings: findings.sort(byRuleThenFile),
-      databases: namedDatabases(docs, schemas),
+      databases: namedDatabases(docs, findSources),
     };
   });
 }

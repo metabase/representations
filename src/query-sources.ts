@@ -97,7 +97,9 @@ const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
  * (a source card, a template tag's card or snippet), each metric, measure and
  * segment reference, and the SQL of each native stage. Where a value may
  * match several branches (`anyOf`, `oneOf`, `if`), the walk follows the
- * branches the value validates against.
+ * branches the value validates against. The walk runs once per document
+ * object and model: a later call returns the same `DataSources`, which the
+ * caller must not change.
  */
 export function createSourceFinder({
   ajv,
@@ -134,7 +136,7 @@ export function createSourceFinder({
     return { file, pointer: fragment };
   };
 
-  return function findSources(doc: unknown, model: string): DataSources {
+  const walk = (doc: unknown, model: string): DataSources => {
     const sources: DataSources = {
       tables: [],
       fieldFilterTables: [],
@@ -296,5 +298,21 @@ export function createSourceFinder({
       entities: uniqueBy(sources.entities, (e) => `${e.model} ${e.id}`),
       natives: sources.natives,
     };
+  };
+
+  const memo = new WeakMap<object, Map<string, DataSources>>();
+  return (doc, model) => {
+    if (typeof doc !== "object" || doc === null) {
+      return walk(doc, model);
+    }
+    const byModel = memo.get(doc) ?? new Map<string, DataSources>();
+    memo.set(doc, byModel);
+    const known = byModel.get(model);
+    if (known !== undefined) {
+      return known;
+    }
+    const sources = walk(doc, model);
+    byModel.set(model, sources);
+    return sources;
   };
 }
