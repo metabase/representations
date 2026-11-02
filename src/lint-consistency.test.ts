@@ -17,8 +17,10 @@ import { isRecord } from "./values.js";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const EXAMPLES = resolve(ROOT, "examples", "v1");
+const PYTHON_HELLO_WORLD = "collections/transforms/python_hello_world.yaml";
 const PYTHON_HELLO_WORLD_ENTITY_ID = "g2cRYwopfoL1BW9Y4n3wb";
 const MBQL_TRANSFORM = "collections/transforms/mbql_transform.yaml";
+const OTHER_DB = "Other DB";
 
 /** Loads the YAML map in `file` under `folder`, applies `change`, and writes it back. */
 function edit(
@@ -33,6 +35,17 @@ function edit(
   }
   change(doc);
   writeFileSync(path, yaml.dump(doc, { lineWidth: -1 }));
+}
+
+/** Sets the Python transform's source tables to `sourceTables`. */
+function pythonReadsFrom(folder: string, sourceTables: unknown[]): void {
+  edit(folder, PYTHON_HELLO_WORLD, (doc) => {
+    const { source } = doc;
+    if (!isRecord(source)) {
+      throw new Error("the Python transform has no source map");
+    }
+    source["source-tables"] = sourceTables;
+  });
 }
 
 /** Sets the first stage of the MBQL transform to read the card `entityId`. */
@@ -64,6 +77,43 @@ describe("lint", () => {
 
   afterEach(() => {
     rmSync(workdir, { recursive: true, force: true });
+  });
+
+  /** The databases `unknown-engine` names, and `LintResult.databases`, for `workdir`. */
+  async function unknownEngineDatabases(): Promise<{
+    named: string[];
+    unknown: string[];
+  }> {
+    const { databases, findings } = await lint({
+      folder: workdir,
+      defaultSchemas: { [OTHER_DB]: "public" },
+    });
+    const unknown = findings
+      .filter((f) => f.rule === "unknown-engine")
+      .map((f) => /of database (.+?), /.exec(f.message)?.[1] ?? f.message);
+    return { named: databases, unknown };
+  }
+
+  it("LintResult.databases holds a database a Python source table names by table_id, as unknown-engine does", async () => {
+    pythonReadsFrom(workdir, [
+      {
+        alias: "src",
+        database_id: OTHER_DB,
+        table_id: [OTHER_DB, "public", "src"],
+      },
+    ]);
+    const { named, unknown } = await unknownEngineDatabases();
+    expect(unknown).toEqual([OTHER_DB]);
+    expect(named).toContain(OTHER_DB);
+  });
+
+  it("LintResult.databases holds a database a Python source table names by database_id, as unknown-engine does", async () => {
+    pythonReadsFrom(workdir, [
+      { alias: "src", database_id: OTHER_DB, schema: "public", table: "src" },
+    ]);
+    const { named, unknown } = await unknownEngineDatabases();
+    expect(unknown).toEqual([OTHER_DB]);
+    expect(named).toContain(OTHER_DB);
   });
 
   describe("on a source-card that names no Card", () => {

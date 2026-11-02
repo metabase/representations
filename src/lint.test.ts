@@ -556,6 +556,19 @@ describe("lint", () => {
       ]);
     });
 
+    it("gives a Python transform whose target names no database no target, not one in its source_database_id", async () => {
+      mutateExamples("missing-target-database", workdir);
+      const original = "collections/transforms/python_hello_world.yaml";
+      const copy = "collections/transforms/python_hello_world_copy.yaml";
+      cpSync(join(EXAMPLES, original), join(workdir, copy));
+      edit(workdir, copy, (doc) => {
+        doc.entity_id = "PythonHelloWorldCopy1";
+      });
+      expect(
+        (await findings(workdir)).map((f) => `${f.rule} ${f.file}`),
+      ).toEqual([`missing-target-database ${original}`]);
+    });
+
     it("reports an unqualified and a qualified input as duplicates only in the default schema", async () => {
       mutateExamples("qualified-input", workdir);
       edit(workdir, DAILY_ORDER_SUMMARY_TEST, (doc) => {
@@ -602,6 +615,20 @@ describe("lint", () => {
           entity: { model: null, entity_id: null, name: null },
         })),
       );
+    });
+
+    it("warns on each transform and card whose database has no engine, as in a remote-sync repository", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      rmSync(join(workdir, "databases/sample_postgres/sample_postgres.yaml"));
+      const files = (await findings(workdir))
+        .filter((f) => f.rule === "unknown-engine")
+        .map((f) => f.file);
+      expect(files).toContain(MBQL_TRANSFORM);
+      expect(files.every((f) => f.startsWith("collections/transforms/"))).toBe(
+        true,
+      );
+      writeSettings(workdir, { engines: { [POSTGRES_DB]: "postgres" } });
+      expect(await findings(workdir)).toEqual([]);
     });
 
     it("gives no finding for a table that no table file or transform target defines", async () => {
@@ -1352,6 +1379,9 @@ describe("lint", () => {
           .filter((f) => f.file === file)
           .map((f) => `${f.severity} ${f.rule}: ${f.message}`);
 
+      const errorsIn = async (file: string) =>
+        (await findingsIn(file)).filter((f) => f.startsWith("error "));
+
       it("a transform whose source database was deleted is reported as such, not as a schema mismatch of source_database_id", async () => {
         cpSync(EXAMPLES, workdir, { recursive: true });
         edit(workdir, NATIVE, (doc) => {
@@ -1370,6 +1400,36 @@ describe("lint", () => {
             ),
           ),
         ).toBe(true);
+      });
+
+      it("a blank target schema on an engine without schemas is an error", async () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        writeSettings(workdir, {
+          defaultSchemas: { Shop: null },
+          engines: { Shop: "mysql" },
+        });
+        const file = "collections/transforms/shop_report.yaml";
+        const writeShopTransform = (target: Record<string, unknown>) => {
+          cpSync(join(EXAMPLES, NATIVE), join(workdir, file));
+          edit(workdir, file, (doc) => {
+            doc.name = "Shop Report";
+            doc.entity_id = "ShopReportTransform01";
+            doc.source_database_id = "Shop";
+            doc.source.query.database = "Shop";
+            doc.target = {
+              database: "Shop",
+              type: "table",
+              name: "shop_report",
+              ...target,
+            };
+          });
+        };
+        writeShopTransform({});
+        expect(await errorsIn(file)).toEqual([]);
+        writeShopTransform({ schema: "" });
+        expect(await errorsIn(file)).toEqual([
+          expect.stringMatching(/^error missing-target-schema: /),
+        ]);
       });
     });
   });
@@ -1838,6 +1898,68 @@ describe("lint", () => {
       );
       expect(await rulesWithDefault("transforms")).toContain("transform-cycle");
       expect(await rulesWithDefault("public")).not.toContain("transform-cycle");
+    });
+
+    it("finds a duplicate target written unqualified only in the default schema", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const copy = "collections/transforms/top_categories_copy.yaml";
+      cpSync(
+        join(workdir, "collections/transforms/top_categories.yaml"),
+        join(workdir, copy),
+      );
+      replaceIn(
+        copy,
+        "entity_id: jf55MTi7z8cWQjPG2PEgz",
+        "entity_id: TopCategoriesCopy000a",
+      );
+      replaceIn(copy, "  schema: transforms\n", "");
+      // Postgres has schemas, so a target with none is also an error.
+      expect(await rulesWithDefault("transforms")).toEqual([
+        "duplicate-target",
+        "missing-target-schema",
+      ]);
+      expect(await rulesWithDefault("public")).toEqual([
+        "missing-target-schema",
+      ]);
+    });
+  });
+
+  describe("with an empty native query", () => {
+    let workdir: string;
+
+    beforeEach(() => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-empty-"));
+      cpSync(EXAMPLES, workdir, { recursive: true });
+    });
+
+    afterEach(() => {
+      rmSync(workdir, { recursive: true, force: true });
+    });
+
+    const TRANSFORM = "collections/transforms/hourly_product_stats.yaml";
+
+    const withStage = (stage: Record<string, unknown>) =>
+      edit(workdir, TRANSFORM, (doc) => {
+        doc.source.query.stages = [stage];
+      });
+
+    const findingsOn = async () =>
+      (await lint({ folder: workdir })).findings
+        .filter((f) => f.file === TRANSFORM)
+        .map((f) => `${f.rule}: ${f.message}`);
+
+    it("warns on a native stage of empty or blank SQL, and not on one with SQL", async () => {
+      for (const native of ["", " \n\t"]) {
+        withStage({ "lib/type": "mbql.stage/native", native });
+        expect(await findingsOn()).toEqual([
+          "empty-native-query: a native query of this transform is empty; Metabase accepts it, and every run fails",
+        ]);
+      }
+      withStage({
+        "lib/type": "mbql.stage/native",
+        native: "SELECT * FROM products",
+      });
+      expect(await findingsOn()).toEqual([]);
     });
   });
 
