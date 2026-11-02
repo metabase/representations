@@ -85,6 +85,8 @@ export type QueryShape = {
   quotedColumns: string[];
   /** The name of each column the statement names without quotes. */
   unquotedColumns: string[];
+  /** Each name after the dot of a field access, as Postgres `(o.addr).city`. */
+  fieldSelectors: string[];
 };
 
 /**
@@ -259,6 +261,8 @@ def lint_query_shape(sql, dialect):
                                   if isinstance(c.this, exp.Identifier) and c.this.quoted}),
         "unquoted_columns": sorted({c.name for c in ast.find_all(exp.Column)
                                     if isinstance(c.this, exp.Identifier) and not c.this.quoted}),
+        "field_selectors": sorted({d.expression.name for d in ast.find_all(exp.Dot)
+                                   if isinstance(d.expression, exp.Identifier)}),
     })
 
 
@@ -502,7 +506,8 @@ export function queryShapeOf(
     !isStringArray(json.array_join_aliases) ||
     !isUnknownArray(json.column_aliased_tables) ||
     !isStringArray(json.quoted_columns) ||
-    !isStringArray(json.unquoted_columns)
+    !isStringArray(json.unquoted_columns) ||
+    !isStringArray(json.field_selectors)
   ) {
     return UNEXPECTED_SHAPE;
   }
@@ -540,6 +545,7 @@ export function queryShapeOf(
       columnAliasedTables,
       quotedColumns: json.quoted_columns,
       unquotedColumns: json.unquoted_columns,
+      fieldSelectors: json.field_selectors,
     },
   };
 }

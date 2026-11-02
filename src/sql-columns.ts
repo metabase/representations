@@ -37,8 +37,10 @@ export type SqlColumnReader = {
    * that may come from several tables or scopes, and `*`, give none. So does
    * a column of a table whose alias names its columns (`t AS s(x, y)`), a
    * name that is also a SELECT-list alias (a lateral alias, as Redshift
-   * allows) or an `ARRAY JOIN` alias, and a system column or niladic keyword
-   * of the engine, such as Postgres `xmin` or `current_user`.
+   * allows) or an `ARRAY JOIN` alias, a field of a composite value, as
+   * `city` in Postgres `(o.addr).city`, which reads the column `addr`, and a
+   * system column or niladic keyword of the engine, such as Postgres `xmin` or
+   * `current_user`.
    */
   readColumns(
     sql: string,
@@ -126,7 +128,7 @@ function aliasClausesOf(engine: string | null): readonly AliasClause[] {
 /**
  * Whether a column `field_references` reads from `table` names no column of
  * it, by `shape`, the engine's `implicit` names, which only an unquoted name
- * can be, and the clauses where the engine reads an alias of the SELECT list
+ * can be, a name only a field access names, and the clauses where the engine reads an alias of the SELECT list
  * (`aliasClauses`): every place the statement names the column must be one.
  */
 function isNotTableColumn(
@@ -142,6 +144,8 @@ function isNotTableColumn(
   const refs = shape.aliasRefs.filter((ref) => fold(ref.name) === name);
   return (
     (implicit.includes(name) && quotingOf(column, shape) !== "quoted") ||
+    (named(shape.fieldSelectors) &&
+      !named([...shape.quotedColumns, ...shape.unquotedColumns])) ||
     (refs.length > 0 &&
       refs.every((ref) => aliasClauses.includes(ref.clause)) &&
       !named(shape.otherColumns)) ||

@@ -125,6 +125,28 @@ describe("readColumns", () => {
     ).toEqual(expected);
   });
 
+  it("reads a Postgres composite column, not a field of it", () => {
+    const expected = {
+      status: "read" as const,
+      columns: [column(null, "orders", "addr"), column(null, "orders", "id")],
+    };
+    const sorted = (sql: string) => {
+      const result = columns.readColumns(sql, "Warehouse");
+      return result.status === "read"
+        ? {
+            ...result,
+            columns: [...result.columns].sort((a, b) =>
+              a.column.localeCompare(b.column),
+            ),
+          }
+        : result;
+    };
+    expect(sorted("SELECT o.id, o.addr FROM orders o")).toEqual(expected);
+    expect(sorted("SELECT o.id, (o.addr).city AS city FROM orders o")).toEqual(
+      expected,
+    );
+  });
+
   it("reads no column a template tag became", () => {
     expect(
       columns.readColumns("SELECT {{x}} FROM orders", "Warehouse", new Set()),

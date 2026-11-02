@@ -191,6 +191,7 @@ describe("reading sql_tools' answers", () => {
       column_aliased_tables: [[null, "t"]],
       quoted_columns: [],
       unquoted_columns: ["x"],
+      field_selectors: ["f"],
     };
     expect(queryShapeOf(JSON.stringify(shape))).toEqual({
       status: "read",
@@ -202,12 +203,14 @@ describe("reading sql_tools' answers", () => {
         columnAliasedTables: [{ schema: null, name: "t" }],
         quotedColumns: [],
         unquotedColumns: ["x"],
+        fieldSelectors: ["f"],
       },
     });
     for (const broken of [
       { ...shape, returns_star: "no" },
       { ...shape, alias_refs: [["a", "limit"]] },
       { ...shape, column_aliased_tables: [["t"]] },
+      { ...shape, field_selectors: [1] },
     ]) {
       expect(queryShapeOf(JSON.stringify(broken))).toEqual(unexpected);
     }
