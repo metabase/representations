@@ -81,6 +81,10 @@ const TREES: [string, (folder: string) => void][] = [
     "table qualified column",
     (f) => mutateExamples("table-qualified-column", f),
   ],
+  [
+    "expectation qualified column",
+    (f) => mutateExamples("expectation-qualified-column", f),
+  ],
   ["live sql input", (f) => mutateExamples("live-sql-input", f)],
   ["reads not checked", (f) => mutateExamples("missing-snippet", f)],
   [

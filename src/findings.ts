@@ -36,6 +36,7 @@ export const LINT_RULE_SEVERITY = {
   "input-missing-read-column": "warning",
   "upstream-column-mismatch": "warning",
   "table-qualified-column": "warning",
+  "expectation-qualified-column": "error",
   "live-sql-input": "warning",
   "reads-not-checked": "warning",
 } as const satisfies Record<string, LintSeverity>;

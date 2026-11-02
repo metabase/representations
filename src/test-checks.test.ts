@@ -181,6 +181,34 @@ describe("inputs of a transform with a field-filter tag", () => {
   });
 });
 
+describe("expectation SQL that Metabase refuses", () => {
+  const transform = {
+    sql: "SELECT o.id FROM orders o",
+    inputs: [rowsInput("orders", ["id"])],
+  };
+
+  it("a column qualifier in an expectation that names no table after the rewrite is an error", async () => {
+    expect(
+      await lintTest({
+        ...transform,
+        expectationSql: "SELECT o.id FROM transforms.out o WHERE o.id < 0",
+      }),
+    ).toEqual([]);
+    expect(
+      await lintTest({
+        ...transform,
+        expectationSql: "SELECT out.id FROM transforms.out WHERE out.id < 0",
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        severity: "error",
+        rule: "expectation-qualified-column",
+        message: expect.stringContaining("qualifies a column by out"),
+      }),
+    ]);
+  });
+});
+
 describe("columns an input lacks", () => {
   it("a ClickHouse column whose case is not the input's is missing", async () => {
     const missing = async (database: string, targetSchema: string) =>

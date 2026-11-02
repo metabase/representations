@@ -560,6 +560,17 @@ export const MUTATIONS: Mutation[] = [
       ),
   },
   {
+    name: "expectation-qualified-column",
+    description:
+      "An expectation qualifies a column by the bare name of the transform's target, which it reads with its schema; Metabase's test rewrite leaves the qualifier naming no table.",
+    rules: ["expectation-qualified-column"],
+    apply: (folder) =>
+      edit(folder, DAILY_ORDER_SUMMARY_TEST, (doc) => {
+        doc.expectations[1].sql =
+          "SELECT * FROM transforms.daily_order_summary WHERE daily_order_summary.total_revenue < 0";
+      }),
+  },
+  {
     name: "live-sql-input",
     description:
       "A test's SQL input reads the real products table, so the test depends on live data.",

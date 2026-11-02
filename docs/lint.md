@@ -149,16 +149,16 @@ A query near Metabase's limit of 10,000,000 characters takes the parser a long t
 
 ### Column checks
 
-The column checks (`input-missing-read-column`, `upstream-column-mismatch`, `table-qualified-column`) are warnings, and give no finding where they cannot decide:
+The column checks (`input-missing-read-column`, `upstream-column-mismatch`, `table-qualified-column`) are warnings, and give no finding where they cannot decide; so does `expectation-qualified-column`, an error:
 
 - A column counts as read from a table only when it is qualified by the table or its alias, or its scope reads that one table. `SELECT *` reads no named column.
 - A name that is not a column of the table reads none: a column of a table whose alias names its columns (`t AS s(x, y)`), an unqualified name that is an alias of its own SELECT list, in a clause where the engine reads that alias (ORDER BY on every engine; GROUP BY on Postgres and MySQL, and HAVING on MySQL; later in the SELECT list on Redshift; anywhere in the query on ClickHouse) and nowhere else in the statement, an alias of a ClickHouse `ARRAY JOIN`, a field of a composite value, as `city` in Postgres `(o.addr).city`, which reads the column `addr`, and an unquoted system column or niladic keyword on Postgres or Redshift, such as `xmin`, `current_user` or `sysdate`. A quoted name, such as `"user"`, is a column.
 - `input-missing-read-column` compares names as the warehouse names them. Metabase creates a `rows` input's columns in quotes, so as declared, and compiles an MBQL field in quotes too; H2 upper-cases a quoted name Metabase writes. A quoted name in SQL is as written. An unquoted one is lower case on Postgres, upper case on Snowflake and H2, and as written on ClickHouse. So on Postgres an unquoted `total` does not read a declared `Total`. Redshift folds every name to lower case, quoted or not, declared or read, as it does while its `enable_case_sensitive_identifier` setting is off, its default; Metabase never turns it on. On another engine, and for a column the SQL names both quoted and unquoted, names compare ignoring case.
-- `upstream-column-mismatch` and `table-qualified-column` compare names ignoring case.
+- `upstream-column-mismatch`, `table-qualified-column` and `expectation-qualified-column` compare names ignoring case.
 - A transform's output columns are known only when its query is one native stage with a name for each column: no `*` or `table.*`, and an alias for each expression.
 - SQL whose columns the parser cannot read gives no column finding, and is reported as `reads-not-checked`.
 
-`table-qualified-column` reports what a Metabase transform test refuses once it replaces the test's tables with temporary ones: a column qualifier that then names no table or alias. Metabase's rewrite also renames a qualifier that is the bare name of a replaced table, so most table-name qualifiers pass.
+`table-qualified-column` and `expectation-qualified-column` report what a Metabase transform test refuses once it replaces the test's tables with temporary ones: a column qualifier that then names no table or alias. In an expectation's SQL, which Metabase checks as written, this is an error, `expectation-qualified-column`. In the transform's SQL it is a warning, `table-qualified-column`: the lint reads each template tag as a placeholder and does not paste in a card's SQL, where Metabase checks the SQL with both. Metabase's rewrite also renames a qualifier that is the bare name of a replaced table, so most table-name qualifiers pass.
 
 - No finding: `SELECT people.id FROM people JOIN orders o ON o.user_id = people.id`, and `SELECT orders.id FROM public.orders` when `public` is the default schema.
 - A finding:

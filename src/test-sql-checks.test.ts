@@ -566,8 +566,9 @@ describe("reportUpstreamColumns", () => {
 });
 
 describe("reportQualifiedColumns", () => {
-  const ALIAS_ADVICE =
-    "Metabase refuses the test. Alias the table and qualify its columns by the alias";
+  const ALIAS_ADVICE = "Alias the table and qualify its columns by the alias";
+  const TRANSFORM_REFUSAL =
+    "Metabase refuses the test if the qualifier still names no table once the template tags have values";
 
   it("warns when the transform's SQL qualifies a column by the name of a table the test replaces", () => {
     const transform = transformDoc("orders_by_day", [
@@ -582,13 +583,13 @@ describe("reportQualifiedColumns", () => {
       {
         rule: "table-qualified-column",
         file: test.file,
-        message: `transform orders_by_day qualifies a column by orders, the name of analytics.orders, which this test replaces. ${ALIAS_ADVICE}`,
+        message: `transform orders_by_day qualifies a column by orders, the name of analytics.orders, which this test replaces. ${TRANSFORM_REFUSAL}. ${ALIAS_ADVICE}`,
         related: [transform.file],
       },
     ]);
   });
 
-  it("warns when an expectation's SQL qualifies a column by the name of the transform's target", () => {
+  it("reports an error when an expectation's SQL qualifies a column by the name of the transform's target", () => {
     const transform = transformDoc("orders_by_day", [
       nativeStage("SELECT o.day, count(*) AS n FROM orders o GROUP BY o.day"),
     ]);
@@ -605,15 +606,15 @@ describe("reportQualifiedColumns", () => {
     );
     expect(run(reportQualifiedColumns, [transform, test])).toEqual([
       {
-        rule: "table-qualified-column",
+        rule: "expectation-qualified-column",
         file: test.file,
-        message: `expectation no negative counts qualifies a column by orders_by_day, the name of analytics.orders_by_day, which this test replaces. ${ALIAS_ADVICE}`,
+        message: `expectation no negative counts qualifies a column by orders_by_day, the name of analytics.orders_by_day, which this test replaces. Metabase refuses the test. ${ALIAS_ADVICE}`,
         related: [],
       },
     ]);
   });
 
-  it("warns on a qualifier that names no table or alias, which Metabase refuses too", () => {
+  it("warns on a qualifier that names no table or alias", () => {
     const transform = transformDoc("orders_ids", [
       nativeStage("SELECT ghost.id FROM analytics.orders o"),
     ]);
@@ -621,7 +622,7 @@ describe("reportQualifiedColumns", () => {
     expect(
       run(reportQualifiedColumns, [transform, test]).map((f) => f.message),
     ).toEqual([
-      "transform orders_ids qualifies a column by ghost, which names no table or alias in its query. Metabase refuses the test. Qualify each column by the alias of a table the query reads",
+      "transform orders_ids qualifies a column by ghost, which names no table or alias in its query. Metabase refuses the test if the qualifier still names no table once the template tags have values. Qualify each column by the alias of a table the query reads",
     ]);
   });
 

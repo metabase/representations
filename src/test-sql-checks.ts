@@ -492,10 +492,12 @@ export function reportUpstreamColumns(
 }
 
 /**
- * Warns on each qualifier of a column that names no table or alias once the
+ * Reports each qualifier of a column that names no table or alias once the
  * test's tables (its inputs and the transform's target) are replaced, in the
  * SQL of a test's transform or of one of its expectations: Metabase refuses
- * such a test as an `unremapped-reference`. Such a qualifier is usually the
+ * such a test as an `unremapped-reference`. In an expectation, which Metabase
+ * checks as written, it is an error; in the transform, whose template tags
+ * the lint reads as placeholders, a warning. Such a qualifier is usually the
  * bare name of a replaced table whose reference carries a schema the
  * qualifier lacks. SQL whose tables were read but whose columns cannot be
  * goes to `reportUnread`.
@@ -517,18 +519,23 @@ export function reportQualifiedColumns(
       checks.defaultSchemaOf(database),
     );
     const reportQualifiers = (
+      rule: "table-qualified-column" | "expectation-qualified-column",
       names: readonly string[],
       subject: string,
       related: string[],
     ) => {
+      const refusal =
+        rule === "table-qualified-column"
+          ? "Metabase refuses the test if the qualifier still names no table once the template tags have values"
+          : "Metabase refuses the test";
       for (const qualifier of uniqueFolded(names)) {
         const table = replaced.find((t) => fold(t.name) === fold(qualifier));
         report(
-          "table-qualified-column",
+          rule,
           test,
           table === undefined
-            ? `${subject} qualifies a column by ${qualifier}, which names no table or alias in its query. Metabase refuses the test. Qualify each column by the alias of a table the query reads`
-            : `${subject} qualifies a column by ${qualifier}, the name of ${tableLabel(table)}, which this test replaces. Metabase refuses the test. Alias the table and qualify its columns by the alias`,
+            ? `${subject} qualifies a column by ${qualifier}, which names no table or alias in its query. ${refusal}. Qualify each column by the alias of a table the query reads`
+            : `${subject} qualifies a column by ${qualifier}, the name of ${tableLabel(table)}, which this test replaces. ${refusal}. Alias the table and qualify its columns by the alias`,
           related,
         );
       }
@@ -544,6 +551,7 @@ export function reportQualifiedColumns(
         reportUnreadTransformColumns(transform, result, reportUnread);
       } else {
         reportQualifiers(
+          "table-qualified-column",
           result.names,
           `transform ${displayName(transform.doc)}`,
           [transform.doc.file],
@@ -560,7 +568,12 @@ export function reportQualifiedColumns(
         replacements,
       );
       if (result.status === "read") {
-        reportQualifiers(result.names, `expectation ${expectation.name}`, []);
+        reportQualifiers(
+          "expectation-qualified-column",
+          result.names,
+          `expectation ${expectation.name}`,
+          [],
+        );
       } else if (checks.readSql(expectation.sql, database).status === "read") {
         reportUnread(test, `expectation ${expectation.name} reads`, result);
       }

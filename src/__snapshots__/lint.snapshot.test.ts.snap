@@ -511,12 +511,29 @@ exports[`lint output on a broken copy of the examples matches the recording: tab
       "name": "Top Categories: three highest",
     },
     "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
-    "message": "transform Top Categories qualifies a column by product_revenue_report, the name of transforms.product_revenue_report, which this test replaces. Metabase refuses the test. Alias the table and qualify its columns by the alias",
+    "message": "transform Top Categories qualifies a column by product_revenue_report, the name of transforms.product_revenue_report, which this test replaces. Metabase refuses the test if the qualifier still names no table once the template tags have values. Alias the table and qualify its columns by the alias",
     "related": [
       "collections/transforms/top_categories.yaml",
     ],
     "rule": "table-qualified-column",
     "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: expectation qualified column 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "LfXNcELKeCrAfD4htCFDH",
+      "model": "TransformTest",
+      "name": "Daily Order Summary: orders per day",
+    },
+    "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+    "message": "expectation no negative revenue qualifies a column by daily_order_summary, the name of transforms.daily_order_summary, which this test replaces. Metabase refuses the test. Alias the table and qualify its columns by the alias",
+    "related": [],
+    "rule": "expectation-qualified-column",
+    "severity": "error",
   },
 ]
 `;
