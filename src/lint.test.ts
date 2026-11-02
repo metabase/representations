@@ -1431,6 +1431,18 @@ describe("lint", () => {
     describe("on a transform as Metabase writes and pulls it", () => {
       const NATIVE = "collections/transforms/native_transform.yaml";
 
+      const editDoc = (
+        file: string,
+        change: (doc: Record<string, unknown>) => Record<string, unknown>,
+      ) => {
+        const path = join(workdir, file);
+        const doc: unknown = yaml.load(readFileSync(path, "utf8"));
+        if (!isRecord(doc)) {
+          throw new Error(`${file} is not a YAML map`);
+        }
+        writeFileSync(path, yaml.dump(change(doc)));
+      };
+
       const findingsIn = async (file: string) =>
         (await findings(workdir))
           .filter((f) => f.file === file)
@@ -1438,6 +1450,36 @@ describe("lint", () => {
 
       const errorsIn = async (file: string) =>
         (await findingsIn(file)).filter((f) => f.startsWith("error "));
+
+      it("a transform whose source database was deleted is reported as such, not as a schema mismatch of source_database_id", async () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        editDoc(NATIVE, (doc) => {
+          const source = doc.source as Record<string, unknown>;
+          return {
+            ...doc,
+            source_database_id: null,
+            source: {
+              ...source,
+              "serdes/unresolved": true,
+              query: {
+                ...(source.query as Record<string, unknown>),
+                database: null,
+              },
+            },
+          };
+        });
+        const found = await findingsIn(NATIVE);
+        expect(
+          found.filter((f) => f.includes("/source_database_id must be string")),
+        ).toEqual([]);
+        expect(
+          found.some((f) =>
+            /database.*(deleted|unresolved)|(deleted|unresolved).*database/i.test(
+              f,
+            ),
+          ),
+        ).toBe(true);
+      });
 
       it("a blank target schema on an engine without schemas is an error", async () => {
         cpSync(EXAMPLES, workdir, { recursive: true });

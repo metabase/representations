@@ -97,7 +97,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map, or a file whose `serdes/meta` names no model or a model Metabase does not import. |
+| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map, a file whose `serdes/meta` names no model or a model Metabase does not import, or a transform whose source database was deleted. |
 | `invalid-utf8` | warning | A file that is not valid UTF-8. Metabase reads each invalid byte as U+FFFD, and the lint reads the file the same way. |
 | `skipped-by-metabase` | warning | A file with no `serdes/meta`, an empty file, or a file that holds only `[]` or `''`, which Metabase skips. |
 | `duplicate-yaml-key` | warning | A key written twice in one map of a file. Metabase keeps the last value without a message. |

@@ -72,6 +72,8 @@ A query transform writes its target to its query's database. Any other transform
 
 Such a transform has no target. No rule compares it with other tables, and the engine rules skip it.
 
+When a transform's source database is deleted, Metabase exports the transform with a null `source_database_id` and marks its source `serdes/unresolved`. An import accepts the file, but the transform cannot run. The lint reports it as a `schema` error that names the deleted database as the cause.
+
 ### Engine rules
 
 Three rules compare a transform with what its database's engine can do, from a table of Metabase driver features copied from Metabase at the commit `src/engines.ts` names:

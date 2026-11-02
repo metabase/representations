@@ -77,7 +77,7 @@ import {
   reportIncrementalTags,
   reportMissingTargetDatabases,
 } from "./transform-checks.js";
-import { stringOrNull } from "./values.js";
+import { isRecord, stringOrNull } from "./values.js";
 
 export type LintOptions = {
   folder: string;
@@ -395,17 +395,38 @@ function reportSkippedFiles(skipped: readonly string[], report: Report): void {
   }
 }
 
-/** Reports each file of `LINTED_MODELS` that fails its schema. */
+/**
+ * Whether `doc` is a transform whose source database was deleted: Metabase
+ * exports it with a null `source_database_id` and marks its source
+ * `serdes/unresolved`, and imports it, but cannot run it.
+ */
+function hasDeletedSourceDatabase(doc: Doc): boolean {
+  const { source_database_id, source } = doc.body;
+  return (
+    doc.model === "Transform" &&
+    source_database_id === null &&
+    isRecord(source) &&
+    source["serdes/unresolved"] === true
+  );
+}
+
+/**
+ * Reports each file of `LINTED_MODELS` that fails its schema; a transform
+ * whose source database was deleted, by that cause.
+ */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
     const { model, schema } = doc;
-    if (schema.status === "failed" && LINTED_MODELS.has(model)) {
-      report(
-        "schema",
-        doc,
-        `${model} does not match its schema: ${schema.error.path} ${schema.error.message}`,
-      );
+    if (schema.status !== "failed" || !LINTED_MODELS.has(model)) {
+      continue;
     }
+    report(
+      "schema",
+      doc,
+      hasDeletedSourceDatabase(doc)
+        ? "the transform's source database was deleted, so the transform cannot run: Metabase writes its source_database_id as null and marks its source serdes/unresolved. Point the transform at an existing database, or delete it"
+        : `${model} does not match its schema: ${schema.error.path} ${schema.error.message}`,
+    );
   }
 }
 
