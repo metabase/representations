@@ -54,6 +54,11 @@ import {
   type TableName,
 } from "./tables.js";
 import {
+  reportEmptyExpectations,
+  reportExpectationNames,
+  reportRowsColumns,
+} from "./test-body-checks.js";
+import {
   createTableComparisons,
   reportTestFindings,
   reportTestSqlParses,
@@ -693,6 +698,9 @@ export async function lint({
       createSqlParseCheck(parser, engineOf),
       report,
     );
+    reportRowsColumns(docs, report);
+    reportExpectationNames(docs, report);
+    reportEmptyExpectations(docs, report);
     reportUntestableEngines(tested, engineOf, report);
     return {
       files,

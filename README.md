@@ -123,7 +123,10 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `duplicate-input` | error | Two inputs of one test for the same table. |
 | `expectation-reads-other-table` | warning | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
 | `unparseable-test-sql` | error | A test whose expectation SQL SQLGlot cannot parse, as written, in the dialect of its database's engine: SQLGlot raises a ParseError or a TokenError, and Metabase refuses the test. On a database whose engine `.metabase-lint.json` does not give, such SQL gives `reads-not-checked`. A transform's SQL that does not parse gives `reads-not-checked` on the transform only. |
+| `row-columns-mismatch` | error | The first row of a `rows` input or `equals` expectation whose keys are not exactly the declared columns. A key YAML reads as no string, such as `yes:` or `1:`, counts as not declared. Quote it, as `'1':`, or delete it when the row also has the quoted key. |
+| `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
 | `null-schema-reference` | error | An MBQL reference in a card with a `null` schema, on a database whose engine has schemas. Metabase imports it as an inactive table, and refuses to run the card for a signed-in user. A transform's reference and a template tag give no finding. An unknown engine gives no finding, and so does a `null` default schema given for the database, which says it has no schemas. |
+| `no-expectations` | warning | A test with no expectations. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 
 ## Other commands

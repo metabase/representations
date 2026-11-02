@@ -924,6 +924,37 @@ describe("lint", () => {
       ]);
     });
 
+    it.each([
+      ["1: x", `keys YAML reads as no string: "1"; quote them`],
+      ["yes: x", `keys YAML reads as no string: "yes"; quote them`],
+      [
+        "'1': x\n    1: y",
+        'not declared: "1"; keys YAML reads as no string beside a quoted key of the same text: "1"; delete them',
+      ],
+    ])(
+      "refuses a row whose key %p Metabase reads as no string",
+      async (key, advice) => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const file =
+          "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml";
+        const path = join(workdir, file);
+        writeFileSync(
+          path,
+          readFileSync(path, "utf8").replace(
+            "    total: 20.0\n",
+            `    total: 20.0\n    ${key}\n`,
+          ),
+        );
+        expect(
+          (await findings(workdir)).map(
+            (f) => `${f.file}: ${f.rule}: ${f.message}`,
+          ),
+        ).toEqual([
+          `${file}: row-columns-mismatch: input orders, row 3: every row must carry exactly the declared columns; ${advice}`,
+        ]);
+      },
+    );
+
     it("reads a plain value as Metabase does, by YAML 1.1", async () => {
       cpSync(EXAMPLES, workdir, { recursive: true });
       const file = "collections/transforms/top_categories.yaml";

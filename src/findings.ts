@@ -33,7 +33,10 @@ export const LINT_RULE_SEVERITY = {
   "duplicate-input": "error",
   "expectation-reads-other-table": "warning",
   "unparseable-test-sql": "error",
+  "row-columns-mismatch": "error",
+  "duplicate-expectation-name": "error",
   "null-schema-reference": "error",
+  "no-expectations": "warning",
   "reads-not-checked": "warning",
 } as const satisfies Record<string, LintSeverity>;
 

@@ -73,6 +73,12 @@ const TREES: [string, (folder: string) => void][] = [
     (f) => mutateExamples("expectation-reads-other-table", f),
   ],
   ["unparseable test sql", (f) => mutateExamples("unparseable-test-sql", f)],
+  ["row columns mismatch", (f) => mutateExamples("row-columns-mismatch", f)],
+  [
+    "duplicate expectation name",
+    (f) => mutateExamples("duplicate-expectation-name", f),
+  ],
+  ["no expectations", (f) => mutateExamples("no-expectations", f)],
   ["reads not checked", (f) => mutateExamples("missing-snippet", f)],
   [
     "several rules",
