@@ -385,6 +385,16 @@ describe("reportMissingReadColumns", () => {
       ).toEqual([]);
     });
 
+    it("compares ignoring case a column the SQL names both quoted and unquoted", () => {
+      expect(
+        missing(
+          'SELECT o."total", o.total FROM public.orders o',
+          ["Total"],
+          "postgres",
+        ),
+      ).toEqual([]);
+    });
+
     it("compares an MBQL field as written on Postgres", () => {
       const transform = transformDoc("cased", [
         {
@@ -629,6 +639,38 @@ describe("reportQualifiedColumns", () => {
       run(reportQualifiedColumns, [transform, test]).map((f) => f.message),
     ).toEqual([
       "transform orders_ids qualifies a column by ghost, which names no table or alias in its query. Metabase refuses the test if the qualifier still names no table once the template tags have values. Qualify each column by the alias of a table the query reads",
+    ]);
+  });
+
+  it.each([
+    [
+      "a quoted qualifier, which matches only as written",
+      'SELECT "PEOPLE".id FROM people',
+      "PEOPLE, the name of people, which this test replaces",
+    ],
+    [
+      "a qualifier that is also an alias in the query",
+      "SELECT people.id FROM people WHERE EXISTS (SELECT 1 FROM orders people WHERE people.x = 1)",
+      "people, the name of people, which this test replaces",
+    ],
+  ])("warns on %s", (_, sql, qualifier) => {
+    const transform = transformDoc("people_ids", [nativeStage(sql)]);
+    const test = testDoc(transform, [
+      rowsInput(null, "people", ["id"]),
+      rowsInput(null, "orders", ["x"]),
+    ]);
+    expect(
+      run(reportQualifiedColumns, [transform, test]).map((f) => [
+        f.rule,
+        f.message,
+      ]),
+    ).toEqual([
+      [
+        "table-qualified-column",
+        expect.stringContaining(
+          `transform people_ids qualifies a column by ${qualifier}.`,
+        ),
+      ],
     ]);
   });
 

@@ -85,6 +85,11 @@ describe("readColumns", () => {
       [column(null, "u", "id")],
     ],
     [
+      "the columns of a table in another schema that shares the name of a table whose alias names its columns",
+      "SELECT s.x, u.z FROM a.t AS s(x, y) JOIN b.t AS u ON s.x = u.z",
+      [column("b", "t", "z")],
+    ],
+    [
       "the columns a CTE with named columns reads, not its names",
       "WITH c(x, y) AS (SELECT a, b FROM t) SELECT x FROM c",
       [column(null, "t", "a"), column(null, "t", "b")],
