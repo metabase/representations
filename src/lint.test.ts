@@ -2242,6 +2242,16 @@ describe("lint", () => {
       ).toEqual([]);
     });
 
+    it("reports an error when only a Database file gives the default schema null", async () => {
+      rmSync(join(workdir, SQL));
+      writeDatabase({ engine: "postgres", default_schema: null });
+      expect(await nullSchemaFindings()).toEqual([
+        ordersError(MBQL_TRANSFORM, "postgres"),
+      ]);
+      writeSettings({ defaultSchemas: { [POSTGRES_DB]: null } });
+      expect(await nullSchemaFindings()).toEqual([]);
+    });
+
     it("reports an error on an engine with schemas when no default schema is given", async () => {
       rmSync(join(workdir, SQL));
       writeSettings({ engines: { [POSTGRES_DB]: "postgres" } });
