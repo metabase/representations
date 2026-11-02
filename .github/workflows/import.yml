@@ -247,8 +247,11 @@ jobs:
 
       # The lint reads the files alone; Metabase is the reference. The step
       # compares the tables each transform reads, and Metabase's verdict on
-      # each transform test with the lint's errors on it. Any difference is a
-      # lint bug, and a run that compares nothing fails.
+      # each transform test with the lint's errors of five rules on it:
+      # untestable-transform, missing-input, unused-input, duplicate-input and
+      # expectation-reads-other-table. It compares no other rule and no
+      # warning. Any difference is a lint bug, and a run that compares no
+      # transform or no transform test fails.
       - name: Compare the lint with Metabase
         run: |
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \

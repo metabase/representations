@@ -212,6 +212,34 @@ describe("lint-parity", () => {
   );
 
   it(
+    "fails on a folder that holds no transform and no transform test",
+    async () => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+      const { exitCode, output } = await runParity({ folder: workdir });
+      expect(output).toContain(
+        `FAIL  compared no transform with Metabase: ${workdir} holds none`,
+      );
+      expect(output).toContain(
+        `FAIL  compared no transform test with Metabase: ${workdir} holds none`,
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails on a folder that does not exist",
+    async () => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+      const folder = join(workdir, "no-such-folder");
+      const { exitCode, output } = await runParity({ folder });
+      expect(output).toContain(`FAIL  no such folder: ${folder}`);
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
     "prints Metabase's message with each refusal it skips",
     async () => {
       const unsupported = () =>

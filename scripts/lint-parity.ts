@@ -16,7 +16,9 @@
 //     [--default-schema DATABASE=SCHEMA ...]
 //
 // Exits 1 when any comparison differs, when Metabase refuses a probe for a
-// reason the lint does not explain, or when nothing could be compared.
+// reason the lint does not explain, or when it compares no transform or no
+// transform test, such as for a folder that holds none or does not exist.
+import { existsSync } from "fs";
 import { parseArgs } from "node:util";
 
 import { loadDocs, validDocsOf } from "../src/documents.js";
@@ -58,6 +60,11 @@ for (const pair of values["default-schema"] ?? []) {
     process.exit(2);
   }
   defaultSchemas[pair.slice(0, at)] = pair.slice(at + 1);
+}
+
+if (!existsSync(folder)) {
+  console.log(`FAIL  no such folder: ${folder}`);
+  process.exit(1);
 }
 
 const headers = { "X-API-Key": apiKey, "Content-Type": "application/json" };
@@ -370,14 +377,14 @@ for (const [entityId, file] of testFiles) {
 }
 
 // A run that compared nothing proves nothing.
-if (transforms.length > 0 && transformsCompared === 0) {
+if (transformsCompared === 0) {
   fail(
-    "compared no transform with Metabase: every probe was refused or failed",
+    `compared no transform with Metabase: ${transforms.length === 0 ? `${folder} holds none` : "every probe was refused or failed"}`,
   );
 }
-if (testFiles.size > 0 && testsCompared === 0) {
+if (testsCompared === 0) {
   fail(
-    "compared no transform test with Metabase: every probe was refused or failed",
+    `compared no transform test with Metabase: ${testFiles.size === 0 ? `${folder} holds none` : "every probe was refused or failed"}`,
   );
 }
 process.exit(failed ? 1 : 0);
