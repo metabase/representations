@@ -409,4 +409,40 @@ describe("workflows", () => {
         .map((i) => i.where),
     ).toEqual([]);
   });
+
+  // Without a permissions block, a job's GitHub token gets the repository's
+  // default scopes, which can include write access.
+  it("give each job that reads a secret only the permissions it needs", () => {
+    const namesSecrets = (value: unknown) =>
+      /\bsecrets\b/.test(JSON.stringify(value ?? {}));
+    const granted = readdirSync(WORKFLOWS)
+      .filter((file) => /\.ya?ml$/.test(file))
+      .sort()
+      .flatMap((workflow) => {
+        const doc: unknown = yaml.load(
+          readFileSync(join(WORKFLOWS, workflow), "utf8"),
+        );
+        if (!isRecord(doc) || !isRecord(doc.jobs)) {
+          throw new Error(`${workflow} has no map of jobs`);
+        }
+        const { env, permissions } = doc;
+        return Object.entries(doc.jobs)
+          .filter(([, body]) => namesSecrets(env) || namesSecrets(body))
+          .map(([job, body]) => ({
+            job: `${workflow} ${job}`,
+            permissions:
+              isRecord(body) && body.permissions !== undefined
+                ? body.permissions
+                : permissions,
+          }));
+      });
+    expect(granted).toEqual([
+      { job: "import.yml import-test", permissions: { contents: "read" } },
+      {
+        job: "release-alpha.yml publish-alpha",
+        permissions: { contents: "read", "pull-requests": "write" },
+      },
+      { job: "release.yml publish", permissions: { contents: "read" } },
+    ]);
+  });
 });
