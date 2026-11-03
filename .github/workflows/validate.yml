@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  validate-schema:
+  validate-examples:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -17,4 +17,4 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - run: bun run bin/cli.ts validate-schema --folder examples/v1
+      - run: bun run validate-examples

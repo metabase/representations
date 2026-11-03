@@ -1,42 +1,26 @@
 import { describe, expect, it } from "bun:test";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import type { FormatsPlugin } from "ajv-formats";
-import { readFileSync } from "fs";
-import { globSync } from "glob";
-import yaml from "js-yaml";
 import { createRequire } from "node:module";
-import { resolve } from "path";
+
+import { portableSchemas } from "./schemas/index.js";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
-const SCHEMAS = resolve(
-  import.meta.dirname,
-  "..",
-  "core-spec",
-  "v1",
-  "schemas",
-);
-
-const loadSchema = (file: string) => {
-  // Schema files are YAML maps; `$schema` is dropped as the validator drops it.
-  const { $schema: _schema, ...body } = yaml.load(
-    readFileSync(resolve(SCHEMAS, file), "utf8"),
-  ) as Record<string, unknown>;
-  return body;
-};
-
-// Set up as `validateSchema` sets up Ajv, so the manifest schema resolves the
-// shared definitions the same way.
 const ajv = new Ajv2020({
   allErrors: true,
   strictTuples: false,
   allowUnionTypes: true,
 });
 addFormats(ajv);
-for (const file of globSync("common/*.yaml", { cwd: SCHEMAS })) {
-  ajv.addSchema(loadSchema(file), file);
+for (const [name, schema] of Object.entries(portableSchemas)) {
+  ajv.addSchema(schema, name);
 }
-const validateManifest = ajv.compile(loadSchema("data_app.yaml"));
+const manifestValidator = ajv.getSchema("data_app.json");
+if (manifestValidator === undefined) {
+  throw new Error("data_app.json is not a portable schema");
+}
+const validateManifest = manifestValidator;
 
 // The example manifest in the spec's Data App section.
 const MANIFEST = {
