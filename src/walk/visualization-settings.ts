@@ -1,17 +1,21 @@
 import { isJsonObject, type JsonValue } from "../json.js";
 import type { RefModel } from "../refs.js";
 import {
-  convertRef,
+  byObject,
+  embeddedRef,
   fields,
   items,
   jsonString,
+  keys,
+  lookup,
   ref,
-  values,
+  sequence,
   unchanged,
-  type Visitor,
+  values,
   type Walk,
 } from "./core.js";
 import { walkMbql } from "./mbql.js";
+import { dashboardTabRef } from "./paths.js";
 
 const LINK_MODELS: Readonly<Record<string, RefModel>> = {
   card: "cards",
@@ -23,106 +27,56 @@ const LINK_MODELS: Readonly<Record<string, RefModel>> = {
   table: "tables",
 };
 
-const CARD_SOURCE_ID = /^card:(.+)$/;
-const CARD_DIMENSION_REF = /^\$_card:(.+)_name$/;
-
-function linkRef(model: JsonValue | undefined): Walk {
-  return typeof model === "string" && Object.hasOwn(LINK_MODELS, model)
-    ? ref(LINK_MODELS[model])
-    : unchanged;
+function linkRef(linkModel: JsonValue | undefined): Walk {
+  const model = lookup(LINK_MODELS, linkModel);
+  return model === undefined ? unchanged : ref(model);
 }
+
+const walkMbqlJson = jsonString(walkMbql);
 
 const walkDimensionMapping = fields({
-  id: jsonString(walkMbql),
-  target: fields({ id: jsonString(walkMbql), dimension: walkMbql }),
+  id: walkMbqlJson,
+  target: fields({ id: walkMbqlJson, dimension: walkMbql }),
 });
 
-const walkClickParameterMapping: Walk = (value, visitor) => {
-  if (!isJsonObject(value)) {
-    return value;
-  }
-  return Object.fromEntries(
-    Object.entries(value).map(([key, mapping]) =>
-      isDimensionMapping(mapping)
-        ? [
-            String(jsonString(walkMbql)(key, visitor)),
-            walkDimensionMapping(mapping, visitor),
-          ]
-        : [key, mapping],
-    ),
-  );
-};
+const walkClickParameterMapping = keys(walkMbqlJson, (mapping) =>
+  isJsonObject(mapping) &&
+  isJsonObject(mapping.target) &&
+  mapping.target.type === "dimension"
+    ? walkDimensionMapping
+    : null,
+);
 
-function isDimensionMapping(mapping: JsonValue): boolean {
-  return (
-    isJsonObject(mapping) &&
-    isJsonObject(mapping.target) &&
-    mapping.target.type === "dimension"
-  );
-}
-
-const walkClickBehavior: Walk = (value, visitor) => {
-  if (!isJsonObject(value)) {
-    return value;
-  }
-  const isLink = value.type === "link";
-  return fields({
-    ...(isLink && {
-      targetId: linkRef(value.linkType),
-      tabId: ref("dashboardTabs"),
+const walkClickLink = sequence(
+  byObject((behavior) =>
+    fields({
+      targetId: linkRef(behavior.linkType),
+      parameterMapping: walkClickParameterMapping,
     }),
-    parameterMapping: walkClickParameterMapping,
-  })(value, visitor);
-};
+  ),
+  byObject((behavior) => fields({ tabId: dashboardTabRef(behavior.targetId) })),
+);
 
-const walkColumnSettings: Walk = (value, visitor) => {
-  if (!isJsonObject(value)) {
-    return value;
-  }
-  const walkColumn = fields({ click_behavior: walkClickBehavior });
-  return Object.fromEntries(
-    Object.entries(value).map(([key, settings]) => [
-      String(jsonString(walkMbql)(key, visitor)),
-      walkColumn(settings, visitor),
-    ]),
-  );
-};
+const walkClickBehavior = byObject((behavior) =>
+  behavior.type === "link"
+    ? walkClickLink
+    : fields({ parameterMapping: walkClickParameterMapping }),
+);
 
-const walkLinkEntity: Walk = (value, visitor) =>
-  isJsonObject(value)
-    ? fields({ id: linkRef(value.model) })(value, visitor)
-    : value;
+const walkColumnSettings = keys(walkMbqlJson, () =>
+  fields({ click_behavior: walkClickBehavior }),
+);
 
-function embeddedCardRef(
-  pattern: RegExp,
-  format: (ref: JsonValue) => string,
-): Walk {
-  return (value, visitor) => {
-    const match = typeof value === "string" ? pattern.exec(value) : null;
-    if (match === null) {
-      return value;
-    }
-    const cardRef = embeddedRef(match[1], visitor);
-    const converted = convertRef(visitor, "cards", cardRef);
-    return converted === cardRef ? value : format(converted);
-  };
-}
+const walkLinkEntity = byObject((entity) =>
+  fields({ id: linkRef(entity.model) }),
+);
 
-function embeddedRef(text: string, visitor: Visitor): JsonValue {
-  return visitor.direction === "toPortable" && /^\d+$/.test(text)
-    ? Number(text)
-    : text;
-}
-
-const walkVisualizerColumn: Walk = (value, visitor) =>
-  isJsonObject(value)
-    ? fields({
-        sourceId: embeddedCardRef(CARD_SOURCE_ID, (id) => `card:${id}`),
-      })(value, visitor)
-    : embeddedCardRef(CARD_DIMENSION_REF, (id) => `$_card:${id}_name`)(
-        value,
-        visitor,
-      );
+const walkVisualizerColumn = sequence(
+  fields({
+    sourceId: embeddedRef("cards", /^card:(.+)$/, (id) => `card:${id}`),
+  }),
+  embeddedRef("cards", /^\$_card:(.+)_name$/, (id) => `$_card:${id}_name`),
+);
 
 export const walkVisualizationSettings = fields(
   {

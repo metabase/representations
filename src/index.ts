@@ -13,7 +13,7 @@ export type {
   JsonPrimitive,
   JsonValue,
 } from "./json.js";
-export { KINDS, type Kind } from "./kinds.js";
+export { KIND_SPECS, KINDS, type Kind, type KindSpec } from "./kinds.js";
 export {
   mergeInstanceRefs,
   mergePortableRefs,
@@ -28,7 +28,11 @@ export {
   type RefModel,
   type TablePath,
 } from "./refs.js";
-export { instanceSchemas, portableSchemas } from "./schemas/index.js";
+export {
+  instanceSchemas,
+  portableSchemas,
+  type SchemaName,
+} from "./schemas/index.js";
 export {
   validateInstance,
   validatePortable,

@@ -82,6 +82,16 @@ export const transformSchema: JsonObject = {
     creator_id: {
       $ref: "common/id.json#/$defs/user_id",
     },
+    owner_user_id: {
+      description: "User FK (email) of the transform's owner",
+      type: ["string", "null"],
+      if: {
+        type: "string",
+      },
+      then: {
+        $ref: "common/id.json#/$defs/user_id",
+      },
+    },
     description: {
       type: ["string", "null"],
       description: "Human-readable description",

@@ -56,6 +56,10 @@ export const idSchema: JsonObject = {
       description: "TransformTag FK (entity_id)",
       $ref: "#/$defs/entity_id",
     },
+    action_id: {
+      description: "Action FK (entity_id)",
+      $ref: "#/$defs/entity_id",
+    },
     card_path: {
       type: "array",
       description:

@@ -1,27 +1,15 @@
-import { Ajv2020 } from "ajv/dist/2020.js";
-import type { FormatsPlugin } from "ajv-formats";
 import { readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
-import { createRequire } from "node:module";
 import { resolve } from "path";
 
 import { isJsonArray, isJsonObject } from "../src/json.js";
 import { portableSchemas } from "../src/schemas/index.js";
-
-const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
+import { createAjv } from "../src/validate.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
-const ajv = new Ajv2020({
-  allErrors: true,
-  strictTuples: false,
-  allowUnionTypes: true,
-});
-addFormats(ajv);
-for (const [name, schema] of Object.entries(portableSchemas)) {
-  ajv.addSchema(schema, name);
-}
+const ajv = createAjv(portableSchemas);
 
 const schemaByModel = new Map(
   Object.entries(portableSchemas).flatMap(([name, schema]) => {

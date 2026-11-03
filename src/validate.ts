@@ -3,8 +3,12 @@ import type { FormatsPlugin } from "ajv-formats";
 import { createRequire } from "node:module";
 
 import type { JsonObject } from "./json.js";
-import { KIND_SCHEMAS, type Kind } from "./kinds.js";
-import { instanceSchemas, portableSchemas } from "./schemas/index.js";
+import { KIND_SPECS, type Kind } from "./kinds.js";
+import {
+  instanceSchemas,
+  portableSchemas,
+  type SchemaName,
+} from "./schemas/index.js";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
@@ -21,15 +25,35 @@ export type InstanceEntity<K extends Kind = Kind> = JsonObject & {
   readonly [instance]: K;
 };
 
-/** A schema violation; `path` is a JSON Pointer into the validated value. */
-export type Issue = {
+/** A schema violation: a JSON Pointer into the value, the JSON Schema keyword it breaks, and a message. */
+export interface Issue {
   path: string;
+  keyword: string;
   message: string;
-};
+}
 
+/** The validated value, or the issues that make it invalid. */
 export type Validation<T> =
   | { ok: true; value: T }
   | { ok: false; issues: Issue[] };
+
+export function createAjv(
+  schemas: Readonly<Record<SchemaName, JsonObject>>,
+): Ajv2020 {
+  const ajv = new Ajv2020({
+    allErrors: true,
+    strictTuples: false,
+    allowUnionTypes: true,
+  });
+  addFormats(ajv);
+  for (const [name, schema] of Object.entries<JsonObject>(schemas)) {
+    ajv.addSchema(schema, name);
+  }
+  return ajv;
+}
+
+const portableAjv = createAjv(portableSchemas);
+const instanceAjv = createAjv(instanceSchemas);
 
 /** Validates `value` as a portable entity of `kind`. */
 export function validatePortable<K extends Kind>(
@@ -48,32 +72,19 @@ export function validateInstance<K extends Kind>(
 }
 
 function validate<T>(ajv: Ajv2020, kind: Kind, value: unknown): Validation<T> {
-  const validateFunction = ajv.getSchema(KIND_SCHEMAS[kind]);
+  const validateFunction = ajv.getSchema(KIND_SPECS[kind].schema);
   if (validateFunction === undefined) {
     throw new Error(`No schema for kind "${kind}"`);
   }
   if (validateFunction(value)) {
     return { ok: true, value: value as T };
   }
-  const issues = (validateFunction.errors ?? []).map((error) => ({
-    path: error.instancePath,
-    message: error.message ?? error.keyword,
-  }));
+  const issues = (validateFunction.errors ?? [])
+    .filter((error) => error.keyword !== "if")
+    .map((error) => ({
+      path: error.instancePath,
+      keyword: error.keyword,
+      message: error.message ?? error.keyword,
+    }));
   return { ok: false, issues };
 }
-
-function createAjv(schemas: Readonly<Record<string, JsonObject>>): Ajv2020 {
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strictTuples: false,
-    allowUnionTypes: true,
-  });
-  addFormats(ajv);
-  for (const [name, schema] of Object.entries(schemas)) {
-    ajv.addSchema(schema, name);
-  }
-  return ajv;
-}
-
-const portableAjv = createAjv(portableSchemas);
-const instanceAjv = createAjv(instanceSchemas);

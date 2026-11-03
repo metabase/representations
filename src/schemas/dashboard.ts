@@ -216,6 +216,16 @@ export const dashboardSchema: JsonObject = {
             $ref: "common/id.json#/$defs/card_id",
           },
         },
+        action_id: {
+          description: "Action FK of an action button, null for other cards",
+          type: ["string", "null"],
+          if: {
+            type: "string",
+          },
+          then: {
+            $ref: "common/id.json#/$defs/action_id",
+          },
+        },
         dashboard_tab_id: {
           description:
             "Tab FK as [dashboard_entity_id, tab_entity_id], null for untabbed cards.",

@@ -29,11 +29,7 @@ import { transformTagSchema } from "./transform-tag.js";
 import { transformTestSchema } from "./transform-test.js";
 import { transformSchema } from "./transform.js";
 
-/**
- * JSON Schemas of the portable format, keyed by the name their `$ref`s use,
- * such as `card.json` or `common/query.json`.
- */
-export const portableSchemas: Readonly<Record<string, JsonObject>> = {
+const schemas = {
   "action.json": actionSchema,
   "card.json": cardSchema,
   "channel.json": channelSchema,
@@ -64,9 +60,13 @@ export const portableSchemas: Readonly<Record<string, JsonObject>> = {
   "common/temporal_bucketing.json": temporalBucketingSchema,
 };
 
-/**
- * JSON Schemas of the instance format: the portable schemas with every
- * foreign key a numeric instance id, keyed like {@link portableSchemas}.
- */
-export const instanceSchemas: Readonly<Record<string, JsonObject>> =
+/** The name a schema's `$ref`s use, such as `card.json` or `common/query.json`. */
+export type SchemaName = keyof typeof schemas;
+
+/** JSON Schemas of the portable format, keyed by {@link SchemaName}. */
+export const portableSchemas: Readonly<Record<SchemaName, JsonObject>> =
+  schemas;
+
+/** JSON Schemas of the instance format: every foreign key a numeric id, and `serdes/meta` optional. */
+export const instanceSchemas: Readonly<Record<SchemaName, JsonObject>> =
   toInstanceSchemas(portableSchemas);

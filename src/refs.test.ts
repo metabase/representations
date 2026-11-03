@@ -14,12 +14,12 @@ const noPortableRefs = mergePortableRefs();
 const noInstanceRefs = mergeInstanceRefs();
 
 describe("portableKey", () => {
-  it("keys a name by itself and a path by its JSON", () => {
+  it("keys name by itself and path by its JSON", () => {
     expect(portableKey("Sample Database")).toBe("Sample Database");
     expect(portableKey(ORDERS)).toBe('["Sample Database",null,"ORDERS"]');
   });
 
-  it("keys paths that join to the same string apart", () => {
+  it("keys paths that join to same string apart", () => {
     expect(portableKey(["a/b", null, "c"])).not.toBe(
       portableKey(["a", "b", "c"]),
     );

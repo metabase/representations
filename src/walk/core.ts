@@ -18,41 +18,79 @@ export type Visitor =
 
 export type Walk = (value: JsonValue, visitor: Visitor) => JsonValue;
 
-export function convertRef(
-  visitor: Visitor,
-  model: RefModel,
-  value: JsonValue,
-): JsonValue {
-  if (visitor.direction === "toPortable") {
-    return typeof value === "number" ? visitor.visit(model, value) : value;
-  }
-  return isPortableRef(model, value) ? visitor.visit(model, value) : value;
-}
-
 export const unchanged: Walk = (value) => value;
 
 export function ref(model: RefModel): Walk {
-  return (value, visitor) => convertRef(visitor, model, value);
+  return (value, visitor) => {
+    if (visitor.direction === "toPortable") {
+      return typeof value === "number" ? visitor.visit(model, value) : value;
+    }
+    return isPortableRef(model, value) ? visitor.visit(model, value) : value;
+  };
+}
+
+export function pathRef(
+  model: RefModel,
+  fromPath: (path: JsonValue) => JsonValue | undefined,
+  toPath: (ref: JsonValue) => JsonValue,
+): Walk {
+  const walkRef = ref(model);
+  return (value, visitor) => {
+    if (visitor.direction === "toInstance") {
+      const portable = fromPath(value);
+      return portable === undefined ? value : walkRef(portable, visitor);
+    }
+    const converted = walkRef(value, visitor);
+    return converted === value ? value : toPath(converted);
+  };
+}
+
+export function embeddedRef(
+  model: RefModel,
+  pattern: RegExp,
+  format: (ref: JsonValue) => string,
+): Walk {
+  const walkRef = ref(model);
+  return (value, visitor) => {
+    const match = typeof value === "string" ? pattern.exec(value) : null;
+    if (match === null) {
+      return value;
+    }
+    const embedded = /^\d+$/.test(match[1]) ? Number(match[1]) : match[1];
+    const converted = walkRef(embedded, visitor);
+    return converted === embedded ? value : format(converted);
+  };
+}
+
+export function sequence(...walks: Walk[]): Walk {
+  return (value, visitor) =>
+    walks.reduce((walked, walk) => walk(walked, visitor), value);
+}
+
+export function lazy(walk: () => Walk): Walk {
+  return (value, visitor) => walk()(value, visitor);
+}
+
+export function byObject(walkOf: (object: JsonObject) => Walk): Walk {
+  return (value, visitor) =>
+    isJsonObject(value) ? walkOf(value)(value, visitor) : value;
+}
+
+export function lookup<T>(
+  table: Readonly<Record<string, T>>,
+  key: JsonValue | undefined,
+): T | undefined {
+  return typeof key === "string" && Object.hasOwn(table, key)
+    ? table[key]
+    : undefined;
 }
 
 export function fields(
   walks: Readonly<Record<string, Walk>>,
-  rest?: Walk,
+  rest: Walk = unchanged,
 ): Walk {
   return (value, visitor) =>
     isJsonObject(value) ? walkFields(value, walks, rest, visitor) : value;
-}
-
-function walkFields(
-  object: JsonObject,
-  walks: Readonly<Record<string, Walk>>,
-  rest: Walk | undefined,
-  visitor: Visitor,
-): JsonObject {
-  return mapEntries(object, (key, child) => {
-    const walk = Object.hasOwn(walks, key) ? walks[key] : rest;
-    return walk === undefined ? child : walk(child, visitor);
-  });
 }
 
 export function items(walk: Walk): Walk {
@@ -61,38 +99,46 @@ export function items(walk: Walk): Walk {
 }
 
 export function values(walk: Walk): Walk {
+  const walkItems = items(walk);
+  const walkEntries = fields({}, walk);
   return (value, visitor) =>
-    isJsonArray(value)
-      ? items(walk)(value, visitor)
-      : fields({}, walk)(value, visitor);
+    (isJsonArray(value) ? walkItems : walkEntries)(value, visitor);
+}
+
+export function keys(
+  walkKey: Walk,
+  walkValue: (value: JsonValue) => Walk | null,
+): Walk {
+  return byObject(
+    (object) => (_value, visitor) =>
+      Object.fromEntries(
+        Object.entries(object).map(([key, child]) => {
+          const walk = walkValue(child);
+          return walk === null
+            ? [key, child]
+            : [String(walkKey(key, visitor)), walk(child, visitor)];
+        }),
+      ),
+  );
 }
 
 export function entity(
   model: RefModel,
   walks: Readonly<Record<string, Walk>>,
 ): Walk {
-  return (value, visitor) => {
-    if (!isJsonObject(value)) {
-      return value;
+  const walkId = ref(model);
+  return byObject(({ id: _id, ...object }) => (_value, visitor) => {
+    if (visitor.direction === "toPortable" || object.entity_id === undefined) {
+      return walkFields(object, walks, unchanged, visitor);
     }
-    if (visitor.direction === "toPortable") {
-      const { id: _id, ...portable } = value;
-      return walkFields(portable, walks, undefined, visitor);
-    }
-    if (value.entity_id === undefined) {
-      return walkFields(value, walks, undefined, visitor);
-    }
-    const id = convertRef(visitor, model, value.entity_id);
-    return { id, ...walkFields(value, walks, undefined, visitor) };
-  };
+    const id = walkId(object.entity_id, visitor);
+    return { id, ...walkFields(object, walks, unchanged, visitor) };
+  });
 }
 
 export function jsonString(walk: Walk): Walk {
   return (value, visitor) => {
-    if (typeof value !== "string") {
-      return value;
-    }
-    const parsed = parseJson(value);
+    const parsed = typeof value === "string" ? parseJson(value) : undefined;
     if (parsed === undefined) {
       return value;
     }
@@ -109,11 +155,16 @@ function parseJson(text: string): JsonValue | undefined {
   }
 }
 
-export function mapEntries(
+function walkFields(
   object: JsonObject,
-  map: (key: string, value: JsonValue) => JsonValue,
+  walks: Readonly<Record<string, Walk>>,
+  rest: Walk,
+  visitor: Visitor,
 ): JsonObject {
   return Object.fromEntries(
-    Object.entries(object).map(([key, value]) => [key, map(key, value)]),
+    Object.entries(object).map(([key, child]) => [
+      key,
+      (lookup(walks, key) ?? rest)(child, visitor),
+    ]),
   );
 }

@@ -1,5 +1,6 @@
 import { isJsonArray, type JsonValue } from "./json.js";
 
+/** The models an entity can reference, each a key of {@link PortableRefs}. */
 export const REF_MODELS = [
   "databases",
   "tables",
@@ -22,7 +23,10 @@ export const REF_MODELS = [
   "pythonLibraries",
 ] as const;
 
+/** A model an entity can reference, such as `tables` or `cards`. */
 export type RefModel = (typeof REF_MODELS)[number];
+
+const ENTITY_ID = /^[A-Za-z0-9_-]{21}$/;
 
 /** A table by name: `[database, schema, table]`, with a null schema for schemaless databases. */
 export type TablePath = [
@@ -47,18 +51,18 @@ type PortableRefTypes = { tables: TablePath; fields: FieldPath } & {
 /** A portable reference: a database name, a user email, a table or field path, or an entity id. */
 export type PortableRef = PortableRefTypes[RefModel];
 
-/** The distinct portable references of an entity, by the model they point to. */
+/** The distinct portable references of one or more entities, by the model they point to. */
 export type PortableRefs = { [M in RefModel]: PortableRefTypes[M][] };
 
-/** The distinct instance ids an entity references, by the model they point to. */
+/** The distinct instance ids one or more entities reference, by the model they point to. */
 export type InstanceRefs = { [M in RefModel]: number[] };
 
-/** Instance ids by {@link portableKey} of their portable reference. */
+/** The instance id of each portable reference, keyed by {@link portableKey}, by model. */
 export type PortableToInstance = {
   [M in RefModel]?: Readonly<Record<string, number>>;
 };
 
-/** Portable references by the instance id they resolve. */
+/** The portable reference of each instance id, by model. */
 export type InstanceToPortable = {
   [M in RefModel]?: Readonly<Record<number, PortableRefTypes[M]>>;
 };
@@ -77,18 +81,20 @@ export function isPortableRef(
       return isPath(value) && value.length === 3;
     case "fields":
       return isPath(value) && value.length >= 4;
-    default:
+    case "databases":
+    case "users":
       return typeof value === "string";
+    default:
+      return typeof value === "string" && ENTITY_ID.test(value);
   }
 }
 
 function isPath(value: JsonValue): value is (string | null)[] {
   return (
     isJsonArray(value) &&
-    value.every((part, index) =>
-      index === 1
-        ? part === null || typeof part === "string"
-        : typeof part === "string",
+    value.every(
+      (part, index) =>
+        typeof part === "string" || (index === 1 && part === null),
     )
   );
 }

@@ -6,21 +6,24 @@ import {
 } from "../json.js";
 
 const ID_SCHEMA = "common/id.json";
-const FOREIGN_KEY_REF = /(?:^|\/)id\.json#\/\$defs\/(\w+)$/;
 const IDENTITY_DEF = "entity_id";
+const FOREIGN_KEY_REF = /(?:^|\/)id\.json#\/\$defs\/(\w+)$/;
 const NEW_ROW_DEFS = new Set(["dashboard_tab_id"]);
+const NEW_ROW_NOTE =
+  "negative for a new dashboard tab or dashboard card in a dashboard update";
 
-export function toInstanceSchemas(
-  portableSchemas: Readonly<Record<string, JsonObject>>,
-): Record<string, JsonObject> {
-  return Object.fromEntries(
-    Object.entries(portableSchemas).map(([name, schema]) => [
+export function toInstanceSchemas<Name extends string>(
+  portableSchemas: Readonly<Record<Name, JsonObject>>,
+): Record<Name, JsonObject> {
+  const entries = Object.entries<JsonObject>(portableSchemas).map(
+    ([name, schema]) => [
       name,
       name === ID_SCHEMA
         ? toInstanceIdSchema(schema)
         : toInstanceSchema(schema),
-    ]),
+    ],
   );
+  return Object.fromEntries(entries);
 }
 
 function toInstanceIdSchema(schema: JsonObject): JsonObject {
@@ -30,16 +33,24 @@ function toInstanceIdSchema(schema: JsonObject): JsonObject {
     $defs: Object.fromEntries(
       Object.entries(defs).map(([name, def]) => [
         name,
-        name === IDENTITY_DEF ? def : instanceId(name),
+        name === IDENTITY_DEF ? def : instanceForeignKey(name),
       ]),
     ),
   };
 }
 
-function instanceId(def: string): JsonObject {
+function instanceForeignKey(def: string): JsonObject {
+  const target = def.replace(/_(id|path)$/, "").replaceAll("_", " ");
   return NEW_ROW_DEFS.has(def)
-    ? { type: "integer", description: "Instance id, negative for a new row" }
-    : { type: "integer", minimum: 1, description: "Instance id" };
+    ? {
+        type: "integer",
+        description: `Instance id of the referenced ${target}, ${NEW_ROW_NOTE}`,
+      }
+    : {
+        type: "integer",
+        minimum: 1,
+        description: `Instance id of the referenced ${target}`,
+      };
 }
 
 function toInstanceSchema(schema: JsonObject): JsonObject {
@@ -60,9 +71,12 @@ function withIntegerForeignKey(node: JsonObject): JsonObject {
   if (!isForeignKeyRef(node.then) || !isJsonObject(node.if)) {
     return node;
   }
+  const portableType = node.if.type;
   return {
     ...node,
-    ...(node.type === undefined ? {} : { type: toIntegerType(node.type) }),
+    ...(node.type === undefined
+      ? {}
+      : { type: replaceType(node.type, portableType) }),
     if: { ...node.if, type: "integer" },
   };
 }
@@ -75,12 +89,12 @@ function isForeignKeyRef(value: JsonValue | undefined): boolean {
   return def !== undefined && def !== IDENTITY_DEF;
 }
 
-function toIntegerType(type: JsonValue): JsonValue {
-  const types = isJsonArray(type) ? type : [type];
-  const integerTypes = types.map((t) =>
-    t === "string" || t === "array" ? "integer" : t,
-  );
-  return isJsonArray(type) ? [...new Set(integerTypes)] : integerTypes[0];
+function replaceType(
+  type: JsonValue,
+  portableType: JsonValue | undefined,
+): JsonValue {
+  const replace = (t: JsonValue) => (t === portableType ? "integer" : t);
+  return isJsonArray(type) ? type.map(replace) : replace(type);
 }
 
 function withoutRequiredMeta(node: JsonObject): JsonObject {
@@ -100,10 +114,7 @@ function withInstanceId(node: JsonObject): JsonObject {
   return {
     ...node,
     properties: {
-      id: {
-        type: "integer",
-        description: "Instance id, negative for a new row",
-      },
+      id: { type: "integer", description: `Instance id, ${NEW_ROW_NOTE}` },
       ...node.properties,
     },
   };

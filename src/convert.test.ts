@@ -19,6 +19,7 @@ import {
   type PortableEntity,
   type PortableToInstance,
   type TablePath,
+  REF_MODELS,
 } from "./index.js";
 
 const eid = (label: string) => label.padEnd(21, "0");
@@ -49,33 +50,6 @@ const TEST = eid("test");
 const ACTION = eid("action");
 const LIBRARY = eid("library");
 
-const TO_INSTANCE: PortableToInstance = {
-  databases: { [DB]: 1 },
-  tables: { [portableKey(ORDERS)]: 10, [portableKey(PRODUCTS)]: 11 },
-  fields: {
-    [portableKey(ORDERS_TOTAL)]: 100,
-    [portableKey(ORDERS_PRODUCT_ID)]: 101,
-    [portableKey(PRODUCTS_ID)]: 102,
-    [portableKey(PRODUCTS_CATEGORY)]: 103,
-  },
-  users: { [ADMIN]: 2 },
-  collections: { [COLLECTION]: 20, [PARENT]: 21 },
-  cards: { [CARD]: 30, [METRIC]: 31 },
-  dashboards: { [DASHBOARD]: 40 },
-  dashboardTabs: { [TAB]: 41 },
-  dashboardCards: { [DASHCARD]: 42 },
-  documents: { [DOCUMENT]: 50 },
-  segments: { [SEGMENT]: 60 },
-  measures: { [MEASURE]: 61 },
-  snippets: { [SNIPPET]: 62 },
-  transforms: { [TRANSFORM]: 70 },
-  transformTags: { [TAG]: 71 },
-  transformJobs: { [JOB]: 72 },
-  transformTests: { [TEST]: 73 },
-  actions: { [ACTION]: 80 },
-  pythonLibraries: { [LIBRARY]: 90 },
-};
-
 const TO_PORTABLE: InstanceToPortable = {
   databases: { 1: DB },
   tables: { 10: ORDERS, 11: PRODUCTS },
@@ -102,6 +76,18 @@ const TO_PORTABLE: InstanceToPortable = {
   actions: { 80: ACTION },
   pythonLibraries: { 90: LIBRARY },
 };
+
+const TO_INSTANCE: PortableToInstance = Object.fromEntries(
+  REF_MODELS.map((model) => [
+    model,
+    Object.fromEntries(
+      Object.entries(TO_PORTABLE[model] ?? {}).map(([id, ref]) => [
+        portableKey(ref),
+        Number(id),
+      ]),
+    ),
+  ]),
+);
 
 const meta = (model: string, id: string) => [{ model, id }];
 
@@ -247,6 +233,29 @@ const CARD_FIXTURE: JsonObject = {
     column_settings: {
       [JSON.stringify(["ref", ["field", ORDERS_TOTAL, null]])]: {
         currency: "USD",
+        click_behavior: {
+          type: "link",
+          linkType: "question",
+          targetId: METRIC,
+          parameterMapping: {
+            [JSON.stringify(["dimension", ["field", PRODUCTS_CATEGORY, null]])]:
+              {
+                id: JSON.stringify([
+                  "dimension",
+                  ["field", PRODUCTS_CATEGORY, null],
+                ]),
+                source: { id: "CATEGORY", name: "Category", type: "column" },
+                target: {
+                  id: JSON.stringify([
+                    "dimension",
+                    ["field", PRODUCTS_CATEGORY, null],
+                  ]),
+                  type: "dimension",
+                  dimension: ["dimension", ["field", PRODUCTS_CATEGORY, null]],
+                },
+              },
+          },
+        },
       },
       '["name","sum"]': { decimals: 2 },
     },
@@ -254,7 +263,7 @@ const CARD_FIXTURE: JsonObject = {
       type: "link",
       linkType: "dashboard",
       targetId: DASHBOARD,
-      tabId: TAB,
+      tabId: [DASHBOARD, TAB],
     },
     "table.columns": [
       { name: "TOTAL", fieldRef: ["field", ORDERS_TOTAL, null], enabled: true },
@@ -276,6 +285,7 @@ const DASHBOARD_FIXTURE: JsonObject = {
     {
       entity_id: DASHCARD,
       card_id: CARD,
+      action_id: ACTION,
       dashboard_tab_id: [DASHBOARD, TAB],
       row: 0,
       col: 0,
@@ -405,8 +415,16 @@ const FIXTURES: [Kind, JsonObject][] = [
       name: "active",
       entity_id: SNIPPET,
       creator_id: ADMIN,
-      content: "active = true",
+      content: "active = true AND {{#orders}}",
       collection_id: COLLECTION,
+      template_tags: {
+        "#orders": {
+          type: "card",
+          name: "#orders",
+          id: "orders",
+          "card-id": CARD,
+        },
+      },
       "serdes/meta": meta("NativeQuerySnippet", SNIPPET),
     },
   ],
@@ -417,7 +435,14 @@ const FIXTURES: [Kind, JsonObject][] = [
       entity_id: TRANSFORM,
       creator_id: ADMIN,
       source_database_id: DB,
-      source: { type: "query", query: MBQL_QUERY },
+      source: {
+        type: "query",
+        query: MBQL_QUERY,
+        "source-incremental-strategy": {
+          type: "checkpoint",
+          "checkpoint-filter-field-id": ORDERS_TOTAL,
+        },
+      },
       target: {
         type: "table",
         database: DB,
@@ -425,6 +450,7 @@ const FIXTURES: [Kind, JsonObject][] = [
         name: "order_totals",
       },
       collection_id: COLLECTION,
+      owner_user_id: ADMIN,
       tags: [{ entity_id: eid("tagLink"), tag_id: TAG, position: 0 }],
       "serdes/meta": meta("Transform", TRANSFORM),
     },
@@ -507,8 +533,27 @@ const FIXTURES: [Kind, JsonObject][] = [
   ],
 ];
 
-function portable<K extends Kind>(kind: K, value: unknown): PortableEntity<K> {
+const FIXTURES_BY_NAME: Readonly<Record<string, JsonObject>> =
+  Object.fromEntries(
+    FIXTURES.map(([, fixture]) => [String(fixture.name), fixture]),
+  );
+
+function validPortable<K extends Kind>(
+  kind: K,
+  value: unknown,
+): PortableEntity<K> {
   const validation = validatePortable(kind, value);
+  if (!validation.ok) {
+    throw new Error(`invalid ${kind}: ${JSON.stringify(validation.issues)}`);
+  }
+  return validation.value;
+}
+
+function validInstance<K extends Kind>(
+  kind: K,
+  value: unknown,
+): InstanceEntity<K> {
+  const validation = validateInstance(kind, value);
   if (!validation.ok) {
     throw new Error(`invalid ${kind}: ${JSON.stringify(validation.issues)}`);
   }
@@ -521,7 +566,7 @@ function toInstance<K extends Kind>(
 ): InstanceEntity<K> {
   const conversion = getInstanceEntity(
     kind,
-    portable(kind, value),
+    validPortable(kind, value),
     TO_INSTANCE,
   );
   if (!conversion.ok) {
@@ -537,7 +582,7 @@ describe("every kind", () => {
         [kind, String(fixture.name ?? "query"), fixture] as const,
     ),
   )(
-    "converts a %s (%s) to a valid instance entity and back unchanged",
+    "converts %s (%s) to valid instance entity and back unchanged",
     (kind, _name, fixture) => {
       const instance = toInstance(kind, fixture);
 
@@ -545,15 +590,17 @@ describe("every kind", () => {
       expect(validation.ok ? [] : validation.issues).toEqual([]);
       expect(getPortableEntity(kind, instance, TO_PORTABLE)).toEqual({
         ok: true,
-        value: portable(kind, fixture),
+        value: validPortable(kind, fixture),
       });
     },
   );
 });
 
 describe("getPortableRefs", () => {
-  it("collects each reference of a card once", () => {
-    expect(getPortableRefs("card", portable("card", CARD_FIXTURE))).toEqual({
+  it("collects each reference of card once, own entity id first", () => {
+    expect(
+      getPortableRefs("card", validPortable("card", CARD_FIXTURE)),
+    ).toEqual({
       databases: [DB],
       tables: [ORDERS, PRODUCTS],
       fields: [ORDERS_PRODUCT_ID, PRODUCTS_ID, ORDERS_TOTAL, PRODUCTS_CATEGORY],
@@ -576,8 +623,8 @@ describe("getPortableRefs", () => {
     });
   });
 
-  it("collects template tag references of a native query", () => {
-    const refs = getPortableRefs("query", portable("query", NATIVE_QUERY));
+  it("collects template tag references of native query", () => {
+    const refs = getPortableRefs("query", validPortable("query", NATIVE_QUERY));
 
     expect([refs.cards, refs.snippets, refs.tables, refs.fields]).toEqual([
       [CARD],
@@ -589,20 +636,20 @@ describe("getPortableRefs", () => {
 });
 
 describe("getInstanceEntity", () => {
-  it("replaces every reference in a query with its instance id", () => {
+  it("replaces each reference in query with its instance id", () => {
     expect<JsonValue>(toInstance("query", MBQL_QUERY)).toEqual(
       MBQL_INSTANCE_QUERY,
     );
   });
 
-  it("gives an entity its instance id and keeps its entity id", () => {
+  it("gives entity its instance id and keeps its entity id", () => {
     const instance = toInstance("card", CARD_FIXTURE);
 
     expect(Object.keys(instance).slice(0, 2)).toEqual(["id", "name"]);
     expect([instance.id, instance.entity_id]).toEqual([30, CARD]);
   });
 
-  it("replaces references in a card's settings, parameters and metadata", () => {
+  it("replaces references in card settings, parameters and metadata", () => {
     const instance = toInstance("card", CARD_FIXTURE);
 
     expect(instance).toMatchObject({
@@ -631,7 +678,7 @@ describe("getInstanceEntity", () => {
     });
   });
 
-  it("replaces references on a dashboard's tabs and cards", () => {
+  it("replaces references on dashboard tabs and cards", () => {
     expect(toInstance("dashboard", DASHBOARD_FIXTURE)).toMatchObject({
       id: 40,
       tabs: [{ id: 41, entity_id: TAB }],
@@ -658,7 +705,7 @@ describe("getInstanceEntity", () => {
     });
   });
 
-  it("replaces card, dashboard and table paths in a document", () => {
+  it("replaces card, dashboard and table paths in document", () => {
     const [cardEmbed, paragraph] = [
       { type: "cardEmbed", attrs: { id: 30, name: null } },
       {
@@ -687,10 +734,10 @@ describe("getInstanceEntity", () => {
     });
   });
 
-  it("reports every reference it cannot resolve", () => {
+  it("reports each reference it cannot resolve", () => {
     const conversion = getInstanceEntity(
       "card",
-      portable("card", CARD_FIXTURE),
+      validPortable("card", CARD_FIXTURE),
       {
         ...TO_INSTANCE,
         tables: {},
@@ -708,6 +755,75 @@ describe("getInstanceEntity", () => {
     });
   });
 
+  it("resolves own id from entity id, not from input id", () => {
+    const instance = toInstance("collection", {
+      id: 9000,
+      name: "Sales",
+      entity_id: COLLECTION,
+      "serdes/meta": meta("Collection", COLLECTION),
+    });
+
+    expect(instance.id).toBe(20);
+  });
+
+  it("resolves only references in refs map, not inherited keys", () => {
+    const query = { ...NATIVE_QUERY, database: "constructor" };
+
+    expect(
+      getInstanceEntity("query", validPortable("query", query), TO_INSTANCE),
+    ).toMatchObject({ ok: false, unresolved: { databases: ["constructor"] } });
+  });
+
+  it("leaves column name lists in visualization settings alone", () => {
+    const settings = {
+      "graph.dimensions": ["metric", "region"],
+      "graph.metrics": ["segment", "sum"],
+    };
+    const instance = toInstance("card", {
+      ...CARD_FIXTURE,
+      visualization_settings: settings,
+    });
+
+    expect(instance.visualization_settings).toEqual(settings);
+  });
+
+  it("replaces references in column click behaviors", () => {
+    expect(toInstance("card", CARD_FIXTURE)).toMatchObject({
+      visualization_settings: {
+        column_settings: {
+          '["ref",["field",100,null]]': {
+            click_behavior: {
+              targetId: 31,
+              parameterMapping: {
+                '["dimension",["field",103,null]]': {
+                  id: '["dimension",["field",103,null]]',
+                  target: { dimension: ["dimension", ["field", 103, null]] },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+
+  it("replaces card references in snippet template tags", () => {
+    expect(toInstance("snippet", FIXTURES_BY_NAME.active)).toMatchObject({
+      template_tags: { "#orders": { "card-id": 30 } },
+    });
+  });
+
+  it("replaces transform owner and checkpoint field", () => {
+    expect(
+      toInstance("transform", FIXTURES_BY_NAME["Order totals"]),
+    ).toMatchObject({
+      owner_user_id: 2,
+      source: {
+        "source-incremental-strategy": { "checkpoint-filter-field-id": 100 },
+      },
+    });
+  });
+
   it("does not change its input", () => {
     const input = structuredClone(CARD_FIXTURE);
 
@@ -718,7 +834,7 @@ describe("getInstanceEntity", () => {
 });
 
 describe("getInstanceRefs", () => {
-  it("collects each instance id a dashboard references once", () => {
+  it("collects each instance id of dashboard once, without own id", () => {
     const refs = getInstanceRefs(
       "dashboard",
       toInstance("dashboard", DASHBOARD_FIXTURE),
@@ -738,7 +854,7 @@ describe("getInstanceRefs", () => {
 });
 
 describe("getPortableEntity", () => {
-  it("rebuilds a dashboard card's tab reference from the dashboard's entity id", () => {
+  it("rebuilds dashboard card tab reference from dashboard entity id", () => {
     const back = getPortableEntity(
       "dashboard",
       toInstance("dashboard", DASHBOARD_FIXTURE),
@@ -751,7 +867,7 @@ describe("getPortableEntity", () => {
     });
   });
 
-  it("drops instance ids and adds serdes/meta when it is missing", () => {
+  it("drops instance id and adds missing serdes/meta", () => {
     const { "serdes/meta": _meta, ...instance } = toInstance("collection", {
       name: "Sales",
       entity_id: COLLECTION,
@@ -774,7 +890,20 @@ describe("getPortableEntity", () => {
     });
   });
 
-  it("reports every instance id it cannot resolve", () => {
+  it("copies paths out of refs map", () => {
+    const conversion = getPortableEntity(
+      "segment",
+      toInstance("segment", FIXTURES_BY_NAME["Big orders"]),
+      TO_PORTABLE,
+    );
+
+    expect(conversion.ok && conversion.value.table_id).toEqual(ORDERS);
+    expect(conversion.ok && conversion.value.table_id).not.toBe(
+      TO_PORTABLE.tables?.[10],
+    );
+  });
+
+  it("reports each instance id it cannot resolve", () => {
     const instance = toInstance("card", CARD_FIXTURE);
 
     expect(
@@ -785,14 +914,3 @@ describe("getPortableEntity", () => {
     });
   });
 });
-
-function validInstance<K extends Kind>(
-  kind: K,
-  value: unknown,
-): InstanceEntity<K> {
-  const validation = validateInstance(kind, value);
-  if (!validation.ok) {
-    throw new Error(`invalid ${kind}: ${JSON.stringify(validation.issues)}`);
-  }
-  return validation.value;
-}

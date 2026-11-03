@@ -1,26 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { Ajv2020 } from "ajv/dist/2020.js";
-import type { FormatsPlugin } from "ajv-formats";
-import { createRequire } from "node:module";
 
 import { portableSchemas } from "./schemas/index.js";
+import { createAjv } from "./validate.js";
 
-const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
-
-const ajv = new Ajv2020({
-  allErrors: true,
-  strictTuples: false,
-  allowUnionTypes: true,
-});
-addFormats(ajv);
-for (const [name, schema] of Object.entries(portableSchemas)) {
-  ajv.addSchema(schema, name);
-}
-const manifestValidator = ajv.getSchema("data_app.json");
-if (manifestValidator === undefined) {
-  throw new Error("data_app.json is not a portable schema");
-}
-const validateManifest = manifestValidator;
+const validateManifest = createAjv(portableSchemas).compile(
+  portableSchemas["data_app.json"],
+);
 
 // The example manifest in the spec's Data App section.
 const MANIFEST = {

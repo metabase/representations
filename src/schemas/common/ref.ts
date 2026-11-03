@@ -93,6 +93,7 @@ export const refSchema: JsonObject = {
           $ref: "#/$defs/field_options",
         },
         {
+          type: ["array", "string"],
           if: {
             type: "array",
           },
@@ -200,6 +201,7 @@ export const refSchema: JsonObject = {
           const: "field",
         },
         {
+          type: ["array", "string"],
           if: {
             type: "array",
           },

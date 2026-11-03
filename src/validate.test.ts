@@ -46,7 +46,7 @@ const instanceCard = {
 };
 
 describe("validatePortable", () => {
-  it("accepts a card with portable references", () => {
+  it("accepts card with portable references", () => {
     expect<Validation<JsonValue>>(
       validatePortable("card", portableCard),
     ).toEqual({
@@ -55,21 +55,44 @@ describe("validatePortable", () => {
     });
   });
 
-  it("rejects instance ids, with a JSON Pointer to each", () => {
+  it("rejects instance ids, with JSON Pointer and keyword of each", () => {
     const validation = validatePortable("card", {
       ...portableCard,
       collection_id: 3,
+      creator_id: 2,
     });
 
-    expect(validation).toMatchObject({
+    expect(validation).toEqual({
       ok: false,
-      issues: [{ path: "/collection_id" }],
+      issues: [
+        { path: "/creator_id", keyword: "type", message: "must be string" },
+        {
+          path: "/collection_id",
+          keyword: "type",
+          message: "must be string,null",
+        },
+      ],
     });
+  });
+
+  it("rejects numeric field reference in query", () => {
+    const validation = validatePortable("query", {
+      ...portableCard.dataset_query,
+      stages: [
+        {
+          "lib/type": "mbql.stage/mbql",
+          "source-table": ["Sample Database", "PUBLIC", "ORDERS"],
+          fields: [["field", {}, 12]],
+        },
+      ],
+    });
+
+    expect(validation.ok).toBe(false);
   });
 });
 
 describe("validateInstance", () => {
-  it("accepts a card with instance ids and no serdes/meta", () => {
+  it("accepts card with instance ids and no serdes/meta", () => {
     expect(validateInstance("card", instanceCard).ok).toBe(true);
   });
 
@@ -85,7 +108,7 @@ describe("validateInstance", () => {
     });
   });
 
-  it("accepts a negative id for a new dashboard tab", () => {
+  it("accepts negative ids for new dashboard tab and card", () => {
     const validation = validateInstance("dashboard", {
       name: "Sales",
       entity_id: "dashboarddashboard001",

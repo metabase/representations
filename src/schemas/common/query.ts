@@ -1521,9 +1521,9 @@ export const querySchema: JsonObject = {
         },
         id: {
           type: "string",
-          minLength: 1,
+          pattern: "\\S",
           description:
-            "Unique identifier within the query. UUIDs are recommended, but Metabase accepts any non-empty string.",
+            "Unique identifier within the query. UUIDs are recommended, but Metabase accepts any string that is not blank.",
         },
         "display-name": {
           type: "string",
