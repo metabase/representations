@@ -54,7 +54,7 @@ properties:
       properties:
         tag_id:
           description: TransformTag FK
-          $ref: "common/id.yaml#/$defs/entity_id"
+          $ref: "common/id.yaml#/$defs/transform_tag_id"
         position:
           type: integer
           description: Ordering position

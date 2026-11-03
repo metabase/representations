@@ -51,10 +51,10 @@ properties:
   creator_id:
     $ref: "common/id.yaml#/$defs/user_id"
   database_id:
-    type:
-      - string
-      - "null"
     description: Database FK (database name), should match database in dataset_query
+    type: [string, "null"]
+    if: { type: string }
+    then: { $ref: "common/id.yaml#/$defs/database_id" }
   dataset_query:
     description: Query definition in pMBQL format
     $ref: "common/query.yaml"
@@ -87,7 +87,7 @@ properties:
     description: Collection FK, null for root collection
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   collection_position:
     type:
       - integer
@@ -105,7 +105,7 @@ properties:
       and place the card directly in a collection.
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/dashboard_id" }
   document_id:
     description: >
       Document FK. Nests this card under a document as if the document
@@ -114,7 +114,7 @@ properties:
       and place the card directly in a collection.
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/document_id" }
   parameters:
     type: array
     description: Native query parameters

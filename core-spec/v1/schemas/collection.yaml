@@ -84,7 +84,7 @@ properties:
       Collection FK — parent collection, or null for root-level collections.
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   personal_owner_id:
     description: User FK for personal collections
     type: [string, "null"]

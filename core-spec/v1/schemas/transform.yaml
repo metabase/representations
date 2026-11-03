@@ -69,7 +69,7 @@ properties:
     description: Collection FK, null for root collection
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   tags:
     type: array
     description: Transform tag associations
@@ -81,7 +81,7 @@ properties:
           $ref: "common/id.yaml#/$defs/entity_id"
         tag_id:
           description: TransformTag FK
-          $ref: "common/id.yaml#/$defs/entity_id"
+          $ref: "common/id.yaml#/$defs/transform_tag_id"
         position:
           type: integer
           description: Ordering position

@@ -88,7 +88,7 @@ $defs:
     prefixItems:
       - const: metric
       - $ref: "query.yaml#/$defs/options"
-      - type: string
+      - $ref: "id.yaml#/$defs/card_id"
     minItems: 3
     maxItems: 3
 
@@ -98,7 +98,7 @@ $defs:
     prefixItems:
       - const: measure
       - $ref: "query.yaml#/$defs/options"
-      - type: string
+      - $ref: "id.yaml#/$defs/measure_id"
     minItems: 3
     maxItems: 3
 
@@ -108,7 +108,7 @@ $defs:
     prefixItems:
       - const: segment
       - $ref: "query.yaml#/$defs/options"
-      - type: string
+      - $ref: "id.yaml#/$defs/segment_id"
     minItems: 3
     maxItems: 3
 

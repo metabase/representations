@@ -34,7 +34,7 @@ properties:
     description: Collection FK, null for root collection
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   collection_position:
     type:
       - integer
@@ -196,17 +196,13 @@ $defs:
         description: Card FK, null for virtual cards (text, heading, link, iframe, placeholder)
         type: [string, "null"]
         if: { type: string }
-        then: { $ref: "common/id.yaml#/$defs/entity_id" }
+        then: { $ref: "common/id.yaml#/$defs/card_id" }
       dashboard_tab_id:
         description: >
           Tab FK as [dashboard_entity_id, tab_entity_id], null for untabbed cards.
         type: [array, "null"]
         if: { type: array }
-        then:
-          items:
-            $ref: "common/id.yaml#/$defs/entity_id"
-          minItems: 2
-          maxItems: 2
+        then: { $ref: "common/id.yaml#/$defs/dashboard_tab_id" }
       inline_parameters:
         type: array
         description: >
@@ -259,7 +255,7 @@ $defs:
     properties:
       card_id:
         description: Card FK
-        $ref: "common/id.yaml#/$defs/entity_id"
+        $ref: "common/id.yaml#/$defs/card_id"
       parameter_id:
         type: string
         description: ID matching a dashboard parameter's id
@@ -277,7 +273,7 @@ $defs:
     properties:
       card_id:
         description: Card FK
-        $ref: "common/id.yaml#/$defs/entity_id"
+        $ref: "common/id.yaml#/$defs/card_id"
       position:
         type: integer
         description: Display order (starting at 0)

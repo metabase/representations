@@ -34,7 +34,7 @@ properties:
     description: Collection FK (snippets collection)
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   template_tags:
     type: object
     description: Template tag definitions (usually empty)

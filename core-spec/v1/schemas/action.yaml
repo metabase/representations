@@ -31,7 +31,7 @@ properties:
       model is always in its model's collection.
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   model_id:
     description: >
       Deprecated. Card FK (entity_id) of the model the action is attached to,
@@ -40,7 +40,7 @@ properties:
     deprecated: true
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/card_id" }
   creator_id:
     description: User FK (email)
     type: [string, "null"]

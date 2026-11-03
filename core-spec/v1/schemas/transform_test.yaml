@@ -22,7 +22,7 @@ properties:
     $ref: "common/id.yaml#/$defs/entity_id"
   transform_id:
     description: Transform FK (entity_id of the transform under test)
-    $ref: "common/id.yaml#/$defs/entity_id"
+    $ref: "common/id.yaml#/$defs/transform_id"
   creator_id:
     $ref: "common/id.yaml#/$defs/user_id"
   description:

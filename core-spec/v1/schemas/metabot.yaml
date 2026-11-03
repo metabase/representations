@@ -26,7 +26,7 @@ properties:
       - string
       - "null"
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   use_verified_content:
     type: boolean
     description: Whether to restrict prompts to verified content only
@@ -57,7 +57,7 @@ properties:
             - metric
         card_id:
           description: Card FK (entity_id of the referenced card)
-          $ref: "common/id.yaml#/$defs/entity_id"
+          $ref: "common/id.yaml#/$defs/card_id"
         created_at:
           type: string
           format: date-time

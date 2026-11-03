@@ -38,7 +38,7 @@ properties:
     description: Collection FK, null for root collection
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   collection_position:
     type:
       - integer
@@ -131,17 +131,7 @@ $defs:
               type: object
               required: [id]
               properties:
-                id:
-                  type: array
-                  description: "Card reference: [{model: Card, id: entity_id}]"
-                  items:
-                    type: object
-                    required: [model, id]
-                    properties:
-                      model: { type: string, const: Card }
-                      id: { $ref: "common/id.yaml#/$defs/entity_id" }
-                  minItems: 1
-                  maxItems: 1
+                id: { $ref: "common/id.yaml#/$defs/card_path" }
                 name: { type: [string, "null"] }
       # smartLink
       - if: { properties: { type: { const: smartLink } } }
@@ -152,14 +142,7 @@ $defs:
               type: object
               required: [entityId, model]
               properties:
-                entityId:
-                  type: array
-                  items:
-                    type: object
-                    required: [model, id]
-                    properties:
-                      model: { type: string }
-                      id: { type: string }
+                entityId: { $ref: "common/id.yaml#/$defs/entity_path" }
                 model: { type: string }
       # text
       - if: { properties: { type: { const: text } } }

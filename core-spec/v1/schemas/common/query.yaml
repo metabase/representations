@@ -89,7 +89,7 @@ $defs:
       source-table:
         $ref: "id.yaml#/$defs/table_id"
       source-card:
-        $ref: "id.yaml#/$defs/entity_id"
+        $ref: "id.yaml#/$defs/card_id"
       joins:
         type: array
         items:
@@ -579,7 +579,10 @@ $defs:
         type: string
       id:
         type: string
-        format: uuid
+        minLength: 1
+        description: >
+          Unique identifier within the query. UUIDs are recommended, but
+          Metabase accepts any non-empty string.
       display-name:
         type: string
       default:
@@ -618,7 +621,7 @@ $defs:
           required: [card-id]
           properties:
             card-id:
-              $ref: "id.yaml#/$defs/entity_id"
+              $ref: "id.yaml#/$defs/card_id"
       - if:
           properties:
             type: { const: snippet }
@@ -628,7 +631,7 @@ $defs:
             snippet-name:
               type: string
             snippet-id:
-              $ref: "id.yaml#/$defs/entity_id"
+              $ref: "id.yaml#/$defs/snippet_id"
       - if:
           properties:
             type: { const: table }

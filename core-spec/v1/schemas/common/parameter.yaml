@@ -88,8 +88,8 @@ properties:
         type: array
         description: Static list of [value, label] pairs
       card_id:
-        type: string
         description: Card entity_id to source values from
+        $ref: "id.yaml#/$defs/card_id"
       value_field:
         description: Field clause for extracting values from card results
       label_field:

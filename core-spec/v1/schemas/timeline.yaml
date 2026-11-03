@@ -20,7 +20,7 @@ properties:
     description: Collection FK
     type: [string, "null"]
     if: { type: string }
-    then: { $ref: "common/id.yaml#/$defs/entity_id" }
+    then: { $ref: "common/id.yaml#/$defs/collection_id" }
   creator_id:
     $ref: "common/id.yaml#/$defs/user_id"
   events:
