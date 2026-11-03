@@ -9,13 +9,17 @@ on:
   schedule:
     - cron: "30 6 * * *"
 
+permissions:
+  contents: read
+
 jobs:
   import-test:
     runs-on: ubuntu-latest
 
     # The transforms read and write this warehouse: Metabase's Sample Database
     # on Postgres, in schema public. The Sample Database itself is SQLite,
-    # which cannot run transform tests.
+    # whose driver declares no transform feature: it runs no query transform,
+    # no Python transform and no transform test.
     services:
       postgres:
         image: metabase/qa-databases:postgres-sample-15
@@ -27,6 +31,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       # Git sync reads its content from the root of a repository, so the
       # examples get a repository of their own, which Metabase reads from disk.
@@ -235,7 +241,7 @@ jobs:
 
       # Bun runs the lint, and the corpus check below, which needs only the
       # API key: it runs even when the examples fail to import.
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         if: ${{ !cancelled() && env.API_KEY != '' }}
         with:
           bun-version: "1.3.9"
@@ -246,11 +252,13 @@ jobs:
 
       # The lint reads the files alone; Metabase is the reference. The step
       # compares the tables each transform reads, and Metabase's verdict on
-      # each transform test with the lint's errors on it. Then it creates
-      # transforms shaped as the mutations of the rules Metabase's transform
-      # API enforces, and compares Metabase's verdict on each with the lint's
-      # errors on it. Any difference is a lint bug, and a run that compares
-      # nothing fails.
+      # each transform test with the lint's errors of five rules on it:
+      # untestable-transform, missing-input, unused-input, duplicate-input and
+      # expectation-reads-other-table. Then it creates transforms shaped as the
+      # mutations of the rules Metabase's transform API enforces, and compares
+      # Metabase's verdict on each with the lint's errors on it. It compares no
+      # other rule and no warning. Any difference is a lint bug, and a run that
+      # compares no transform or no transform test fails.
       - name: Compare the lint with Metabase
         run: |
           if ! curl -sf http://localhost:3000/api/session/properties -H "X-API-Key: $API_KEY" \

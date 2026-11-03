@@ -11,7 +11,7 @@ import {
 } from "./sql-parser.js";
 import { stripLargeLiteralLists } from "./literal-lists.js";
 import { isTagPlaceholder, prepareSql } from "./sql-tables.js";
-import { type ColumnKey, fold, type TableName } from "./tables.js";
+import { type ColumnKey, fold, sqlTable, type TableName } from "./tables.js";
 
 /**
  * How a query names a column it reads: in quotes, without, as Metabase
@@ -35,10 +35,12 @@ export type SqlColumnReader = {
    * The columns the SQL reads from tables: each column whose only possible
    * source is one table, through any CTEs and subqueries between. A column
    * that may come from several tables or scopes, and `*`, give none. So does
-   * a column of a table whose alias names its columns (`t AS s(x, y)`), a
-   * name that is also a SELECT-list alias (a lateral alias, as Redshift
-   * allows) or an `ARRAY JOIN` alias, and a system column or niladic keyword
-   * of the engine, such as Postgres `xmin` or `current_user`.
+   * a column of a table whose alias names its columns (`t AS s(x, y)`), and,
+   * when the statement never qualifies the name, a name that is also a
+   * SELECT-list alias (a lateral alias, as Redshift allows) or an `ARRAY JOIN`
+   * alias, a field of a composite value, as `city` in Postgres
+   * `(o.addr).city`, which reads the column `addr`, and a system column or
+   * niladic keyword of the engine, such as Postgres `xmin` or `current_user`.
    */
   readColumns(
     sql: string,
@@ -68,14 +70,16 @@ export type SqlColumnReader = {
   ): { status: "read"; names: string[] } | Unread;
 };
 
-/** The one table a used field can come from, or null. */
-function soleTable(field: FieldSpec): TableName | null {
+/** The one table a used field can come from, with its alias in the query, or null. */
+function soleTable(
+  field: FieldSpec,
+): { table: TableName; alias: string | null } | null {
   if (field.type !== "single_column" || field.sourceColumns.length !== 1) {
     return null;
   }
   const [scope] = field.sourceColumns;
   return scope.length === 1 && scope[0].type === "all_columns"
-    ? scope[0].table
+    ? { table: scope[0].table, alias: scope[0].alias }
     : null;
 }
 
@@ -98,40 +102,40 @@ const POSTGRES_IMPLICIT_COLUMNS = [
  */
 const IMPLICIT_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   postgres: POSTGRES_IMPLICIT_COLUMNS,
-  redshift: [...POSTGRES_IMPLICIT_COLUMNS, "sysdate"],
+  redshift: POSTGRES_IMPLICIT_COLUMNS,
 };
 
-// Every engine reads an output column's alias in ORDER BY. Postgres reads one
-// in GROUP BY too (its SELECT documentation), and MySQL in GROUP BY and
-// HAVING (its SELECT statement documentation). Redshift reads an alias later
-// in the same SELECT list, a lateral alias (its "SELECT list" documentation).
-// ClickHouse reads an alias anywhere in its query or subquery (its "Syntax",
-// "Expression Aliases").
+// field_references reads no alias that ORDER BY, GROUP BY or HAVING names,
+// in any dialect. Redshift also reads an alias later in the same SELECT list,
+// a lateral alias (its "SELECT list" documentation). ClickHouse reads an
+// alias anywhere in its query or subquery (its "Syntax", "Expression
+// Aliases").
 const ALIAS_CLAUSES_BY_ENGINE: Readonly<
   Record<string, readonly AliasClause[]>
 > = {
-  postgres: ["order", "group"],
-  mysql: ["order", "group", "having"],
-  redshift: ["order", "select"],
-  clickhouse: ["order", "select", "where", "group", "having", "other"],
+  redshift: ["select"],
+  clickhouse: ["select", "where", "other"],
 };
 
-/** The clauses where the engine reads an alias of the SELECT list. */
+/** The clauses, besides ORDER BY, GROUP BY and HAVING, where the engine reads an alias of the SELECT list. */
 function aliasClausesOf(engine: string | null): readonly AliasClause[] {
   return engine !== null && Object.hasOwn(ALIAS_CLAUSES_BY_ENGINE, engine)
     ? ALIAS_CLAUSES_BY_ENGINE[engine]
-    : ["order"];
+    : [];
 }
 
 /**
- * Whether a column `field_references` reads from `table` names no column of
- * it, by `shape`, the engine's `implicit` names, which only an unquoted name
- * can be, and the clauses where the engine reads an alias of the SELECT list
+ * Whether a column `field_references` reads from a table, by the table's
+ * `alias` in the query, names no column of it: a column of a table whose
+ * alias names its columns (`shape`'s `columnAliases`); or, when the statement
+ * never qualifies the column's name, one of the engine's `implicit` names,
+ * which only an unquoted name can be, a name only a field access names, or
+ * an alias of the SELECT list in the clauses where the engine reads one
  * (`aliasClauses`): every place the statement names the column must be one.
  */
 function isNotTableColumn(
   column: string,
-  table: TableName,
+  alias: string | null,
   shape: QueryShape,
   implicit: readonly string[],
   aliasClauses: readonly AliasClause[],
@@ -139,20 +143,24 @@ function isNotTableColumn(
   const name = fold(column);
   const named = (names: readonly string[]) =>
     names.some((other) => fold(other) === name);
+  if (
+    alias !== null &&
+    shape.columnAliases.some((other) => fold(other) === fold(alias))
+  ) {
+    return true;
+  }
+  if (named(shape.qualifiedColumns)) {
+    return false;
+  }
   const refs = shape.aliasRefs.filter((ref) => fold(ref.name) === name);
   return (
     (implicit.includes(name) && quotingOf(column, shape) !== "quoted") ||
+    (named(shape.fieldSelectors) &&
+      !named([...shape.quotedColumns, ...shape.unquotedColumns])) ||
     (refs.length > 0 &&
       refs.every((ref) => aliasClauses.includes(ref.clause)) &&
       !named(shape.otherColumns)) ||
-    named(shape.arrayJoinAliases) ||
-    shape.columnAliasedTables.some(
-      (t) =>
-        fold(t.name) === fold(table.name) &&
-        (t.schema === null ||
-          table.schema === null ||
-          fold(t.schema) === fold(table.schema)),
-    )
+    named(shape.arrayJoinAliases)
   );
 }
 
@@ -215,30 +223,25 @@ export function createSqlColumnReader(
       referencesOf(sql, database, valuedTags, ({ usedFields }, shape) => ({
         status: "read",
         columns: usedFields.flatMap((field) => {
-          const table = soleTable(field);
+          const source = soleTable(field);
           const engine = engineOf(database);
           const implicit =
             engine !== null && Object.hasOwn(IMPLICIT_COLUMNS, engine)
               ? IMPLICIT_COLUMNS[engine]
               : [];
-          return table !== null &&
+          return source !== null &&
             field.type === "single_column" &&
             !isTagPlaceholder(field.column) &&
             !isNotTableColumn(
               field.column,
-              table,
+              source.alias,
               shape,
               implicit,
               aliasClausesOf(engine),
             )
             ? [
                 {
-                  table: {
-                    database,
-                    ...table,
-                    nullSchema: "default",
-                    caseMatters: false,
-                  },
+                  table: sqlTable(database, source.table),
                   column: field.column,
                   quoting: quotingOf(field.column, shape),
                 },

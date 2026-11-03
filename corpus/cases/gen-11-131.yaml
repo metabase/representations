@@ -1,6 +1,6 @@
 description: rename-input
 origin: corpus-gen.ts, seed 11, case 131, shrunk to 1 of 1 edits
-known: 'collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform ("The transform test could not fully remap the source to test tables; these reference(s) remain: public.orders. Alias each source table and qualify its columns by the alias (e.g. `FROM my_table t ... t.col`), not by the table name."), which no lint rule predicts'
+known: null
 edits:
   collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: |
     name: "Monthly Order Summary: orders per month"

@@ -233,7 +233,7 @@ describe("reportIncrementalTags", () => {
     return recorded;
   };
 
-  it("reports an incremental native transform with no table variable", () => {
+  it("reports an incremental native transform with no template tag of type table", () => {
     expect(
       incrementalFindings(
         incremental({ templateTags: [TEXT_TAG], checkpointField: CREATED_AT }),
@@ -243,7 +243,7 @@ describe("reportIncrementalTags", () => {
         rule: "missing-incremental-table-tag",
         file: TRANSFORM_FILE,
         message:
-          "the incremental native query has no table variable for Metabase to put its range filter in",
+          "the incremental native query has no template tag of type table ({{table}}) for Metabase to put its range filter in",
         related: [],
       },
     ]);
@@ -255,7 +255,7 @@ describe("reportIncrementalTags", () => {
         incremental({ templateTags: [USERS_TAG], checkpointField: CREATED_AT }),
       ).map((r) => r.message),
     ).toEqual([
-      "no table variable names public.events, the table of the checkpoint field, for Metabase to put the incremental range filter in",
+      "no template tag of type table ({{table}}) names public.events, the table of the checkpoint field, for Metabase to put the incremental range filter in",
     ]);
   });
 
@@ -303,7 +303,7 @@ describe("reportIncrementalTags", () => {
         }),
       ).map((r) => r.message),
     ).toEqual([
-      "no table variable names public.events, the table of the checkpoint field, for Metabase to put the incremental range filter in",
+      "no template tag of type table ({{table}}) names public.events, the table of the checkpoint field, for Metabase to put the incremental range filter in",
     ]);
   });
 

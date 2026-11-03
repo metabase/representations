@@ -2,9 +2,12 @@ import { describe, expect, it } from "bun:test";
 
 import {
   type DefaultSchemaOf,
+  exactTable,
   sameTable,
+  sqlTable,
   type TableKey,
   tableLabel,
+  targetTable,
   uniqueTables,
 } from "./tables.js";
 
@@ -13,26 +16,14 @@ const table = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({
-  database,
-  schema,
-  name,
-  nullSchema: "default",
-  caseMatters: false,
-});
+): TableKey => sqlTable(database, { schema, name });
 
 /** A table named by an MBQL reference: a null schema is the table with no schema. */
 const ref = (
   database: string | null,
   schema: string | null,
   name: string,
-): TableKey => ({
-  database,
-  schema,
-  name,
-  nullSchema: "none",
-  caseMatters: true,
-});
+): TableKey => exactTable(database, { schema, name });
 
 const noSchemas: DefaultSchemaOf = () => null;
 const defaultOf =
@@ -41,6 +32,30 @@ const defaultOf =
     database !== null && Object.hasOwn(schemas, database)
       ? schemas[database]
       : null;
+
+describe("table constructors", () => {
+  it("give each kind of name its rule for a null schema and for case", () => {
+    const name = { schema: null, name: "orders" };
+    expect(sqlTable("db", name)).toEqual({
+      database: "db",
+      ...name,
+      nullSchema: "default",
+      caseMatters: false,
+    });
+    expect(exactTable("db", name)).toEqual({
+      database: "db",
+      ...name,
+      nullSchema: "none",
+      caseMatters: true,
+    });
+    expect(targetTable("db", name)).toEqual({
+      database: "db",
+      ...name,
+      nullSchema: "default",
+      caseMatters: true,
+    });
+  });
+});
 
 describe("sameTable", () => {
   it("compares names and schemas exactly when the case of both matters, as Metabase's import looks them up", () => {

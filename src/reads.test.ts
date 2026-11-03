@@ -1,7 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 import { type Doc, indexByEntityId } from "./documents.js";
-import { createSnippetFinder } from "./reads.js";
+import { createReader, createSnippetFinder } from "./reads.js";
+import { createSourceFinder } from "./query-sources.js";
+import { loadSchemas } from "./schemas.js";
+import { exactTable, sqlTable } from "./tables.js";
 
 const SNIPPET_ID = "SnippetId000000000001";
 
@@ -47,5 +50,116 @@ describe("createSnippetFinder", () => {
       content: "status = 'closed'",
     });
     expect(find([snippet, later])).toEqual({ content: "status = 'closed'" });
+  });
+});
+
+describe("createReader", () => {
+  const DB = "Warehouse";
+  const CARD_ID = "SourceCard00000000001";
+  const query = (stages: object[]) => ({
+    "lib/type": "mbql/query",
+    database: DB,
+    stages,
+  });
+  const mbql = (stage: object) => ({ "lib/type": "mbql.stage/mbql", ...stage });
+  const queryTransform = (stages: object[]) =>
+    doc("collections/transforms/t.yaml", "Transform", {
+      name: "T",
+      entity_id: "QueryTransform0000001",
+      source: { type: "query", query: query(stages) },
+      target: { database: DB, type: "table", schema: "out", name: "t" },
+    });
+  const card = (stages: object[]) =>
+    doc("collections/main/source.yaml", "Card", {
+      name: "Source",
+      entity_id: CARD_ID,
+      type: "question",
+      display: "table",
+      dataset_query: query(stages),
+    });
+  const readerOf = (docs: readonly Doc[]) =>
+    createReader(
+      docs,
+      indexByEntityId(docs),
+      createSourceFinder(loadSchemas()),
+      (sql) => ({
+        status: "read",
+        tables: sql.includes("FROM raw.events")
+          ? [{ schema: "raw", name: "events" }]
+          : [],
+      }),
+    );
+
+  it("reads a native query's tables, a source table, and a source card's tables from the card's file", () => {
+    const transform = queryTransform([
+      {
+        "lib/type": "mbql.stage/native",
+        native: "SELECT * FROM raw.events",
+      },
+    ]);
+    const source = card([mbql({ "source-table": [DB, "raw", "events"] })]);
+    const user = queryTransform([mbql({ "source-card": CARD_ID })]);
+    expect(readerOf([transform])(transform)).toEqual({
+      status: "read",
+      tables: [sqlTable(DB, { schema: "raw", name: "events" })],
+    });
+    expect(readerOf([source])(source)).toEqual({
+      status: "read",
+      tables: [exactTable(DB, { schema: "raw", name: "events" })],
+    });
+    expect(readerOf([user, source])(user)).toEqual({
+      status: "read",
+      tables: [exactTable(DB, { schema: "raw", name: "events" })],
+    });
+  });
+
+  it("is unread when a source card is not in the folder, or reads itself", () => {
+    const user = queryTransform([mbql({ "source-card": CARD_ID })]);
+    expect(readerOf([user])(user)).toEqual({
+      status: "unread",
+      reason: `source Card ${CARD_ID} is not in the folder`,
+    });
+    const loop = card([mbql({ "source-card": CARD_ID })]);
+    expect(readerOf([user, loop])(user)).toEqual({
+      status: "unread",
+      reason: `through ${loop.file}: ${loop.file} uses itself as a source`,
+    });
+  });
+
+  it("reads a Python source table with a null table_id by its name", () => {
+    const python = doc("collections/python.yaml", "Transform", {
+      name: "Python",
+      source: {
+        type: "python",
+        body: "def transform(up):\n    return up",
+        "source-tables": [
+          {
+            alias: "up",
+            database_id: "Warehouse",
+            schema: "analytics",
+            table: "upstream_out",
+            table_id: null,
+          },
+        ],
+      },
+    });
+    const readsOf = createReader(
+      [python],
+      indexByEntityId([python]),
+      createSourceFinder(loadSchemas()),
+      () => ({ status: "unread", reason: "no SQL" }),
+    );
+    expect(readsOf(python)).toEqual({
+      status: "read",
+      tables: [
+        {
+          database: "Warehouse",
+          schema: "analytics",
+          name: "upstream_out",
+          nullSchema: "none",
+          caseMatters: true,
+        },
+      ],
+    });
   });
 });

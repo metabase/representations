@@ -1,7 +1,8 @@
 // Checks that what this package copies from Metabase is still Metabase's:
-// vendor/sql_tools.py byte-identical to Metabase's on master, the vendored
-// SQLGlot wheel the version Metabase pins, with the SHA-256 PyPI records for
-// it, and IMPORTED_MODELS equal to Metabase's exported-models without Setting.
+// vendor/sql_tools.py byte-identical to Metabase's on master and at the commit
+// vendor/sources.json records, the vendored SQLGlot wheel the version Metabase
+// pins at both, with the SHA-256 PyPI records for it, and IMPORTED_MODELS
+// equal to Metabase's exported-models on master without Setting.
 // Reads Metabase's files from GitHub and the wheel's record from PyPI.
 //
 //   bun run scripts/check-metabase-sources.ts [--base-url URL] [--pypi-url URL]
@@ -47,13 +48,28 @@ async function fetched(url: string, label: string): Promise<Response | null> {
   return response;
 }
 
-/** A file of Metabase's repository on master, or null after a failure. */
-async function metabaseFile(path: string): Promise<Uint8Array | null> {
+/**
+ * A file of Metabase's repository at `ref`, a branch or a commit, or null
+ * after a failure.
+ */
+async function metabaseFile(
+  path: string,
+  ref = "master",
+): Promise<Uint8Array | null> {
   const response = await fetched(
-    `${baseUrl}/${sqlTools.repository}/master/${path}`,
-    path,
+    `${baseUrl}/${sqlTools.repository}/${ref}/${path}`,
+    ref === "master" ? path : `${path} at ${ref}`,
   );
   return response && new Uint8Array(await response.arrayBuffer());
+}
+
+/** The SQLGlot version a Metabase pyproject.toml pins, or null when it pins none. */
+function pinnedSqlglot(pyproject: Uint8Array): string | null {
+  // Metabase's own build reads the pin with a regex, from a line of the form
+  // "sqlglot==X.Y.Z".
+  return (
+    /"sqlglot==([^"]+)"/.exec(new TextDecoder().decode(pyproject))?.[1] ?? null
+  );
 }
 
 /** PyPI's JSON record of the vendored SQLGlot version, or null after a failure. */
@@ -129,12 +145,23 @@ function modelDifferences(exported: readonly string[]): string[] {
   ];
 }
 
-const [metabaseSqlTools, pyproject, modelsClj, pypi] = await Promise.all([
+const [
+  metabaseSqlTools,
+  pyproject,
+  modelsClj,
+  pypi,
+  recordedSqlTools,
+  recordedPyproject,
+] = await Promise.all([
   metabaseFile(sqlTools.path),
   metabaseFile(sqlglot.pin),
   metabaseFile(importedModels.path),
   pypiRecord(),
+  metabaseFile(sqlTools.path, sqlTools.commit),
+  metabaseFile(sqlglot.pin, sqlTools.commit),
 ]);
+
+const RECORDED = `at ${sqlTools.commit}, the commit vendor/sources.json records`;
 
 if (metabaseSqlTools !== null) {
   const vendored = readFileSync(resolve(VENDOR_DIR, "sql_tools.py"));
@@ -149,21 +176,47 @@ if (metabaseSqlTools !== null) {
   }
 }
 
+if (recordedSqlTools !== null) {
+  const vendored = readFileSync(resolve(VENDOR_DIR, "sql_tools.py"));
+  if (Buffer.compare(vendored, recordedSqlTools) === 0) {
+    console.log(
+      `OK    vendor/sql_tools.py is Metabase's ${sqlTools.path} ${RECORDED}`,
+    );
+  } else {
+    fail(
+      `vendor/sql_tools.py differs from Metabase's ${sqlTools.path} ${RECORDED}. ` +
+        `Run "${UPDATE_COMMAND}", which copies the file and records its commit.`,
+    );
+  }
+}
+
 if (pyproject !== null) {
-  // Metabase's own build reads the pin with a regex, from a line of the form
-  // "sqlglot==X.Y.Z".
-  const pin = /"sqlglot==([^"]+)"/.exec(new TextDecoder().decode(pyproject));
+  const pin = pinnedSqlglot(pyproject);
   if (pin === null) {
     fail(`${sqlglot.pin} pins no sqlglot`);
-  } else if (pin[1] === sqlglot.version) {
+  } else if (pin === sqlglot.version) {
     console.log(
       `OK    vendor/ holds sqlglot ${sqlglot.version}, Metabase's pin`,
     );
   } else {
     fail(
-      `Metabase pins sqlglot ${pin[1]}; vendor/ holds ${sqlglot.version}. ` +
+      `Metabase pins sqlglot ${pin}; vendor/ holds ${sqlglot.version}. ` +
         "Vendor that wheel from PyPI, and update vendor/sources.json. " +
         DOCS_STEP,
+    );
+  }
+}
+
+if (recordedPyproject !== null) {
+  const pin = pinnedSqlglot(recordedPyproject);
+  if (pin === sqlglot.version) {
+    console.log(
+      `OK    vendor/ holds sqlglot ${sqlglot.version}, Metabase's pin ${RECORDED}`,
+    );
+  } else {
+    fail(
+      `${sqlglot.pin} ${RECORDED}, pins ${pin === null ? "no sqlglot" : `sqlglot ${pin}`}; vendor/ holds ${sqlglot.version}. ` +
+        "Vendor sql_tools.py and the SQLGlot wheel from one Metabase commit, and record that commit in vendor/sources.json.",
     );
   }
 }

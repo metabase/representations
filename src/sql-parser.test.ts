@@ -8,6 +8,8 @@ import {
   cacheBySql,
   dialectOf,
   fieldReferencesOf,
+  isParseError,
+  isParseFailure,
   loadSqlParser,
   queryShapeOf,
   referencedTablesOf,
@@ -188,9 +190,11 @@ describe("reading sql_tools' answers", () => {
       alias_refs: [["a", "order"]],
       other_columns: ["x"],
       array_join_aliases: [],
-      column_aliased_tables: [[null, "t"]],
+      column_aliases: ["s"],
+      qualified_columns: ["x"],
       quoted_columns: [],
       unquoted_columns: ["x"],
+      field_selectors: ["f"],
     };
     expect(queryShapeOf(JSON.stringify(shape))).toEqual({
       status: "read",
@@ -199,18 +203,26 @@ describe("reading sql_tools' answers", () => {
         aliasRefs: [{ name: "a", clause: "order" }],
         otherColumns: ["x"],
         arrayJoinAliases: [],
-        columnAliasedTables: [{ schema: null, name: "t" }],
+        columnAliases: ["s"],
+        qualifiedColumns: ["x"],
         quotedColumns: [],
         unquotedColumns: ["x"],
+        fieldSelectors: ["f"],
       },
     });
     for (const broken of [
       { ...shape, returns_star: "no" },
       { ...shape, alias_refs: [["a", "limit"]] },
-      { ...shape, column_aliased_tables: [["t"]] },
+      { ...shape, column_aliases: [[null, "t"]] },
+      { ...shape, qualified_columns: undefined },
+      { ...shape, field_selectors: [1] },
     ]) {
       expect(queryShapeOf(JSON.stringify(broken))).toEqual(unexpected);
     }
+    expect(queryShapeOf(JSON.stringify({ unread: "why" }))).toEqual({
+      status: "unread",
+      reason: "why",
+    });
   });
 });
 
@@ -421,6 +433,34 @@ describe("loadSqlParser", () => {
     expect(unread("SELECT 1", "no-such-dialect")).not.toBeNull();
   });
 
+  it("takes only a ParseError as a parse error, as Metabase does, and a TokenError or RecursionError as a parse failure too", () => {
+    const unread = (sql: string): Unread => {
+      const result = parser.referencedTables(sql, "postgres");
+      if (result.status !== "unread") {
+        throw new Error(`read ${sql}`);
+      }
+      return result;
+    };
+    const parse = unread("SELECT * FROM");
+    const token = unread("SELECT 'abc");
+    const recursion = unread(`SELECT ${"(".repeat(60)}1${")".repeat(60)}`);
+    const other = parser.referencedTables("SELECT 1", "no-such-dialect");
+    expect(token.reason).toStartWith("TokenError: ");
+    expect([parse, token, recursion].map(isParseError)).toEqual([
+      true,
+      false,
+      false,
+    ]);
+    expect([parse, token, recursion].map(isParseFailure)).toEqual([
+      true,
+      true,
+      true,
+    ]);
+    expect(
+      other.status === "unread" && [isParseError(other), isParseFailure(other)],
+    ).toEqual([false, false]);
+  });
+
   it("reads the fields Metabase's field_references reads: used, returned, and errors", () => {
     expect(
       parser.fieldReferences(
@@ -440,6 +480,7 @@ describe("loadSqlParser", () => {
                 {
                   type: "all_columns",
                   table: { schema: null, name: "orders" },
+                  alias: "o",
                 },
               ],
             ],
@@ -455,6 +496,7 @@ describe("loadSqlParser", () => {
                 {
                   type: "all_columns",
                   table: { schema: null, name: "orders" },
+                  alias: "o",
                 },
               ],
             ],
@@ -486,7 +528,7 @@ describe("loadSqlParser", () => {
     expect(parser.fieldReferences("SELECT * FROM", "postgres")).toEqual({
       status: "unread",
       reason:
-        "field_references reads only a single SELECT or UNION, and could not read it",
+        "Metabase reads columns only from a single SELECT or UNION statement, and could not read them from this SQL",
     });
     const union = parser.fieldReferences(
       "SELECT a FROM t UNION ALL SELECT b FROM u",
@@ -508,9 +550,46 @@ describe("loadSqlParser", () => {
       expect(parser.fieldReferences(sql, "postgres")).toEqual({
         status: "unread",
         reason:
-          "field_references reads only a single SELECT or UNION, and could not read it",
+          "Metabase reads columns only from a single SELECT or UNION statement, and could not read them from this SQL",
       });
     }
+  });
+
+  it("reads no query shape of SQL with more than one statement, as field_references reads none", () => {
+    for (const sql of [
+      "SELECT * FROM a; SELECT x FROM b",
+      "SELECT a FROM t; ;",
+    ]) {
+      expect(parser.queryShape(sql, "postgres")).toEqual({
+        status: "unread",
+        reason: "the SQL holds more than one statement",
+      });
+    }
+    expect(parser.queryShape("SELECT a FROM t;", "postgres").status).toBe(
+      "read",
+    );
+  });
+
+  it("takes a column as its SELECT list's alias by sql_tools' rule: a quoted name only in its own case", () => {
+    const aliasRefs = (sql: string) => {
+      const result = parser.queryShape(sql, "clickhouse");
+      return result.status === "read" ? result.shape.aliasRefs : result;
+    };
+    expect(
+      aliasRefs('SELECT price AS "Total", total FROM orders WHERE total > 0'),
+    ).toEqual([]);
+    expect(
+      aliasRefs("SELECT price AS Total, total FROM orders WHERE total > 0"),
+    ).toEqual([
+      { name: "total", clause: "select" },
+      { name: "total", clause: "where" },
+    ]);
+    expect(
+      aliasRefs('SELECT total AS "Total" FROM orders WHERE "Total" > 0'),
+    ).toEqual([{ name: "Total", clause: "where" }]);
+    expect(
+      aliasRefs('SELECT "total" AS total FROM orders WHERE total > 0'),
+    ).toEqual([]);
   });
 
   it("replaces table names as Metabase's replace_names does", () => {
@@ -543,5 +622,25 @@ describe("loadSqlParser", () => {
       reason:
         "ParseError: Invalid expression / Unexpected token. Line 2, Col: 12. Line 2: FROM a b c",
     });
+  });
+
+  it("names the line of SQL a ParseError names as SQLGlot counts lines, its control characters escaped", () => {
+    const reason = (sql: string) => {
+      const result = parser.referencedTables(sql, "postgres");
+      return result.status === "unread" ? result.reason : null;
+    };
+    const error =
+      "ParseError: Invalid expression / Unexpected token. Line 2, Col: 12.";
+    for (const sql of [
+      "SELECT *\r  FROM a b c\nLIMIT 1",
+      "SELECT *\r\n  FROM a b c\r\nLIMIT 1",
+      "SELECT 1,\u000b2\n  FROM a b c",
+      "SELECT 1,\u20282\n  FROM a b c",
+    ]) {
+      expect(reason(sql)).toBe(`${error} Line 2: FROM a b c`);
+    }
+    expect(reason("SELECT *\n  FROM a\u001b b c")).toBe(
+      "ParseError: Invalid expression / Unexpected token. Line 2, Col: 13. Line 2: FROM a\\u001b b c",
+    );
   });
 });

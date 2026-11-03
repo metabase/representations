@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "bun:test";
 import type { EngineOf } from "./databases.js";
 import { loadSqlParser, type SqlParser } from "./sql-parser.js";
 import {
+  createRewrittenTableReader,
   createSqlTableReader,
   type SqlTableReader,
   valuedTagNames,
@@ -137,6 +138,29 @@ describe("a SQL table reader", () => {
     });
   });
 
+  it("names SQLGlot only when SQLGlot could not parse the SQL", () => {
+    const unexpected = {
+      status: "unread" as const,
+      reason: "the SQL parser answered in a shape the lint does not know",
+    };
+    const parser: SqlParser = {
+      referencedTables: () => unexpected,
+      fieldReferences: () => unexpected,
+      replaceNames: () => unexpected,
+      queryShape: () => unexpected,
+    };
+    expect(
+      createSqlTableReader(parser, engineOf)("SELECT * FROM a", "Warehouse"),
+    ).toEqual(unexpected);
+    expect(
+      createRewrittenTableReader(parser, engineOf)(
+        "SELECT * FROM a",
+        "Warehouse",
+        [],
+      ),
+    ).toEqual(unexpected);
+  });
+
   it("refuses a query with a snippet left in it, which SQLGlot would parse", () => {
     expect(
       readSql("SELECT * FROM a WHERE {{snippet: filters}}", null, new Set()),
@@ -154,8 +178,8 @@ describe("a SQL table reader", () => {
 });
 
 // Metabase compiles a transform with no parameter values: an optional clause
-// stays only when every tag in it has a value of its own (a default, or a
-// card, snippet or table).
+// stays only when every tag in it, outside the optional clauses it holds, has a
+// value of its own (a default, or a card, snippet or table).
 describe("a SQL table reader with the tags that have values", () => {
   const JOIN_PEOPLE =
     "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.ID = o.USER_ID AND p.STATE = {{state}}]]";
@@ -181,6 +205,15 @@ describe("a SQL table reader with the tags that have values", () => {
       "SELECT * FROM ORDERS o [[JOIN PEOPLE p ON p.STATE = {{ state }} AND p.CITY = {{city}}]]",
       ["state"],
       [{ schema: null, name: "ORDERS" }],
+    ],
+    [
+      "keeps an optional clause whose tags have values, and drops only an inner clause whose tag has none",
+      "SELECT o.created_at FROM orders o [[JOIN products p ON p.id = {{a}} [[JOIN people pe ON pe.id = {{b}}]] ]]",
+      ["a"],
+      [
+        { schema: null, name: "orders" },
+        { schema: null, name: "products" },
+      ],
     ],
   ] as const)("%s", (_, sql, valued, tables) => {
     expect(readSql(sql, null, new Set(valued))).toEqual({

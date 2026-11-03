@@ -1,10 +1,12 @@
 import {
   createEngineOf,
   databaseDefaultSchemas,
+  databasesOf,
   type EngineOf,
 } from "./databases.js";
 import {
   type DefaultSchemas,
+  MissingDefaultSchemasError,
   type NamedTable,
   resolveDefaultSchemas,
   type TestTables,
@@ -17,7 +19,6 @@ import {
   isQuerySource,
   loadDocs,
   queryDatabaseOf,
-  targetDatabaseOf,
   type UnreadableFile,
   validDocsOf,
   type ValidDoc,
@@ -38,11 +39,11 @@ import {
   type LintRule,
   type Report,
 } from "./findings.js";
-import { cyclePath, cycles } from "./graph.js";
+import { cyclePath, cycles, type Edge } from "./graph.js";
 import { createSourceFinder, type SourceFinder } from "./query-sources.js";
 import { engineFacts, FOLDS_ALL_IDENTIFIERS } from "./engines.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
-import { loadSchemas, type Schemas } from "./schemas.js";
+import { loadSchemas } from "./schemas.js";
 import { readSettingsFile } from "./settings.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { withSqlParser } from "./sql-parser.js";
@@ -53,10 +54,13 @@ import {
 } from "./sql-tables.js";
 import {
   type DefaultSchemaOf,
+  exactTable,
   sameTable,
+  sqlTable,
   tableLabel,
   type TableKey,
   type TableName,
+  uniqueTables,
 } from "./tables.js";
 import {
   reportEmptyExpectations,
@@ -70,14 +74,14 @@ import {
   testedTransformsOf,
   testInputs,
 } from "./test-checks.js";
-import { reportTestSql } from "./test-sql-checks.js";
+import { createQueryReader, reportTestSql } from "./test-sql-checks.js";
 import {
   reportCollectionNamespaces,
   reportEmptyNativeQueries,
   reportIncrementalTags,
   reportMissingTargetDatabases,
 } from "./transform-checks.js";
-import { stringOrNull } from "./values.js";
+import { isRecord, stringOrNull } from "./values.js";
 
 export type LintOptions = {
   folder: string;
@@ -93,8 +97,8 @@ export type LintResult = {
   findings: LintFinding[];
   /**
    * The names of the databases the files name, sorted: Database and table
-   * files, and the databases of queries, table references and transform
-   * targets. SQL is not read.
+   * files, and the databases each file writes to or reads (`databasesOf`).
+   * SQL is not read.
    */
   databases: string[];
 };
@@ -117,14 +121,37 @@ function entityOf({ model, body }: FindingSubject): LintEntity {
 }
 
 /**
- * For each transform whose sources were read, by index: the indexes of the
- * transforms whose target it reads.
+ * Whether two table names are one table in the warehouse (`sameTable`). On an
+ * engine that folds every name (`FOLDS_ALL_IDENTIFIERS`), names compare
+ * ignoring case, also a target's, which Metabase creates in quotes as named.
+ */
+function sameWarehouseTable(
+  a: TableKey,
+  b: TableKey,
+  defaultSchemaOf: DefaultSchemaOf,
+  engineOf: EngineOf,
+): boolean {
+  const folds = FOLDS_ALL_IDENTIFIERS.has(
+    engineOf(a.database ?? b.database) ?? "",
+  );
+  const inWarehouse = (table: TableKey): TableKey =>
+    folds ? { ...table, caseMatters: false } : table;
+  return sameTable(inWarehouse(a), inWarehouse(b), defaultSchemaOf);
+}
+
+/** A transform's read of another transform's target: that transform's index, and the table read. */
+type ReadEdge = Edge & { read: TableKey };
+
+/**
+ * For each transform whose sources were read, by index: each transform whose
+ * target it reads (`sameWarehouseTable`), with the first table it reads there.
  */
 function readEdges(
   transforms: readonly Transform[],
   defaultSchemaOf: DefaultSchemaOf,
-): Map<number, number[]> {
-  const edges = new Map<number, number[]>();
+  engineOf: EngineOf,
+): Map<number, ReadEdge[]> {
+  const edges = new Map<number, ReadEdge[]>();
   transforms.forEach((transform, i) => {
     if (transform.reads.status !== "read") {
       return;
@@ -132,12 +159,15 @@ function readEdges(
     const reads = transform.reads.tables;
     edges.set(
       i,
-      transforms.flatMap(({ target }, j) =>
-        target !== null &&
-        reads.some((t) => sameTable(t, target, defaultSchemaOf))
-          ? [j]
-          : [],
-      ),
+      transforms.flatMap(({ target }, to) => {
+        const read =
+          target === null
+            ? undefined
+            : reads.find((t) =>
+                sameWarehouseTable(t, target, defaultSchemaOf, engineOf),
+              );
+        return read === undefined ? [] : [{ to, read }];
+      }),
     );
   });
   return edges;
@@ -166,7 +196,7 @@ function reportUnreadSources(
 
 /**
  * A warning for each transform whose target another transform also writes
- * (`sameTable`), ignoring case on an engine that folds every name.
+ * (`sameWarehouseTable`).
  */
 function reportDuplicateTargets(
   transforms: readonly Transform[],
@@ -178,22 +208,17 @@ function reportDuplicateTargets(
     if (target === null) {
       continue;
     }
-    // Metabase creates the target in quotes, as named; an engine that folds
-    // every name puts two names that differ in case in one table.
-    const folds = FOLDS_ALL_IDENTIFIERS.has(engineOf(target.database) ?? "");
-    const asCreated = (table: TableKey): TableKey =>
-      folds ? { ...table, caseMatters: false } : table;
     const clashes = transforms.filter(
       (other) =>
         other.doc !== doc &&
         other.target !== null &&
-        sameTable(asCreated(target), asCreated(other.target), defaultSchemaOf),
+        sameWarehouseTable(target, other.target, defaultSchemaOf, engineOf),
     );
     if (clashes.length > 0) {
       report(
         "duplicate-target",
         doc,
-        `target ${tableLabel(target)} is also written by ${clashes.length} other transform(s)`,
+        `target ${tableLabel(target)} is also written by ${clashes.length} other transform(s); each run of one replaces the other's table`,
         clashes.map((c) => c.doc.file),
       );
     }
@@ -201,16 +226,20 @@ function reportDuplicateTargets(
 }
 
 /**
- * Reports each table a transform reads, or a Card's query names, by a
- * reference with a null schema (`nullSchema` `"none"`) in a database whose
- * engine has schemas. Metabase imports such a reference as the table with no
- * schema, and creates an inactive table when none exists
- * (`resolve/default.clj` `import-table-fk`), so every query on it fails. A
+ * Reports each table a transform reads, or a Card's query names, and the
+ * table of each `dimension` tag with no default of either, by a reference
+ * with a null schema (`nullSchema` `"none"`) in a database whose engine has
+ * schemas. Metabase imports such a reference as the table with no schema, and
+ * creates an inactive stub table that holds no data when none exists
+ * (`resolve/default.clj` `import-table-fk`). A query that reads that table
+ * fails on every run: an error. A `dimension` tag with no default compiles to
+ * `1 = 1` and reads no table, so its filter fails only once the tag has a
+ * value: a warning (`null-schema-tag`) on a transform, an error on a Card. A
+ * table both read and named by such a tag is reported once, as read. A
  * database whose engine is unknown gives no finding, nor does one in
  * `noSchemaDatabases`, nor a table that a table file or a transform target
- * with no schema names. A transform reports
- * the tables of the cards it reads too; a Card, only those its own query
- * names.
+ * with no schema names. A transform reports the tables of the cards it reads
+ * too; a Card, only those its own query names.
  */
 function reportNullSchemaReferences(
   docs: readonly Doc[],
@@ -225,29 +254,67 @@ function reportNullSchemaReferences(
     ...targetsOf(transforms),
   ].filter((t) => t.schema === null);
   const readers = [
-    ...transforms.flatMap(({ doc, reads }) =>
-      reads.status === "read" ? [{ doc, tables: reads.tables }] : [],
-    ),
+    ...transforms.map(({ doc, reads }) => {
+      const sources = findSources(doc.body, doc.model);
+      return {
+        doc,
+        reads: reads.status === "read" ? reads.tables : [],
+        tagTables: sources.unvaluedFilterTables,
+        tagFinding: {
+          rule: "null-schema-tag",
+          effect:
+            "The transform runs, since the tag compiles to 1 = 1, and fails once the tag has a value.",
+        },
+      } as const;
+    }),
     ...docs
       .filter((doc) => doc.model === "Card")
-      .map((doc) => ({ doc, tables: findSources(doc.body, doc.model).tables })),
+      .map((doc) => {
+        const sources = findSources(doc.body, doc.model);
+        return {
+          doc,
+          reads: sources.tables,
+          tagTables: sources.unvaluedFilterTables,
+          tagFinding: {
+            rule: "null-schema-reference",
+            effect: "The card fails once the tag has a value.",
+          },
+        } as const;
+      }),
   ];
-  for (const { doc, tables } of readers) {
-    for (const table of tables) {
+  const missing = (table: TableKey, engine: string | null) =>
+    table.schema === null &&
+    table.nullSchema === "none" &&
+    engineFacts(engine)?.schemas === true &&
+    !(table.database !== null && noSchemaDatabases.has(table.database)) &&
+    !noSchemaTables.some(
+      (t) => t.database === table.database && t.name === table.name,
+    );
+  const cause = (engine: string | null) =>
+    `whose engine ${engine} has schemas: Metabase imports a reference with a null schema as a table with no schema, an inactive stub that holds no data`;
+  const fix =
+    "Name the table's schema, or, if the database has no schemas, give it a null default schema in .metabase-lint.json";
+  for (const { doc, reads, tagTables, tagFinding } of readers) {
+    // `uniqueTables` keeps the first of equal tables, so a tag's table that
+    // the query also reads stays among the reads, which hold no repeats.
+    const tagOnly = uniqueTables([...reads, ...tagTables]).slice(reads.length);
+    for (const table of reads) {
       const engine = engineOf(table.database);
-      if (
-        table.schema === null &&
-        table.nullSchema === "none" &&
-        engineFacts(engine)?.schemas === true &&
-        !(table.database !== null && noSchemaDatabases.has(table.database)) &&
-        !noSchemaTables.some(
-          (t) => t.database === table.database && t.name === table.name,
-        )
-      ) {
+      if (missing(table, engine)) {
         report(
           "null-schema-reference",
           doc,
-          `reads ${tableLabel(table)} in database ${table.database}, whose engine ${engine} has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema`,
+          `reads ${tableLabel(table)} in database ${table.database}, ${cause(engine)}, so every run fails. ${fix}`,
+        );
+      }
+    }
+    for (const table of tagOnly) {
+      const engine = engineOf(table.database);
+      if (missing(table, engine)) {
+        report(
+          tagFinding.rule,
+          doc,
+          `a dimension tag with no default filters on a field of ${tableLabel(table)} in database ${table.database}, ${cause(engine)}. ${tagFinding.effect} ${fix}`,
         );
       }
     }
@@ -256,13 +323,10 @@ function reportNullSchemaReferences(
 
 /** The table a table file defines. */
 function tableOfFile(doc: ValidDoc<"Table">): TableKey {
-  return {
-    database: doc.body.db_id,
+  return exactTable(doc.body.db_id, {
     schema: doc.body.schema ?? null,
     name: doc.body.name,
-    nullSchema: "none",
-    caseMatters: true,
-  };
+  });
 }
 
 /**
@@ -273,25 +337,17 @@ function tableOfFile(doc: ValidDoc<"Table">): TableKey {
 function reportCycles(
   transforms: readonly Transform[],
   defaultSchemaOf: DefaultSchemaOf,
+  engineOf: EngineOf,
   report: Report,
 ): void {
-  const edges = readEdges(transforms, defaultSchemaOf);
-  const step = (from: Transform, to: Transform): string => {
-    const read =
-      from.reads.status === "read" && to.target !== null
-        ? from.reads.tables.find(
-            (t) =>
-              to.target !== null && sameTable(t, to.target, defaultSchemaOf),
-          )
-        : undefined;
-    return read === undefined
-      ? `${displayName(from.doc)} reads the target of ${displayName(to.doc)}`
-      : `${displayName(from.doc)} reads ${tableLabel(read)}, the target of ${displayName(to.doc)}`;
-  };
+  const edges = readEdges(transforms, defaultSchemaOf, engineOf);
   for (const component of cycles(edges, transforms.length)) {
     const [first, ...rest] = component.map((i) => transforms[i]);
-    const path = cyclePath(edges, component).map((i) => transforms[i]);
-    const steps = path.slice(1).map((to, i) => step(path[i], to));
+    const path = cyclePath(edges, component);
+    const steps = path.map(({ to, read }, i) => {
+      const from = i === 0 ? first : transforms[path[i - 1].to];
+      return `${displayName(from.doc)} reads ${tableLabel(read)}, the target of ${displayName(transforms[to].doc)}`;
+    });
     report(
       "transform-cycle",
       first.doc,
@@ -303,9 +359,9 @@ function reportCycles(
 
 /**
  * Warns on each file whose entity_id another file of its model also holds.
- * Metabase loads both, the second over the first (`holderOf`): the last file
- * in path order stands and the others are lost, with no message. Files of
- * different models may share an entity_id: Metabase keeps each.
+ * Remote sync keeps one, the last in path order (`lookUpEntity`), and drops
+ * the others with no message. Files of different models may share an
+ * entity_id: Metabase keeps each.
  */
 function reportDuplicateEntityIds(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
@@ -346,19 +402,35 @@ function reportUnreadableFiles(
 }
 
 /**
- * Warns on each key a document's map holds more than once. Metabase keeps the
- * last value with no message (`readYaml`), so the others are lost.
+ * Warns on each file that is not valid UTF-8. Remote sync decodes a file as
+ * Java's `String` does, with no error.
+ */
+function reportInvalidUtf8(files: readonly string[], report: Report): void {
+  for (const file of files) {
+    report(
+      "invalid-utf8",
+      { file, model: null, body: {} },
+      "the file is not valid UTF-8, and Metabase reads each invalid byte sequence as U+FFFD; save the file as UTF-8",
+    );
+  }
+}
+
+/**
+ * Warns on each key a document's map holds more than once. Metabase keeps one
+ * value with no message, so the others are lost.
  */
 function reportDuplicateKeys(
   duplicatedKeys: readonly DuplicatedKeys[],
   report: Report,
 ): void {
   for (const { doc, keys } of duplicatedKeys) {
-    for (const { source, line, column } of keys) {
+    for (const { source, line, column, keeps } of keys) {
       report(
         "duplicate-yaml-key",
         doc,
-        `the key ${source} is written again at ${line}:${column} in the same map; Metabase keeps only the last value`,
+        keeps === "last"
+          ? `the key ${source} is written again at ${line}:${column} in the same map; Metabase keeps only the last value`
+          : `the key ${source} is written again at ${line}:${column} in a merge source written after <<:; Metabase keeps only the first value`,
       );
     }
   }
@@ -375,17 +447,38 @@ function reportSkippedFiles(skipped: readonly string[], report: Report): void {
   }
 }
 
-/** Reports each file of `LINTED_MODELS` that fails its schema. */
+/**
+ * Whether `doc` is a transform whose source database was deleted: Metabase
+ * exports it with a null `source_database_id` and marks its source
+ * `serdes/unresolved`, and imports it, but cannot run it.
+ */
+function hasDeletedSourceDatabase(doc: Doc): boolean {
+  const { source_database_id, source } = doc.body;
+  return (
+    doc.model === "Transform" &&
+    source_database_id === null &&
+    isRecord(source) &&
+    source["serdes/unresolved"] === true
+  );
+}
+
+/**
+ * Reports each file of `LINTED_MODELS` that fails its schema; a transform
+ * whose source database was deleted, by that cause.
+ */
 function reportSchemaMismatches(docs: readonly Doc[], report: Report): void {
   for (const doc of docs) {
     const { model, schema } = doc;
-    if (schema.status === "failed" && LINTED_MODELS.has(model)) {
-      report(
-        "schema",
-        doc,
-        `${model} does not match its schema: ${schema.error.path} ${schema.error.message}`,
-      );
+    if (schema.status !== "failed" || !LINTED_MODELS.has(model)) {
+      continue;
     }
+    report(
+      "schema",
+      doc,
+      hasDeletedSourceDatabase(doc)
+        ? "the transform's source database was deleted, so the transform cannot run: Metabase writes its source_database_id as null and marks its source serdes/unresolved. Point the transform at an existing database, or delete it"
+        : `${model} does not match its schema: ${schema.error.path} ${schema.error.message}`,
+    );
   }
 }
 
@@ -411,7 +504,7 @@ export async function transformReads({
     transformsOf(
       docs,
       byEntityId,
-      schemas,
+      createSourceFinder(schemas),
       createSqlTableReader(parser, engineOf),
     ),
   );
@@ -428,27 +521,22 @@ export async function transformReads({
 }
 
 /** `LintResult.databases` for `docs`. */
-function namedDatabases(docs: readonly Doc[], schemas: Schemas): string[] {
-  const findSources = createSourceFinder(schemas);
+function namedDatabases(
+  docs: readonly Doc[],
+  findSources: SourceFinder,
+): string[] {
   const names = new Set<string>();
-  const add = (name: unknown) => {
+  for (const doc of docs) {
+    databasesOf(doc, findSources).forEach((d) => names.add(d));
+    const name =
+      doc.model === "Database"
+        ? doc.body.name
+        : doc.model === "Table"
+          ? doc.body.db_id
+          : null;
     if (typeof name === "string") {
       names.add(name);
     }
-  };
-  for (const doc of docs) {
-    const sources = findSources(doc.body, doc.model);
-    sources.tables.forEach((t) => add(t.database));
-    sources.natives.forEach((n) => add(n.database));
-    if (doc.model === "Database") {
-      add(doc.body.name);
-    }
-    if (doc.model === "Table") {
-      add(doc.body.db_id);
-    }
-  }
-  for (const transform of validDocsOf(docs, "Transform")) {
-    add(targetDatabaseOf(transform));
   }
   return [...names].sort();
 }
@@ -457,10 +545,10 @@ function namedDatabases(docs: readonly Doc[], schemas: Schemas): string[] {
 function transformsOf(
   docs: readonly Doc[],
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  schemas: Schemas,
+  findSources: SourceFinder,
   readSql: SqlTableReader,
 ): Transform[] {
-  const readsOf = createReader(docs, byEntityId, schemas, readSql);
+  const readsOf = createReader(docs, byEntityId, findSources, readSql);
   return validDocsOf(docs, "Transform").map((doc) => transformOf(doc, readsOf));
 }
 
@@ -499,24 +587,16 @@ function expectationReads(
     const result =
       "sql" in expectation ? readSql(expectation.sql, database) : null;
     return result?.status === "read"
-      ? result.tables.map(
-          (t): TableKey => ({
-            database,
-            ...t,
-            nullSchema: "default",
-            caseMatters: false,
-          }),
-        )
+      ? result.tables.map((t) => sqlTable(database, t))
       : [];
   });
 }
 
 /**
- * For each test of a query transform, with the test's file, the tables its
- * rewrite compares by the default schema: the tables it replaces (its inputs
- * and the transform's target), and the tables named in SQL that the rewrite
- * maps to them (those its expectations read, and those the transform reads by
- * SQL).
+ * For each test of a query transform, with the test's file, the tables it
+ * compares by the default schema: the tables its rewrite replaces (its inputs
+ * and the transform's target), the tables its expectations read, and the
+ * tables the transform reads, which the test matches to its inputs.
  */
 function testRewriteTables(
   tested: readonly TestedTransform[],
@@ -528,9 +608,7 @@ function testRewriteTables(
       ...testInputs(test, transform),
       transform.target,
       ...expectationReads({ test, transform }, readSql),
-      ...(transform.reads.status === "read"
-        ? transform.reads.tables.filter((t) => t.nullSchema === "default")
-        : []),
+      ...(transform.reads.status === "read" ? transform.reads.tables : []),
     ],
   }));
 }
@@ -571,16 +649,18 @@ function comparedTables(
 }
 
 /**
- * Checks the references between transforms, tables and transform tests in a
- * folder of representation files. Reads only the files; needs no Metabase.
+ * Checks the transforms, transform tests and tables in a folder of
+ * representation files, and the references between them, for what Metabase
+ * refuses or likely gets wrong. Reads only the files; needs no Metabase.
  * Findings are grouped by rule, in the order of `LINT_RULES`, then by file.
  * Native SQL is parsed by Metabase's own code, loaded once per process, the
  * first time a check reads SQL (`withSqlParser`).
  *
  * Rejects with a `LintSetupError` before any check when the settings file is
- * invalid, and a `MissingDefaultSchemasError` when a database needs a default
- * schema that neither `defaultSchemas`, the settings file, its Database file
- * nor its engine gives (`resolveDefaultSchemas`), each over the next.
+ * invalid, and a `MissingDefaultSchemasError`, with `LintResult.databases`,
+ * when a database needs a default schema that neither `defaultSchemas`, the
+ * settings file, its Database file nor its engine gives
+ * (`resolveDefaultSchemas`), each over the next.
  * Rejects with a `LintSetupError` when the SQL parser cannot start.
  */
 export async function lint({
@@ -589,21 +669,23 @@ export async function lint({
 }: LintOptions): Promise<LintResult> {
   const settings = readSettingsFile(folder);
   const schemas = loadSchemas();
-  const { docs, skipped, unreadable, duplicatedKeys } = loadDocs(
+  const { docs, skipped, unreadable, duplicatedKeys, invalidUtf8 } = loadDocs(
     folder,
     schemas,
   );
   const engineOf = createEngineOf(docs, settings.engines);
   const byEntityId = indexByEntityId(docs);
   const files = docs.length + skipped.length + unreadable.length;
+  const findSources = createSourceFinder(schemas);
   return withSqlParser((parser) => {
     const readSql = createSqlTableReader(parser, engineOf);
-    const transforms = transformsOf(docs, byEntityId, schemas, readSql);
+    const transforms = transformsOf(docs, byEntityId, findSources, readSql);
     const transformOfDoc = new Map<Doc, Transform>(
       transforms.map((t) => [t.doc, t]),
     );
     const tested = testedTransformsOf(docs, byEntityId, transformOfDoc);
-    const defaultSchemaOf = resolveDefaultSchemas({
+    const databases = namedDatabases(docs, findSources);
+    const defaultSchemaInputs = {
       names: comparedTables(docs, transforms, tested, readSql),
       testTables: testRewriteTables(tested, readSql),
       given: {
@@ -612,13 +694,22 @@ export async function lint({
         ...defaultSchemas,
       },
       engineOf,
-    });
+    };
+    let defaultSchemaOf: DefaultSchemaOf;
+    try {
+      defaultSchemaOf = resolveDefaultSchemas(defaultSchemaInputs);
+      // eslint-disable-next-line no-restricted-syntax -- resolves default schemas only; reads no SQL
+    } catch (error) {
+      throw error instanceof MissingDefaultSchemasError
+        ? new MissingDefaultSchemasError(error.databases, databases)
+        : error;
+    }
 
     const findings: LintFinding[] = [];
     const report = createReport(findings);
-    const findSources = createSourceFinder(schemas);
 
     reportUnreadableFiles(unreadable, report);
+    reportInvalidUtf8(invalidUtf8, report);
     reportSkippedFiles(skipped, report);
     reportDuplicateKeys(duplicatedKeys, report);
     reportSchemaMismatches(docs, report);
@@ -627,7 +718,7 @@ export async function lint({
     reportUnreadSources(transforms, report);
     reportDuplicateTargets(transforms, defaultSchemaOf, engineOf, report);
 
-    reportCycles(transforms, defaultSchemaOf, report);
+    reportCycles(transforms, defaultSchemaOf, engineOf, report);
     reportCollectionNamespaces(docs, byEntityId, report);
     reportIncrementalTags(docs, defaultSchemaOf, report);
     reportMissingTargetDatabases(docs, report);
@@ -653,26 +744,21 @@ export async function lint({
     );
 
     reportTransformIds(docs, byEntityId, transformOfDoc, report);
-    reportTestFindings(
-      tested,
-      defaultSchemaOf,
-      createRewrittenTableReader(parser, engineOf),
-      report,
-    );
+    const readRewritten = createRewrittenTableReader(parser, engineOf);
+    reportTestFindings(tested, defaultSchemaOf, readRewritten, report);
     reportRowsColumns(docs, report);
     reportExpectationNames(docs, report);
     reportEmptyExpectations(docs, report);
     reportUntestableEngines(tested, engineOf, report);
     reportTestSql(
       {
-        docs,
-        byEntityId,
         transforms,
         tested,
         defaultSchemaOf,
         engineOf,
-        schemas,
+        queryOf: createQueryReader(docs, byEntityId, findSources),
         readSql,
+        readRewritten,
         columns: createSqlColumnReader(parser, engineOf),
       },
       report,
@@ -680,7 +766,7 @@ export async function lint({
     return {
       files,
       findings: findings.sort(byRuleThenFile),
-      databases: namedDatabases(docs, schemas),
+      databases,
     };
   });
 }

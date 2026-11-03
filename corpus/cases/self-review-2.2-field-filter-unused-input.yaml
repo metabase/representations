@@ -1,8 +1,6 @@
 description: A transform filters by a field-filter tag on products.category, and its test gives an input for products too.
 origin: "self-review of #40 at 6405d92, section 2.2"
-known: |-
-  collections/transforms/daily_order_summary.yaml: only the lint reads public.products
-  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unused-inputs ("Test input(s) declared for table(s) the transform does not read: public.products. Remove them."); the lint reports no unused-input
+known: null
 edits:
   collections/transforms/daily_order_summary.yaml: |
     name: Daily Order Summary

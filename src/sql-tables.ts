@@ -10,6 +10,7 @@ import {
 import {
   cacheBySql,
   dialectOf,
+  isParseFailure,
   type ParsedTables,
   type SqlParser,
   type TableReplacement,
@@ -55,8 +56,9 @@ export function valuedTagNames(templateTags: unknown): Set<string> {
 
 /**
  * The SQL of `parts` with each template tag as one word. Each optional clause
- * `[[ … ]]` keeps its text, unless a tag in the clause is not in
- * `valuedTags`: Metabase leaves such a clause out.
+ * `[[ … ]]` keeps its text, unless a tag in the clause, outside the optional
+ * clauses it holds, is not in `valuedTags`: Metabase leaves such a clause out,
+ * and decides each inner clause on its own tags.
  */
 function replaceTemplateTags(
   parts: readonly NativePart[],
@@ -70,8 +72,9 @@ function replaceTemplateTags(
         case "tag":
           return ` ${tagPlaceholder(part.name.trim())} `;
         case "optional":
-          return tagNames(part.parts).every((name) =>
-            valuedTags.has(name.trim()),
+          return part.parts.every(
+            (inner) =>
+              inner.type !== "tag" || valuedTags.has(inner.name.trim()),
           )
             ? ` ${replaceTemplateTags(part.parts, valuedTags)} `
             : " ";
@@ -91,6 +94,13 @@ function tagOfPlaceholder(name: string): string | null {
   return hex === undefined
     ? null
     : `{{${Buffer.from(hex, "hex").toString("utf8")}}}`;
+}
+
+/** `unread`, its reason prefixed when SQLGlot could not parse the SQL. */
+function parseFailure(unread: Unread): Unread {
+  return isParseFailure(unread)
+    ? { ...unread, reason: `SQLGlot could not parse it: ${unread.reason}` }
+    : unread;
 }
 
 /** Why the lint does not read a native query of `engine`. */
@@ -174,10 +184,7 @@ export function createSqlTableReader(
     }
     const result = parse(prepared.sql, prepared.dialect);
     if (result.status === "unread") {
-      return {
-        status: "unread",
-        reason: `SQLGlot could not parse it: ${result.reason}`,
-      };
+      return parseFailure(result);
     }
     return {
       status: "read",
@@ -197,16 +204,19 @@ export function createSqlTableReader(
 
 /**
  * The tables SQL reads once `replacements` replace the tables they name, in
- * the database `database`: Metabase's `replace_names` on the SQL as written,
- * then `referenced_tables` with large literal lists stripped
- * (`stripLargeLiteralLists`), in the dialect of the database's engine. A quoted name matches a replacement only in its own
- * case. Unread when the engine's native queries are not SQL, or SQLGlot
- * cannot parse the SQL.
+ * the database `database`: Metabase's `replace_names` on the SQL as
+ * `prepareSql` gives it, then `referenced_tables` with large literal lists
+ * stripped (`stripLargeLiteralLists`), in the dialect of the database's
+ * engine. `valuedTags` is as for `SqlTableReader`; each template tag stays a
+ * placeholder (`isTagPlaceholder`). A quoted name matches a replacement only
+ * in its own case. Unread when `prepareSql` refuses the SQL, or SQLGlot
+ * cannot parse it.
  */
 export type RewrittenTableReader = (
   sql: string,
   database: string | null,
   replacements: readonly TableReplacement[],
+  valuedTags?: ReadonlySet<string>,
 ) => ParsedTables;
 
 /** Returns a `RewrittenTableReader` that parses with `parser`. */
@@ -214,22 +224,17 @@ export function createRewrittenTableReader(
   parser: SqlParser,
   engineOf: EngineOf,
 ): RewrittenTableReader {
-  return (sql, database, replacements) => {
-    const engine = engineOf(database);
-    if (engine !== null && !nativeQueriesAreSql(engine)) {
-      return notSql(engine);
+  return (sql, database, replacements, valuedTags) => {
+    const prepared = prepareSql(sql, engineOf(database), valuedTags);
+    if (prepared.status === "unread") {
+      return prepared;
     }
-    const dialect = dialectOf(engine);
-    const replaced = parser.replaceNames(sql, replacements, dialect);
+    const { dialect } = prepared;
+    const replaced = parser.replaceNames(prepared.sql, replacements, dialect);
     const result =
       replaced.status === "read"
         ? parser.referencedTables(stripLargeLiteralLists(replaced.sql), dialect)
         : replaced;
-    return result.status === "read"
-      ? result
-      : {
-          status: "unread",
-          reason: `SQLGlot could not parse it: ${result.reason}`,
-        };
+    return result.status === "read" ? result : parseFailure(result);
   };
 }

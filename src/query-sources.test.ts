@@ -31,6 +31,15 @@ function transform(stages: object[]) {
 const mbql = (stage: object) => ({ "lib/type": "mbql.stage/mbql", ...stage });
 
 describe("createSourceFinder", () => {
+  it("walks a document once per model, and a copy of it again", () => {
+    const doc = transform([mbql({ "source-table": [DB, null, "ORDERS"] })]);
+    const first = findSources(doc, "Transform");
+    expect(findSources(doc, "Transform")).toBe(first);
+    expect(findSources(structuredClone(doc), "Transform")).not.toBe(first);
+    expect(findSources(structuredClone(doc), "Transform")).toEqual(first);
+    expect(findSources(doc, "Card")).not.toBe(first);
+  });
+
   it("finds a stage's source table", () => {
     const sources = findSources(
       transform([mbql({ "source-table": [DB, null, "ORDERS"] })]),
@@ -130,6 +139,56 @@ describe("createSourceFinder", () => {
         },
         column: "CATEGORY",
       },
+    ]);
+  });
+
+  it("reads the field and table of a temporal-unit tag and of a dimension tag with a default, but not of a dimension tag with none", () => {
+    // Metabase writes a dimension tag with no value as `1 = 1`; it splices the
+    // field of one with a default, and always that of a temporal-unit tag.
+    const tag = (
+      type: string,
+      name: string,
+      table: string,
+      extra: object = {},
+    ) => ({
+      type,
+      name,
+      id: "bb000001-0000-0000-0000-000000000001",
+      "display-name": name,
+      dimension: field(table, "CREATED_AT"),
+      "widget-type": "date/all-options",
+      ...extra,
+    });
+    const sources = findSources(
+      transform([
+        {
+          "lib/type": "mbql.stage/native",
+          native: "SELECT {{u}} FROM ORDERS WHERE {{d}} AND {{v}} AND {{n}}",
+          "template-tags": [
+            tag("temporal-unit", "u", "ORDERS"),
+            tag("dimension", "d", "PEOPLE"),
+            tag("dimension", "v", "PRODUCTS", { default: "2024-01-01" }),
+            tag("dimension", "n", "REVIEWS", { default: null }),
+          ],
+        },
+      ]),
+      "Transform",
+    );
+    const table = (name: string): TableKey => ({
+      database: DB,
+      schema: null,
+      name,
+      nullSchema: "none",
+      caseMatters: true,
+    });
+    expect(sources.tables).toEqual([table("ORDERS"), table("PRODUCTS")]);
+    expect(sources.fields).toEqual([
+      { table: table("ORDERS"), column: "CREATED_AT" },
+      { table: table("PRODUCTS"), column: "CREATED_AT" },
+    ]);
+    expect(sources.unvaluedFilterTables).toEqual([
+      table("PEOPLE"),
+      table("REVIEWS"),
     ]);
   });
 

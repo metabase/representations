@@ -132,3 +132,18 @@ export function sameKey(a: unknown, b: unknown): boolean {
   }
   return a.value === b.value;
 }
+
+/**
+ * A value that is equal (by `Map` key equality) for any two keys that
+ * `sameKey` holds to be one key: a `Map` keyed by it finds a key's possible
+ * matches without comparing it with every other key.
+ */
+export function keyBucket(key: unknown): unknown {
+  if (!isScalar(key)) {
+    return key;
+  }
+  const { value } = key;
+  return typeof value === "object" && value !== null
+    ? value
+    : `${typeof value}:${String(value)}`;
+}

@@ -7,40 +7,45 @@ import {
 } from "./documents.js";
 import { FOLDS_ALL_IDENTIFIERS } from "./engines.js";
 import type { Report } from "./findings.js";
-import { inputCovers, standInReplacements } from "./input-match.js";
-import { createSourceFinder } from "./query-sources.js";
+import {
+  inputCovers,
+  isStandIn,
+  replacesQuoted,
+  standInReplacements,
+} from "./input-match.js";
+import type { SourceFinder } from "./query-sources.js";
 import { createSnippetFinder, expandNative, type Transform } from "./reads.js";
-import type { Schemas } from "./schemas.js";
 import type {
   ColumnQuoting,
   ReadColumn,
   SqlColumnReader,
 } from "./sql-columns.js";
 import type { Unread } from "./sql-parser.js";
-import type { SqlTableReader } from "./sql-tables.js";
+import type { RewrittenTableReader, SqlTableReader } from "./sql-tables.js";
 import {
   type ColumnKey,
   type DefaultSchemaOf,
   fold,
   sameTable,
+  sqlTable,
   type TableKey,
   tableLabel,
   type TableName,
 } from "./tables.js";
-import type { TestedTransform } from "./test-checks.js";
+import { type TestedTransform, testInputs } from "./test-checks.js";
 import { nativeOnlyStage } from "./transform-checks.js";
 
 /** What the checks of a transform test's SQL read. */
 export type TestSqlChecks = {
-  docs: readonly Doc[];
-  byEntityId: ReadonlyMap<string, readonly Doc[]>;
   transforms: readonly Transform[];
   /** Each test of a query transform, with that transform. */
   tested: readonly TestedTransform[];
   defaultSchemaOf: DefaultSchemaOf;
   engineOf: EngineOf;
-  schemas: Schemas;
+  /** The query of each transform in `transforms`. */
+  queryOf: QueryReader;
   readSql: SqlTableReader;
+  readRewritten: RewrittenTableReader;
   columns: SqlColumnReader;
 };
 
@@ -52,7 +57,7 @@ type NativeQuery = {
 };
 
 /** What a query transform's query names, as the checks read it. */
-type TransformQuery = {
+export type TransformQuery = {
   /** Its native queries whose snippets could be pasted in. */
   natives: NativeQuery[];
   /** The column of each field id in it. */
@@ -61,12 +66,19 @@ type TransformQuery = {
   nativeOnly: boolean;
 };
 
-/** Returns the lookup of a query transform's `TransformQuery`, each read once. */
-function createQueryReader(
-  checks: TestSqlChecks,
-): (transform: Transform) => TransformQuery {
-  const findSources = createSourceFinder(checks.schemas);
-  const findSnippet = createSnippetFinder(checks.docs, checks.byEntityId);
+/** A query transform's `TransformQuery`. */
+export type QueryReader = (transform: Transform) => TransformQuery;
+
+/**
+ * Returns the `QueryReader` of the transforms among `docs`, each read once;
+ * their snippets are those among `docs`.
+ */
+export function createQueryReader(
+  docs: readonly Doc[],
+  byEntityId: ReadonlyMap<string, readonly Doc[]>,
+  findSources: SourceFinder,
+): QueryReader {
+  const findSnippet = createSnippetFinder(docs, byEntityId);
   const memo = new Map<Transform, TransformQuery>();
   return (transform) => {
     let query = memo.get(transform);
@@ -94,11 +106,7 @@ function createQueryReader(
  * `doc`. `query` names the query and what its columns do, as "this
  * transform reads or returns".
  */
-export type ReportUnreadColumns = (
-  doc: Doc,
-  query: string,
-  unread: Unread,
-) => void;
+type ReportUnreadColumns = (doc: Doc, query: string, unread: Unread) => void;
 
 /** The subject of a transform's query in a `ReportUnreadColumns` warning. */
 const TRANSFORM_COLUMNS = "this transform reads or returns";
@@ -212,11 +220,6 @@ function readColumnsOf(
   ];
 }
 
-// Metabase names a rows input's columns with `h2x/identifier`, quoted
-// (`enterprise/backend/src/metabase_enterprise/transform_testing/compile.clj`
-// `compile-input :rows`, `rows-query`); its `:h2` dialect upper-cases each
-// quoted name (`src/metabase/util/honey_sql_2.clj`).
-
 const lowerAscii = (name: string) =>
   name.replace(/[A-Z]+/g, (c) => c.toLowerCase());
 
@@ -226,14 +229,15 @@ const UNQUOTED_CASE: Readonly<Record<string, (name: string) => string>> = {
   redshift: lowerAscii,
   snowflake: (name) => name.toUpperCase(),
   h2: (name) => name.toUpperCase(),
+  clickhouse: (name) => name,
 };
 
 /**
  * Returns the name the warehouse of `engine` gives a column, or null when
  * the lint cannot tell. Metabase creates a `rows` input's columns, and
- * compiles an MBQL field, in quotes, so as written; H2's quoting upper-cases
- * them. A quoted name in SQL is as written, and an unquoted one is in the
- * engine's case. Redshift folds every name, quoted or not.
+ * compiles an MBQL field, in quotes, so as written. A quoted name in SQL is as written, and an unquoted one is in the
+ * engine's case; ClickHouse keeps it as written. Redshift folds every name,
+ * quoted or not.
  */
 function createWarehouseName(
   engine: string | null,
@@ -247,8 +251,11 @@ function createWarehouseName(
   }
   return (name, quoting) => {
     switch (quoting) {
+      // Metabase names a rows input's columns with `h2x/identifier`, quoted
+      // (`transform_testing/compile.clj` `compile-input :rows`, `rows-query`),
+      // in the driver's dialect; H2's is `:ansi`, which keeps the case
+      // (`format.clj` `quote-style`).
       case "compiled":
-        return engine === "h2" ? name.toUpperCase() : name;
       case "quoted":
         return name;
       case "unquoted":
@@ -262,10 +269,10 @@ function createWarehouseName(
 /**
  * Warns on each column a test's transform reads from the table of one of its
  * `rows` inputs that the input does not declare: Metabase runs the transform
- * on the input, and the SQL fails. On Postgres, Redshift, Snowflake and H2,
- * names compare as the warehouse names them (`createWarehouseName`): an
- * unquoted `total` does not read a declared `Total` on Postgres. On another
- * engine, or for a column the SQL names both quoted and unquoted, names
+ * on the input, and the SQL fails. On Postgres, Redshift, Snowflake, H2 and
+ * ClickHouse, names compare as the warehouse names them
+ * (`createWarehouseName`): an unquoted `total` does not read a declared
+ * `Total` on Postgres. On another engine, or for a column the SQL names both quoted and unquoted, names
  * compare ignoring case. A column the parser cannot place in one table gives
  * no finding. SQL whose tables were read but whose columns cannot be goes to
  * `reportUnread`.
@@ -275,14 +282,14 @@ export function reportMissingReadColumns(
   report: Report,
   reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
-  const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const defaultSchema = checks.defaultSchemaOf(database);
-    const warehouseName = createWarehouseName(checks.engineOf(database));
+    const engine = checks.engineOf(database);
+    const warehouseName = createWarehouseName(engine);
     const read = readColumnsOf(
       transform,
-      queryOf(transform),
+      checks.queryOf(transform),
       checks.columns,
       reportUnread,
     );
@@ -317,23 +324,90 @@ export function reportMissingReadColumns(
           (name) => fold(name) === fold(column),
         );
         const readColumn = missing.find((c) => fold(c.column) === fold(column));
-        const readAs =
-          readColumn === undefined
-            ? null
-            : (warehouseName?.(readColumn.column, readColumn.quoting) ?? null);
+        const transformName = displayName(transform.doc);
         report(
           "input-missing-read-column",
           test,
-          `input ${tableLabel(inputTable)} has no column ${column}, which transform ${displayName(transform.doc)} reads${
-            sameButCase === undefined || readAs === null
-              ? ""
-              : ` as ${readAs}; the input's column is ${warehouseName?.(sameButCase, "compiled") ?? sameButCase}`
-          }`,
+          (sameButCase !== undefined &&
+            readColumn !== undefined &&
+            warehouseName !== null &&
+            caseMismatchMessage({
+              engine,
+              warehouseName,
+              transformName,
+              input: tableLabel(inputTable),
+              read: readColumn,
+              declared: sameButCase,
+            })) ||
+            `input ${tableLabel(inputTable)} has no column ${column}, which transform ${transformName} reads`,
           [transform.doc.file],
         );
       }
     }
   }
+}
+
+/** Why the warehouse of each engine in `UNQUOTED_CASE` reads an unquoted name in its case. */
+const UNQUOTED_READS: Readonly<Record<string, string>> = {
+  postgres: "Postgres reads an unquoted name in lower case",
+  snowflake: "Snowflake reads an unquoted name in upper case",
+  h2: "H2 reads an unquoted name in upper case",
+  clickhouse: "ClickHouse compares names with case",
+};
+
+/**
+ * The message of a column a transform reads that an input declares in
+ * another case: the name the warehouse reads and the name of the input's
+ * column, why they differ, and how to make them agree. Null when
+ * `warehouseName` cannot name the read column.
+ */
+function caseMismatchMessage({
+  engine,
+  warehouseName,
+  transformName,
+  input,
+  read,
+  declared,
+}: {
+  engine: string | null;
+  warehouseName: (name: string, quoting: ColumnQuoting) => string | null;
+  transformName: string;
+  input: string;
+  read: ReadColumn;
+  declared: string;
+}): string | null {
+  const readAs = warehouseName(read.column, read.quoting);
+  const declaredAs = warehouseName(declared, "compiled");
+  if (readAs === null || declaredAs === null) {
+    return null;
+  }
+  const readReason =
+    read.quoting === "compiled"
+      ? "Metabase quotes an MBQL field's name, so the warehouse reads it as written"
+      : read.quoting === "quoted"
+        ? "the SQL quotes the name, so the warehouse reads it as written"
+        : engine !== null && Object.hasOwn(UNQUOTED_READS, engine)
+          ? UNQUOTED_READS[engine]
+          : null;
+  if (readReason === null) {
+    return null;
+  }
+  const createReason =
+    declaredAs === declared
+      ? "Metabase creates the input's columns as declared"
+      : `Metabase creates the input's column as ${declaredAs}`;
+  const fixes = [
+    ...(warehouseName(readAs, "compiled") === readAs
+      ? [`declare the column as ${readAs}`]
+      : []),
+    ...(read.quoting === "compiled"
+      ? []
+      : engine === "clickhouse"
+        ? [`write it as ${declaredAs} in the SQL`]
+        : [`write it as "${declaredAs}" in the SQL`]),
+  ];
+  const fix = fixes.join(", or ");
+  return `transform ${transformName} reads the column ${readAs} from input ${input}, which declares ${declared}: ${readReason}, and ${createReason}. ${fix.charAt(0).toUpperCase()}${fix.slice(1)}`;
 }
 
 /**
@@ -376,18 +450,15 @@ export function reportUpstreamColumns(
   report: Report,
   reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
-  const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     for (const input of test.body.inputs) {
       if (input.format !== "rows") {
         continue;
       }
-      const table: TableKey = {
-        database: queryDatabaseOf(transform.doc),
-        ...inputTableOf(input.table),
-        nullSchema: "default",
-        caseMatters: false,
-      };
+      const table = sqlTable(
+        queryDatabaseOf(transform.doc),
+        inputTableOf(input.table),
+      );
       for (const upstream of checks.transforms) {
         if (
           upstream === transform ||
@@ -398,7 +469,7 @@ export function reportUpstreamColumns(
         }
         const names = returnedNamesOf(
           upstream,
-          queryOf(upstream),
+          checks.queryOf(upstream),
           checks.columns,
           reportUnread,
         );
@@ -422,10 +493,12 @@ export function reportUpstreamColumns(
 }
 
 /**
- * Warns on each qualifier of a column that names no table or alias once the
+ * Reports each qualifier of a column that names no table or alias once the
  * test's tables (its inputs and the transform's target) are replaced, in the
  * SQL of a test's transform or of one of its expectations: Metabase refuses
- * such a test as an `unremapped-reference`. Such a qualifier is usually the
+ * such a test as an `unremapped-reference`. In an expectation, which Metabase
+ * checks as written, it is an error; in the transform, whose template tags
+ * the lint reads as placeholders, a warning. Such a qualifier is usually the
  * bare name of a replaced table whose reference carries a schema the
  * qualifier lacks. SQL whose tables were read but whose columns cannot be
  * goes to `reportUnread`.
@@ -435,7 +508,6 @@ export function reportQualifiedColumns(
   report: Report,
   reportUnread: ReportUnreadColumns = createUnreadColumnsReport(report),
 ): void {
-  const queryOf = createQueryReader(checks);
   for (const { test, transform } of checks.tested) {
     const database = queryDatabaseOf(transform.doc);
     const replaced = [
@@ -447,23 +519,28 @@ export function reportQualifiedColumns(
       checks.defaultSchemaOf(database),
     );
     const reportQualifiers = (
+      rule: "table-qualified-column" | "expectation-qualified-column",
       names: readonly string[],
       subject: string,
       related: string[],
     ) => {
+      const refusal =
+        rule === "table-qualified-column"
+          ? "Metabase refuses the test if the qualifier still names no table once the template tags have values"
+          : "Metabase refuses the test";
       for (const qualifier of uniqueFolded(names)) {
         const table = replaced.find((t) => fold(t.name) === fold(qualifier));
         report(
-          "table-qualified-column",
+          rule,
           test,
           table === undefined
-            ? `${subject} qualifies a column by ${qualifier}, which names no table or alias in its query. Metabase refuses the test. Qualify each column by the alias of a table the query reads`
-            : `${subject} qualifies a column by ${qualifier}, the name of ${tableLabel(table)}, which this test replaces. Metabase refuses the test. Alias the table and qualify its columns by the alias`,
+            ? `${subject} qualifies a column by ${qualifier}, which names no table or alias in its query. ${refusal}. Qualify each column by the alias of a table the query reads`
+            : `${subject} qualifies a column by ${qualifier}, the name of ${tableLabel(table)}, which this test replaces. ${refusal}. Alias the table and qualify its columns by the alias`,
           related,
         );
       }
     };
-    for (const native of queryOf(transform).natives) {
+    for (const native of checks.queryOf(transform).natives) {
       const result = checks.columns.danglingQualifiers(
         native.sql,
         native.database,
@@ -474,6 +551,7 @@ export function reportQualifiedColumns(
         reportUnreadTransformColumns(transform, result, reportUnread);
       } else {
         reportQualifiers(
+          "table-qualified-column",
           result.names,
           `transform ${displayName(transform.doc)}`,
           [transform.doc.file],
@@ -490,9 +568,85 @@ export function reportQualifiedColumns(
         replacements,
       );
       if (result.status === "read") {
-        reportQualifiers(result.names, `expectation ${expectation.name}`, []);
+        reportQualifiers(
+          "expectation-qualified-column",
+          result.names,
+          `expectation ${expectation.name}`,
+          [],
+        );
       } else if (checks.readSql(expectation.sql, database).status === "read") {
         reportUnread(test, `expectation ${expectation.name} reads`, result);
+      }
+    }
+  }
+}
+
+/**
+ * Reports each table a test's transform reads that an input covers ignoring
+ * case (`inputCovers`) but that Metabase's rewrite (`standInReplacements`)
+ * leaves real, because the query quotes a part of its name in another case:
+ * Metabase refuses the test as an unremapped reference in the transform. The tables of the transform's native SQL are
+ * read after the rewrite; an MBQL reference, which Metabase compiles with
+ * every part quoted, must match an input exactly (`replacesQuoted`). A
+ * transform whose tables were not read gets no finding.
+ */
+export function reportUnreplacedReads(
+  checks: TestSqlChecks,
+  report: Report,
+): void {
+  for (const { test, transform } of checks.tested) {
+    if (transform.reads.status !== "read") {
+      continue;
+    }
+    const defaultSchema = checks.defaultSchemaOf(
+      queryDatabaseOf(transform.doc),
+    );
+    const inputs = testInputs(test, transform);
+    const replacements = standInReplacements(
+      [...inputs, transform.target],
+      defaultSchema,
+    );
+    const transformName = displayName(transform.doc);
+    const reported = new Set<string>();
+    const reportRead = (read: TableKey, mbql: boolean) => {
+      const input = inputs.find((i) => inputCovers(read, i, defaultSchema));
+      const label = tableLabel(read);
+      if (input === undefined || reported.has(label)) {
+        return;
+      }
+      reported.add(label);
+      const cause = `transform ${transformName} reads ${label}, and input ${tableLabel(input)} does not stand in for it`;
+      const refusal =
+        "replaces a quoted name only in its exact case, and refuses a test whose transform still reads a real table";
+      report(
+        "transform-reads-other-table",
+        test,
+        mbql
+          ? `${cause}: Metabase quotes each table name of an MBQL query, ${refusal}. Name the input ${label}`
+          : `${cause}: Metabase ${refusal}. Name the input ${label}, or write the name in the SQL as the input does`,
+        [transform.doc.file],
+      );
+    };
+    for (const { sql, database, valuedTags } of checks.queryOf(transform)
+      .natives) {
+      const result = checks.readRewritten(
+        sql,
+        database,
+        replacements,
+        valuedTags,
+      );
+      if (result.status === "unread") {
+        continue;
+      }
+      for (const table of result.tables) {
+        if (!isStandIn(table)) {
+          reportRead(sqlTable(database, table), false);
+        }
+      }
+    }
+    for (const read of transform.reads.tables) {
+      if (read.caseMatters && !replacesQuoted(read, inputs, defaultSchema)) {
+        reportRead(read, true);
       }
     }
   }
@@ -508,4 +662,5 @@ export function reportTestSql(checks: TestSqlChecks, report: Report): void {
   reportUpstreamColumns(checks, report, reportUnread);
   reportQualifiedColumns(checks, report, reportUnread);
   reportLiveSqlInputs(checks, report);
+  reportUnreplacedReads(checks, report);
 }

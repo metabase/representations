@@ -4,7 +4,10 @@ import { statSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { relative } from "path";
 
-import { MissingDefaultSchemasError } from "../src/default-schemas.js";
+import {
+  type DefaultSchemas,
+  MissingDefaultSchemasError,
+} from "../src/default-schemas.js";
 import { extractSchema } from "../src/extract-schema.js";
 import { extractSpec } from "../src/extract-spec.js";
 import { generateEntityId } from "../src/generate-entity-id.js";
@@ -13,6 +16,7 @@ import { lint, type LintResult } from "../src/lint.js";
 import {
   CONFIG_FILE,
   LintSetupError,
+  parseDefaultSchemas,
   readSettingsFile,
 } from "../src/settings.js";
 import { validateSchema } from "../src/validate-schema.js";
@@ -28,7 +32,7 @@ type ParsedValues = {
 };
 
 const DOCS_URL =
-  "https://github.com/metabase/representations/blob/main/README.md#lint-rules";
+  "https://github.com/metabase/representations/blob/main/README.md#lint";
 
 const HELP = `Usage: representations <command> [options]
 
@@ -38,9 +42,11 @@ Commands:
 
   lint               Experimental: its rules, output and options can change
                      in any release, and it runs only with --experimental.
-                     Checks references between transforms, tables and
-                     transform tests; prints one JSON finding per line,
-                     grouped by rule, then by file. Rules and finding
+                     Checks the transforms, transform tests and tables
+                     in a folder, and the references between them, for
+                     what Metabase refuses or likely gets wrong; prints
+                     one JSON finding per line, grouped by rule, then by
+                     file. Rules and finding
                      fields: ${DOCS_URL}
     --experimental     Run the experimental lint (required)
     --folder <path>    Folder to lint (default: cwd)
@@ -181,28 +187,6 @@ function handleValidateSchema(values: ParsedValues): void {
   process.exit(failed > 0 ? 1 : 0);
 }
 
-// "DATABASE=SCHEMA" pairs; "DATABASE=" means the database has no schemas.
-function parseDefaultSchemas(
-  pairs: readonly string[],
-): Record<string, string | null> {
-  const schemas: Record<string, string | null> = {};
-  for (const pair of pairs) {
-    const at = pair.lastIndexOf("=");
-    if (at <= 0) {
-      usageError(
-        `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
-      );
-    }
-    const database = pair.slice(0, at);
-    if (Object.hasOwn(schemas, database)) {
-      usageError(`--default-schema names ${database} twice`);
-    }
-    const schema = pair.slice(at + 1);
-    schemas[database] = schema === "" ? null : schema;
-  }
-  return schemas;
-}
-
 /**
  * Says on stderr which default schema each `--default-schema` sets, and
  * which it overrides in the settings file; warns on a database the folder's
@@ -214,7 +198,10 @@ function echoDefaultSchemas(
   named: readonly string[],
 ): void {
   const settings = readSettingsFile(folder).defaultSchemas;
-  const show = (schema: string | null) => schema ?? "none (no schemas)";
+  // A settings value is the folder's text: quoted, it holds no line break
+  // or control character.
+  const show = (schema: string | null) =>
+    schema === null ? "none (no schemas)" : JSON.stringify(schema);
   for (const database of Object.keys(given)) {
     const over = Object.hasOwn(settings, database)
       ? `, over ${show(settings[database])} in ${CONFIG_FILE}`
@@ -237,12 +224,18 @@ async function handleLint(values: ParsedValues): Promise<void> {
     );
   }
   const folder = folderToCheck(values);
-  const defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+  let defaultSchemas: DefaultSchemas;
+  try {
+    defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+  } catch (e) {
+    usageError(errorMessage(e));
+  }
   let result: LintResult;
   try {
     result = await lint({ folder, defaultSchemas });
   } catch (e) {
     if (e instanceof MissingDefaultSchemasError) {
+      echoDefaultSchemas(folder, defaultSchemas, e.namedDatabases);
       console.error(
         `${e.message}\nOr pass --default-schema "<database>=<schema>" for each, "<database>=" for no schemas.`,
       );

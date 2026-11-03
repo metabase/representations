@@ -108,6 +108,20 @@ describe("cli", () => {
       expect(helpCodes.map(([code]) => code)).toEqual(["0", "1", "2"]);
       expect(readmeCodes).toEqual(helpCodes);
     });
+
+    it("links the README section that holds the finding fields and the rules", () => {
+      const { stdout } = runCli(["--help"]);
+      const anchor = /README\.md#([\w-]+)/.exec(stdout)?.[1];
+      const readme = readFileSync(join(REPO_ROOT, "README.md"), "utf8");
+      // GitHub's anchor for a heading: lower case, spaces as dashes.
+      const sections = readme.split(/^(?=## )/m);
+      const linked = sections.find(
+        (s) =>
+          /^## (.*)$/m.exec(s)?.[1].toLowerCase().replace(/ /g, "-") === anchor,
+      );
+      expect(linked).toContain("| Field | Value |");
+      expect(linked).toContain("### Lint rules");
+    });
   });
 
   describe("generate-entity-id", () => {
@@ -443,10 +457,25 @@ describe("cli", () => {
         expect(refused.stderr.trimEnd().split("\n")).toEqual([
           "The default schema of 1 database(s) is unknown: the schema an unqualified table name resolves to. No check ran.",
           `Give it in .metabase-lint.json at the root of the folder, as {"defaultSchemas": {"<database>": "<schema>"}} (null for a database with no schemas).`,
-          "  Sample Postgres: collections/transforms/daily_order_summary.yaml names orders without a schema, so it resolves to the default schema",
+          '  "Sample Postgres": "collections/transforms/daily_order_summary.yaml" names "orders" without a schema, so it resolves to the default schema',
           'Or pass --default-schema "<database>=<schema>" for each, "<database>=" for no schemas.',
         ]);
         expect(refused.exitCode).toBe(2);
+
+        const misspelled = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          workdir,
+          "--default-schema",
+          "Sample postgres=public",
+        ]);
+        expect(misspelled.stderr.trimEnd().split("\n").slice(0, 3)).toEqual([
+          '--default-schema: Sample postgres has the default schema "public"',
+          "Warning: --default-schema names Sample postgres, which no file in the folder names",
+          "The default schema of 1 database(s) is unknown: the schema an unqualified table name resolves to. No check ran.",
+        ]);
+        expect(misspelled.exitCode).toBe(2);
 
         const given = runCli([
           "lint",
@@ -564,7 +593,7 @@ describe("cli", () => {
           "Sample postgres=",
         ]);
         expect(stderr.trimEnd().split("\n")).toEqual([
-          "--default-schema: Sample Postgres has the default schema public, over public in .metabase-lint.json",
+          '--default-schema: Sample Postgres has the default schema "public", over "public" in .metabase-lint.json',
           "--default-schema: Sample postgres has the default schema none (no schemas)",
           "Warning: --default-schema names Sample postgres, which no file in the folder names",
           expect.stringMatching(/^\d+ files, 0 errors, 0 warnings$/),
@@ -592,37 +621,190 @@ describe("cli", () => {
     it(
       "reads --default-schema DATABASE= as a database with no schemas",
       () => {
-        // Product Revenue Report reads public.top_categories; Top Categories,
-        // which reads it, writes top_categories with no schema: the
-        // database's default schema.
-        mutateExamples("transform-cycle", workdir);
-        const replaceIn = (file: string, from: string, to: string) => {
-          const path = join(workdir, file);
-          const text = readFileSync(path, "utf8");
-          expect(text).toContain(from);
-          writeFileSync(path, text.replace(from, to));
-        };
-        replaceIn(
-          "collections/transforms/native_transform.yaml",
-          "JOIN transforms.top_categories",
-          "JOIN public.top_categories",
-        );
-        replaceIn(
-          "collections/transforms/top_categories.yaml",
-          "  schema: transforms\n",
-          "",
-        );
-        const lintWith = (defaultSchema: string) =>
-          runCli([
+        // Product Summary reads products by a reference with a null schema.
+        // Only a database with no schemas has such a table, so only a null
+        // default schema silences null-schema-reference.
+        mutateExamples("null-schema-reference", workdir);
+        const lintWith = (defaultSchema: string) => {
+          const { stdout, exitCode } = runCli([
             "lint",
             "--experimental",
             "--folder",
             workdir,
             "--default-schema",
             `Sample Postgres=${defaultSchema}`,
-          ]).stdout;
-        expect(lintWith("public")).toContain("transform-cycle");
-        expect(lintWith("")).not.toContain("transform-cycle");
+          ]);
+          return {
+            exitCode,
+            nullSchemaReference: stdout.includes('"null-schema-reference"'),
+          };
+        };
+        expect(lintWith("public")).toEqual({
+          exitCode: 1,
+          nullSchemaReference: true,
+        });
+        expect(lintWith("")).toEqual({
+          exitCode: 0,
+          nullSchemaReference: false,
+        });
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "prints no workflow command and no ESC byte on stderr from names in the folder",
+      () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const daily = join(
+          workdir,
+          "collections/transforms/daily_order_summary.yaml",
+        );
+        const text = readFileSync(daily, "utf8");
+        expect(text).toContain("Sample Postgres");
+        writeFileSync(
+          daily,
+          text.replaceAll(
+            "Sample Postgres",
+            '"Sample Postgres\\n::error title=x::pwned"',
+          ),
+        );
+        writeFileSync(
+          join(workdir, "collections/transforms/daily_order_summary_esc.yaml"),
+          text
+            .replace("7XqqzlsonSq4KFyOvtrAm", "DailyOrderSummaryEsc0")
+            .replaceAll("Sample Postgres", '"Esc \\e]0;x\\a"'),
+        );
+        const names = runCli(["lint", "--experimental", "--folder", workdir]);
+        expect(names.stderr).toContain("default schema");
+        expect(names.exitCode).toBe(2);
+
+        cpSync(EXAMPLES, join(workdir, "keys"), { recursive: true });
+        writeFileSync(
+          join(workdir, "keys", ".metabase-lint.json"),
+          JSON.stringify({ "k\n::error title=x::pwned\u001b]0;x\u0007": 1 }),
+        );
+        const keys = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          join(workdir, "keys"),
+        ]);
+        expect(keys.stderr).toContain("has unknown keys");
+        expect(keys.exitCode).toBe(2);
+
+        cpSync(EXAMPLES, join(workdir, "values"), { recursive: true });
+        writeFileSync(
+          join(workdir, "values", ".metabase-lint.json"),
+          JSON.stringify({
+            defaultSchemas: {
+              "Sample Postgres":
+                "public\n::error title=x::pwned\u001b]0;x\u0007",
+            },
+          }),
+        );
+        const values = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          join(workdir, "values"),
+          "--default-schema",
+          "Sample Postgres=public",
+        ]);
+        expect(values.stderr).toContain("over ");
+
+        const unsafe = ({ stderr }: RunResult) => ({
+          workflowCommand: /(^|[\n\r])::/.test(stderr),
+          esc: stderr.includes("\u001b"),
+        });
+        expect({
+          names: unsafe(names),
+          keys: unsafe(keys),
+          values: unsafe(values),
+        }).toEqual({
+          names: { workflowCommand: false, esc: false },
+          keys: { workflowCommand: false, esc: false },
+          values: { workflowCommand: false, esc: false },
+        });
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "reports a self-referencing alias in a transform as an error on that file",
+      () => {
+        cpSync(EXAMPLES, workdir, { recursive: true });
+        const file = "collections/transforms/native_transform.yaml";
+        writeFileSync(
+          join(workdir, file),
+          `${readFileSync(join(workdir, file), "utf8")}x: &c {y: *c}\n`,
+        );
+        const { stdout, stderr, exitCode } = runCli([
+          "lint",
+          "--experimental",
+          "--folder",
+          workdir,
+        ]);
+        expect({
+          exitCode,
+          stackOverflow: stderr.includes("Maximum call stack size exceeded"),
+        }).toEqual({ exitCode: 1, stackOverflow: false });
+        expect(
+          stdout
+            .trim()
+            .split("\n")
+            .map((line): unknown => JSON.parse(line)),
+        ).toContainEqual(expect.objectContaining({ severity: "error", file }));
+      },
+      LINT_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "reports a transform file that is a symbolic link as an error, and does not lint its target",
+      () => {
+        const folder = join(workdir, "repo");
+        cpSync(EXAMPLES, folder, { recursive: true });
+        const linked = "collections/transforms/linked.yaml";
+        const text = readFileSync(join(folder, TOP_CATEGORIES), "utf8")
+          .replace("jf55MTi7z8cWQjPG2PEgz", "LinkedTransform000000")
+          .replace("name: top_categories", "name: linked_categories");
+        expect(text).toContain("LinkedTransform000000");
+        expect(text).toContain("name: linked_categories");
+        const lintFindings = () => {
+          const { stdout, exitCode } = runCli([
+            "lint",
+            "--experimental",
+            "--folder",
+            folder,
+          ]);
+          return {
+            exitCode,
+            findings: stdout
+              .trim()
+              .split("\n")
+              .filter((line) => line !== "")
+              .map((line): unknown => JSON.parse(line)),
+          };
+        };
+        writeFileSync(join(folder, linked), text);
+        expect(lintFindings()).toEqual({ exitCode: 0, findings: [] });
+
+        rmSync(join(folder, linked));
+        writeFileSync(join(workdir, "outside.yaml"), text);
+        symlinkSync(join(workdir, "outside.yaml"), join(folder, linked));
+        expect(lintFindings()).toEqual({
+          exitCode: 1,
+          findings: [
+            {
+              rule: "schema",
+              severity: "error",
+              file: linked,
+              entity: { model: null, entity_id: null, name: null },
+              message:
+                "the file is a symbolic link: remote sync reads the link's text, not the file it points to; replace the link with the file",
+              related: [],
+            },
+          ],
+        });
       },
       LINT_PROCESS_TIMEOUT_MS,
     );

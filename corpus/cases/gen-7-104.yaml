@@ -1,6 +1,6 @@
 description: alias-quoted, expectation, expectation-sql, name-lower, name-quoted, optional-clause, schema-quoted, schema-upper
 origin: corpus-gen.ts, seed 7, case 104, shrunk to 1 of 1 edits
-known: "collections/transforms/native_transform/product_revenue_report__category_totals.yaml: Metabase refuses it with transform-test.unparseable-source (\"Expectation \\\"generated\\\" has SQL that could not be parsed: ParseError: Required keyword: 'this' missing. Line 1, Col: 116.\\n  RANSFORMS.\\\"daily_order_summary\\\" AS \\\"t\\\" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM \\\"public\\\".people AS \\\"t\\\")]]\\n                                                                                                      ^\"), which no lint rule predicts"
+known: "collections/transforms/native_transform/product_revenue_report__category_totals.yaml: Metabase refuses it with transform-test.unparseable-source (\"Expectation \\\"generated\\\" has SQL that could not be parsed: ParseError: Required keyword: 'this' missing. Line 1, Col: 116.\\n  RANSFORMS.\\\"daily_order_summary\\\" AS \\\"t\\\" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM \\\"public\\\".people AS \\\"t\\\")]]\\n                                                                                                      ^\"), which no error rule predicts"
 edits:
   collections/transforms/native_transform/product_revenue_report__category_totals.yaml: |
     name: "Product Revenue Report: category totals"

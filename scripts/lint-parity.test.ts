@@ -76,6 +76,7 @@ const ORDERS_CREATED_AT_ID = 77;
 const POSTGRES_METADATA = {
   tables: [
     {
+      id: 5,
       schema: "public",
       name: "orders",
       fields: [
@@ -83,47 +84,113 @@ const POSTGRES_METADATA = {
         { id: ORDERS_CREATED_AT_ID, name: "created_at" },
       ],
     },
+    {
+      id: 6,
+      schema: "public",
+      name: "products",
+      fields: [{ id: 78, name: "id" }],
+    },
   ],
 };
 const databaseIdOf = (name: unknown) =>
   DATABASES.find((d) => d.name === name)?.id ?? null;
 
+/** The id of the table a `[database, schema, table]` reference names, or null. */
+const tableIdOf = (ref: unknown) =>
+  Array.isArray(ref) && databaseIdOf(ref[0]) === POSTGRES_ID
+    ? (POSTGRES_METADATA.tables.find(
+        (t) => t.schema === ref[1] && t.name === ref[2],
+      )?.id ?? null)
+    : null;
+
+/** The id of the table that holds the field with id `fieldId`, or null. */
+const tableIdOfField = (fieldId: unknown) =>
+  POSTGRES_METADATA.tables.find((t) => t.fields.some((f) => f.id === fieldId))
+    ?.id ?? null;
+
 /**
- * Each transform of the examples as Metabase answers GET /api/transform/:id
- * once it imported them: a database by its id.
+ * Each transform of `folder` as Metabase answers GET /api/transform/:id once
+ * it imported them: a database and a table template tag's table by their ids.
  */
-const IMPORTED_TRANSFORMS = new Map(
-  validDocsOf(loadDocs(EXAMPLES, loadSchemas()).docs, "Transform").map(
-    (doc) => {
-      const id = transformByEntityId.get(doc.body.entity_id)?.id ?? 0;
-      const source: Record<string, unknown> = { ...doc.body.source };
-      if (isRecord(source.query)) {
-        source.query = {
-          ...source.query,
-          database: databaseIdOf(source.query.database),
-        };
-      }
-      const target: Record<string, unknown> = { ...doc.body.target };
-      if (target.database !== undefined) {
-        target.database = databaseIdOf(target.database);
-      }
-      return [
-        id,
-        { id, name: doc.body.name, source, target, collection_id: 10 },
-      ] as const;
-    },
+function importedTransforms(folder: string) {
+  return new Map(
+    validDocsOf(loadDocs(folder, loadSchemas()).docs, "Transform").map(
+      (doc) => {
+        const id = transformByEntityId.get(doc.body.entity_id)?.id ?? 0;
+        const source: Record<string, unknown> = { ...doc.body.source };
+        if (isRecord(source.query)) {
+          const stages: unknown[] = Array.isArray(source.query.stages)
+            ? source.query.stages
+            : [];
+          source.query = {
+            ...source.query,
+            database: databaseIdOf(source.query.database),
+            stages: stages.map((stage) =>
+              isRecord(stage) && isRecord(stage["template-tags"])
+                ? {
+                    ...stage,
+                    "template-tags": Object.fromEntries(
+                      Object.entries(stage["template-tags"]).map(
+                        ([name, tag]) => [
+                          name,
+                          isRecord(tag) && tag.type === "table"
+                            ? { ...tag, "table-id": tableIdOf(tag["table-id"]) }
+                            : tag,
+                        ],
+                      ),
+                    ),
+                  }
+                : stage,
+            ),
+          };
+        }
+        const target: Record<string, unknown> = { ...doc.body.target };
+        if (target.database !== undefined) {
+          target.database = databaseIdOf(target.database);
+        }
+        return [
+          id,
+          { id, name: doc.body.name, source, target, collection_id: 10 },
+        ] as const;
+      },
+    ),
+  );
+}
+
+/**
+ * The tables the warehouse holds: the tables of POSTGRES_METADATA, and the
+ * target of each transform of the examples, as after a run of each.
+ */
+const WAREHOUSE_TABLES = [
+  ...POSTGRES_METADATA.tables.map((t) => ({
+    database: POSTGRES_ID,
+    schema: t.schema,
+    name: t.name,
+  })),
+  ...validDocsOf(loadDocs(EXAMPLES, loadSchemas()).docs, "Transform").map(
+    (doc) => ({
+      database: databaseIdOf(doc.body.target.database),
+      schema: doc.body.target.schema,
+      name: doc.body.target.name,
+    }),
   ),
-);
+];
 
 const TARGET_DATABASE_NOT_FOUND = "The target database cannot be found.";
 const TARGET_SCHEMA_REQUIRED = "A target schema is required for this database.";
 const TABLE_VARIABLE_REQUIRED =
   "Incremental transform with a native query requires a table variable. Please add a table variable to the query and update the checkpoint field.";
+const TABLE_EXISTS = "A table with that name already exists.";
 
 /**
  * Metabase's answer to POST /api/transform: the checks its API makes, in
- * their order, each failed one answered 400 with its message as plain text,
- * and a body that fails the endpoint's schema answered 400 with JSON errors.
+ * their order, each failed one answered with its status and its message as
+ * plain text, and a body that fails the endpoint's schema answered 400 with
+ * JSON errors. The checks: the target database exists, the checkpoint field
+ * exists, the warehouse holds no table of the target's name (409), the target
+ * names a schema on a database with schemas, and an incremental native query
+ * has a table template tag for the checkpoint field's table, or any table
+ * template tag when no checkpoint field is set.
  */
 function saveTransform(body: unknown): Reply {
   if (!isRecord(body) || !isRecord(body.source) || !isRecord(body.target)) {
@@ -161,6 +228,16 @@ function saveTransform(body: unknown): Reply {
   ) {
     return { status: 400, body: "Checkpoint field not found." };
   }
+  if (
+    WAREHOUSE_TABLES.some(
+      (t) =>
+        t.database === databaseId &&
+        t.schema === target.schema &&
+        t.name === target.name,
+    )
+  ) {
+    return { status: 409, body: TABLE_EXISTS };
+  }
   if (databaseId === POSTGRES_ID && typeof target.schema !== "string") {
     return { status: 400, body: TARGET_SCHEMA_REQUIRED };
   }
@@ -174,10 +251,18 @@ function saveTransform(body: unknown): Reply {
   const tags = isRecord(nativeStage?.["template-tags"])
     ? Object.values(nativeStage["template-tags"])
     : [];
+  const checkpointTableId = isRecord(strategy)
+    ? tableIdOfField(strategy["checkpoint-filter-field-id"])
+    : null;
   if (
     target.type === "table-incremental" &&
     nativeStage !== null &&
-    !tags.some((tag) => isRecord(tag) && tag.type === "table")
+    !tags.some(
+      (tag) =>
+        isRecord(tag) &&
+        tag.type === "table" &&
+        (checkpointTableId === null || tag["table-id"] === checkpointTableId),
+    )
   ) {
     return { status: 400, body: TABLE_VARIABLE_REQUIRED };
   }
@@ -268,6 +353,7 @@ async function runParity({
 }> {
   let created = 0;
   let deleted = 0;
+  let imported: ReturnType<typeof importedTransforms> | undefined;
   server = Bun.serve({
     port: 0,
     fetch: async (request) => {
@@ -283,7 +369,8 @@ async function runParity({
       }
       const transformPath = /^\/api\/transform\/(\d+)$/.exec(path);
       if (request.method === "GET" && transformPath !== null) {
-        const transform = IMPORTED_TRANSFORMS.get(Number(transformPath[1]));
+        imported ??= importedTransforms(folder);
+        const transform = imported.get(Number(transformPath[1]));
         return transform === undefined
           ? new Response("Not found.", { status: 404 })
           : Response.json(transform);
@@ -385,6 +472,34 @@ describe("lint-parity", () => {
       expect(output).toContain(
         "FAIL  compared no transform test with Metabase",
       );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails on a folder that holds no transform and no transform test",
+    async () => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+      const { exitCode, output } = await runParity({ folder: workdir });
+      expect(output).toContain(
+        `FAIL  compared no transform with Metabase: ${workdir} holds none`,
+      );
+      expect(output).toContain(
+        `FAIL  compared no transform test with Metabase: ${workdir} holds none`,
+      );
+      expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "fails on a folder that does not exist",
+    async () => {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+      const folder = join(workdir, "no-such-folder");
+      const { exitCode, output } = await runParity({ folder });
+      expect(output).toContain(`FAIL  no such folder: ${folder}`);
       expect(exitCode).toBe(1);
     },
     PARITY_PROCESS_TIMEOUT_MS,
@@ -510,9 +625,29 @@ describe("lint-parity", () => {
             : { status: 200, body: { id: 999 } },
       });
       expect(output).toContain(
-        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}), which no lint rule predicts\n`,
+        `FAIL  test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform (${JSON.stringify(message)}); the lint reports no transform-reads-other-table\n`,
       );
       expect(exitCode).toBe(1);
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "agrees with Metabase on a transform that quotes a table name in another case than its input",
+    async () => {
+      const message =
+        "The transform test could not fully remap the source to test tables; these reference(s) remain: Orders.";
+      const { exitCode, output } = await runParity({
+        folder: mutated("transform-reads-other-table"),
+        testProbe: (t) =>
+          t.name === "Daily Order Summary"
+            ? unremapped(message)
+            : { status: 200, body: { id: 999 } },
+      });
+      expect(output).toContain(
+        `OK    test collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: transform-test.unremapped-reference on the transform (${JSON.stringify(message)})\n`,
+      );
+      expect(exitCode).toBe(0);
     },
     PARITY_PROCESS_TIMEOUT_MS,
   );
@@ -784,6 +919,112 @@ describe("lint-parity", () => {
       PROBE_PROCESS_TIMEOUT_MS,
     );
 
+    /**
+     * A copy of the examples in a new folder, with `change` made to the text
+     * of the file at `file`.
+     */
+    function examplesWith(
+      file: string,
+      change: (text: string) => string,
+    ): string {
+      workdir = mkdtempSync(join(tmpdir(), "representations-lint-parity-"));
+      const folder = join(workdir, "repo");
+      cpSync(EXAMPLES, folder, { recursive: true });
+      const path = join(folder, file);
+      writeFileSync(path, change(readFileSync(path, "utf8")));
+      return folder;
+    }
+
+    /** The examples with a table template tag on `table` in Product Revenue Report's query. */
+    const withTableTag = (table: string) =>
+      examplesWith("collections/transforms/native_transform.yaml", (text) =>
+        text.replace(
+          "          GROUP BY p.category\n",
+          [
+            "          GROUP BY p.category",
+            "        template-tags:",
+            "          source:",
+            "            type: table",
+            "            name: source",
+            "            id: 6f1d1f43-3c4b-4d47-9a51-4f3b0a1e3c11",
+            "            display-name: Source",
+            `            table-id: [Sample Postgres, public, ${table}]`,
+            "",
+          ].join("\n"),
+        ),
+      );
+
+    it(
+      "agrees with Metabase on a table template tag for another table than the checkpoint field's",
+      async () => {
+        const { output } = await runParity({
+          folder: withTableTag("products"),
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as mutated: refused (${JSON.stringify(TABLE_VARIABLE_REQUIRED)})\n`,
+        );
+        expect(output).not.toContain("FAIL  probe");
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "agrees with Metabase on a table template tag for the checkpoint field's table",
+      async () => {
+        const { output } = await runParity({
+          folder: withTableTag("orders"),
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          `OK    probe missing-incremental-table-tag, ${REPORT}, as mutated: accepted\n`,
+        );
+        expect(output).not.toContain("FAIL  probe");
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails a probe whose mutation changes no transform",
+      async () => {
+        const folder = examplesWith(
+          "collections/transforms/python_hello_world.yaml",
+          (text) => text.replace("  schema: transforms\n", ""),
+        );
+        const { exitCode, output } = await runParity({
+          folder,
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          "FAIL  probe missing-target-schema: the mutation changes no transform\n",
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
+    it(
+      "fails a probe whose mutation changes a transform beyond what a probe carries",
+      async () => {
+        // The mutations write YAML 1.2, which reads 0o17 as the number 15;
+        // the lint reads YAML 1.1, where 0o17 is a string.
+        const folder = examplesWith(
+          "collections/transforms/python_hello_world.yaml",
+          (text) =>
+            text.replace("  type: python\n", "  type: python\n  x: 0o17\n"),
+        );
+        const { exitCode, output } = await runParity({
+          folder,
+          probeTransforms: true,
+        });
+        expect(output).toContain(
+          "FAIL  probe missing-target-schema: the mutation changes transform collections/transforms/python_hello_world.yaml beyond its target's type, schema and database and its incremental strategy, which no probe carries\n",
+        );
+        expect(exitCode).toBe(1);
+      },
+      PROBE_PROCESS_TIMEOUT_MS,
+    );
+
     it(
       "fails a probe whose mutation the folder cannot take",
       async () => {
@@ -866,4 +1107,72 @@ describe("mutateExamples", () => {
     expect(isRecord(python) && isRecord(python.target)).toBe(true);
     expect(python.target.schema).toBeUndefined();
   });
+});
+
+describe("--default-schema", () => {
+  /** The exit code and the output of `script` run with `args`. */
+  async function run(
+    script: string,
+    args: readonly string[],
+  ): Promise<{ exitCode: number; output: string }> {
+    const child = Bun.spawn(["bun", "run", resolve(ROOT, script), ...args], {
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    const [output, errors, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    return { exitCode, output: output + errors };
+  }
+
+  const withPairs = (pairs: readonly string[]) =>
+    pairs.flatMap((p) => ["--default-schema", p]);
+  const lintWith = (pairs: readonly string[]) =>
+    run("bin/cli.ts", [
+      "lint",
+      "--experimental",
+      "--folder",
+      EXAMPLES,
+      ...withPairs(pairs),
+    ]);
+  // A URL on port 1 refuses every connection, so the parity script stops at
+  // its first request to Metabase.
+  const parityWith = (pairs: readonly string[]) =>
+    run("scripts/lint-parity.ts", [
+      "--url",
+      "http://127.0.0.1:1",
+      "--api-key",
+      "key",
+      "--folder",
+      EXAMPLES,
+      ...withPairs(pairs),
+    ]);
+
+  it(
+    "is refused by the lint and the parity script for a pair with no database",
+    async () => {
+      for (const command of [lintWith, parityWith]) {
+        const { exitCode, output } = await command(["=x"]);
+        expect(output).toContain(
+          "Invalid --default-schema: =x (expected DATABASE=SCHEMA)",
+        );
+        expect(exitCode).toBe(2);
+      }
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
+
+  it(
+    "is refused by the lint and the parity script for a database given twice",
+    async () => {
+      for (const command of [lintWith, parityWith]) {
+        const { exitCode, output } = await command(["db=x", "db=y"]);
+        expect(output).toContain("--default-schema names db twice");
+        expect(exitCode).toBe(2);
+      }
+    },
+    PARITY_PROCESS_TIMEOUT_MS,
+  );
 });

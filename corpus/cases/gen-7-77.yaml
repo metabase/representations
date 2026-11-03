@@ -1,6 +1,6 @@
 description: alias, expectation, expectation-sql, name-lower, name-upper, nested-optional-clause, schema-lower, schema-quoted, schema-upper
 origin: corpus-gen.ts, seed 7, case 77, shrunk to 1 of 2 edits
-known: 'collections/transforms/native_transform/product_revenue_report__category_totals.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Expecting ). Line 1, Col: 107.\n   * FROM \"public\".orders t WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM TRANSFORMS.PRODUCT_REVENUE_REPORT t [[WHERE 1 IN (SELECT 1 FROM transforms.DAILY_ORDER_SUMMARY)]])]]\n                                                                                                      ^"), which no lint rule predicts'
+known: 'collections/transforms/native_transform/product_revenue_report__category_totals.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Expecting ). Line 1, Col: 107.\n   * FROM \"public\".orders t WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM TRANSFORMS.PRODUCT_REVENUE_REPORT t [[WHERE 1 IN (SELECT 1 FROM transforms.DAILY_ORDER_SUMMARY)]])]]\n                                                                                                      ^"), which no error rule predicts'
 edits:
   collections/transforms/native_transform/product_revenue_report__category_totals.yaml: |
     name: "Product Revenue Report: category totals"

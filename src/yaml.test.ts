@@ -208,7 +208,9 @@ describe("readYaml", () => {
     (_, text, value, source, line) => {
       const read = readYaml(text);
       expect(read.value).toEqual(value);
-      expect(read.duplicateKeys).toEqual([{ source, line, column: 1 }]);
+      expect(read.duplicateKeys).toEqual([
+        { source, line, column: 1, keeps: "last" },
+      ]);
     },
   );
 
@@ -216,8 +218,48 @@ describe("readYaml", () => {
     const read = readYaml("m:\n  <<: {k: 0}\n  k: 1\n  k: 2\n  k: 3\n");
     expect(read.value).toEqual({ m: { k: 3 } });
     expect(read.duplicateKeys).toEqual([
-      { source: "k", line: 4, column: 3 },
-      { source: "k", line: 5, column: 3 },
+      { source: "k", line: 4, column: 3, keeps: "last" },
+      { source: "k", line: 5, column: 3, keeps: "last" },
+    ]);
+  });
+
+  it.each([
+    ["an inline source", "m:\n  <<: {k: 1, k: 2}\n", { m: { k: 1 } }],
+    [
+      "an inline source in a list",
+      "m:\n  <<: [{j: 0}, {k: 1, k: 2}]\n",
+      {
+        m: { j: 0, k: 1 },
+      },
+    ],
+    [
+      "a source whose own merge comes first",
+      "m:\n  <<: {<<: {k: 1}, k: 2, k: 3}\n",
+      { m: { k: 1 } },
+    ],
+    [
+      "an anchored source merged before it is read as a value",
+      "m:\n  <<: &s {k: 1, k: 2}\nn:\n  <<: *s\no: *s\n",
+      { m: { k: 1 }, n: { k: 1 }, o: { k: 2 } },
+    ],
+    [
+      "an anchored source read as a value first",
+      "s: &s {k: 1, k: 2}\nm:\n  <<: *s\n",
+      { s: { k: 2 }, m: { k: 2 } },
+    ],
+  ])(
+    "keeps the first value of a key a merge source holds again: %s",
+    (_, text, value) => {
+      expect(valueOf(text)).toEqual(value);
+    },
+  );
+
+  it("says which value of a key written again SnakeYAML keeps", () => {
+    expect(
+      readYaml("m:\n  <<: {k: 1, k: 2}\nn: {k: 1, k: 2}\n").duplicateKeys,
+    ).toEqual([
+      { source: "k", line: 2, column: 14, keeps: "first" },
+      { source: "k", line: 3, column: 11, keeps: "last" },
     ]);
   });
 
@@ -308,6 +350,18 @@ describe("readYaml", () => {
     );
   });
 
+  it("counts a leading byte order mark toward the code-point limit, but not in positions", () => {
+    const document = (codePoints: number) =>
+      `\ufeffa: ${"x".repeat(codePoints - 4)}`;
+    expect(() => readYaml(document(3_145_728))).not.toThrow();
+    expect(() => readYaml(document(3_145_729))).toThrow(
+      "the document exceeds the limit of 3145728 code points (1:1)",
+    );
+    expect(() => readYaml("\ufeffa: 1\n b: x: y\n")).toThrow(
+      "Nested mappings are not allowed in compact mappings (1:4)",
+    );
+  });
+
   // SnakeYAML checks the limit where its scanner stands after each token: a
   // plain scalar's scan takes in the spaces and line breaks after it.
   const LIMIT = 3_145_728;
@@ -329,5 +383,55 @@ describe("readYaml", () => {
     expect(() => readYaml(text)).toThrow(
       "the document exceeds the limit of 3145728 code points (1:1)",
     );
+  });
+
+  // The yaml library parses this document in about 0.3 s.
+  it("reads one map of 80,000 distinct keys in time linear in the keys", () => {
+    const keys = 80_000;
+    const text = Array.from({ length: keys }, (_, i) => `k${i}: 1`).join("\n");
+    const start = performance.now();
+    const read = readYaml(text);
+    const elapsed = performance.now() - start;
+    expect(Object.keys(read.value as object)).toHaveLength(keys);
+    expect(read.duplicateKeys).toEqual([]);
+    expect(elapsed).toBeLessThan(3_000);
+  }, 120_000);
+
+  it("keeps the last of a key written three times, and reports the later two", () => {
+    const read = readYaml("a: 1\nb: 2\na: 3\na: 4\n");
+    expect(read.value).toEqual({ a: 4, b: 2 });
+    expect(read.duplicateKeys).toEqual([
+      { source: "a", line: 3, column: 1, keeps: "last" },
+      { source: "a", line: 4, column: 1, keeps: "last" },
+    ]);
+  });
+
+  it.each([
+    ["a map, in its value", "x: &c {y: *c}\n", "(1:11)"],
+    ["a list, as its item", "x: &c [1, *c]\n", "(1:11)"],
+    ["a map, as its key", "x: &c {*c : 1}\n", "(1:8)"],
+    ["a map, in its list key", "x: &c {? [*c] : 1}\n", "(1:11)"],
+    ["a map, in a key of its value", "x: &c {a: {*c : 1}}\n", "(1:12)"],
+    [
+      "a map, as a merge source in its value",
+      "x: &c {a: 1, b: {<<: *c}}\n",
+      "(1:17)",
+    ],
+  ])("refuses an alias to %s", (_, text, position) => {
+    expect(() => readYaml(text)).toThrow(
+      `an alias refers to a map or list that holds it ${position}`,
+    );
+  });
+
+  it("reads a map or list key that holds no map or list it is in", () => {
+    const read = readYaml("a: &m {k: 1}\nb: {*m : 2, {1: x}: 3}\n");
+    expect(read.value).toEqual({
+      a: { k: 1 },
+      b: { "{k: 1}": 2, "{1: x}": 3 },
+    });
+    expect(read.nonStringKeys).toEqual([
+      { path: ["b"], source: "{k: 1}", shadowed: false },
+      { path: ["b"], source: "{1: x}", shadowed: false },
+    ]);
   });
 });

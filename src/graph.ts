@@ -1,11 +1,14 @@
+/** An edge of a graph, to the node `to`. */
+export type Edge = { to: number };
+
 /**
  * The cycles of the graph on nodes `0` to `size - 1`, where `edges` maps a node
- * to the nodes it points to: each strongly connected component of more than
+ * to its edges: each strongly connected component of more than
  * one node or with a self-edge, as its nodes in ascending order. Components
  * come in the order Tarjan's algorithm completes them.
  */
 export function cycles(
-  edges: ReadonlyMap<number, readonly number[]>,
+  edges: ReadonlyMap<number, readonly Edge[]>,
   size: number,
 ): number[][] {
   const index: number[] = new Array(size).fill(-1);
@@ -19,7 +22,7 @@ export function cycles(
     index[v] = low[v] = next++;
     stack.push(v);
     onStack[v] = true;
-    for (const w of edges.get(v) ?? []) {
+    for (const { to: w } of edges.get(v) ?? []) {
       if (index[w] === -1) {
         visit(w);
         low[v] = Math.min(low[v], low[w]);
@@ -35,7 +38,10 @@ export function cycles(
         onStack[w] = false;
         component.push(w);
       } while (w !== v);
-      if (component.length > 1 || (edges.get(v) ?? []).includes(v)) {
+      if (
+        component.length > 1 ||
+        (edges.get(v) ?? []).some((e) => e.to === v)
+      ) {
         found.push(component.sort((a, b) => a - b));
       }
     }
@@ -51,36 +57,37 @@ export function cycles(
 
 /**
  * A shortest cycle through the first node of `component`, a cycle that
- * `cycles` returned, following `edges` within the component: its nodes in
- * edge order, starting and ending with that first node.
+ * `cycles` returned, following `edges` within the component: its edges in
+ * order, the first leaving that node and the last returning to it.
  */
-export function cyclePath(
-  edges: ReadonlyMap<number, readonly number[]>,
+export function cyclePath<E extends Edge>(
+  edges: ReadonlyMap<number, readonly E[]>,
   component: readonly number[],
-): number[] {
+): E[] {
   const [start] = component;
   const members = new Set(component);
-  const previous = new Map<number, number>();
+  const previous = new Map<number, { from: number; edge: E }>();
   let frontier = [start];
   while (frontier.length > 0) {
     const next: number[] = [];
     for (const v of frontier) {
-      for (const w of edges.get(v) ?? []) {
+      for (const edge of edges.get(v) ?? []) {
+        const w = edge.to;
         if (w === start) {
-          const path = [start];
-          // Each node reached from `start` has a previous node.
-          for (let u = v; u !== start; u = previous.get(u) ?? start) {
-            path.splice(1, 0, u);
+          const path = [edge];
+          for (let step = previous.get(v); step !== undefined; ) {
+            path.unshift(step.edge);
+            step = step.from === start ? undefined : previous.get(step.from);
           }
-          return [...path, start];
+          return path;
         }
         if (members.has(w) && !previous.has(w)) {
-          previous.set(w, v);
+          previous.set(w, { from: v, edge });
           next.push(w);
         }
       }
     }
     frontier = next;
   }
-  return [start];
+  return [];
 }

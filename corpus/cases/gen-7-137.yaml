@@ -1,6 +1,6 @@
 description: alias, alias-upper, name-upper, nested-optional-tags-d1-n2, schema-lower, schema-quoted, schema-upper, sql
 origin: corpus-gen.ts, seed 7, case 137, shrunk to 1 of 3 edits
-known: "collections/transforms/monthly_sales_summary.yaml: only Metabase reads TRANSFORMS.DAILY_ORDER_SUMMARY"
+known: null
 edits:
   collections/transforms/monthly_sales_summary.yaml: |
     name: Monthly Sales Summary

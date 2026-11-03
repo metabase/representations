@@ -9,7 +9,7 @@ exports[`lint output on a broken copy of the examples matches the recording: sch
       "name": "Top Categories: three highest",
     },
     "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
-    "message": "TransformTest does not match its schema: /expectations/0/type must be equal to one of the allowed values",
+    "message": "TransformTest does not match its schema: /expectations/0/type must be equal to one of the allowed values: "equals", "empty"",
     "related": [],
     "rule": "schema",
     "severity": "error",
@@ -29,6 +29,40 @@ exports[`lint output on a broken copy of the examples matches the recording: ski
     "message": "Metabase skips this file because it has no serdes/meta",
     "related": [],
     "rule": "skipped-by-metabase",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: duplicate yaml key 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "jf55MTi7z8cWQjPG2PEgz",
+      "model": "Transform",
+      "name": "Top Categories",
+    },
+    "file": "collections/transforms/top_categories.yaml",
+    "message": "the key name is written again at 27:1 in the same map; Metabase keeps only the last value",
+    "related": [],
+    "rule": "duplicate-yaml-key",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: invalid utf8 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": null,
+      "model": null,
+      "name": null,
+    },
+    "file": "collections/transforms/top_categories.yaml",
+    "message": "the file is not valid UTF-8, and Metabase reads each invalid byte sequence as U+FFFD; save the file as UTF-8",
+    "related": [],
+    "rule": "invalid-utf8",
     "severity": "warning",
   },
 ]
@@ -71,7 +105,7 @@ exports[`lint output on a broken copy of the examples matches the recording: dup
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform.yaml",
-    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s); each run of one replaces the other's table",
     "related": [
       "collections/transforms/native_transform_copy.yaml",
     ],
@@ -85,7 +119,7 @@ exports[`lint output on a broken copy of the examples matches the recording: dup
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform_copy.yaml",
-    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s); each run of one replaces the other's table",
     "related": [
       "collections/transforms/native_transform.yaml",
     ],
@@ -180,7 +214,7 @@ exports[`lint output on a broken copy of the examples matches the recording: mis
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform.yaml",
-    "message": "the incremental native query has no table variable for Metabase to put its range filter in",
+    "message": "the incremental native query has no template tag of type table ({{table}}) for Metabase to put its range filter in",
     "related": [],
     "rule": "missing-incremental-table-tag",
     "severity": "error",
@@ -239,6 +273,40 @@ exports[`lint output on a broken copy of the examples matches the recording: uns
 ]
 `;
 
+exports[`lint output on a broken copy of the examples matches the recording: unknown engine 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "g2cRYwopfoL1BW9Y4n3wb",
+      "model": "Transform",
+      "name": "Python Hello World",
+    },
+    "file": "collections/transforms/python_hello_world.yaml",
+    "message": "the lint does not know the engine third-party-driver of database Legacy, as with a third-party or newer driver, so the checks that depend on it do not run. Check the driver name",
+    "related": [],
+    "rule": "unknown-engine",
+    "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: empty native query 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "w7EfUbsxLA7kXBHVXgeaZ",
+      "model": "Transform",
+      "name": "Monthly Sales Summary",
+    },
+    "file": "collections/transforms/monthly_sales_summary.yaml",
+    "message": "a native query of this transform is empty; Metabase accepts it, and every run fails",
+    "related": [],
+    "rule": "empty-native-query",
+    "severity": "warning",
+  },
+]
+`;
+
 exports[`lint output on a broken copy of the examples matches the recording: missing input 1`] = `
 [
   {
@@ -286,7 +354,7 @@ exports[`lint output on a broken copy of the examples matches the recording: nul
       "name": "Product Summary",
     },
     "file": "collections/transforms/product_summary.yaml",
-    "message": "reads products (no schema) in database Sample Postgres, whose engine postgres has schemas: a null schema in a reference names a table with no schema, which Metabase does not find there, so every run fails. Name the table's schema",
+    "message": "reads products (no schema) in database Sample Postgres, whose engine postgres has schemas: Metabase imports a reference with a null schema as a table with no schema, an inactive stub that holds no data, so every run fails. Name the table's schema, or, if the database has no schemas, give it a null default schema in .metabase-lint.json",
     "related": [],
     "rule": "null-schema-reference",
     "severity": "error",
@@ -353,7 +421,7 @@ exports[`lint output on a broken copy of the examples matches the recording: unt
       "name": "Daily Order Summary: orders per day",
     },
     "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
-    "message": "input orders has no column created_at, which transform Daily Order Summary reads as CREATED_AT; the input's column is created_at",
+    "message": "transform Daily Order Summary reads the column CREATED_AT from input orders, which declares created_at: Snowflake reads an unquoted name in upper case, and Metabase creates the input's columns as declared. Declare the column as CREATED_AT, or write it as "created_at" in the SQL",
     "related": [
       "collections/transforms/daily_order_summary.yaml",
     ],
@@ -367,7 +435,7 @@ exports[`lint output on a broken copy of the examples matches the recording: unt
       "name": "Daily Order Summary: orders per day",
     },
     "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
-    "message": "input orders has no column total, which transform Daily Order Summary reads as TOTAL; the input's column is total",
+    "message": "transform Daily Order Summary reads the column TOTAL from input orders, which declares total: Snowflake reads an unquoted name in upper case, and Metabase creates the input's columns as declared. Declare the column as TOTAL, or write it as "total" in the SQL",
     "related": [
       "collections/transforms/daily_order_summary.yaml",
     ],
@@ -511,12 +579,29 @@ exports[`lint output on a broken copy of the examples matches the recording: tab
       "name": "Top Categories: three highest",
     },
     "file": "collections/transforms/top_categories/top_categories__three_highest.yaml",
-    "message": "transform Top Categories qualifies a column by product_revenue_report, the name of transforms.product_revenue_report, which this test replaces. Metabase refuses the test. Alias the table and qualify its columns by the alias",
+    "message": "transform Top Categories qualifies a column by product_revenue_report, the name of transforms.product_revenue_report, which this test replaces. Metabase refuses the test if the qualifier still names no table once the template tags have values. Alias the table and qualify its columns by the alias",
     "related": [
       "collections/transforms/top_categories.yaml",
     ],
     "rule": "table-qualified-column",
     "severity": "warning",
+  },
+]
+`;
+
+exports[`lint output on a broken copy of the examples matches the recording: expectation qualified column 1`] = `
+[
+  {
+    "entity": {
+      "entity_id": "LfXNcELKeCrAfD4htCFDH",
+      "model": "TransformTest",
+      "name": "Daily Order Summary: orders per day",
+    },
+    "file": "collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml",
+    "message": "expectation no negative revenue qualifies a column by daily_order_summary, the name of transforms.daily_order_summary, which this test replaces. Metabase refuses the test. Alias the table and qualify its columns by the alias",
+    "related": [],
+    "rule": "expectation-qualified-column",
+    "severity": "error",
   },
 ]
 `;
@@ -592,7 +677,7 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform.yaml",
-    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s); each run of one replaces the other's table",
     "related": [
       "collections/transforms/native_transform_copy.yaml",
     ],
@@ -606,7 +691,7 @@ exports[`lint output on a broken copy of the examples matches the recording: sev
       "name": "Product Revenue Report",
     },
     "file": "collections/transforms/native_transform_copy.yaml",
-    "message": "target transforms.product_revenue_report is also written by 1 other transform(s)",
+    "message": "target transforms.product_revenue_report is also written by 1 other transform(s); each run of one replaces the other's table",
     "related": [
       "collections/transforms/native_transform.yaml",
     ],

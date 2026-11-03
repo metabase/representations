@@ -156,10 +156,10 @@ describe("reportMissingTargetSchemas", () => {
       target: { type: "table", name: "orders_by_day", ...target },
     });
 
-  it("reports a target with no schema, a null one or a blank one on an engine with schemas", () => {
+  it("reports a target with no schema or a null one on an engine with schemas", () => {
     const message =
       "the target names no schema; Metabase requires one for database Warehouse, whose engine postgres has schemas";
-    for (const target of [{}, { schema: null }, { schema: " " }]) {
+    for (const target of [{}, { schema: null }]) {
       expect(
         targetSchemaFindings([withTarget(target)], { Warehouse: "postgres" }),
       ).toEqual([
@@ -171,6 +171,33 @@ describe("reportMissingTargetSchemas", () => {
         },
       ]);
     }
+  });
+
+  it("reports a blank schema on any engine, and no schema only on an engine with schemas", () => {
+    const message =
+      "the target's schema is blank, which Metabase refuses on any database, both when its API saves the transform and when remote sync pulls it. Name the schema, or remove the key if database Warehouse has no schemas";
+    const engineLists: Readonly<Record<string, string>>[] = [
+      { Warehouse: "postgres" },
+      { Warehouse: "mysql" },
+      {},
+    ];
+    for (const engines of engineLists) {
+      expect(
+        targetSchemaFindings([withTarget({ schema: " " })], engines),
+      ).toEqual([
+        {
+          rule: "missing-target-schema",
+          file: TRANSFORM_FILE,
+          message,
+          related: [],
+        },
+      ]);
+    }
+    expect(
+      targetSchemaFindings([withTarget({}), withTarget({ schema: null })], {
+        Warehouse: "mysql",
+      }),
+    ).toEqual([]);
   });
 
   it("reads blank as Java's whitespace does: U+001F is blank, a no-break space and U+FEFF are not", () => {
@@ -439,7 +466,7 @@ describe("reportUnknownEngines", () => {
         (r) => r.message,
       ),
     ).toEqual([
-      "the engine duckdb of database Warehouse is not in the lint's table of Metabase's drivers, as a third-party or newer driver is not, so the checks that depend on it do not run. Check the driver name",
+      "the lint does not know the engine duckdb of database Warehouse, as with a third-party or newer driver, so the checks that depend on it do not run. Check the driver name",
     ]);
   });
 

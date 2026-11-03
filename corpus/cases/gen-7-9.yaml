@@ -2,7 +2,7 @@ description: alias-quoted, name-mixed, name-quoted, optional-clause, schema-uppe
 origin: corpus-gen.ts, seed 7, case 9, shrunk to 1 of 3 edits
 known: |-
   collections/transforms/daily_order_summary.yaml: Metabase refuses the probe with transform-test.unparseable-source, which the lint does not explain
-  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unparseable-source ("The transform source SQL could not be parsed for test input validation: ParseError: Required keyword: 'this' missing. Line 1, Col: 92.\n  SELECT * FROM PUBLIC.People AS \"t\" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM PUBLIC.\"products\")]]\n                                                                                             ^"), which no lint rule predicts
+  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unparseable-source ("The transform source SQL could not be parsed for test input validation: ParseError: Required keyword: 'this' missing. Line 1, Col: 92.\n  SELECT * FROM PUBLIC.People AS \"t\" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM PUBLIC.\"products\")]]\n                                                                                             ^"), which no error rule predicts
 edits:
   collections/transforms/daily_order_summary.yaml: |
     name: Daily Order Summary

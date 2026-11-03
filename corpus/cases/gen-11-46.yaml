@@ -1,6 +1,6 @@
 description: alias-quoted, alias-quoted-upper, expectation, expectation-sql, name-quoted, name-quoted-mixed, name-quoted-upper, nested-optional-tags-n1-d2, schema-lower
 origin: corpus-gen.ts, seed 11, case 46, shrunk to 1 of 2 edits
-known: 'collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Invalid expression / Unexpected token. Line 1, Col: 55.\n  SELECT * FROM transforms.\"Daily_order_summary\" AS \"t\" [[JOIN public.\"ORDERS\" \"T\" ON 1 = {{n1}} [[JOIN transforms.\"daily_order_summary\" ON 1 = {{d2}}]] ]]\n                                                        ^"), which no lint rule predicts'
+known: 'collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Invalid expression / Unexpected token. Line 1, Col: 55.\n  SELECT * FROM transforms.\"Daily_order_summary\" AS \"t\" [[JOIN public.\"ORDERS\" \"T\" ON 1 = {{n1}} [[JOIN transforms.\"daily_order_summary\" ON 1 = {{d2}}]] ]]\n                                                        ^"), which no error rule predicts'
 edits:
   collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: |
     name: "Daily Order Summary: orders per day"

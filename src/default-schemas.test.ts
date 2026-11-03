@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { beforeAll, describe, expect, it } from "bun:test";
 import fc from "fast-check";
 
 import {
@@ -7,9 +7,9 @@ import {
   type NamedTable,
   resolveDefaultSchemas,
 } from "./default-schemas.js";
-import { inputCovers } from "./input-match.js";
+import { inputCovers, isStandIn, standInReplacements } from "./input-match.js";
+import { loadSqlParser, type SqlParser } from "./sql-parser.js";
 import {
-  fold,
   type NullSchema,
   sameTable,
   type TableKey,
@@ -63,7 +63,7 @@ describe("defaultSchemaNeed", () => {
     ).toEqual({
       file: "a.yaml",
       reason:
-        "names PEOPLE without a schema, so it resolves to the default schema",
+        'names "PEOPLE" without a schema, so it resolves to the default schema',
     });
   });
 
@@ -72,7 +72,7 @@ describe("defaultSchemaNeed", () => {
     expect(defaultSchemaNeed(names, [inTest(names)])).toEqual({
       file: "collections/test.yaml",
       reason:
-        "names orders in schemas A and b in one transform test, which only the default schema tells apart",
+        'names "orders" in schemas "A" and "b" in one transform test, which only the default schema tells apart',
     });
   });
 
@@ -93,6 +93,15 @@ describe("defaultSchemaNeed", () => {
     expect(
       defaultSchemaNeed([ref(null, "ORDERS"), t("PUBLIC", "ORDERS")], []),
     ).toBeNull();
+  });
+
+  it("needs a default schema for an MBQL reference with no schema and the table in a schema in one test", () => {
+    const names = [ref(null, "ORDERS"), t("PUBLIC", "orders")];
+    expect(defaultSchemaNeed(names, [inTest(names)])).toEqual({
+      file: "collections/test.yaml",
+      reason:
+        'names "ORDERS" with no schema and in a schema in one transform test, which only the default schema matches',
+    });
   });
 
   it("needs none when every name is qualified and each table name has one schema", () => {
@@ -119,25 +128,49 @@ type GeneratedName = {
   nullSchema: NullSchema;
 };
 
-/**
- * Whether Metabase's test rewrite replaces `read`, an unquoted name in SQL,
- * with the stand-in for `table`: `replace_names` matches the read's own
- * schema and name, or else `table`'s unqualified key, which `table` has when
- * it is unqualified or in the default schema (`table-keys`).
- */
-const rewrites = (
-  read: TableName,
-  table: TableName,
-  defaultSchema: string | null,
-): boolean =>
-  fold(read.name) === fold(table.name) &&
-  (fold(read.schema) === fold(table.schema) ||
-    table.schema === null ||
-    fold(table.schema) === fold(defaultSchema));
-
 describe("the default-schema gate", () => {
-  // A test's rewrite (`rewrites`) compares only the tables of one test;
-  // every other comparison may pair any two names.
+  let parser: SqlParser;
+  beforeAll(async () => {
+    parser = await loadSqlParser();
+  }, 60_000);
+
+  // The generated names are few, so each rewrite runs once.
+  const rewritten = new Map<string, boolean>();
+  /**
+   * Whether a transform test's rewrite replaces `read`, an unquoted name in
+   * SQL, with the stand-in for `table` (`standInReplacements`).
+   */
+  const rewrites = (
+    read: TableName,
+    table: TableName,
+    defaultSchema: string | null,
+  ): boolean => {
+    const sql = `SELECT * FROM ${read.schema === null ? "" : `${read.schema}.`}${read.name}`;
+    const key = JSON.stringify([sql, table.schema, table.name, defaultSchema]);
+    const known = rewritten.get(key);
+    if (known !== undefined) {
+      return known;
+    }
+    const replaced = parser.replaceNames(
+      sql,
+      standInReplacements([table], defaultSchema),
+      "postgres",
+    );
+    if (replaced.status !== "read") {
+      throw new Error(replaced.reason);
+    }
+    const after = parser.referencedTables(replaced.sql, "postgres");
+    if (after.status !== "read") {
+      throw new Error(after.reason);
+    }
+    const answer = after.tables.every(isStandIn);
+    rewritten.set(key, answer);
+    return answer;
+  };
+
+  // A test's rewrite (`rewrites`) and its inputs (`inputCovers`) compare
+  // only the tables of one test; every other comparison may pair any two
+  // names.
   it("lets through only names whose matches never depend on the default schema", () => {
     const defaults = [null, "a", "b"] as const;
     const key = (n: GeneratedName): TableKey => ({
@@ -154,7 +187,7 @@ describe("the default-schema gate", () => {
       inOneTest: boolean,
       d: string | null,
     ) => [
-      ...(isSql(b) ? [inputCovers(a, b, d)] : []),
+      ...(inOneTest && isSql(b) ? [inputCovers(a, b, d)] : []),
       ...(inOneTest && isSql(a) && isSql(b) ? [rewrites(a, b, d)] : []),
       sameTable(key(a), key(b), () => d),
     ];
@@ -217,13 +250,13 @@ describe("resolveDefaultSchemas", () => {
           database: "Legacy",
           file: "legacy_test.yaml",
           reason:
-            "names t in schemas a and b in one transform test, which only the default schema tells apart",
+            'names "t" in schemas "a" and "b" in one transform test, which only the default schema tells apart',
         },
         {
           database: "Warehouse",
           file: "Warehouse.yaml",
           reason:
-            "names orders without a schema, so it resolves to the default schema",
+            'names "orders" without a schema, so it resolves to the default schema',
         },
       ]);
     }

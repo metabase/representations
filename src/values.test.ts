@@ -1,6 +1,13 @@
 import { describe, expect, it } from "bun:test";
 
-import { errorMessage, isRecord, uniqueBy } from "./values.js";
+import {
+  errorMessage,
+  isRecord,
+  isStringArray,
+  isStringOrNull,
+  unescapePointer,
+  uniqueBy,
+} from "./values.js";
 
 describe("isRecord", () => {
   it("accepts a plain object, and one with no prototype", () => {
@@ -33,5 +40,26 @@ describe("uniqueBy", () => {
   it("keeps the first item of each key, in order", () => {
     const items = ["b1", "a1", "b2", "c1", "a2"];
     expect(uniqueBy(items, (item) => item[0])).toEqual(["b1", "a1", "c1"]);
+  });
+});
+
+describe("isStringOrNull and isStringArray", () => {
+  it("accept only a string or null, and only an array of strings", () => {
+    expect([null, "", "a", undefined, 1].map(isStringOrNull)).toEqual([
+      true,
+      true,
+      true,
+      false,
+      false,
+    ]);
+    expect(
+      [[], ["a"], ["a", null], "a", { 0: "a" }].map(isStringArray),
+    ).toEqual([true, true, false, false, false]);
+  });
+});
+
+describe("unescapePointer", () => {
+  it("reads ~1 as / and ~0 as ~, so ~01 is ~1", () => {
+    expect(unescapePointer("a~1b~0c~01")).toBe("a/b~c~1");
   });
 });

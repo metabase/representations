@@ -2,7 +2,7 @@ description: alias, name-lower, name-upper, nested-optional-clause, schema-quote
 origin: corpus-gen.ts, seed 7, case 1, shrunk to 1 of 3 edits
 known: |-
   collections/transforms/top_categories.yaml: Metabase refuses the probe with transform-test.unparseable-source, which the lint does not explain
-  collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refuses it with transform-test.unparseable-source ("The transform source SQL could not be parsed for test input validation: ParseError: Expecting ). Line 1, Col: 89.\n  SELECT * FROM \"public\".orders t WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM \"public\".PEOPLE t [[WHERE 1 IN (SELECT 1 FROM \"public\".products t)]])]]\n                                                                                          ^"), which no lint rule predicts
+  collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refuses it with transform-test.unparseable-source ("The transform source SQL could not be parsed for test input validation: ParseError: Expecting ). Line 1, Col: 89.\n  SELECT * FROM \"public\".orders t WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM \"public\".PEOPLE t [[WHERE 1 IN (SELECT 1 FROM \"public\".products t)]])]]\n                                                                                          ^"), which no error rule predicts
 edits:
   collections/transforms/top_categories.yaml: |
     name: Top Categories

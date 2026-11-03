@@ -1,6 +1,6 @@
 description: alias-quoted, expectation, expectation-sql, name-mixed, name-quoted-mixed, optional-tag-n1, schema-upper
 origin: corpus-gen.ts, seed 11, case 69, shrunk to 1 of 3 edits
-known: 'collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Invalid expression / Unexpected token. Line 1, Col: 53.\n  SELECT * FROM TRANSFORMS.Daily_order_summary AS \"t\" [[JOIN PUBLIC.\"Orders\" ON 1 = {{n1}}]]\n                                                      ^"), which no lint rule predicts'
+known: 'collections/transforms/top_categories/top_categories__three_highest.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Invalid expression / Unexpected token. Line 1, Col: 53.\n  SELECT * FROM TRANSFORMS.Daily_order_summary AS \"t\" [[JOIN PUBLIC.\"Orders\" ON 1 = {{n1}}]]\n                                                      ^"), which no error rule predicts'
 edits:
   collections/transforms/top_categories/top_categories__three_highest.yaml: |
     name: "Top Categories: three highest"

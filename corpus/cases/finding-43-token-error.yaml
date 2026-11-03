@@ -2,7 +2,7 @@ description: A transform's SQL has an unterminated string, which SQLGlot's token
 origin: "review v4, #43 (src/sql-parser.ts:10)"
 known: |-
   collections/transforms/daily_order_summary.yaml: Metabase refuses the probe with http, which the lint does not explain
-  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with http ("500 sqlglot call failed: TokenError: Error tokenizing 'SELECT 'abc FROM order'"), which no lint rule predicts
+  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with http ("500 sqlglot call failed: TokenError: Error tokenizing 'SELECT 'abc FROM order'"), which no error rule predicts
 edits:
   collections/transforms/daily_order_summary.yaml: |
     name: Daily Order Summary

@@ -1,8 +1,6 @@
 description: A transform filters by a field-filter tag on orders.created_at; its test gives orders.
 origin: "self-review of #40 at 6405d92, section 2.2"
-known: |-
-  collections/transforms/daily_order_summary.yaml: only the lint reads public.orders
-  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase accepts it; the lint reports missing-input
+known: null
 edits:
   collections/transforms/daily_order_summary.yaml: |
     name: Daily Order Summary

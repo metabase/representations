@@ -1,4 +1,4 @@
-import type { EngineOf } from "./databases.js";
+import { databasesOf, type EngineOf } from "./databases.js";
 import {
   displayName,
   type Doc,
@@ -14,17 +14,19 @@ import type { SourceFinder } from "./query-sources.js";
 import type { Report } from "./findings.js";
 import type { TestedTransform } from "./test-checks.js";
 import { CONFIG_FILE } from "./settings.js";
-import { isJavaBlank, isRecord, stringOrNull } from "./values.js";
+import { isJavaBlank } from "./values.js";
 
 /** Whether `schema` is what Clojure's `str/blank?` calls blank: absent, empty or Java whitespace. */
 const isBlank = (schema: string | null | undefined): boolean =>
   schema === undefined || schema === null || isJavaBlank(schema);
 
 /**
- * Reports each transform whose target names no schema, or a blank one, on a
- * database whose engine has schemas. Metabase's API refuses such a transform;
- * an import accepts it. A transform with no target database has nothing to
- * check.
+ * Reports each transform whose target schema is blank, on any engine, and
+ * each whose target names no schema, or a null one, on a database whose
+ * engine has schemas. Metabase's API and its import both refuse a blank
+ * schema on any engine; its API refuses no schema on an engine with schemas,
+ * and an import accepts it. A transform with no target database has nothing
+ * to check.
  */
 export function reportMissingTargetSchemas(
   docs: readonly Doc[],
@@ -36,11 +38,15 @@ export function reportMissingTargetSchemas(
     if (database === null) {
       continue;
     }
+    const { schema } = transform.body.target;
     const engine = engineOf(database);
-    if (
-      engineFacts(engine)?.schemas === true &&
-      isBlank(transform.body.target.schema)
-    ) {
+    if (typeof schema === "string" && isJavaBlank(schema)) {
+      report(
+        "missing-target-schema",
+        transform,
+        `the target's schema is blank, which Metabase refuses on any database, both when its API saves the transform and when remote sync pulls it. Name the schema, or remove the key if database ${database} has no schemas`,
+      );
+    } else if (engineFacts(engine)?.schemas === true && isBlank(schema)) {
       report(
         "missing-target-schema",
         transform,
@@ -123,43 +129,9 @@ export function reportUntestableEngines(
   }
 }
 
-/** The database a Card's query runs on, or null when it names none. */
-function cardDatabaseOf(card: Doc): string | null {
-  const query = card.body.dataset_query;
-  return isRecord(query) ? stringOrNull(query.database) : null;
-}
-
 /**
- * The databases `doc`, a transform or a Card, writes to or reads, each once:
- * a transform's target database (`targetDatabaseOf`) and its Python source
- * tables' databases, a Card's query's database, and the databases of the
- * tables and native queries either names.
- */
-function databasesOf(doc: Doc, findSources: SourceFinder): string[] {
-  const named: (string | null)[] = [];
-  const transform = validDocsOf([doc], "Transform")[0];
-  if (transform !== undefined) {
-    named.push(targetDatabaseOf(transform));
-    const { source } = transform.body;
-    if (isPythonSource(source)) {
-      for (const table of source["source-tables"]) {
-        named.push(table.table_id?.[0] ?? table.database_id);
-      }
-    }
-  } else {
-    named.push(cardDatabaseOf(doc));
-  }
-  const sources = findSources(doc.body, doc.model);
-  named.push(
-    ...sources.tables.map((t) => t.database),
-    ...sources.natives.map((n) => n.database),
-  );
-  return [...new Set(named.filter((d) => d !== null))];
-}
-
-/**
- * Warns once on each database a transform or a Card writes to or reads
- * (`databasesOf`) that has no engine the lint knows: no Database file or
+ * Warns once for each transform or Card and each database it writes to or
+ * reads (`databasesOf`) that has no engine the lint knows: no Database file or
  * settings file names one, or the one named is not in the lint's driver
  * table. The checks that depend on the engine then give no finding for it.
  * A remote-sync repository holds no Database file, so there `CONFIG_FILE`
@@ -186,7 +158,7 @@ export function reportUnknownEngines(
         doc,
         engine === null
           ? `no Database file or ${CONFIG_FILE} names the engine of database ${database}, so the checks that depend on it do not run. Give the database's driver name under "engines" in ${CONFIG_FILE}`
-          : `the engine ${engine} of database ${database} is not in the lint's table of Metabase's drivers, as a third-party or newer driver is not, so the checks that depend on it do not run. Check the driver name`,
+          : `the lint does not know the engine ${engine} of database ${database}, as with a third-party or newer driver, so the checks that depend on it do not run. Check the driver name`,
       );
     }
   }

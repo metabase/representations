@@ -85,6 +85,16 @@ describe("readColumns", () => {
       [column(null, "u", "id")],
     ],
     [
+      "the columns of a table in another schema that shares the name of a table whose alias names its columns",
+      "SELECT s.x, u.z FROM a.t AS s(x, y) JOIN b.t AS u ON s.x = u.z",
+      [column("b", "t", "z")],
+    ],
+    [
+      "a column of a table under another alias than the one that names its columns",
+      "SELECT s.x, t2.z FROM t AS s(x, y) JOIN t AS t2 ON t2.z = s.y",
+      [column(null, "t", "z")],
+    ],
+    [
       "the columns a CTE with named columns reads, not its names",
       "WITH c(x, y) AS (SELECT a, b FROM t) SELECT x FROM c",
       [column(null, "t", "a"), column(null, "t", "b")],
@@ -93,6 +103,11 @@ describe("readColumns", () => {
       "no system column or niladic keyword of Postgres",
       "SELECT id, ctid, xmin, xmax, cmin, cmax, tableoid, current_user, session_user, current_role, user FROM orders",
       [column(null, "orders", "id")],
+    ],
+    [
+      "a qualified column that shares a niladic keyword's name",
+      "SELECT o.user, o.current_user FROM orders o",
+      [column(null, "orders", "current_user"), column(null, "orders", "user")],
     ],
     [
       "a quoted column that shares a niladic keyword's name",
@@ -125,6 +140,28 @@ describe("readColumns", () => {
     ).toEqual(expected);
   });
 
+  it("reads a Postgres composite column, not a field of it", () => {
+    const expected = {
+      status: "read" as const,
+      columns: [column(null, "orders", "addr"), column(null, "orders", "id")],
+    };
+    const sorted = (sql: string) => {
+      const result = columns.readColumns(sql, "Warehouse");
+      return result.status === "read"
+        ? {
+            ...result,
+            columns: [...result.columns].sort((a, b) =>
+              a.column.localeCompare(b.column),
+            ),
+          }
+        : result;
+    };
+    expect(sorted("SELECT o.id, o.addr FROM orders o")).toEqual(expected);
+    expect(sorted("SELECT o.id, (o.addr).city AS city FROM orders o")).toEqual(
+      expected,
+    );
+  });
+
   it("reads no column a template tag became", () => {
     expect(
       columns.readColumns("SELECT {{x}} FROM orders", "Warehouse", new Set()),
@@ -146,7 +183,7 @@ describe("readColumns", () => {
 });
 
 describe("readColumns on other engines", () => {
-  const onEngine = (engine: string) =>
+  const onEngine = (engine: string | null) =>
     createSqlColumnReader(sharedParser, () => engine);
 
   it("reads no lateral alias on Redshift, and no SYSDATE", () => {
@@ -178,7 +215,7 @@ describe("readColumns on other engines", () => {
     }
   });
 
-  it("reads a select-list alias as a column only where the engine has no lateral aliases", () => {
+  it("reads a select-list alias as a column in each clause where the engine reads no alias", () => {
     const sql =
       "SELECT price * 2 AS doubled, doubled + 1 AS d2 FROM orders WHERE doubled > 0";
     const names = (engine: string) => {
@@ -198,7 +235,7 @@ describe("readColumns on other engines", () => {
     ).toEqual({ status: "read", columns: [column(null, "orders", "price")] });
   });
 
-  it("reads no alias that a GROUP BY names where the engine allows it", () => {
+  it("reads no alias that a GROUP BY names, on Postgres and MySQL", () => {
     const names = (engine: string, sql: string) => {
       const result = onEngine(engine).readColumns(sql, "Warehouse");
       return result.status === "read"
@@ -207,6 +244,31 @@ describe("readColumns on other engines", () => {
     };
     const grouped = "SELECT lower(name) AS n FROM people GROUP BY n";
     expect(names("postgres", grouped)).toEqual(["name"]);
+    expect(names("mysql", grouped)).toEqual(["name"]);
+  });
+
+  it("reads no alias that ORDER BY, GROUP BY or HAVING names, on any engine", () => {
+    for (const engine of [
+      "postgres",
+      "mysql",
+      "redshift",
+      "clickhouse",
+      "snowflake",
+      "h2",
+      "sqlserver",
+      null,
+    ]) {
+      for (const sql of [
+        "SELECT 1 AS y FROM t ORDER BY y",
+        "SELECT 1 AS y FROM t GROUP BY y",
+        "SELECT count(*) AS c FROM t GROUP BY x HAVING c > 1",
+      ]) {
+        expect([
+          engine,
+          onEngine(engine).readColumns(sql, "Warehouse"),
+        ]).toEqual([engine, { status: "read", columns: [] }]);
+      }
+    }
   });
 
   it("reads no ClickHouse ARRAY JOIN alias", () => {
@@ -216,6 +278,15 @@ describe("readColumns on other engines", () => {
         "Warehouse",
       ),
     ).toEqual({ status: "read", columns: [] });
+  });
+
+  it("reads a qualified ClickHouse column that an ARRAY JOIN alias shares a name with", () => {
+    expect(
+      onEngine("clickhouse").readColumns(
+        "SELECT o.tag, tag FROM orders o ARRAY JOIN o.tags AS tag",
+        "Warehouse",
+      ),
+    ).toEqual({ status: "read", columns: [column(null, "orders", "tag")] });
   });
 });
 

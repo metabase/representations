@@ -1,6 +1,6 @@
 description: An MBQL transform reads orders through a table reference with a null schema; its test gives public.orders.
 origin: "review v4, #46 (src/input-match.ts:22)"
-known: "collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: Metabase accepts it; the lint reports missing-input, unused-input"
+known: null
 edits:
   collections/transforms/mbql_transform.yaml: |
     name: Monthly Order Summary

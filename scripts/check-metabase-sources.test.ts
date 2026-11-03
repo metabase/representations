@@ -53,13 +53,19 @@ afterEach(() => {
   server = undefined;
 });
 
+type Files = Record<string, Uint8Array | string>;
+
 /**
- * Runs the check against a fake raw.githubusercontent.com serving `files` at master, and a fake
- * PyPI serving `pypi` as the record of the vendored SQLGlot version.
+ * Runs the check against a fake raw.githubusercontent.com serving `files` at master and
+ * `recorded` at the commit vendor/sources.json records, and a fake PyPI serving `pypi` as the
+ * record of the vendored SQLGlot version.
  */
 async function runCheck(
-  files: Record<string, Uint8Array | string>,
-  pypi: unknown = PYPI_RECORD,
+  files: Files,
+  {
+    pypi = PYPI_RECORD,
+    recorded = files,
+  }: { pypi?: unknown; recorded?: Files } = {},
 ): Promise<{ exitCode: number; output: string }> {
   server?.stop(true);
   server = Bun.serve({
@@ -69,10 +75,13 @@ async function runCheck(
       if (path === `/pypi/sqlglot/${sqlglot.version}/json`) {
         return Response.json(pypi);
       }
-      const prefix = `/${sqlTools.repository}/master/`;
-      const file = path.startsWith(prefix)
-        ? files[path.slice(prefix.length)]
-        : undefined;
+      const served = (ref: string, refFiles: Files) => {
+        const prefix = `/${sqlTools.repository}/${ref}/`;
+        return path.startsWith(prefix)
+          ? refFiles[path.slice(prefix.length)]
+          : undefined;
+      };
+      const file = served("master", files) ?? served(sqlTools.commit, recorded);
       return file === undefined
         ? new Response("404: Not Found", { status: 404 })
         : new Response(file);
@@ -138,6 +147,53 @@ describe("check-metabase-sources", () => {
     expect(exitCode).toBe(1);
   });
 
+  const RECORDED = `at ${sqlTools.commit}, the commit vendor/sources.json records`;
+
+  it("fails when sql_tools.py differs from Metabase's at the recorded commit, though master's matches", async () => {
+    const files = {
+      [sqlTools.path]: SQL_TOOLS,
+      [sqlglot.pin]: pyproject(sqlglot.version),
+      [importedModels.path]: MODELS_CLJ,
+    };
+    const { exitCode, output } = await runCheck(files, {
+      recorded: {
+        ...files,
+        [sqlTools.path]: new Uint8Array([...SQL_TOOLS, 0x0a]),
+      },
+    });
+    expect(output).toContain(
+      `OK    vendor/sql_tools.py is Metabase's ${sqlTools.path}\n`,
+    );
+    expect(output).toContain(
+      `FAIL  vendor/sql_tools.py differs from Metabase's ${sqlTools.path} ${RECORDED}. Run "bun run scripts/update-metabase-sources.ts", which copies the file and records its commit.`,
+    );
+    expect(exitCode).toBe(1);
+  });
+
+  it.each([
+    ["another SQLGlot", pyproject("99.0.0"), "sqlglot 99.0.0"],
+    ["no SQLGlot", "[project]\n", "no sqlglot"],
+  ])(
+    "fails when Metabase's pin at the recorded commit is %s, though master's matches",
+    async (_, recordedPyproject, pinned) => {
+      const files = {
+        [sqlTools.path]: SQL_TOOLS,
+        [sqlglot.pin]: pyproject(sqlglot.version),
+        [importedModels.path]: MODELS_CLJ,
+      };
+      const { exitCode, output } = await runCheck(files, {
+        recorded: { ...files, [sqlglot.pin]: recordedPyproject },
+      });
+      expect(output).toContain(
+        `OK    vendor/ holds sqlglot ${sqlglot.version}, Metabase's pin\n`,
+      );
+      expect(output).toContain(
+        `FAIL  ${sqlglot.pin} ${RECORDED}, pins ${pinned}; vendor/ holds ${sqlglot.version}. Vendor sql_tools.py and the SQLGlot wheel from one Metabase commit, and record that commit in vendor/sources.json.`,
+      );
+      expect(exitCode).toBe(1);
+    },
+  );
+
   it("fails when the vendored wheel's SHA-256 differs from PyPI's", async () => {
     const other = "0".repeat(64);
     const { exitCode, output } = await runCheck(
@@ -146,7 +202,7 @@ describe("check-metabase-sources", () => {
         [sqlglot.pin]: pyproject(sqlglot.version),
         [importedModels.path]: MODELS_CLJ,
       },
-      pypiRecord({ [sqlglot.wheel]: other }),
+      { pypi: pypiRecord({ [sqlglot.wheel]: other }) },
     );
     expect(output).toContain(
       `FAIL  vendor/${sqlglot.wheel} has SHA-256 ${sqlglot.sha256}; PyPI records ${other}`,
@@ -161,7 +217,7 @@ describe("check-metabase-sources", () => {
         [sqlglot.pin]: pyproject(sqlglot.version),
         [importedModels.path]: MODELS_CLJ,
       },
-      pypiRecord({ "sqlglot-other.whl": sqlglot.sha256 }),
+      { pypi: pypiRecord({ "sqlglot-other.whl": sqlglot.sha256 }) },
     );
     expect(output).toContain(
       `FAIL  PyPI lists no ${sqlglot.wheel} for sqlglot ${sqlglot.version}`,
@@ -176,6 +232,12 @@ describe("check-metabase-sources", () => {
     expect(output).toContain(`FAIL  ${sqlTools.path}: 404`);
     expect(output).toContain(`FAIL  ${sqlglot.pin} pins no sqlglot`);
     expect(output).toContain(`FAIL  ${importedModels.path}: 404`);
+    expect(output).toContain(
+      `FAIL  ${sqlTools.path} at ${sqlTools.commit}: 404`,
+    );
+    expect(output).toContain(
+      `FAIL  ${sqlglot.pin} ${RECORDED}, pins no sqlglot`,
+    );
     expect(output).not.toContain(DOCS_STEP);
     expect(exitCode).toBe(1);
   });
@@ -224,6 +286,7 @@ describe("check-metabase-sources", () => {
       resolve(ROOT, ".github/workflows/metabase-sources.yml"),
       "utf8",
     );
+    expect(workflow).toContain("  push:\n    branches: [main]\n");
     expect(workflow).toContain("  pull_request:\n");
     expect(workflow).toContain("  schedule:\n");
     expect(workflow).not.toMatch(/^\s+if:/m);

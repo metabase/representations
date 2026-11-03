@@ -1,9 +1,9 @@
 name: Metabase sources
 
 # The lint parses SQL with Metabase's own code: vendor/sql_tools.py must stay
-# byte-identical to Metabase's on master, the vendored SQLGlot wheel at
-# Metabase's pin, with PyPI's SHA-256, and IMPORTED_MODELS Metabase's
-# exported-models. Every pull request and push to main checks them; the daily
+# byte-identical to Metabase's on master and at the commit vendor/sources.json
+# records, the vendored SQLGlot wheel at Metabase's pin at both, with PyPI's
+# SHA-256, and IMPORTED_MODELS Metabase's exported-models. Every pull request and push to main checks them; the daily
 # run finds a change Metabase makes between pull requests. When sql_tools.py
 # differs, `bun run scripts/update-metabase-sources.ts` copies it.
 on:

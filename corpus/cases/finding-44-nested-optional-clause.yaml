@@ -1,8 +1,6 @@
 description: An optional clause whose tag has a default holds an optional clause whose tag has none. Metabase drops only the inner clause, and reads the outer clause's table.
 origin: "review v4, #44 (src/sql-tables.ts:72)"
-known: |-
-  collections/transforms/daily_order_summary.yaml: only Metabase reads products
-  collections/transforms/daily_order_summary/daily_order_summary__orders_per_day.yaml: Metabase refuses it with transform-test.missing-inputs ("The transform reads table(s) with no declared test input: products. Add an input for each."); the lint reports no missing-input
+known: null
 edits:
   collections/transforms/daily_order_summary.yaml: |
     name: Daily Order Summary

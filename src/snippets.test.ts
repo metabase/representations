@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { expandSnippets, type SnippetLookup } from "./snippets.js";
+import {
+  expandSnippets,
+  snippetIdsOf,
+  type SnippetLookup,
+} from "./snippets.js";
 
 const lookupIn =
   (contents: Readonly<Record<string, string>>) =>
@@ -138,5 +142,23 @@ describe("expandSnippets", () => {
       reason:
         "the query uses more than 10000 snippets, the most Metabase pastes",
     });
+  });
+});
+
+describe("snippetIdsOf", () => {
+  it("keys each snippet id by the name a SQL tag uses, as Metabase reads it", () => {
+    const tag = (name: string, id: string) => ({
+      name,
+      type: "snippet",
+      "snippet-id": id,
+    });
+    expect(
+      snippetIdsOf([
+        tag("snippet:  Big Orders  ", "id-1"),
+        tag("snippet: ", "id-2"),
+        tag("snippet: a}b", "id-3"),
+        { name: "snippet: x", type: "text", "snippet-id": "id-4" },
+      ]),
+    ).toEqual(new Map([["Big Orders", "id-1"]]));
   });
 });

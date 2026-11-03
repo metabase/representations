@@ -1,5 +1,5 @@
 // Calls to Metabase's API, shared by lint-parity.ts and record-corpus.ts.
-import { isRecord } from "../src/values.js";
+import { isRecord, isStringArray } from "../src/values.js";
 import { describeRefusal, type TestRefusal } from "./parity.js";
 
 /**
@@ -12,9 +12,6 @@ export type Answer = { status: number; json: unknown; text: string };
 /** The answer as a failure message names it: its status and its body. */
 export const describe = (answer: Answer) =>
   `${answer.status} ${answer.text.trim() || "(empty body)"}`;
-
-const isStringArray = (value: unknown): value is string[] =>
-  Array.isArray(value) && value.every((item) => typeof item === "string");
 
 /** Metabase's answer to creating a transform test. */
 export type Probe =

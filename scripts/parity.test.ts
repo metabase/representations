@@ -14,10 +14,11 @@ import { isRecord } from "../src/values.js";
 import {
   changedTransforms,
   readsDiffer,
-  RULE_OF_REFUSAL,
+  RULES_OF_REFUSAL,
   RULE_OF_TRANSFORM_REFUSAL,
   sameTableLabel,
   TEST_RULE_ORDER,
+  TRANSFORM_RULES,
   testVerdictDiffers,
   TRANSFORM_RULE_ORDER,
   transformVerdictDiffers,
@@ -104,7 +105,12 @@ describe("testVerdictDiffers", () => {
 
   it("orders every rule a refusal maps to", () => {
     expect([...TEST_RULE_ORDER].sort()).toEqual(
-      [...new Set(RULE_OF_REFUSAL.values())].sort(),
+      [
+        ...new Set([
+          ...[...RULES_OF_REFUSAL.values()].flat(),
+          ...TRANSFORM_RULES,
+        ]),
+      ].sort(),
     );
   });
 
@@ -122,9 +128,57 @@ describe("testVerdictDiffers", () => {
     expect(testVerdictDiffers(unremapped(false), [otherTable])).toBeNull();
   });
 
-  it("differs when the transform's unremapped reference meets the expectation's error", () => {
+  it("agrees when an expectation's unremapped reference is a qualifier the lint reports", () => {
+    expect(
+      testVerdictDiffers(unremapped(false), [
+        finding("expectation-qualified-column"),
+      ]),
+    ).toBeNull();
+  });
+
+  it("differs when Metabase accepts and the lint reports a qualifier in an expectation", () => {
+    expect(
+      testVerdictDiffers(null, [finding("expectation-qualified-column")]),
+    ).toBe(
+      "Metabase accepts it; the lint reports expectation-qualified-column",
+    );
+  });
+
+  it("differs when the lint reports neither form of an expectation's unremapped reference", () => {
+    expect(testVerdictDiffers(unremapped(false), [])).toBe(
+      'Metabase refuses it with transform-test.unremapped-reference ("people"); the lint reports no expectation-reads-other-table or expectation-qualified-column',
+    );
+  });
+
+  it("agrees when the transform's unremapped reference is a quoted name the lint reports", () => {
+    expect(
+      testVerdictDiffers(unremapped(true), [
+        finding("transform-reads-other-table"),
+        otherTable,
+      ]),
+    ).toBeNull();
+  });
+
+  it("differs when the transform's unremapped reference meets only the expectation's error", () => {
     expect(testVerdictDiffers(unremapped(true), [otherTable])).toBe(
-      'Metabase refuses it with transform-test.unremapped-reference on the transform ("people"), which no lint rule predicts',
+      'Metabase refuses it with transform-test.unremapped-reference on the transform ("people"); the lint reports no transform-reads-other-table',
+    );
+  });
+
+  it("differs when Metabase accepts and the lint reports a quoted name in the transform", () => {
+    expect(
+      testVerdictDiffers(null, [finding("transform-reads-other-table")]),
+    ).toBe("Metabase accepts it; the lint reports transform-reads-other-table");
+  });
+
+  it("differs when an expectation's unremapped reference meets the transform's error", () => {
+    expect(
+      testVerdictDiffers(unremapped(false), [
+        finding("transform-reads-other-table"),
+        otherTable,
+      ]),
+    ).toBe(
+      'Metabase refuses it with transform-test.unremapped-reference ("people"), so it passed the checks before expectation-reads-other-table; the lint reports transform-reads-other-table',
     );
   });
 

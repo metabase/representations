@@ -169,7 +169,22 @@ describe("reportRowsColumns", () => {
     // The expectation's row also has the string key '1', which matches.
     expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
       'input public.orders, row 2: every row must carry exactly the declared columns; missing "total"; keys YAML reads as no string: "yes"; quote them, as \'yes\':',
-      "expectation by id, row 1: every row must carry exactly the declared columns; keys YAML reads as no string: \"1\"; quote them, as '1':",
+      'expectation by id, row 1: every row must carry exactly the declared columns; keys YAML reads as no string beside a quoted key of the same text: "1"; delete them',
+    ]);
+  });
+
+  it("names the keys to quote in order, and the first of them as the example", () => {
+    const doc: Doc = {
+      ...testDoc({
+        inputs: [ordersInput([{ id: 1, total: 10, yes: 2, "1": 3 }])],
+      }),
+      nonStringKeys: [
+        { path: ["inputs", 0, "rows", 0], source: "yes", shadowed: false },
+        { path: ["inputs", 0, "rows", 0], source: "1", shadowed: false },
+      ],
+    };
+    expect(run(reportRowsColumns, [doc]).map((r) => r.message)).toEqual([
+      'input public.orders, row 1: every row must carry exactly the declared columns; keys YAML reads as no string: "1", "yes"; quote them, as \'1\':',
     ]);
   });
 

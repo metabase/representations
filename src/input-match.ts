@@ -1,16 +1,16 @@
 import type { ReplacedTableKey, TableReplacement } from "./sql-parser.js";
-import { fold, type TableKey, type TableName } from "./tables.js";
+import { fold, type TableName } from "./tables.js";
 
 /**
  * Whether a test input stands in for a table the transform reads, by Metabase's
- * rule: names equal, ignoring case, and either schemas equal, ignoring case, or
- * the read unqualified and the input in the default schema. An unqualified
- * input never covers a qualified read. A read with no schema by an MBQL
- * reference (`nullSchema` `"none"`) is not unqualified: no input in the default
- * schema covers it.
+ * rule (`validator.clj` `table-match?`): names equal, ignoring case, and either
+ * schemas equal, ignoring case, or the read with no schema and the input in
+ * the default schema. An unqualified input never covers a qualified read. A
+ * read with no schema by an MBQL reference counts as one with no schema in
+ * SQL: Metabase compiles the reference to an unqualified name.
  */
 export function inputCovers(
-  read: Pick<TableKey, "schema" | "name" | "nullSchema">,
+  read: TableName,
   input: TableName,
   defaultSchema: string | null,
 ): boolean {
@@ -20,11 +20,7 @@ export function inputCovers(
   if (fold(read.schema) === fold(input.schema)) {
     return true;
   }
-  return (
-    read.schema === null &&
-    read.nullSchema === "default" &&
-    fold(input.schema) === fold(defaultSchema)
-  );
+  return read.schema === null && fold(input.schema) === fold(defaultSchema);
 }
 
 const STAND_IN_PREFIX = "__lint_stand_in_";
@@ -71,5 +67,24 @@ export function isStandIn(table: TableName): boolean {
   return (
     table.schema === null &&
     new RegExp(`^${STAND_IN_PREFIX}[0-9]+__$`).test(table.name)
+  );
+}
+
+/**
+ * Whether Metabase's rewrite (`standInReplacements`) replaces `read`, named
+ * with every part quoted, as Metabase compiles an MBQL reference, by the
+ * stand-in of one of `inputs`: a quoted part matches only in its own case.
+ */
+export function replacesQuoted(
+  read: TableName,
+  inputs: readonly TableName[],
+  defaultSchema: string | null,
+): boolean {
+  return inputs.some((input) =>
+    tableKeys(input, defaultSchema).some(
+      (key) =>
+        key.table === read.name &&
+        (key.schema === undefined || key.schema === read.schema),
+    ),
   );
 }

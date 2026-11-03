@@ -25,7 +25,7 @@ dataset_query:
           - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - CATEGORY
           widget-type: string/=
@@ -37,7 +37,7 @@ dataset_query:
           - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
           widget-type: date/range
@@ -51,7 +51,7 @@ dataset_query:
           - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - ORDERS
             - CREATED_AT
 visualization_settings: {}

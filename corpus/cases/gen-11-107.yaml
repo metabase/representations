@@ -1,8 +1,6 @@
 description: add-input, alias-quoted-upper, drop-input, expectation, expectation-sql, name-quoted, name-upper, optional-clause, schema-quoted
 origin: corpus-gen.ts, seed 11, case 107, shrunk to 3 of 3 edits
-known: |-
-  collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: Metabase refuses it with transform-test.unremapped-reference on the transform ("The transform test could not fully remap the source to test tables; these reference(s) remain: public.orders. Alias each source table and qualify its columns by the alias (e.g. `FROM my_table t ... t.col`), not by the table name."), which no lint rule predicts
-  collections/transforms/native_transform/product_revenue_report__category_totals.yaml: Metabase refuses it with transform-test.unparseable-source ("Expectation \"generated\" has SQL that could not be parsed: ParseError: Required keyword: 'this' missing. Line 1, Col: 112.\n  OM \"public\".PEOPLE \"T\" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM \"transforms\".\"daily_order_summary\" \"T\")]]\n                                                                                                      ^"), which no lint rule predicts
+known: "collections/transforms/native_transform/product_revenue_report__category_totals.yaml: Metabase refuses it with transform-test.unparseable-source (\"Expectation \\\"generated\\\" has SQL that could not be parsed: ParseError: Required keyword: 'this' missing. Line 1, Col: 112.\\n  OM \\\"public\\\".PEOPLE \\\"T\\\" WHERE 1 = 1 [[AND 1 IN (SELECT 1 FROM \\\"transforms\\\".\\\"daily_order_summary\\\" \\\"T\\\")]]\\n                                                                                                      ^\"), which no error rule predicts"
 edits:
   collections/transforms/mbql_transform/monthly_order_summary__orders_per_month.yaml: |
     name: "Monthly Order Summary: orders per month"

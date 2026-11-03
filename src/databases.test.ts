@@ -4,9 +4,15 @@ import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { dirname, join, resolve } from "path";
 
-import { createEngineOf, databaseDefaultSchemas } from "./databases.js";
-import { loadDocs } from "./documents.js";
+import {
+  createEngineOf,
+  databaseDefaultSchemas,
+  databasesOf,
+} from "./databases.js";
+import { type Doc, loadDocs } from "./documents.js";
+import type { DataSources } from "./query-sources.js";
 import { loadSchemas } from "./schemas.js";
+import { sqlTable } from "./tables.js";
 
 const EXAMPLES = resolve(import.meta.dirname, "..", "examples", "v1");
 
@@ -158,5 +164,38 @@ describe("databaseDefaultSchemas", () => {
       default_schema: "public",
     });
     expect(defaults()).toEqual({});
+  });
+});
+
+describe("databasesOf", () => {
+  it("collects the databases of the tables and native queries a document names, each once", () => {
+    const doc: Doc = {
+      file: "collections/dashboards/d.yaml",
+      model: "Dashboard",
+      schema: { status: "unchecked" },
+      nonStringKeys: [],
+      body: {},
+    };
+    const native = (database: string | null) => ({
+      sql: "SELECT 1",
+      database,
+      valuedTags: new Set<string>(),
+      snippetIds: new Map<string, string>(),
+    });
+    const sources: DataSources = {
+      tables: [
+        sqlTable("Tables", { schema: "public", name: "a" }),
+        sqlTable("Tables", { schema: "public", name: "b" }),
+      ],
+      unvaluedFilterTables: [sqlTable("Tags", { schema: null, name: "c" })],
+      fields: [],
+      entities: [],
+      natives: [native("Natives"), native(null)],
+    };
+    expect(databasesOf(doc, () => sources)).toEqual([
+      "Tables",
+      "Tags",
+      "Natives",
+    ]);
   });
 });

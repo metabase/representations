@@ -10,7 +10,13 @@ import {
   tableOfRef,
   uniqueTables,
 } from "./tables.js";
-import { isRecord, isUnknownArray, stringOrNull, uniqueBy } from "./values.js";
+import {
+  isRecord,
+  isUnknownArray,
+  stringOrNull,
+  uniqueBy,
+  unescapePointer,
+} from "./values.js";
 
 export type NativeSql = {
   sql: string;
@@ -22,12 +28,25 @@ export type NativeSql = {
 };
 
 /** An entity a query uses: its entity id and the model Metabase resolves it in. */
-export type EntityRef = { id: string; model: string };
+type EntityRef = { id: string; model: string };
 
 /** The data sources a document names, found where its schema types them. */
 export type DataSources = {
+  /**
+   * The tables the document reads, with the table of each template tag that
+   * puts its field in the query: a `temporal-unit` tag, and a `dimension` tag
+   * with a default.
+   */
   tables: TableKey[];
-  /** The column of each field id inside a query. */
+  /**
+   * The table of each `dimension` template tag with no default. The query
+   * reads no table for it: Metabase writes the tag as `1 = 1`.
+   */
+  unvaluedFilterTables: TableKey[];
+  /**
+   * The column of each field id inside a query, but that of a `dimension` tag
+   * with no default.
+   */
   fields: ColumnKey[];
   /** The cards, metrics, measures, segments and snippets a query uses, each once. */
   entities: EntityRef[];
@@ -39,13 +58,19 @@ export type SourceFinder = (doc: unknown, model: string) => DataSources;
 
 type Node = { file: string; pointer: string };
 
-type Context = { inQuery: boolean; database: string | null };
+type Context = {
+  inQuery: boolean;
+  /** Inside a `dimension` template tag with no default. */
+  inUnvaluedFilter: boolean;
+  database: string | null;
+};
 
 const TABLE_ID = "common/id.yaml#/$defs/table_id";
 const FIELD_ID = "common/id.yaml#/$defs/field_id";
 const ENTITY_ID = "common/id.yaml#/$defs/entity_id";
 const QUERY = "common/query.yaml#";
 const NATIVE_STAGE = "common/query.yaml#/$defs/native_stage";
+const TEMPLATE_TAG = "common/query.yaml#/$defs/template_tag";
 /**
  * The model of the entity each reference clause names, as Metabase imports
  * it (`serialization.clj` `import-mbql-update-refs`): a metric is a Card.
@@ -66,11 +91,19 @@ const ENTITY_KEYS = new Map([
   ["snippet-id", "NativeQuerySnippet"],
 ]);
 
+/**
+ * Whether `tag` is a `dimension` template tag with no default. Metabase writes
+ * such a tag as `1 = 1`. It splices the field of a `dimension` tag with a
+ * default, and always that of a `temporal-unit` tag (`values.clj`
+ * `field-filter-value`, `substitution.clj`).
+ */
+const isUnvaluedFilter = (tag: unknown) =>
+  isRecord(tag) &&
+  tag.type === "dimension" &&
+  (tag.default === undefined || tag.default === null);
+
 const escapePointer = (key: string) =>
   key.replace(/~/g, "~0").replace(/\//g, "~1");
-
-const unescapePointer = (part: string) =>
-  part.replace(/~1/g, "/").replace(/~0/g, "~");
 
 const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
 
@@ -78,11 +111,14 @@ const keyOf = (node: Node) => `${node.file}#${node.pointer}`;
  * Returns a function that finds the data sources in a representation
  * document. It walks the document alongside its entity schema and collects
  * each value the schema types as a table id (`common/id.yaml#/$defs/table_id`);
- * inside a query it also collects each field id, with its table, each entity id
+ * inside a query it also collects each field id, with its table (the table
+ * of a `dimension` tag with no default apart, and not its field), each entity id
  * (a source card, a template tag's card or snippet), each metric, measure and
  * segment reference, and the SQL of each native stage. Where a value may
  * match several branches (`anyOf`, `oneOf`, `if`), the walk follows the
- * branches the value validates against.
+ * branches the value validates against. The walk runs once per document
+ * object and model: a later call returns the same `DataSources`, which the
+ * caller must not change.
  */
 export function createSourceFinder({
   ajv,
@@ -119,9 +155,10 @@ export function createSourceFinder({
     return { file, pointer: fragment };
   };
 
-  return function findSources(doc: unknown, model: string): DataSources {
+  const walk = (doc: unknown, model: string): DataSources => {
     const sources: DataSources = {
       tables: [],
+      unvaluedFilterTables: [],
       fields: [],
       entities: [],
       natives: [],
@@ -142,10 +179,15 @@ export function createSourceFinder({
           ? tableOfRef(value)
           : null;
       if (table !== null) {
-        sources.tables.push(table);
+        (context.inUnvaluedFilter
+          ? sources.unvaluedFilterTables
+          : sources.tables
+        ).push(table);
       }
       const field =
-        context.inQuery && key === FIELD_ID ? columnOfRef(value) : null;
+        context.inQuery && !context.inUnvaluedFilter && key === FIELD_ID
+          ? columnOfRef(value)
+          : null;
       if (field !== null) {
         sources.fields.push(field);
       }
@@ -203,9 +245,12 @@ export function createSourceFinder({
           key === QUERY
             ? {
                 inQuery: true,
+                inUnvaluedFilter: false,
                 database: isRecord(value) ? stringOrNull(value.database) : null,
               }
-            : context;
+            : key === TEMPLATE_TAG && isUnvaluedFilter(value)
+              ? { ...context, inUnvaluedFilter: true }
+              : context;
         walk(value, target, inner);
       }
       if (isUnknownArray(schema.allOf)) {
@@ -253,12 +298,37 @@ export function createSourceFinder({
       }
     };
 
-    walk(doc, { file, pointer: "" }, { inQuery: false, database: null });
+    walk(
+      doc,
+      { file, pointer: "" },
+      {
+        inQuery: false,
+        inUnvaluedFilter: false,
+        database: null,
+      },
+    );
     return {
       tables: uniqueTables(sources.tables),
+      unvaluedFilterTables: uniqueTables(sources.unvaluedFilterTables),
       fields: sources.fields,
       entities: uniqueBy(sources.entities, (e) => `${e.model} ${e.id}`),
       natives: sources.natives,
     };
+  };
+
+  const memo = new WeakMap<object, Map<string, DataSources>>();
+  return (doc, model) => {
+    if (typeof doc !== "object" || doc === null) {
+      return walk(doc, model);
+    }
+    const byModel = memo.get(doc) ?? new Map<string, DataSources>();
+    memo.set(doc, byModel);
+    const known = byModel.get(model);
+    if (known !== undefined) {
+      return known;
+    }
+    const sources = walk(doc, model);
+    byModel.set(model, sources);
+    return sources;
   };
 }

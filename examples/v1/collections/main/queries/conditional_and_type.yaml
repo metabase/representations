@@ -11,7 +11,7 @@ dataset_query:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - PUBLIC
+      - null
       - PRODUCTS
       expressions:
       - - case
@@ -21,7 +21,7 @@ dataset_query:
               - - field
                 - {}
                 - - Sample Database
-                  - PUBLIC
+                  - null
                   - PRODUCTS
                   - PRICE
               - 100
@@ -31,7 +31,7 @@ dataset_query:
               - - field
                 - {}
                 - - Sample Database
-                  - PUBLIC
+                  - null
                   - PRODUCTS
                   - PRICE
               - 30
@@ -44,7 +44,7 @@ dataset_query:
               - - field
                 - {}
                 - - Sample Database
-                  - PUBLIC
+                  - null
                   - PRODUCTS
                   - PRICE
               - 100
@@ -57,7 +57,7 @@ dataset_query:
               - - field
                 - {}
                 - - Sample Database
-                  - PUBLIC
+                  - null
                   - PRODUCTS
                   - RATING
               - 4
@@ -67,7 +67,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - PRICE
         - 0
@@ -76,7 +76,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - PRICE
       - - integer
@@ -84,7 +84,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - RATING
       - - float
@@ -92,7 +92,7 @@ dataset_query:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - RATING
       limit: 10

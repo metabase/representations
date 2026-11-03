@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
 import {
+  cpSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +12,7 @@ import yaml from "js-yaml";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
+import { lint } from "./lint.js";
 import { loadSchemas } from "./schemas.js";
 import {
   checkSchema,
@@ -157,7 +159,7 @@ describe("validateSchema", () => {
         ]);
       });
 
-      it("follows no symbolic link to a folder, and follows one to a file", () => {
+      it("follows no symbolic link to a folder, and fails one to a file without reading it", () => {
         const outside = mkdtempSync(join(tmpdir(), "representations-linked-"));
         try {
           mkdirSync(join(outside, "group"));
@@ -172,9 +174,20 @@ describe("validateSchema", () => {
           );
 
           expect(statuses()).toEqual([
-            "collections/file.yaml Collection ok",
+            "collections/file.yaml  fail",
             "collections/real/real.yaml Collection ok",
           ]);
+          expect(validateSchema({ folder: workdir }).results[0]).toEqual({
+            file: "collections/file.yaml",
+            status: "fail",
+            errors: [
+              {
+                path: "/",
+                message:
+                  "a symbolic link: remote sync reads the link's text, not the file it points to; replace the link with the file",
+              },
+            ],
+          });
         } finally {
           rmSync(outside, { recursive: true, force: true });
         }
@@ -189,14 +202,17 @@ describe("validateSchema", () => {
         expect(statuses()).toEqual(["collections/lower.yaml Collection ok"]);
       });
 
-      it("skips a symbolic link to nothing, which is not a regular file", () => {
+      it("fails a symbolic link to nothing, which remote sync reads as text", () => {
         write("collections/real.yaml", collection);
         symlinkSync(
           join(workdir, "nonexistent.yaml"),
           join(workdir, "collections", "broken.yaml"),
         );
 
-        expect(statuses()).toEqual(["collections/real.yaml Collection ok"]);
+        expect(statuses()).toEqual([
+          "collections/broken.yaml  fail",
+          "collections/real.yaml Collection ok",
+        ]);
       });
 
       it("skips the files Metabase does not import", () => {
@@ -445,6 +461,33 @@ describe("validateSchema", () => {
       ]);
     });
 
+    // validate-schema checks the format; the lint predicts what Metabase does,
+    // and Metabase keeps the last value.
+    it("fails a file with a duplicate key that the lint warns on, as the docs say", async () => {
+      cpSync(EXAMPLES, workdir, { recursive: true });
+      const file = "transforms/transform_tags/duplicate.yaml";
+      writeFileSync(
+        join(workdir, file),
+        "name: daily\nname: daily2\nentity_id: dUW7nvQHQBdA0Rx0gJckX\nbuilt_in_type: null\nserdes/meta:\n- model: TransformTag\n",
+      );
+
+      const validated = validateSchema({ folder: workdir }).results.filter(
+        (r) => r.status === "fail",
+      );
+      const { findings } = await lint({ folder: workdir });
+      expect(validated.map((r) => r.file)).toEqual([file]);
+      expect(
+        findings
+          .filter((f) => f.file === file)
+          .map((f) => `${f.severity} ${f.rule}`),
+      ).toEqual(["warning duplicate-yaml-key"]);
+      expect(
+        readFileSync(resolve(EXAMPLES, "..", "..", "docs", "lint.md"), "utf8"),
+      ).toContain(
+        "`validate-schema` checks that a file is well formed, and `lint` predicts what Metabase does with it",
+      );
+    }, 60_000);
+
     it.each([
       ["Reports", 0],
       ["yes", 1],
@@ -499,7 +542,7 @@ describe("validateSchema", () => {
     });
 
     it.each(["Setting", "DashboardCard"])(
-      "fails a file of model %s, which Metabase loads from no file of its own, as an unknown model",
+      "fails a file of model %s, which is not among the models Metabase exports to entity files, as an unknown model",
       (model) => {
         mkdirSync(join(workdir, "collections"), { recursive: true });
         writeFileSync(
@@ -666,7 +709,44 @@ describe("validateSchema", () => {
       expect(errorsOf()[0].message).toContain("got a character outside them");
     });
 
-    it("does not count a file's byte order mark toward the code-point limit", () => {
+    it("says what an entity id needs where a schema refers to it by a relative path", () => {
+      const file = join(
+        "collections",
+        "main",
+        "queries",
+        "source_card_reference.yaml",
+      );
+      mkdirSync(join(workdir, "collections", "main", "queries"), {
+        recursive: true,
+      });
+      writeFileSync(
+        join(workdir, file),
+        readFileSync(join(EXAMPLES, file), "utf8").replace(
+          "source-card: h5F2EjHsRd73Dqqh8sAtd",
+          "source-card: abc",
+        ),
+      );
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file,
+          model: "Card",
+          status: "fail",
+          errors: [
+            {
+              path: "/dataset_query/stages/0/source-card",
+              message:
+                "must be an entity id: 21 characters of A-Z, a-z, 0-9, _ and -; got 3 characters",
+            },
+            {
+              path: "/dataset_query/stages/0",
+              message: 'must match "then" schema',
+            },
+          ],
+        },
+      ]);
+    });
+
+    it("counts a file's byte order mark toward the code-point limit", () => {
       mkdirSync(join(workdir, "collections"), { recursive: true });
       const statusOf = (codePoints: number) => {
         writeFileSync(
@@ -678,8 +758,8 @@ describe("validateSchema", () => {
         );
         return validateSchema({ folder: workdir }).results[0];
       };
-      expect(statusOf(3_145_728).status).toBe("skipped");
-      expect(statusOf(3_145_729)).toMatchObject({
+      expect(statusOf(3_145_727).status).toBe("skipped");
+      expect(statusOf(3_145_728)).toMatchObject({
         status: "fail",
         errors: [
           {
@@ -744,6 +824,30 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("collection namespace", () => {
+      const validateCollection = (namespace: string) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "reports.yaml"),
+          yaml.dump({
+            name: "Reports",
+            entity_id: "cOlRePorTs000ExAmPlx2",
+            namespace,
+            "serdes/meta": [{ model: "Collection" }],
+          }),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      it("accepts data-actions", () => {
+        expect(validateCollection("data-actions").failed).toBe(0);
+      });
+
+      it("rejects an unknown namespace", () => {
+        expect(validateCollection("data_actions").failed).toBe(1);
+      });
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
@@ -772,7 +876,6 @@ describe("validateSchema", () => {
       ["an entry with no model", "serdes/meta:\n- id: x\n"],
       ["an empty serdes/meta", "serdes/meta: []\n"],
       ["a serdes/meta that is not a list", "serdes/meta: 5\n"],
-      ["a list in place of a map", "- serdes/meta\n"],
     ])("fails a file with %s as having no model", (_, content) => {
       mkdirSync(join(workdir, "transforms"), { recursive: true });
       writeFileSync(join(workdir, "transforms", "listed.yaml"), content);
@@ -781,10 +884,69 @@ describe("validateSchema", () => {
         {
           file: join("transforms", "listed.yaml"),
           status: "fail",
-          errors: [{ path: "/", message: "missing serdes/meta or model" }],
+          errors: [{ path: "/", message: "serdes/meta names no model" }],
         },
       ]);
     });
+
+    it.each([
+      ["an empty list", "[]\n"],
+      ["an empty string", "''\n"],
+    ])("skips a file whose YAML is %s, as Metabase does", (_, content) => {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(join(workdir, "transforms", "empty.yaml"), content);
+
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("transforms", "empty.yaml"),
+          status: "skipped",
+          warning: "Metabase skips this file because it has no serdes/meta",
+        },
+      ]);
+    });
+
+    it("fails a file that is a YAML list as not a map", () => {
+      mkdirSync(join(workdir, "transforms"), { recursive: true });
+      writeFileSync(
+        join(workdir, "transforms", "listed.yaml"),
+        "- serdes/meta\n",
+      );
+
+      expect(validateSchema({ folder: workdir }).results).toEqual([
+        {
+          file: join("transforms", "listed.yaml"),
+          status: "fail",
+          errors: [{ path: "/", message: "not a YAML map" }],
+        },
+      ]);
+    });
+  });
+});
+
+describe("schema errors", () => {
+  const schemas = loadSchemas();
+  const messages = (value: Record<string, unknown>) => {
+    const check = checkSchema({ value, nonStringKeys: [] }, schemas);
+    return check.status === "checked"
+      ? check.errors.map((e) => `${e.path} ${e.message}`)
+      : check;
+  };
+
+  it("give the values an enum or a const allows", () => {
+    expect(
+      messages({
+        name: "T",
+        expectations: [{ type: "contains" }],
+        "serdes/meta": [{ model: "TransformTest" }],
+      }),
+    ).toContain(
+      '/expectations/0/type must be equal to one of the allowed values: "equals", "empty"',
+    );
+    expect(
+      messages({
+        "serdes/meta": [{ model: "Collection" }, { model: "DataApp" }],
+      }),
+    ).toContain('/serdes~1meta/0/model must be equal to constant: "DataApp"');
   });
 });
 
@@ -810,6 +972,10 @@ describe("time text", () => {
     "10:00+18",
     "10:00+0530",
     "10:00+05:30:15",
+    // A day past its month's end reads as the month's last day.
+    "2024-02-30",
+    "2023-02-29",
+    "2024-04-31",
   ])("reads %p, as Metabase does", (text) => {
     expect(status(text)).toBe("skipped");
   });
@@ -829,6 +995,7 @@ describe("time text", () => {
     "10:00+19",
     "10:00+053015",
     "10:00+05:3015",
+    "2024-02-32",
   ])("refuses %p, as Metabase does", (text) => {
     expect(status(text)).toBe("bad-timestamp");
   });

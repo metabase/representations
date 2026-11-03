@@ -3,19 +3,26 @@ import { resolve } from "path";
 
 import { LintSetupError } from "./settings.js";
 import type { TableName } from "./tables.js";
-import { errorMessage, isRecord, isUnknownArray } from "./values.js";
+import {
+  errorMessage,
+  isRecord,
+  isStringArray,
+  isStringOrNull,
+  isUnknownArray,
+} from "./values.js";
 import { readVendorSources, VENDOR_DIR } from "./vendor-sources.js";
 
-/** Why SQLGlot could not read a SQL text. */
+/** Why the lint could not read a SQL text. */
 export type Unread = { status: "unread"; reason: string };
 
-/** The tables a SQL text names, or why SQLGlot could not read it. */
+/** The tables a SQL text names, or why the lint could not read it. */
 export type ParsedTables = { status: "read"; tables: TableName[] } | Unread;
 
 /**
  * A field spec of Metabase's `field_references`, with the parts the lint
  * reads. `all_columns` names a table as the query names it: usually a real
- * table, but also a recursive CTE that refers to itself. A table function's
+ * table, but also a recursive CTE that refers to itself; `alias` is the
+ * table's alias in the query, null when it has none. A table function's
  * columns are `unknown_columns`.
  */
 export type FieldSpec =
@@ -26,7 +33,7 @@ export type FieldSpec =
       /** The specs the column may come from, innermost scope first. */
       sourceColumns: FieldSpec[][];
     }
-  | { type: "all_columns"; table: TableName }
+  | { type: "all_columns"; table: TableName; alias: string | null }
   | { type: "custom_field"; alias: string | null }
   | { type: "composite_field"; alias: string | null }
   | { type: "unknown_columns" };
@@ -79,12 +86,16 @@ export type QueryShape = {
   otherColumns: string[];
   /** The alias of each ClickHouse `ARRAY JOIN` expression, by the same rule. */
   arrayJoinAliases: string[];
-  /** Each table whose alias names its columns, as in `t AS s(x, y)`. */
-  columnAliasedTables: TableName[];
+  /** Each table alias that names its table's columns, as `s` in `t AS s(x, y)`. */
+  columnAliases: string[];
+  /** The name of each column the statement qualifies, as `id` in `o.id`. */
+  qualifiedColumns: string[];
   /** The name of each column the statement names in quotes. */
   quotedColumns: string[];
   /** The name of each column the statement names without quotes. */
   unquotedColumns: string[];
+  /** Each name after the dot of a field access, as Postgres `(o.addr).city`. */
+  fieldSelectors: string[];
 };
 
 /**
@@ -132,7 +143,7 @@ export type SqlParser = {
   ): { status: "read"; sql: string } | Unread;
   /**
    * The shape of `sql`'s one statement, parsed by SQLGlot in `dialect`.
-   * Unread when SQLGlot raises.
+   * Unread when SQLGlot raises, or `sql` holds more than one statement.
    */
   queryShape(
     sql: string,
@@ -199,6 +210,7 @@ const ANSWER_MARK = "\u00b6";
 // where it stopped. A ParseError adds the line of SQL it names instead.
 const CALL_SQL_TOOLS_PY = `
 import json
+import unicodedata
 
 import sqlglot
 import sql_tools
@@ -207,8 +219,18 @@ from sqlglot import exp
 ANSWER_MARK = ${JSON.stringify(ANSWER_MARK)}
 
 
+def same_identifier(a, b):
+    # As sql_tools matches names: a quoted identifier only in its own case.
+    if a.quoted or b.quoted:
+        return a.name == b.name
+    return a.name.lower() == b.name.lower()
+
+
 def lint_query_shape(sql, dialect):
     ast = sqlglot.parse_one(sql, read=dialect)
+    # field_references reads such SQL as a syntax error.
+    if isinstance(ast, exp.Block):
+        return json.dumps({"unread": "the SQL holds more than one statement"})
 
     def outermost(node):
         if isinstance(node, exp.SetOperation):
@@ -221,7 +243,12 @@ def lint_query_shape(sql, dialect):
         return isinstance(e, exp.Star) or (isinstance(e, exp.Column) and isinstance(e.this, exp.Star))
 
     def renames(e):
-        return isinstance(e, exp.Alias) and not (isinstance(e.this, exp.Column) and e.this.name.lower() == e.alias.lower())
+        if not isinstance(e, exp.Alias):
+            return False
+        alias = e.args.get("alias")
+        column = e.this.this if isinstance(e.this, exp.Column) else None
+        return not (isinstance(alias, exp.Identifier) and isinstance(column, exp.Identifier)
+                    and same_identifier(column, alias))
 
     clauses = {"expressions": "select", "where": "where", "group": "group", "having": "having", "order": "order"}
 
@@ -229,8 +256,9 @@ def lint_query_shape(sql, dialect):
         # The clause of the column's own SELECT that holds it, when the column
         # is unqualified and names an alias of that SELECT's list; else None.
         select = column.find_ancestor(exp.Select)
-        if select is None or column.table or column.name.lower() not in {
-                e.alias.lower() for e in select.expressions if renames(e)}:
+        if select is None or column.table or not any(
+                isinstance(e.args.get("alias"), exp.Identifier) and same_identifier(column.this, e.args["alias"])
+                for e in select.expressions if renames(e)):
             return None
         node = column
         while node.parent is not select:
@@ -253,19 +281,30 @@ def lint_query_shape(sql, dialect):
         "other_columns": sorted(other_columns),
         "array_join_aliases": sorted({j.this.alias for j in ast.find_all(exp.Join)
                                       if j.args.get("kind") == "ARRAY" and renames(j.this)}),
-        "column_aliased_tables": [[t.db or None, t.name] for t in ast.find_all(exp.Table)
-                                  if isinstance(t.args.get("alias"), exp.TableAlias) and t.args["alias"].columns],
+        "column_aliases": sorted({t.alias for t in ast.find_all(exp.Table)
+                                  if isinstance(t.args.get("alias"), exp.TableAlias) and t.args["alias"].columns}),
+        "qualified_columns": sorted({c.name for c in ast.find_all(exp.Column)
+                                     if isinstance(c.this, exp.Identifier) and c.table}),
         "quoted_columns": sorted({c.name for c in ast.find_all(exp.Column)
                                   if isinstance(c.this, exp.Identifier) and c.this.quoted}),
         "unquoted_columns": sorted({c.name for c in ast.find_all(exp.Column)
                                     if isinstance(c.this, exp.Identifier) and not c.this.quoted}),
+        "field_selectors": sorted({d.expression.name for d in ast.find_all(exp.Dot)
+                                   if isinstance(d.expression, exp.Identifier)}),
     })
+
+
+def escape_controls(text):
+    # json.dumps writes a control character as its JSON escape, such as \\u001b.
+    return "".join(json.dumps(c)[1:-1] if unicodedata.category(c) == "Cc" else c for c in text)
 
 
 def offending_line(e, sql):
     errors = getattr(e, "errors", None)
     line = errors[0].get("line") if errors and isinstance(errors[0], dict) else None
-    sql_lines = sql.splitlines() if isinstance(sql, str) else []
+    # SQLGlot's tokenizer ends a line at CR LF, CR or LF, and at nothing else.
+    lf, cr = chr(10), chr(13)
+    sql_lines = sql.replace(cr + lf, lf).replace(cr, lf).split(lf) if isinstance(sql, str) else []
     if not isinstance(line, int) or not 1 <= line <= len(sql_lines):
         return ""
     text = sql_lines[line - 1].strip()
@@ -277,7 +316,7 @@ def lint_call_sql_tools(function, *args):
         answer = (lint_query_shape if function == "lint_query_shape" else getattr(sql_tools, function))(*args)
     except Exception as e:
         lines = str(e).splitlines()
-        message = (lines[0] if lines else "") + offending_line(e, args[0] if args else None)
+        message = escape_controls((lines[0] if lines else "") + offending_line(e, args[0] if args else None))
         return ANSWER_MARK + json.dumps({"error": type(e).__name__, "message": message})
     return ANSWER_MARK + json.dumps({"answer": answer})
 `;
@@ -322,6 +361,23 @@ export function answerOf(
   };
 }
 
+/**
+ * Whether `unread` is SQLGlot's ParseError, the only failure Metabase's
+ * `parse-error?` takes as SQL that cannot be parsed.
+ */
+export function isParseError(unread: Unread): boolean {
+  return /^ParseError: /.test(unread.reason);
+}
+
+/**
+ * Whether `unread` is SQLGlot failing to parse SQL in any way: a ParseError,
+ * a TokenError, or a statement nested deeper than Python's recursion limit (a
+ * RecursionError).
+ */
+export function isParseFailure(unread: Unread): boolean {
+  return /^(ParseError|TokenError|RecursionError): /.test(unread.reason);
+}
+
 /** Unread: an answer whose shape the lint does not know. */
 const UNEXPECTED_SHAPE: Unread = {
   status: "unread",
@@ -340,12 +396,6 @@ function jsonOf(answer: unknown): unknown {
     return undefined;
   }
 }
-
-const isStringOrNull = (value: unknown): value is string | null =>
-  value === null || typeof value === "string";
-
-const isStringArray = (value: unknown): value is string[] =>
-  isUnknownArray(value) && value.every((v) => typeof v === "string");
 
 /**
  * A field spec of `field_references`' JSON as a `FieldSpec`; null when it is
@@ -379,10 +429,13 @@ function fieldSpecOf(spec: unknown): FieldSpec | null {
       const { table } = spec;
       return isRecord(table) &&
         typeof table.table === "string" &&
-        (table.schema === undefined || typeof table.schema === "string")
+        (table.schema === undefined || typeof table.schema === "string") &&
+        (table.table_alias === undefined ||
+          typeof table.table_alias === "string")
         ? {
             type: spec.type,
             table: { schema: table.schema ?? null, name: table.table },
+            alias: table.table_alias ?? null,
           }
         : null;
     }
@@ -440,7 +493,7 @@ export function fieldReferencesOf(
     return {
       status: "unread",
       reason:
-        "field_references reads only a single SELECT or UNION, and could not read it",
+        "Metabase reads columns only from a single SELECT or UNION statement, and could not read them from this SQL",
     };
   }
   return {
@@ -489,20 +542,28 @@ export function referencedTablesOf(answer: unknown): ParsedTables {
   return { status: "read", tables };
 }
 
-/** `lint_query_shape`'s answer; unread when it is not in the shape it writes. */
+/**
+ * `lint_query_shape`'s answer; unread when it says why it read no shape, as
+ * for SQL of more than one statement, or is not in the shape it writes.
+ */
 export function queryShapeOf(
   answer: unknown,
 ): { status: "read"; shape: QueryShape } | Unread {
   const json = jsonOf(answer);
+  if (isRecord(json) && typeof json.unread === "string") {
+    return { status: "unread", reason: json.unread };
+  }
   if (
     !isRecord(json) ||
     typeof json.returns_star !== "boolean" ||
     !isUnknownArray(json.alias_refs) ||
     !isStringArray(json.other_columns) ||
     !isStringArray(json.array_join_aliases) ||
-    !isUnknownArray(json.column_aliased_tables) ||
+    !isStringArray(json.column_aliases) ||
+    !isStringArray(json.qualified_columns) ||
     !isStringArray(json.quoted_columns) ||
-    !isStringArray(json.unquoted_columns)
+    !isStringArray(json.unquoted_columns) ||
+    !isStringArray(json.field_selectors)
   ) {
     return UNEXPECTED_SHAPE;
   }
@@ -518,18 +579,6 @@ export function queryShapeOf(
     }
     aliasRefs.push({ name: ref[0], clause: ref[1] });
   }
-  const columnAliasedTables: TableName[] = [];
-  for (const table of json.column_aliased_tables) {
-    if (
-      !isUnknownArray(table) ||
-      table.length !== 2 ||
-      !isStringOrNull(table[0]) ||
-      typeof table[1] !== "string"
-    ) {
-      return UNEXPECTED_SHAPE;
-    }
-    columnAliasedTables.push({ schema: table[0], name: table[1] });
-  }
   return {
     status: "read",
     shape: {
@@ -537,9 +586,11 @@ export function queryShapeOf(
       aliasRefs,
       otherColumns: json.other_columns,
       arrayJoinAliases: json.array_join_aliases,
-      columnAliasedTables,
+      columnAliases: json.column_aliases,
+      qualifiedColumns: json.qualified_columns,
       quotedColumns: json.quoted_columns,
       unquotedColumns: json.unquoted_columns,
+      fieldSelectors: json.field_selectors,
     },
   };
 }
@@ -637,8 +688,8 @@ let started: Promise<SqlParser> | undefined;
  * The SQL parser, loaded on the first call and shared by every later call in
  * the process; each parse after loading is synchronous. Rejects with a
  * `LintSetupError` when the parser cannot start, as when `pyodide`, an
- * optional peer dependency, or a vendored file is missing. A failed start is not
- * kept: the next call starts the parser again.
+ * optional peer dependency, or a vendored file is missing. A failed start is
+ * not kept: the next call starts the parser again.
  */
 export function loadSqlParser(): Promise<SqlParser> {
   started ??= startSqlParser().catch((e: unknown) => {

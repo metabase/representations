@@ -56,29 +56,49 @@ export const ENVIRONMENT_REFUSALS = new Set([
   "transform-test.unsupported-driver",
 ]);
 
-/** For each refusal of a transform test, the lint rule that predicts it. */
-export const RULE_OF_REFUSAL: ReadonlyMap<string, LintRule> = new Map([
-  ["transform-test.missing-inputs", "missing-input"],
-  ["transform-test.unused-inputs", "unused-input"],
-  ["transform-test.duplicate-input-table", "duplicate-input"],
-  ["transform-test.unremapped-reference", "expectation-reads-other-table"],
-  ["transform-test.unsupported-transform", "untestable-transform"],
-]);
+/**
+ * For each refusal of a transform test, the lint rules that predict it. An
+ * unremapped reference in an expectation is a table it reads or a column
+ * qualifier left naming no table (`validator.clj` `surviving-references`).
+ * An unremapped reference in the transform's own SQL is TRANSFORM_RULES'.
+ */
+export const RULES_OF_REFUSAL: ReadonlyMap<string, readonly LintRule[]> =
+  new Map([
+    ["transform-test.missing-inputs", ["missing-input"]],
+    ["transform-test.unused-inputs", ["unused-input"]],
+    ["transform-test.duplicate-input-table", ["duplicate-input"]],
+    [
+      "transform-test.unremapped-reference",
+      ["expectation-reads-other-table", "expectation-qualified-column"],
+    ],
+    ["transform-test.unsupported-transform", ["untestable-transform"]],
+  ]);
 
 /**
- * The rules of RULE_OF_REFUSAL in the order Metabase checks a transform test,
- * and stops at the first refusal: whether the transform is a query transform,
- * then missing, unused and duplicate inputs, then whether the transform's SQL,
- * and then each expectation's, reads only the test's tables. The transform's
- * own unremapped reference has no rule; it sits between duplicate-input and
- * expectation-reads-other-table.
+ * The lint rules that predict an unremapped reference in the transform's own
+ * SQL. Only one form of it has an error rule: a quoted table name in another
+ * case than the test's input. The warning table-qualified-column predicts
+ * another.
+ */
+export const TRANSFORM_RULES: readonly LintRule[] = [
+  "transform-reads-other-table",
+];
+
+/**
+ * The rules of RULES_OF_REFUSAL and TRANSFORM_RULES in the order Metabase
+ * checks a transform test, and stops at the first refusal: whether the
+ * transform is a query transform, then missing, unused and duplicate inputs,
+ * then whether the transform's SQL, and then each expectation's, reads only
+ * the test's tables. The rules of one refusal are one check.
  */
 export const TEST_RULE_ORDER: readonly LintRule[] = [
   "untestable-transform",
   "missing-input",
   "unused-input",
   "duplicate-input",
+  "transform-reads-other-table",
   "expectation-reads-other-table",
+  "expectation-qualified-column",
 ];
 
 const TEST_RULES = new Set(TEST_RULE_ORDER);
@@ -109,10 +129,10 @@ export function describeRefusal(refusal: TestRefusal): string {
  * `refusal` is Metabase's refusal, or null when Metabase accepts the test.
  * Metabase stops at its first refusal (TEST_RULE_ORDER), so a refusal proves
  * that the checks before it passed, and says nothing of the checks after it. A
- * refusal agrees when the lint reports that refusal's rule and no rule Metabase
- * checks earlier; the lint's errors on later rules are ignored. A refusal with
- * no rule, such as an unremapped reference in the transform's own SQL, is a
- * difference. Returns null when the two agree, else the difference.
+ * refusal agrees when the lint reports one of that refusal's rules and no rule
+ * Metabase checks earlier; the lint's errors on later rules are ignored. A
+ * refusal with no error rule is a difference. Returns null when the two agree, else
+ * the difference.
  */
 export function testVerdictDiffers(
   refusal: TestRefusal | null,
@@ -128,22 +148,22 @@ export function testVerdictDiffers(
       ? null
       : `Metabase accepts it; the lint reports ${[...errorRules].join(", ")}`;
   }
-  const rule = refusal.onTransform
-    ? undefined
-    : RULE_OF_REFUSAL.get(refusal.code);
-  if (rule === undefined) {
-    return `Metabase refuses it with ${describeRefusal(refusal)}, which no lint rule predicts`;
+  const rules = refusal.onTransform
+    ? TRANSFORM_RULES
+    : RULES_OF_REFUSAL.get(refusal.code);
+  if (rules === undefined) {
+    return `Metabase refuses it with ${describeRefusal(refusal)}, which no error rule predicts`;
   }
-  const earlier = TEST_RULE_ORDER.slice(
-    0,
-    TEST_RULE_ORDER.indexOf(rule),
-  ).filter((r) => errorRules.has(r));
+  const first = Math.min(...rules.map((r) => TEST_RULE_ORDER.indexOf(r)));
+  const earlier = TEST_RULE_ORDER.slice(0, first).filter((r) =>
+    errorRules.has(r),
+  );
   if (earlier.length > 0) {
-    return `Metabase refuses it with ${describeRefusal(refusal)}, so it passed the checks before ${rule}; the lint reports ${earlier.join(", ")}`;
+    return `Metabase refuses it with ${describeRefusal(refusal)}, so it passed the checks before ${TEST_RULE_ORDER[first]}; the lint reports ${earlier.join(", ")}`;
   }
-  return errorRules.has(rule)
+  return rules.some((r) => errorRules.has(r))
     ? null
-    : `Metabase refuses it with ${describeRefusal(refusal)}; the lint reports no ${rule}`;
+    : `Metabase refuses it with ${describeRefusal(refusal)}; the lint reports no ${rules.join(" or ")}`;
 }
 
 /**
@@ -176,7 +196,7 @@ export const TRANSFORM_RULE_ORDER: readonly LintRule[] = [
   "missing-incremental-table-tag",
 ];
 
-const TRANSFORM_RULES = new Set(TRANSFORM_RULE_ORDER);
+const TRANSFORM_SAVE_RULES = new Set(TRANSFORM_RULE_ORDER);
 
 /**
  * Compares Metabase's answer to saving a transform with the lint's errors on
@@ -193,7 +213,7 @@ export function transformVerdictDiffers(
 ): string | null {
   const errorRules = new Set(
     findings
-      .filter((f) => f.severity === "error" && TRANSFORM_RULES.has(f.rule))
+      .filter((f) => f.severity === "error" && TRANSFORM_SAVE_RULES.has(f.rule))
       .map((f) => f.rule),
   );
   if (refusal === null) {

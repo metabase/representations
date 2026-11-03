@@ -1,4 +1,4 @@
-import type { ValidateFunction } from "ajv/dist/2020.js";
+import type { ErrorObject, ValidateFunction } from "ajv/dist/2020.js";
 import { lstatSync, readdirSync, readFileSync, statSync } from "fs";
 import { globSync } from "glob";
 import { dirname, resolve } from "path";
@@ -10,6 +10,7 @@ import {
   isRecord,
   isUnknownArray,
   stringOrNull,
+  unescapePointer,
 } from "./values.js";
 import { decodeUtf8, readYaml, type YamlDocument } from "./yaml.js";
 
@@ -71,14 +72,14 @@ const IMPORTED = new Set<string>(IMPORTED_MODELS);
 /**
  * The files of `folder` that Metabase imports, in path order (their paths
  * relative to `folder`, by UTF-16 code unit, as remote sync's git source sorts
- * them): each `.yaml`
- * file at any depth under an `ENTITY_FOLDERS` folder, and each
- * `data_app.yaml` under `data_apps`, whose other files are a data app's own.
+ * them): each `.yaml` file at any depth under an `ENTITY_FOLDERS` folder, and
+ * each `data_app.yaml` under `data_apps`, whose other files are a data app's
+ * own.
  * Names match in their exact case, on any platform. A file whose name starts
- * with a dot is skipped; a folder whose name does is not. A file inside a
- * folder that is a symbolic link is skipped, though Metabase follows such a
- * folder; a symbolic link to a file is followed, and one to nothing is
- * skipped, as Metabase skips what is not a regular file.
+ * with a dot is skipped; a folder whose name does is not. A symbolic link of
+ * such a name is listed, whatever it points to, as remote sync lists it; a
+ * file inside a folder that is a symbolic link is not, as remote sync does not
+ * descend into it. Anything else that is not a regular file is skipped.
  */
 export function entityFiles(folder: string): string[] {
   const linked = createLinkedFolderCheck(folder);
@@ -97,12 +98,13 @@ export function entityFiles(folder: string): string[] {
     ],
     { cwd: folder, dot: true, nodir: true, nocase: false },
   )
-    .filter(
-      (file) =>
+    .filter((file) => {
+      const stats = lstatSync(resolve(folder, file), { throwIfNoEntry: false });
+      return (
         !linked(dirname(file)) &&
-        statSync(resolve(folder, file), { throwIfNoEntry: false })?.isFile() ===
-          true,
-    )
+        (stats?.isFile() === true || stats?.isSymbolicLink() === true)
+      );
+    })
     .sort();
 }
 
@@ -161,9 +163,11 @@ export type SchemaCheck =
   | { status: "bad-timestamp"; key: string; message: string }
   // Metabase skips the file without an error: it has no `serdes/meta`.
   | { status: "skipped" }
+  // Metabase reads the file and cannot load it: it is not a YAML map.
+  | { status: "not-a-map" }
   // Metabase reads the file and cannot load it: its `serdes/meta` names no model.
   | { status: "no-model" }
-  // Metabase reads the file and cannot load it: it imports no such model.
+  // The model is not one of `IMPORTED_MODELS`.
   | { status: "unknown-model"; model: string }
   // Metabase imports the model, and no schema describes it.
   | { status: "unchecked"; model: string }
@@ -184,20 +188,24 @@ function getModel(doc: unknown): string | null {
 
 /**
  * Whether Metabase skips `doc`, a parsed file, without an error: the file is
- * empty, or a map whose `serdes/meta` is absent or null.
+ * empty, an empty list or an empty string, or a map whose `serdes/meta` is
+ * absent or null.
  */
 function skippedByMetabase(doc: unknown): boolean {
   return (
-    doc === null || (isRecord(doc) && (doc["serdes/meta"] ?? null) === null)
+    doc === null ||
+    doc === "" ||
+    (isUnknownArray(doc) && doc.length === 0) ||
+    (isRecord(doc) && (doc["serdes/meta"] ?? null) === null)
   );
 }
 
 // The text Metabase's `u.date/parse` reads (`src/metabase/util/date_2/parse.clj`
 // `formatter`), approximately: an optional date, `T` or a space, an optional
-// time, and an optional offset and zone. Field ranges are checked, but not a
-// day past its month's end. A zone must be one JavaScript knows, which differs
-// from Java's list: `EST` passes here and fails in Metabase; `UT` and
-// `UTC+01:00` fail here and pass in Metabase.
+// time, and an optional offset and zone. Field ranges are checked; Metabase
+// reads a day past its month's end as the month's last day. A zone must be one
+// JavaScript knows, which differs from Java's list: `EST` passes here and fails
+// in Metabase; `UT` and `UTC+01:00` fail here and pass in Metabase.
 // A year of more than four digits needs a sign.
 const DATE =
   "(?:\\d{4}|\\+\\d{5,9}|-\\d{4,9})(?:-(?:0[1-9]|1[0-2])(?:-(?:0[1-9]|[12]\\d|3[01]))?)?";
@@ -268,8 +276,9 @@ const rootError = (message: string): ValidationError[] => [
  * Checks each of `entityFiles(folder)`, in path order, against the schema of
  * its model. A file Metabase skips, with no `serdes/meta`, is skipped with a
  * warning. A file of a model Metabase imports and no schema describes is not
- * checked. A file that does not parse as YAML, has no model, or names a model
- * Metabase does not import fails with one error at "/".
+ * checked. A file that is not valid UTF-8, does not parse as YAML, holds a
+ * key twice in one map, is not a map, has no model, or names a model outside
+ * `IMPORTED_MODELS` fails with one error at "/".
  */
 export function validateSchema({
   folder,
@@ -289,37 +298,88 @@ export function validateSchema({
   };
 }
 
+/** Why a symbolic link fails, and what to do. */
+export const SYMBOLIC_LINK =
+  "a symbolic link: remote sync reads the link's text, not the file it points to; replace the link with the file";
+
+/** An entity file as `readEntityFile` reads it. */
+export type EntityFileRead =
+  // Remote sync reads a symbolic link's text, the path it holds, and fails.
+  | { status: "symbolic-link" }
+  | { status: "unparsed"; invalidUtf8: boolean; error: unknown }
+  | {
+      status: "parsed";
+      invalidUtf8: boolean;
+      read: YamlDocument;
+      check: SchemaCheck;
+    };
+
+/**
+ * The file `file` of `folder`, one of `entityFiles(folder)`, as Metabase reads
+ * it: its bytes decoded as UTF-8 (`decodeUtf8`), the text parsed as YAML
+ * (`readYaml`) and checked against its model's schema (`checkSchema`).
+ * `invalidUtf8` says whether the bytes held an invalid byte sequence.
+ * An `unparsed` file holds the error `readYaml` threw. A symbolic link is not
+ * read.
+ */
+export function readEntityFile(
+  folder: string,
+  file: string,
+  schemas: Schemas,
+): EntityFileRead {
+  const path = resolve(folder, file);
+  if (lstatSync(path).isSymbolicLink()) {
+    return { status: "symbolic-link" };
+  }
+  const { text, invalidUtf8 } = decodeUtf8(readFileSync(path));
+  let read: YamlDocument;
+  try {
+    read = readYaml(text);
+    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
+  } catch (error) {
+    return { status: "unparsed", invalidUtf8, error };
+  }
+  return {
+    status: "parsed",
+    invalidUtf8,
+    read,
+    check: checkSchema(read, schemas),
+  };
+}
+
+// This command checks the format: it fails a file with an invalid byte
+// sequence or a key written twice, where `lint` warns that Metabase reads
+// the file.
 function validateFile(
   folder: string,
   file: string,
   schemas: Schemas,
 ): ValidationResult {
-  const text = decodeUtf8(readFileSync(resolve(folder, file)));
-  if (text === null) {
+  const entity = readEntityFile(folder, file, schemas);
+  if (entity.status === "symbolic-link") {
+    return { file, status: "fail", errors: rootError(SYMBOLIC_LINK) };
+  }
+  if (entity.invalidUtf8) {
     return { file, status: "fail", errors: rootError("not valid UTF-8") };
   }
-  let read: YamlDocument;
-  try {
-    read = readYaml(text);
-    const [duplicate] = read.duplicateKeys;
-    if (duplicate !== undefined) {
-      return {
-        file,
-        status: "fail",
-        errors: rootError(
-          `invalid YAML: duplicated mapping key (${duplicate.line}:${duplicate.column})`,
-        ),
-      };
-    }
-    // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
-  } catch (e) {
+  if (entity.status === "unparsed") {
     return {
       file,
       status: "fail",
-      errors: rootError(`invalid YAML: ${errorMessage(e)}`),
+      errors: rootError(`invalid YAML: ${errorMessage(entity.error)}`),
     };
   }
-  const check = checkSchema(read, schemas);
+  const [duplicate] = entity.read.duplicateKeys;
+  if (duplicate !== undefined) {
+    return {
+      file,
+      status: "fail",
+      errors: rootError(
+        `invalid YAML: duplicated mapping key (${duplicate.line}:${duplicate.column})`,
+      ),
+    };
+  }
+  const { check } = entity;
   switch (check.status) {
     case "bad-timestamp":
       return {
@@ -333,11 +393,13 @@ function validateFile(
         status: "skipped",
         warning: "Metabase skips this file because it has no serdes/meta",
       };
+    case "not-a-map":
+      return { file, status: "fail", errors: rootError("not a YAML map") };
     case "no-model":
       return {
         file,
         status: "fail",
-        errors: rootError("missing serdes/meta or model"),
+        errors: rootError("serdes/meta names no model"),
       };
     case "unknown-model":
       return {
@@ -357,13 +419,14 @@ function validateFile(
   }
 }
 
-const ENTITY_ID_PATTERN = "common/id.yaml#/$defs/entity_id/pattern";
+// A schema names `common/id.yaml` by a path relative to its own file.
+const ENTITY_ID_PATTERN = "#/$defs/entity_id/pattern";
 
 /** The value at the JSON pointer `pointer` in `doc`, or undefined. */
 function valueAt(doc: unknown, pointer: string): unknown {
   let value = doc;
   for (const part of pointer.split("/").slice(1)) {
-    const key = part.replace(/~1/g, "/").replace(/~0/g, "~");
+    const key = unescapePointer(part);
     value = isRecord(value)
       ? value[key]
       : isUnknownArray(value)
@@ -418,11 +481,23 @@ function validationErrors(
     ? []
     : (validate.errors ?? []).map((e) => ({
         path: e.instancePath || "/",
-        message:
-          e.schemaPath === ENTITY_ID_PATTERN
-            ? entityIdMessage(valueAt(doc, e.instancePath), e.instancePath)
-            : (e.message ?? ""),
+        message: e.schemaPath.endsWith(ENTITY_ID_PATTERN)
+          ? entityIdMessage(valueAt(doc, e.instancePath), e.instancePath)
+          : `${e.message ?? ""}${allowedValuesOf(e)}`,
       }));
+}
+
+/** The values an `enum` or `const` error allows, as `: "a", "b"`; empty for any other error. */
+function allowedValuesOf(error: ErrorObject): string {
+  const allowed: unknown =
+    error.keyword === "enum"
+      ? error.params.allowedValues
+      : error.keyword === "const"
+        ? [error.params.allowedValue]
+        : undefined;
+  return isUnknownArray(allowed)
+    ? `: ${allowed.map((v) => JSON.stringify(v)).join(", ")}`
+    : "";
 }
 
 /**
@@ -449,6 +524,9 @@ export function checkSchema(
   }
   if (skippedByMetabase(doc)) {
     return { status: "skipped" };
+  }
+  if (!isRecord(doc)) {
+    return { status: "not-a-map" };
   }
   const model = getModel(doc);
   if (model === null) {

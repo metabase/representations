@@ -4,16 +4,22 @@ import type { EngineOf } from "./databases.js";
 import { type Doc, indexByEntityId, validDocsOf } from "./documents.js";
 import type { LintRule } from "./findings.js";
 import { createReader, type Transform, transformOf } from "./reads.js";
+import { createSourceFinder } from "./query-sources.js";
 import { loadSchemas } from "./schemas.js";
 import { createSqlColumnReader } from "./sql-columns.js";
 import { loadSqlParser } from "./sql-parser.js";
-import { createSqlTableReader } from "./sql-tables.js";
+import {
+  createRewrittenTableReader,
+  createSqlTableReader,
+} from "./sql-tables.js";
 import { testedTransformsOf } from "./test-checks.js";
 import {
+  createQueryReader,
   reportLiveSqlInputs,
   reportMissingReadColumns,
   reportQualifiedColumns,
   reportTestSql,
+  reportUnreplacedReads,
   reportUpstreamColumns,
   type TestSqlChecks,
 } from "./test-sql-checks.js";
@@ -37,7 +43,8 @@ beforeAll(async () => {
     const readSql = createSqlTableReader(parser, engineOf);
     const columns = createSqlColumnReader(parser, engineOf);
     const byEntityId = indexByEntityId(docs);
-    const readsOf = createReader(docs, byEntityId, schemas, readSql);
+    const findSources = createSourceFinder(schemas);
+    const readsOf = createReader(docs, byEntityId, findSources, readSql);
     const transforms = validDocsOf(docs, "Transform").map((doc) =>
       transformOf(doc, readsOf),
     );
@@ -45,14 +52,13 @@ beforeAll(async () => {
       transforms.map((t) => [t.doc, t]),
     );
     return {
-      docs,
-      byEntityId,
       transforms,
       tested: testedTransformsOf(docs, byEntityId, transformOfDoc),
       defaultSchemaOf: () => "public",
       engineOf,
-      schemas,
+      queryOf: createQueryReader(docs, byEntityId, findSources),
       readSql,
+      readRewritten: createRewrittenTableReader(parser, engineOf),
       columns,
     };
   };
@@ -137,7 +143,7 @@ const TWO_STATEMENTS =
 const unreadColumns = (file: string, query: string): Recorded => ({
   rule: "reads-not-checked",
   file,
-  message: `could not find the columns ${query}: field_references reads only a single SELECT or UNION, and could not read it`,
+  message: `could not find the columns ${query}: Metabase reads columns only from a single SELECT or UNION statement, and could not read them from this SQL`,
   related: [],
 });
 
@@ -298,13 +304,19 @@ describe("reportMissingReadColumns", () => {
         (f) => f.message,
       );
     };
-    const message = (column: string, readAs: string, declared: string) =>
-      `input public.orders has no column ${column}, which transform cased reads as ${readAs}; the input's column is ${declared}`;
+    const message = (readAs: string, declared: string, reasons: string) =>
+      `transform cased reads the column ${readAs} from input public.orders, which declares ${declared}: ${reasons}`;
 
     it("reads an unquoted name in lower case on Postgres", () => {
       expect(
         missing("SELECT o.total FROM public.orders o", ["Total"], "postgres"),
-      ).toEqual([message("total", "total", "Total")]);
+      ).toEqual([
+        message(
+          "total",
+          "Total",
+          'Postgres reads an unquoted name in lower case, and Metabase creates the input\'s columns as declared. Declare the column as total, or write it as "Total" in the SQL',
+        ),
+      ]);
       expect(
         missing("SELECT o.TOTAL FROM public.orders o", ["total"], "postgres"),
       ).toEqual([]);
@@ -337,7 +349,13 @@ describe("reportMissingReadColumns", () => {
     it("reads an unquoted name in upper case on Snowflake", () => {
       expect(
         missing("SELECT o.id FROM public.orders o", ["id"], "snowflake"),
-      ).toEqual([message("id", "ID", "id")]);
+      ).toEqual([
+        message(
+          "ID",
+          "id",
+          'Snowflake reads an unquoted name in upper case, and Metabase creates the input\'s columns as declared. Declare the column as ID, or write it as "id" in the SQL',
+        ),
+      ]);
       expect(
         missing("SELECT o.id FROM public.orders o", ["ID"], "snowflake"),
       ).toEqual([]);
@@ -346,18 +364,35 @@ describe("reportMissingReadColumns", () => {
       ).toEqual([]);
     });
 
-    it("upper-cases a declared column on H2, as Metabase's H2 quoting does", () => {
+    // Metabase quotes H2 names in the `:ansi` dialect, which keeps the case.
+    it("keeps a declared column's case on H2, and reads an unquoted name in upper case", () => {
       expect(
         missing('SELECT o."total" FROM public.orders o', ["total"], "h2"),
-      ).toEqual([message("total", "total", "TOTAL")]);
+      ).toEqual([]);
       expect(
         missing("SELECT o.total FROM public.orders o", ["total"], "h2"),
-      ).toEqual([]);
+      ).toEqual([
+        message(
+          "TOTAL",
+          "total",
+          'H2 reads an unquoted name in upper case, and Metabase creates the input\'s columns as declared. Declare the column as TOTAL, or write it as "total" in the SQL',
+        ),
+      ]);
     });
 
     it("compares ignoring case on another engine", () => {
       expect(
         missing("SELECT o.total FROM public.orders o", ["Total"], "mysql"),
+      ).toEqual([]);
+    });
+
+    it("compares ignoring case a column the SQL names both quoted and unquoted", () => {
+      expect(
+        missing(
+          'SELECT o."total", o.total FROM public.orders o',
+          ["Total"],
+          "postgres",
+        ),
       ).toEqual([]);
     });
 
@@ -376,7 +411,13 @@ describe("reportMissingReadColumns", () => {
       ]);
       expect(
         run(reportMissingReadColumns, [transform, test]).map((f) => f.message),
-      ).toEqual([message("Total", "Total", "total")]);
+      ).toEqual([
+        message(
+          "Total",
+          "total",
+          "Metabase quotes an MBQL field's name, so the warehouse reads it as written, and Metabase creates the input's columns as declared. Declare the column as Total",
+        ),
+      ]);
     });
   });
 
@@ -542,8 +583,9 @@ describe("reportUpstreamColumns", () => {
 });
 
 describe("reportQualifiedColumns", () => {
-  const ALIAS_ADVICE =
-    "Metabase refuses the test. Alias the table and qualify its columns by the alias";
+  const ALIAS_ADVICE = "Alias the table and qualify its columns by the alias";
+  const TRANSFORM_REFUSAL =
+    "Metabase refuses the test if the qualifier still names no table once the template tags have values";
 
   it("warns when the transform's SQL qualifies a column by the name of a table the test replaces", () => {
     const transform = transformDoc("orders_by_day", [
@@ -558,13 +600,13 @@ describe("reportQualifiedColumns", () => {
       {
         rule: "table-qualified-column",
         file: test.file,
-        message: `transform orders_by_day qualifies a column by orders, the name of analytics.orders, which this test replaces. ${ALIAS_ADVICE}`,
+        message: `transform orders_by_day qualifies a column by orders, the name of analytics.orders, which this test replaces. ${TRANSFORM_REFUSAL}. ${ALIAS_ADVICE}`,
         related: [transform.file],
       },
     ]);
   });
 
-  it("warns when an expectation's SQL qualifies a column by the name of the transform's target", () => {
+  it("reports an error when an expectation's SQL qualifies a column by the name of the transform's target", () => {
     const transform = transformDoc("orders_by_day", [
       nativeStage("SELECT o.day, count(*) AS n FROM orders o GROUP BY o.day"),
     ]);
@@ -581,15 +623,15 @@ describe("reportQualifiedColumns", () => {
     );
     expect(run(reportQualifiedColumns, [transform, test])).toEqual([
       {
-        rule: "table-qualified-column",
+        rule: "expectation-qualified-column",
         file: test.file,
-        message: `expectation no negative counts qualifies a column by orders_by_day, the name of analytics.orders_by_day, which this test replaces. ${ALIAS_ADVICE}`,
+        message: `expectation no negative counts qualifies a column by orders_by_day, the name of analytics.orders_by_day, which this test replaces. Metabase refuses the test. ${ALIAS_ADVICE}`,
         related: [],
       },
     ]);
   });
 
-  it("warns on a qualifier that names no table or alias, which Metabase refuses too", () => {
+  it("warns on a qualifier that names no table or alias", () => {
     const transform = transformDoc("orders_ids", [
       nativeStage("SELECT ghost.id FROM analytics.orders o"),
     ]);
@@ -597,7 +639,39 @@ describe("reportQualifiedColumns", () => {
     expect(
       run(reportQualifiedColumns, [transform, test]).map((f) => f.message),
     ).toEqual([
-      "transform orders_ids qualifies a column by ghost, which names no table or alias in its query. Metabase refuses the test. Qualify each column by the alias of a table the query reads",
+      "transform orders_ids qualifies a column by ghost, which names no table or alias in its query. Metabase refuses the test if the qualifier still names no table once the template tags have values. Qualify each column by the alias of a table the query reads",
+    ]);
+  });
+
+  it.each([
+    [
+      "a quoted qualifier, which matches only as written",
+      'SELECT "PEOPLE".id FROM people',
+      "PEOPLE, the name of people, which this test replaces",
+    ],
+    [
+      "a qualifier that is also an alias in the query",
+      "SELECT people.id FROM people WHERE EXISTS (SELECT 1 FROM orders people WHERE people.x = 1)",
+      "people, the name of people, which this test replaces",
+    ],
+  ])("warns on %s", (_, sql, qualifier) => {
+    const transform = transformDoc("people_ids", [nativeStage(sql)]);
+    const test = testDoc(transform, [
+      rowsInput(null, "people", ["id"]),
+      rowsInput(null, "orders", ["x"]),
+    ]);
+    expect(
+      run(reportQualifiedColumns, [transform, test]).map((f) => [
+        f.rule,
+        f.message,
+      ]),
+    ).toEqual([
+      [
+        "table-qualified-column",
+        expect.stringContaining(
+          `transform people_ids qualifies a column by ${qualifier}.`,
+        ),
+      ],
     ]);
   });
 
@@ -642,6 +716,90 @@ describe("reportQualifiedColumns", () => {
       unreadColumns(transform.file, "this transform reads or returns"),
       unreadColumns(test.file, "expectation no ids reads"),
     ]);
+  });
+});
+
+describe("reportUnreplacedReads", () => {
+  const mbqlTransform = (schema: string, name: string) =>
+    transformDoc("orders_ids", [
+      {
+        "lib/type": "mbql.stage/mbql",
+        "source-table": [DB, schema, name],
+      },
+    ]);
+  const rules = (docs: readonly Doc[]) =>
+    run(reportUnreplacedReads, docs).map((f) => [f.rule, f.message]);
+
+  it("reports an MBQL reference whose case is not the input's", () => {
+    const transform = mbqlTransform("public", "Orders");
+    expect(
+      rules([
+        transform,
+        testDoc(transform, [rowsInput("public", "orders", [])]),
+      ]),
+    ).toEqual([
+      [
+        "transform-reads-other-table",
+        "transform orders_ids reads public.Orders, and input public.orders does not stand in for it: Metabase quotes each table name of an MBQL query, replaces a quoted name only in its exact case, and refuses a test whose transform still reads a real table. Name the input public.Orders",
+      ],
+    ]);
+    for (const input of [
+      rowsInput("public", "Orders", []),
+      rowsInput(null, "Orders", []),
+      rowsInput("PUBLIC", "Orders", []),
+    ]) {
+      expect(rules([transform, testDoc(transform, [input])])).toEqual([]);
+    }
+  });
+
+  it("reports a quoted name in the transform's SQL that keeps its table after the rewrite", () => {
+    const native = (sql: string) =>
+      transformDoc("orders_ids", [nativeStage(sql)]);
+    const reported = (sql: string, schema: string | null, name: string) => {
+      const transform = native(sql);
+      return rules([
+        transform,
+        testDoc(transform, [rowsInput(schema, name, [])]),
+      ]).length;
+    };
+    expect(reported('SELECT id FROM "Orders"', null, "orders")).toBe(1);
+    expect(reported('SELECT id FROM public."Orders"', "public", "orders")).toBe(
+      1,
+    );
+    expect(
+      reported('SELECT id FROM "ANALYTICS".orders', "analytics", "orders"),
+    ).toBe(1);
+    // The rewrite also tries the bare table name, which an input in the
+    // default schema gives.
+    expect(reported('SELECT id FROM "PUBLIC".orders', "public", "orders")).toBe(
+      0,
+    );
+    expect(reported('SELECT id FROM "orders"', null, "orders")).toBe(0);
+    expect(reported("SELECT id FROM ORDERS", "public", "orders")).toBe(0);
+    expect(
+      reported('SELECT id FROM "public"."orders"', "PUBLIC", "orders"),
+    ).toBe(0);
+    // No input covers the table at all: another check reports it.
+    expect(reported('SELECT id FROM "Products"', null, "orders")).toBe(0);
+  });
+
+  it("reads the SQL as Metabase compiles it, with template tags", () => {
+    const transform = transformDoc("orders_ids", [
+      {
+        ...nativeStage('SELECT id FROM "Orders" [[WHERE id = {{id}}]]'),
+        "template-tags": [
+          {
+            type: "number",
+            name: "id",
+            id: "bb000001-0000-0000-0000-000000000001",
+            "display-name": "id",
+          },
+        ],
+      },
+    ]);
+    expect(
+      rules([transform, testDoc(transform, [rowsInput(null, "orders", [])])]),
+    ).toHaveLength(1);
   });
 });
 

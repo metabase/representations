@@ -2,7 +2,7 @@
 
 Metabase represents user-created content as a tree of YAML files. Each file represents one entity (a collection, card, dashboard, etc.). The format is designed to be **portable** across Metabase instances: numeric database IDs are replaced with human-readable names and entity IDs.
 
-This repository holds the specification and examples of the Metabase Representation Format, and the `@metabase/representations` package. The package's CLI validates a folder of YAML files against the schemas, and lints the references between transforms, tables and transform tests.
+This repository holds the specification and examples of the Metabase Representation Format, and the `@metabase/representations` package. The package's CLI validates a folder of YAML files against the schemas, and lints the transforms, transform tests and tables in a folder, and the references between them, for what Metabase refuses or likely gets wrong.
 
 ## Contents
 
@@ -37,7 +37,7 @@ Validate a folder of YAML files against the schemas:
 npx @metabase/representations validate-schema --folder ./my-export
 ```
 
-Omit `--folder` to validate the current directory. It exits 1 when a file fails, and 2 when the folder has no YAML files in Metabase's top-level folders ([exit codes](#exit-codes)). A file with no `serdes/meta`, or an empty file, passes with a warning: Metabase skips it. A file of a model that Metabase imports and no schema here describes, such as `CustomVizPlugin` or `Dimension`, passes and is counted as not checked. A model that Metabase does not import fails, and so does a file that is not valid UTF-8.
+Omit `--folder` to validate the current directory. It exits 1 when a file fails, and 2 when the folder has no YAML files in Metabase's top-level folders ([exit codes](#exit-codes)). A file with no `serdes/meta`, an empty file, or a file that holds only `[]` or `''` passes with a warning: Metabase skips it. A file of a model that Metabase imports and no schema here describes, such as `CustomVizPlugin` or `Dimension`, passes and is counted as not checked. A model outside the list of models Metabase imports fails, and so does a file that is not valid UTF-8.
 
 The validator reads YAML as Metabase does, with a few [known differences](https://github.com/metabase/representations/blob/main/docs/lint.md#how-yaml-is-read).
 
@@ -45,13 +45,13 @@ The validator reads YAML as Metabase does, with a few [known differences](https:
 
 The lint is experimental. It is outside the package's semver guarantees: its rules, findings, output and options can change in any release. The `lint` command runs only with `--experimental`, and its programmatic API comes from `@metabase/representations/experimental`.
 
-Check the references between transforms, tables and transform tests in a folder, without a Metabase. The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Under `npx`, name both packages, Pyodide at the version the package pins:
+Check the transforms, transform tests and tables in a folder, and the references between them, for what Metabase refuses or likely gets wrong, without a Metabase. The lint reads SQL with [Pyodide](https://pyodide.org), an optional peer dependency that a plain install of the package leaves out. Under `npx`, name both packages, Pyodide at the version the package pins:
 
 ```sh
 npx -p @metabase/representations -p pyodide@314.0.7 representations lint --experimental --folder ./my-export
 ```
 
-`npx @metabase/representations lint` cannot find a Pyodide installed in the project, because `npx` installs the package elsewhere. `npx` also skips a `-p` package that the project already installs, so a project that installs Pyodide installs `@metabase/representations` too, and runs `npx representations lint`. A tool that depends on the package installs Pyodide among its own dependencies:
+`npx @metabase/representations lint --experimental` cannot find a Pyodide installed in the project, because `npx` installs the package elsewhere. `npx` also skips a `-p` package that the project already installs. So in a project that installs Pyodide, also install `@metabase/representations`, and run `npx representations lint --experimental`. A tool that depends on the package installs Pyodide among its own dependencies:
 
 ```sh
 npm install pyodide@314.0.7
@@ -76,7 +76,7 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 ### Settings file
 
-`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema; without them, the engine checks and `null-schema-reference` give no finding, and `unknown-engine` warns. Give both for each database the repository's transforms and cards name:
+`.metabase-lint.json` at the root of the linted folder gives each database's default schema and engine, by database name as the files name it. Both keys are optional. It must be a regular file, not a symbolic link. A repository that remote sync writes holds no Database file, so the settings file is where the lint learns each database's engine and default schema. Without an engine, the engine checks, `null-schema-reference` and `null-schema-tag` give no finding, and `unknown-engine` warns. Without a default schema that it needs, the lint runs no check and names the database. Give both for each database the repository's transforms and cards name:
 
 ```json
 {
@@ -97,18 +97,19 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 
 | Rule | Severity | What it catches |
 |------|----------|-----------------|
-| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map or not valid UTF-8, or a file whose `serdes/meta` names no model or a model Metabase does not import. |
-| `skipped-by-metabase` | warning | A file with no `serdes/meta`, or an empty file, which Metabase skips. |
-| `duplicate-yaml-key` | warning | A key written twice in one map of a file. Metabase keeps the last value without a message. |
+| `schema` | error | A transform, transform test, table, Database or snippet file that fails its schema, a file that is not a YAML map, a file whose `serdes/meta` names no model or a model outside the models Metabase imports, a symbolic link in a folder Metabase imports, or a transform whose source database was deleted. |
+| `invalid-utf8` | warning | A file that is not valid UTF-8. Metabase reads each invalid byte sequence as U+FFFD, and the lint reads the file the same way. |
+| `skipped-by-metabase` | warning | A file with no `serdes/meta`, an empty file, or a file that holds only `[]` or `''`, which Metabase skips. |
+| `duplicate-yaml-key` | warning | A key written twice in one map of a file. Metabase keeps the last value, or the first in a merge source written after `<<:`, without a message. |
 | `duplicate-entity-id` | warning | Two files of one model that hold the same `entity_id`. Remote sync keeps the last in path order (the paths sorted as strings, by UTF-16 code unit) and drops the others without a message. Files of different models may share an `entity_id`. |
 | `dangling-transform-id` | error | A test whose `transform_id` matches no entity. |
 | `wrong-type-transform-id` | error | A test whose `transform_id` names an entity that is not a transform. |
 | `duplicate-target` | warning | Two transforms that write the same table. On Redshift, which folds every name to lower case, targets that differ only in case are the same table. |
 | `transform-cycle` | error | Transforms that read each other's targets. |
 | `transform-collection` | error | A transform whose collection is not in the folder, is not a collection, or is not in the `transforms` namespace. |
-| `missing-incremental-table-tag` | error | An incremental native transform with no table variable (a `{{table}}` template tag) for Metabase to filter new rows into, or none for the checkpoint field's table. |
+| `missing-incremental-table-tag` | error | An incremental native transform with no template tag of type table (`{{table}}`) for Metabase to filter new rows into, or none for the checkpoint field's table. |
 | `missing-target-database` | error | A transform that is not a query transform and names no target database. |
-| `missing-target-schema` | error | A transform whose target names no schema, on an engine with schemas. |
+| `missing-target-schema` | error | A transform whose target schema is blank, or that names no schema on an engine with schemas. |
 | `unsupported-transform-engine` | warning | A transform whose target database's engine cannot run that kind of transform. |
 | `unknown-engine` | warning | A database that a transform or card writes to or reads and that has no engine the lint knows, so the checks that depend on the engine give no finding. Give it under `engines` in the settings file; an engine missing from the lint's table, such as a third-party driver, keeps the warning. |
 | `empty-native-query` | warning | A transform whose native query is empty or only whitespace. Metabase accepts it, and every run fails. |
@@ -117,14 +118,17 @@ The lint prints one JSON finding per line on stdout, grouped by rule, then by fi
 | `untestable-transform` | error | A test of a transform that is not a query transform. |
 | `untestable-engine` | warning | A test of a transform whose database's engine cannot run transform tests. |
 | `duplicate-input` | error | Two inputs of one test for the same table. |
+| `transform-reads-other-table` | error | A test whose transform names a table in quotes in another case than the test's input. Metabase replaces a quoted name only in its exact case, so the transform still reads the real table, and Metabase refuses the test. An MBQL query quotes each table name. |
 | `expectation-reads-other-table` | error | A SQL expectation that reads a table other than the transform's target and the test's inputs. |
 | `row-columns-mismatch` | error | The first row of a `rows` input or `equals` expectation whose keys are not exactly the declared columns. A key YAML reads as no string, such as `yes:` or `1:`, counts as not declared; quote it as `'1':`. |
 | `duplicate-expectation-name` | error | Two expectations of one test with the same name. |
-| `null-schema-reference` | error | An MBQL reference in a transform or a card with a `null` schema, on a database whose engine has schemas. Metabase imports it as a table with no schema, which such a database lacks, and every run fails. An unknown engine gives no finding, and so does a `null` default schema given for the database, which says it has no schemas. |
+| `null-schema-reference` | error | An MBQL reference in a transform or a card with a `null` schema, on a database whose engine has schemas. Metabase imports it as a table with no schema, an inactive stub that holds no data: a query that reads it fails on every run. A `temporal-unit` tag and a `dimension` tag with a default put their field in the query, so their table is read. A card's `dimension` tag with no default on such a table gives this error too: the card fails once the tag has a value. An unknown engine gives no finding, and so does a `null` default schema given for the database, which says it has no schemas. |
+| `null-schema-tag` | warning | A `dimension` tag with no default in a transform, whose field names a table by a `null` schema, on a database whose engine has schemas. Metabase imports the field as an inactive stub, and the transform and its tests run, since such a tag compiles to `1 = 1`; the filter fails once the tag has a value. A `dimension` tag with a default, a `temporal-unit` tag and a card's tag give `null-schema-reference`. |
 | `no-expectations` | warning | A test with no expectations. |
 | `input-missing-read-column` | warning | A test input without a column its transform reads. |
 | `upstream-column-mismatch` | warning | A test input for another transform's target, with a column that transform does not return. |
-| `table-qualified-column` | warning | A SQL column qualifier that names no table or alias once a transform test replaces the tables. |
+| `table-qualified-column` | warning | A column qualifier in a transform's SQL that names no table or alias once a transform test replaces the tables. Metabase refuses the test if the qualifier still names no table once the template tags have values. |
+| `expectation-qualified-column` | error | A column qualifier in a SQL expectation that names no table or alias once a transform test replaces the tables. |
 | `live-sql-input` | warning | A test's SQL input that reads a real table, so the test depends on live data. |
 | `reads-not-checked` | warning | A transform, input or expectation whose tables or columns the lint could not find, such as SQL the parser cannot read. |
 

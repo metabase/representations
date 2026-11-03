@@ -1,22 +1,13 @@
-import { readFileSync } from "fs";
-import { resolve } from "path";
-
 import type { Schemas } from "./schemas.js";
 import {
-  checkSchema,
   entityFiles,
+  readEntityFile,
   type SchemaCheck,
+  SYMBOLIC_LINK,
   type ValidationError,
 } from "./validate-schema.js";
 import { errorMessage, isRecord, stringOrNull } from "./values.js";
-import {
-  decodeUtf8,
-  type DuplicateKey,
-  type NonStringKey,
-  readYaml,
-  type YamlDocument,
-  YamlReadError,
-} from "./yaml.js";
+import { type DuplicateKey, type NonStringKey, YamlReadError } from "./yaml.js";
 
 /** A file of `entityFiles` that parses to a YAML map whose `serdes/meta` names a model. */
 export type Doc = {
@@ -44,8 +35,11 @@ type PythonSourceTable = {
   database_id: string;
   schema?: string | null;
   table?: string;
-  /** `[database, schema, table]`, from `common/id.yaml#/$defs/table_id`. */
-  table_id?: readonly [string, string | null, string];
+  /**
+   * `[database, schema, table]`, from `common/id.yaml#/$defs/table_id`. Null
+   * for a table that did not exist at export, which Metabase finds by name.
+   */
+  table_id?: readonly [string, string | null, string] | null;
 };
 
 /** A schema-valid Python source, from `transform.yaml#/$defs/python_source`. */
@@ -249,9 +243,10 @@ export type DuplicatedKeys = { doc: Doc; keys: readonly DuplicateKey[] };
 /**
  * Each of `entityFiles(folder)`, in path order: as documents, as files
  * Metabase skips for having no `serdes/meta`, or as unreadable files, which
- * do not parse to a YAML map, or whose `serdes/meta` names no model or a model
- * Metabase does not import. Also each document whose maps hold a key more
- * than once.
+ * are symbolic links, do not parse to a YAML map, or whose `serdes/meta` names
+ * no model or a model outside `IMPORTED_MODELS`. Also each document whose maps hold a key more
+ * than once, and each file that is not valid UTF-8, which is read with each
+ * invalid byte sequence as U+FFFD (`decodeUtf8`).
  */
 export function loadDocs(
   folder: string,
@@ -261,40 +256,43 @@ export function loadDocs(
   skipped: string[];
   unreadable: UnreadableFile[];
   duplicatedKeys: DuplicatedKeys[];
+  invalidUtf8: string[];
 } {
   const docs: Doc[] = [];
   const skipped: string[] = [];
   const unreadable: UnreadableFile[] = [];
   const duplicatedKeys: DuplicatedKeys[] = [];
+  const invalidUtf8: string[] = [];
   for (const file of entityFiles(folder)) {
-    const text = decodeUtf8(readFileSync(resolve(folder, file)));
-    if (text === null) {
-      unreadable.push({ file, reason: "is not valid UTF-8" });
+    const entity = readEntityFile(folder, file, schemas);
+    if (entity.status === "symbolic-link") {
+      unreadable.push({ file, reason: `is ${SYMBOLIC_LINK}` });
       continue;
     }
-    let read: YamlDocument;
-    try {
-      read = readYaml(text);
-      // eslint-disable-next-line no-restricted-syntax -- wraps reading a file only
-    } catch (e) {
-      const reason = e instanceof YamlReadError ? e.reason : errorMessage(e);
+    if (entity.invalidUtf8) {
+      invalidUtf8.push(file);
+    }
+    if (entity.status === "unparsed") {
+      const { error } = entity;
+      const reason =
+        error instanceof YamlReadError ? error.reason : errorMessage(error);
       unreadable.push({ file, reason: `does not parse as YAML: ${reason}` });
       continue;
     }
+    const { read, check } = entity;
     const { value: body, nonStringKeys, duplicateKeys } = read;
-    const check = checkSchema(read, schemas);
     if (check.status === "bad-timestamp") {
       unreadable.push({ file, reason: `fails to load: ${check.message}` });
     } else if (check.status === "skipped") {
       skipped.push(file);
-    } else if (!isRecord(body)) {
+    } else if (check.status === "not-a-map" || !isRecord(body)) {
       unreadable.push({ file, reason: "is not a YAML map" });
     } else if (check.status === "no-model") {
       unreadable.push({ file, reason: "names no model in serdes/meta" });
     } else if (check.status === "unknown-model") {
       unreadable.push({
         file,
-        reason: `names the model "${check.model}", which Metabase does not import`,
+        reason: `names the model "${check.model}", which is not among the models Metabase imports from entity files`,
       });
     } else {
       const doc: Doc = {
@@ -310,7 +308,7 @@ export function loadDocs(
       }
     }
   }
-  return { docs, skipped, unreadable, duplicatedKeys };
+  return { docs, skipped, unreadable, duplicatedKeys, invalidUtf8 };
 }
 
 /** Every document with an entity_id, keyed by it; several when the id is duplicated. */
@@ -326,30 +324,36 @@ export function indexByEntityId(docs: readonly Doc[]): Map<string, Doc[]> {
 }
 
 /**
- * The document of `model` that an entity_id names: of the files of that
- * model that hold it, the last in path order. Remote sync lists a
+ * What an entity_id names as a `model`: the document of that model, a
+ * document of another model, or nothing in the folder.
+ */
+export type EntityLookup =
+  | { status: "found"; doc: Doc }
+  | { status: "other-model"; doc: Doc }
+  | { status: "missing" };
+
+/**
+ * Looks up the document of `model` that an entity_id names: of the files of
+ * that model that hold it, the last in path order. Remote sync lists a
  * repository's files sorted by path (`remote_sync/source/git.clj`
  * `list-files`) and keeps the last file read for each entity
  * (`remote_sync/source/ingestable.clj` `ingest-all`), so the last file's
- * content stands. Null when no file of `model` holds it.
+ * content stands. When no file of `model` holds it, gives the first file of
+ * another model that does, in path order: what the reference likely meant to
+ * name.
  */
-export function holderOf(
+export function lookUpEntity(
   byEntityId: ReadonlyMap<string, readonly Doc[]>,
   id: string,
   model: string,
-): Doc | null {
-  return (byEntityId.get(id) ?? []).findLast((d) => d.model === model) ?? null;
-}
-
-/**
- * A file of another model than `model` that holds `id`, the first in path
- * order: what a reference to a `model` likely meant to name when no file of
- * `model` holds it. Null when there is none.
- */
-export function otherHolderOf(
-  byEntityId: ReadonlyMap<string, readonly Doc[]>,
-  id: string,
-  model: string,
-): Doc | null {
-  return (byEntityId.get(id) ?? []).find((d) => d.model !== model) ?? null;
+): EntityLookup {
+  const holders = byEntityId.get(id) ?? [];
+  const found = holders.findLast((d) => d.model === model);
+  if (found !== undefined) {
+    return { status: "found", doc: found };
+  }
+  const other = holders.find((d) => d.model !== model);
+  return other === undefined
+    ? { status: "missing" }
+    : { status: "other-model", doc: other };
 }

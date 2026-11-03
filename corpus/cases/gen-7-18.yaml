@@ -1,8 +1,6 @@
 description: alias-quoted, alias-quoted-upper, alias-upper, name-lower, name-mixed, name-quoted, nested-optional-tags-d1-n2, optional-clause, schema-lower, schema-none, schema-quoted, schema-upper, sql
 origin: corpus-gen.ts, seed 7, case 18, shrunk to 2 of 3 edits
-known: |-
-  collections/transforms/daily_order_summary.yaml: only Metabase reads public.orders
-  collections/transforms/monthly_sales_summary.yaml: Metabase refuses the probe with transform-test.unparseable-source, which the lint does not explain
+known: "collections/transforms/monthly_sales_summary.yaml: Metabase refuses the probe with transform-test.unparseable-source, which the lint does not explain"
 edits:
   collections/transforms/daily_order_summary.yaml: |
     name: Daily Order Summary

@@ -27,19 +27,22 @@
 //     [--default-schema DATABASE=SCHEMA ...] [--probe-transforms]
 //
 // Exits 1 when any comparison differs, when Metabase refuses a probe for a
-// reason the lint does not explain, or when nothing could be compared.
-import { mkdtempSync, rmSync } from "node:fs";
+// reason the lint does not explain, or when it compares no transform or no
+// transform test, such as for a folder that holds none or does not exist.
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
+import type { DefaultSchemas } from "../src/default-schemas.js";
 import { loadDocs, validDocsOf, type ValidDoc } from "../src/documents.js";
 import type { LintFinding, LintRule } from "../src/findings.js";
 import { lint, transformReads } from "../src/lint.js";
 import { loadSchemas } from "../src/schemas.js";
+import { parseDefaultSchemas } from "../src/settings.js";
 import { columnOfRef } from "../src/tables.js";
 import { mutateExamples } from "../src/test-support/lint-mutations.js";
-import { isRecord } from "../src/values.js";
+import { errorMessage, isRecord } from "../src/values.js";
 import {
   describeRefusal,
   ENVIRONMENT_REFUSALS,
@@ -77,16 +80,17 @@ if (!url || !apiKey || !folder) {
   );
   process.exit(2);
 }
-const defaultSchemas: Record<string, string> = {};
-for (const pair of values["default-schema"] ?? []) {
-  const at = pair.indexOf("=");
-  if (at <= 0) {
-    console.error(
-      `Invalid --default-schema: ${pair} (expected DATABASE=SCHEMA)`,
-    );
-    process.exit(2);
-  }
-  defaultSchemas[pair.slice(0, at)] = pair.slice(at + 1);
+let defaultSchemas: DefaultSchemas;
+try {
+  defaultSchemas = parseDefaultSchemas(values["default-schema"] ?? []);
+} catch (e) {
+  console.error(errorMessage(e));
+  process.exit(2);
+}
+
+if (!existsSync(folder)) {
+  console.log(`FAIL  no such folder: ${folder}`);
+  process.exit(1);
 }
 
 const { api, probe, locateRefusal } = createMetabase(url, apiKey);
@@ -550,14 +554,14 @@ if (values["probe-transforms"]) {
 }
 
 // A run that compared nothing proves nothing.
-if (transforms.length > 0 && transformsCompared === 0) {
+if (transformsCompared === 0) {
   fail(
-    "compared no transform with Metabase: every probe was refused or failed",
+    `compared no transform with Metabase: ${transforms.length === 0 ? `${folder} holds none` : "every probe was refused or failed"}`,
   );
 }
-if (testFiles.size > 0 && testsCompared === 0) {
+if (testsCompared === 0) {
   fail(
-    "compared no transform test with Metabase: every probe was refused or failed",
+    `compared no transform test with Metabase: ${testFiles.size === 0 ? `${folder} holds none` : "every probe was refused or failed"}`,
   );
 }
 process.exit(failed ? 1 : 0);

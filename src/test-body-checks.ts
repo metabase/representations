@@ -12,10 +12,9 @@ import type { NonStringKey, YamlPath } from "./yaml.js";
  * What the first row of `data` that does not carry exactly the declared
  * columns gets wrong: Metabase's rows-match-columns message, prefixed with
  * the row's number, and the row's keys SnakeYAML reads as no string, which
- * Metabase refuses with its own row-schema error; null when every row does. Names
- * compare case-sensitively, as in Metabase. `nonStringKeysOf` gives a row's
- * keys that Metabase reads as no string, by the row's index: Metabase
- * refuses a row with one.
+ * Metabase refuses with its own row-schema error; null when every row does.
+ * Names compare case-sensitively, as in Metabase. `nonStringKeysOf` gives a
+ * row's keys that Metabase reads as no string, by the row's index.
  */
 function rowsColumnsMismatch(
   data: RowsData,
@@ -43,20 +42,30 @@ function rowsColumnsMismatch(
   }
   const keys = stringKeysOf(index);
   const quoted = (names: readonly string[]) =>
-    [...names]
-      .sort()
-      .map((n) => JSON.stringify(n))
-      .join(", ");
-  const missing = [...declared].filter((name) => !keys.has(name));
-  const extra = [...keys].filter((name) => !declared.has(name));
-  const nonString = nonStringKeysOf(index).map((k) => k.source);
+    names.map((n) => JSON.stringify(n)).join(", ");
+  const missing = [...declared].filter((name) => !keys.has(name)).sort();
+  const extra = [...keys].filter((name) => !declared.has(name)).sort();
+  const nonString = nonStringKeysOf(index);
+  const sourcesOf = (shadowed: boolean): string[] =>
+    nonString
+      .filter((k) => k.shadowed === shadowed)
+      .map((k) => k.source)
+      .sort();
+  // Quoting a shadowed key would write its string key a second time.
+  const toQuote = sourcesOf(false);
+  const toDelete = sourcesOf(true);
   return [
     `row ${index + 1}: every row must carry exactly the declared columns`,
     ...(missing.length > 0 ? [`missing ${quoted(missing)}`] : []),
     ...(extra.length > 0 ? [`not declared: ${quoted(extra)}`] : []),
-    ...(nonString.length > 0
+    ...(toQuote.length > 0
       ? [
-          `keys YAML reads as no string: ${quoted(nonString)}; quote them, as '${nonString[0]}':`,
+          `keys YAML reads as no string: ${quoted(toQuote)}; quote them, as '${toQuote[0]}':`,
+        ]
+      : []),
+    ...(toDelete.length > 0
+      ? [
+          `keys YAML reads as no string beside a quoted key of the same text: ${quoted(toDelete)}; delete them`,
         ]
       : []),
   ].join("; ");
