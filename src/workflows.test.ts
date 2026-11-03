@@ -410,33 +410,69 @@ describe("workflows", () => {
     ).toEqual([]);
   });
 
+  /**
+   * Each job of the workflows `files` (name and text) that names the
+   * `secrets` context, in its body or its workflow's `env`, with the
+   * permissions its GitHub token gets: its own, else its workflow's.
+   */
+  const secretReaderGrants = (
+    files: readonly { workflow: string; text: string }[],
+  ) => {
+    // Any case: an expression such as `SECRETS.X` may read a secret too.
+    const mentionsSecrets = (value: unknown) =>
+      /\bsecrets\b/i.test(JSON.stringify(value ?? {}));
+    return files.flatMap(({ workflow, text }) => {
+      const doc: unknown = yaml.load(text);
+      if (!isRecord(doc) || !isRecord(doc.jobs)) {
+        throw new Error(`${workflow} has no map of jobs`);
+      }
+      const { env, permissions } = doc;
+      return Object.entries(doc.jobs)
+        .filter(([, body]) => mentionsSecrets(env) || mentionsSecrets(body))
+        .map(([job, body]) => ({
+          job: `${workflow} ${job}`,
+          permissions:
+            isRecord(body) && body.permissions !== undefined
+              ? body.permissions
+              : permissions,
+        }));
+    });
+  };
+
+  it("find a job that names the secrets context in upper or mixed case", () => {
+    expect(
+      secretReaderGrants([
+        {
+          workflow: "w.yml",
+          text: [
+            "jobs:",
+            "  upper:",
+            "    steps: [{run: echo, env: {T: '${{ SECRETS.X }}'}}]",
+            "  mixed:",
+            "    permissions: {contents: read}",
+            "    steps: [{run: echo, env: {T: '${{ Secrets.X }}'}}]",
+            "  none:",
+            "    steps: [{run: echo mysecrets, env: {T: '${{ github.token }}'}}]",
+          ].join("\n"),
+        },
+      ]),
+    ).toEqual([
+      { job: "w.yml upper", permissions: undefined },
+      { job: "w.yml mixed", permissions: { contents: "read" } },
+    ]);
+  });
+
   // Without a permissions block, a job's GitHub token gets the repository's
   // default scopes, which can include write access.
   it("give each job that reads a secret only the permissions it needs", () => {
-    const namesSecrets = (value: unknown) =>
-      /\bsecrets\b/.test(JSON.stringify(value ?? {}));
-    const granted = readdirSync(WORKFLOWS)
+    const files = readdirSync(WORKFLOWS)
       .filter((file) => /\.ya?ml$/.test(file))
       .sort()
-      .flatMap((workflow) => {
-        const doc: unknown = yaml.load(
-          readFileSync(join(WORKFLOWS, workflow), "utf8"),
-        );
-        if (!isRecord(doc) || !isRecord(doc.jobs)) {
-          throw new Error(`${workflow} has no map of jobs`);
-        }
-        const { env, permissions } = doc;
-        return Object.entries(doc.jobs)
-          .filter(([, body]) => namesSecrets(env) || namesSecrets(body))
-          .map(([job, body]) => ({
-            job: `${workflow} ${job}`,
-            permissions:
-              isRecord(body) && body.permissions !== undefined
-                ? body.permissions
-                : permissions,
-          }));
-      });
-    expect(granted).toEqual([
+      .map((workflow) => ({
+        workflow,
+        text: readFileSync(join(WORKFLOWS, workflow), "utf8"),
+      }));
+    expect(secretReaderGrants(files)).toEqual([
       { job: "import.yml import-test", permissions: { contents: "read" } },
       {
         job: "release-alpha.yml publish-alpha",
