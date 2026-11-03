@@ -97,30 +97,12 @@ function isPath(value: JsonValue): value is (string | null)[] {
   );
 }
 
-/** Merges portable references, keeping each distinct one once, in first-seen order. */
-export function mergePortableRefs(...refs: PortableRefs[]): PortableRefs {
-  return toPortableRefs(refs.flatMap(refEntries));
-}
-
-/** Merges instance references, keeping each distinct id once, in first-seen order. */
-export function mergeInstanceRefs(...refs: InstanceRefs[]): InstanceRefs {
-  return toInstanceRefs(refs.flatMap(refEntries));
-}
-
 export function toPortableRefs(entries: RefEntry<PortableRef>[]): PortableRefs {
   return groupByModel(entries, portableKey);
 }
 
 export function toInstanceRefs(entries: RefEntry<number>[]): InstanceRefs {
   return groupByModel(entries, (id) => id);
-}
-
-function refEntries<Ref>(
-  refs: Partial<Record<RefModel, Ref[]>>,
-): RefEntry<Ref>[] {
-  return REF_MODELS.flatMap((model) =>
-    (refs[model] ?? []).map((ref): RefEntry<Ref> => [model, ref]),
-  );
 }
 
 function groupByModel<Ref>(

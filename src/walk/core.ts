@@ -9,11 +9,13 @@ import { isPortableRef, type PortableRef, type RefModel } from "../refs.js";
 export type Visitor =
   | {
       readonly direction: "toInstance";
-      visit(model: RefModel, ref: PortableRef): JsonValue;
+      reference(model: RefModel, ref: PortableRef): JsonValue;
+      identity(model: RefModel, entityId: string): JsonValue;
     }
   | {
       readonly direction: "toPortable";
-      visit(model: RefModel, id: number): JsonValue;
+      reference(model: RefModel, id: number): JsonValue;
+      identity(model: RefModel, entityId: string, id: JsonValue): void;
     };
 
 export type Walk = (value: JsonValue, visitor: Visitor) => JsonValue;
@@ -23,9 +25,13 @@ export const unchanged: Walk = (value) => value;
 export function ref(model: RefModel): Walk {
   return (value, visitor) => {
     if (visitor.direction === "toPortable") {
-      return typeof value === "number" ? visitor.visit(model, value) : value;
+      return typeof value === "number"
+        ? visitor.reference(model, value)
+        : value;
     }
-    return isPortableRef(model, value) ? visitor.visit(model, value) : value;
+    return isPortableRef(model, value)
+      ? visitor.reference(model, value)
+      : value;
   };
 }
 
@@ -128,17 +134,21 @@ export function entity(
   model: RefModel,
   walks: Readonly<Record<string, Walk>>,
 ): Walk {
-  const walkId = ref(model);
   return (value, visitor) => {
     if (!isJsonObject(value)) {
       return value;
     }
-    const { id: _id, ...object } = value;
-    if (visitor.direction === "toPortable" || object.entity_id === undefined) {
+    const { id, ...object } = value;
+    const entityId = object.entity_id;
+    if (typeof entityId !== "string") {
       return walkFields(object, walks, unchanged, visitor);
     }
-    const id = walkId(object.entity_id, visitor);
-    return { id, ...walkFields(object, walks, unchanged, visitor) };
+    if (visitor.direction === "toPortable") {
+      visitor.identity(model, entityId, id ?? null);
+      return walkFields(object, walks, unchanged, visitor);
+    }
+    const instanceId = visitor.identity(model, entityId);
+    return { id: instanceId, ...walkFields(object, walks, unchanged, visitor) };
   };
 }
 

@@ -1,91 +1,16 @@
 {
-  "Database": {
-    "Sample Database": 1
-  },
   "User": {
     "admin@example.com": 1,
     "internal@metabase.com": 2
   },
-  "Action": {
-    "NJksetfXk2oh530o3RD_5": 1,
-    "Tq3vYp8mWc1LxNz5RbK0d": 2,
-    "dApPaCtIoNcOpYExAmP12": 3,
-    "XgqYIEGPfvCklZUxOLp9m": 4
+  "Database": {
+    "Sample Database": 1
   },
   "Table": {
     "[\"Sample Database\",null,\"ORDERS\"]": 1,
     "[\"Sample Database\",null,\"PRODUCTS\"]": 2,
     "[\"Sample Database\",null,\"PEOPLE\"]": 3,
     "[\"Sample Database\",null,\"REVIEWS\"]": 4
-  },
-  "Collection": {
-    "dApPcOlLeCtIoN0ExAmP1": 1,
-    "cOlDaShBoArDs0ExAmPlx": 2,
-    "cOlDoCuMeNtS0ExAmPlx2": 3,
-    "librarylibrarylibrary": 4,
-    "librarylibrarydashbrd": 5,
-    "cOlMiNiMaL000ExAmPlx2": 6,
-    "M-Q4pcV0qkiyJ0kiSWECl": 7,
-    "cOlQuErIeS0ExAmPlE2x1": 8,
-    "cOlViZsEtTiNgS0ExAmP1": 9
-  },
-  "Card": {
-    "dApPqUeStIoN00ExAmP12": 1,
-    "Wo5d6IV8lb63wex29uh6H": 2,
-    "niT030tJnQ8wmvMOEK_i0": 3,
-    "UEWVldEEZ-3sYUjjN54qz": 4,
-    "dYD1j3pQtJdctg8duByUL": 5,
-    "ciG63nSLHKRTImt5iWEte": 6,
-    "h5F2EjHsRd73Dqqh8sAtd": 7,
-    "dShCrdMnthlyOrdrs0001": 8,
-    "dShCrdMnthlyRevnu0002": 9,
-    "dShCrdMnthlyAvgOr0003": 10,
-    "dShCrdMnthlyCumul0004": 11,
-    "dShCrdNatveOrders0005": 12,
-    "dShCrdTtlRevScalr0006": 13,
-    "dShCrdProdsTables0007": 14,
-    "cRdCaTbReAkDoWn0ExMp1": 15,
-    "f1C68pznmrpN1F5xFDj6d": 16,
-    "FTxpeL9vY5pyb6Lc6lCDK": 17,
-    "1O_2jSo2fD6m3Qr6My7aa": 18,
-    "8kTL-8IzNdWMtXfaMPZaE": 19,
-    "irROiaJoSsiXPKGxwWvWY": 20,
-    "1hsUzNOepulZo3Jamzd1R": 21,
-    "4eroqa4ZYl4WkNjP8XTvu": 22,
-    "x61UtCMCuBNjw0TEFQeWG": 23,
-    "fLdExPr3sS10nS0ExAmPl": 24,
-    "bK64P6yr9_Nx-A8S3PqOZ": 25,
-    "wpW9JO5MsHQd0-7WrR7gN": 26,
-    "jPrM-oh3r1BR42xSs4Ipj": 27,
-    "kBjQ5VXJ5z3vYSW72J6qa": 28,
-    "IW8kbqZVaMxdGtCM2F4U6": 29,
-    "HiBFSt0BNx5s5MxVDLLKB": 30,
-    "sk02d7sPWAk2TYH2Y7JhZ": 31,
-    "H9L5S8JKGmH3Sddsrb671": 32,
-    "2u10n8GV6u0LFYrq8yV5p": 33,
-    "1t9TE-8T-AlaM19nx3yQV": 34,
-    "ZvHEBpdFQ-VSvem16KCkL": 35,
-    "gt4OaWYAuDWRHn5Irnd4h": 36,
-    "HeLFZSVb4Jm25p4tWfVP9": 37,
-    "BMx-SlSPsSfGSKaEgOzn0": 38,
-    "DBBrqcMAmOO0sbM_CzM_Z": 39,
-    "bDK7jyPszEHzHh4aG4_SV": 40,
-    "ErQY8K5Tep4xBc3VY_-1e": 41,
-    "mkKa6jf-QsuCRnaPOIsYh": 42,
-    "GWrIQqjbzxysSCm8PLU5j": 43,
-    "CI61cHgBAKPBEDTxhK8X3": 44,
-    "BjwHr6elEuKQuL26BEgno": 45,
-    "bSj47tilPIkwDIewvMf8z": 46,
-    "kJWYpTzyc9ow-75HjyIhf": 47
-  },
-  "Dashboard": {
-    "thzuTON-F8WG6EcXTXrNK": 1,
-    "c0R_gvn90vURE5hdxK3f0": 2,
-    "7RZUq1g5o1C5ws_e3ppKf": 3,
-    "eUXWiB6QAXkOc7P1ozoat": 4,
-    "8xFV0XmZs2olbGKXWenfS": 5,
-    "Ylbpm_iPeEYav_o0kpUVD": 6,
-    "Q_jD-f-9clKLFZ2TfUG2h": 7
   },
   "Field": {
     "[\"Sample Database\",null,\"PRODUCTS\",\"CATEGORY\"]": 1,
@@ -112,88 +37,5 @@
     "[\"Sample Database\",null,\"PRODUCTS\",\"VENDOR\"]": 22,
     "[\"Sample Database\",null,\"PRODUCTS\",\"EAN\"]": 23,
     "[\"Sample Database\",null,\"PRODUCTS\",\"CREATED_AT\"]": 24
-  },
-  "DashboardTab": {
-    "frlnbZFzBEzun9_GwdiZd": 1,
-    "XcmNByL-bsDQ15jLHBUwr": 2,
-    "tiXyfAYcKGSBaGMVsqVom": 3
-  },
-  "DashboardCard": {
-    "qaAe9ro4JL3ahgLLne-jG": 1,
-    "iMNmMMABHvbbiVT3ufez6": 2,
-    "RasgF0LvnoJlu7ModLrqv": 3,
-    "NSyK1LJldomowKbt0HpuE": 4,
-    "yaY0FfjZyI9oEQQR5TZ3q": 5,
-    "v29EoQMk66PPR6a68pe_S": 6,
-    "_5CQR0-k5mgaLOemB5EOl": 7,
-    "WNjyHH5uA36yKp9D7X7bw": 8,
-    "MyNhSS9N9C8B373tSlfaX": 9,
-    "f9pAJKJNxCtrS93uIN7F4": 10,
-    "_Bv8Qc16SHr8CtmMHBEub": 11,
-    "uyqXk5DNhkAMTp4W1TD9-": 12,
-    "WcNpxqVEO_rIeWZwjYv7Z": 13,
-    "TF6Oiw2C13CgEKtPyHIow": 14,
-    "oGC6qBNiHOKo0tWAHWC1m": 15,
-    "7jlJ-VFISvhlHqxeW7rWp": 16,
-    "wn16Kfjjjik8153kj14yI": 17,
-    "HZ_JpYrkE8fMEYJg93RKd": 18,
-    "-pvBd_813wSxXgChMbGoW": 19,
-    "UkpFcfUZMZt9ehChwnrAO": 20
-  },
-  "Document": {
-    "dOc1PrOdAnAlYsIsRpTx2": 1
-  },
-  "Segment": {
-    "OaFXAvEzPvu9ZXW5PUMRa": 1,
-    "D2R9JpvI8sMfYWqfPsTkx": 2,
-    "2hxhoN3HrQJIaWc5umpBn": 3,
-    "aB3kLmN9pQrStUvWxYz1a": 4,
-    "wdYkSSArR5ymVGa0pvb47": 5,
-    "yZptbJRR3S8L9S9r0ZF8M": 6
-  },
-  "Measure": {
-    "DBap2523KuN4Lt-cYrUjF": 1,
-    "dc8eiyLh9S0IKwV_UuvTz": 2,
-    "d4G5fMj5smJ17Nd0dvE2A": 3,
-    "8WteUpyQQqObrxLv4KQ-j": 4,
-    "mSrAvgProdPrice00008x": 5,
-    "xK7mPqR2sT4uVwXyZ9a1b": 6,
-    "K7cMzOau9SI2h8hCx936w": 7,
-    "8kxQ2Wr7PmN5dLf3hYz9v": 8
-  },
-  "NativeQuerySnippet": {
-    "WyQWnT23PF-SfbYLROllJ": 1,
-    "c5PMqT66HwWoy0m52WTI5": 2,
-    "jpIUEStroQyLnJ-MVfeS4": 3
-  },
-  "Transform": {
-    "7XqqzlsonSq4KFyOvtrAm": 1,
-    "aWiR53tfmHEibiFGuIQeP": 2,
-    "RzL5PDNkrUIms86-v1N0b": 3,
-    "1fNzUt_CgppinjPk7pGKH": 4,
-    "w7EfUbsxLA7kXBHVXgeaZ": 5,
-    "7JwIkkAG-06-nsl4jzsaq": 6,
-    "rT5vWxYz1aBcDeFgHiJkL": 7,
-    "g2cRYwopfoL1BW9Y4n3wb": 8
-  },
-  "TransformTag": {
-    "dUW7nvQHQBdA0Rx0gJckI": 1,
-    "1uWng5tP1gyxr44PJ5FPb": 2,
-    "wYLcUPbtF7jVPO0duGGHR": 3,
-    "Z2nTZwFTBUz1Yil8AKrp2": 4,
-    "qPGCJu7t97kn-X07_fgSj": 5,
-    "DeeJHc81qKhD9qWINISO8": 6
-  },
-  "TransformTest": {
-    "aRvM7DLesF1fOV4kRHidq": 1
-  },
-  "PythonLibrary": {
-    "kb0QxR8AyP5W8SVHGYZr8": 1
-  },
-  "TransformJob": {
-    "PJahvcoF61oX5T4uCT_FY": 1,
-    "RognTgBT2fXaxoQh4ws7z": 2,
-    "PMlTT2ZjLB2B-C2Hng72Z": 3,
-    "lXIFa2SUrXLgaLZJx33oU": 4
   }
 }
