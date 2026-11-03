@@ -3,7 +3,7 @@ import type { FormatsPlugin } from "ajv-formats";
 import { createRequire } from "node:module";
 
 import type { JsonObject } from "./json.js";
-import { KIND_SPECS, type Kind } from "./kinds.js";
+import { KIND_SCHEMAS, type Kind } from "./kinds.js";
 import {
   instanceSchemas,
   portableSchemas,
@@ -72,7 +72,7 @@ export function validateInstance<K extends Kind>(
 }
 
 function validate<T>(ajv: Ajv2020, kind: Kind, value: unknown): Validation<T> {
-  const validateFunction = ajv.getSchema(KIND_SPECS[kind].schema);
+  const validateFunction = ajv.getSchema(KIND_SCHEMAS[kind]);
   if (validateFunction === undefined) {
     throw new Error(`No schema for kind "${kind}"`);
   }

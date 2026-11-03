@@ -11,10 +11,10 @@ import {
 } from "./core.js";
 
 const CLAUSE_REFS: Readonly<Record<string, Walk>> = {
-  field: ref("fields"),
-  metric: ref("cards"),
-  measure: ref("measures"),
-  segment: ref("segments"),
+  field: ref("Field"),
+  metric: ref("Card"),
+  measure: ref("Measure"),
+  segment: ref("Segment"),
 };
 
 export const walkMbql: Walk = (value, visitor) => {
@@ -24,7 +24,7 @@ export const walkMbql: Walk = (value, visitor) => {
   return isJsonObject(value) ? walkOptions(value, visitor) : value;
 };
 
-const walkOptions = fields({ "source-field": ref("fields") }, walkMbql);
+const walkOptions = fields({ "source-field": ref("Field") }, walkMbql);
 
 function walkClause(clause: JsonArray, visitor: Visitor): JsonArray {
   const [head, options] = clause;
@@ -38,16 +38,16 @@ function walkClause(clause: JsonArray, visitor: Visitor): JsonArray {
 }
 
 export const walkTemplateTag = fields({
-  "card-id": ref("cards"),
-  "snippet-id": ref("snippets"),
-  "table-id": ref("tables"),
+  "card-id": ref("Card"),
+  "snippet-id": ref("NativeQuerySnippet"),
+  "table-id": ref("Table"),
   dimension: walkMbql,
 });
 
 const walkStage: Walk = fields(
   {
-    "source-table": ref("tables"),
-    "source-card": ref("cards"),
+    "source-table": ref("Table"),
+    "source-card": ref("Card"),
     joins: items(fields({ stages: items(lazy(() => walkStage)) }, walkMbql)),
     "template-tags": values(walkTemplateTag),
   },
@@ -55,6 +55,6 @@ const walkStage: Walk = fields(
 );
 
 export const walkQuery = fields({
-  database: ref("databases"),
+  database: ref("Database"),
   stages: items(walkStage),
 });

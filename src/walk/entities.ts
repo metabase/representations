@@ -14,31 +14,31 @@ import { walkParameter, walkParameterMapping } from "./parameters.js";
 import { dashboardTabRef } from "./paths.js";
 import { walkVisualizationSettings } from "./visualization-settings.js";
 
-const userRef = ref("users");
+const userRef = ref("User");
 
 const walkResultMetadata = items(
   fields({
-    id: ref("fields"),
-    table_id: ref("tables"),
-    fk_target_field_id: ref("fields"),
+    id: ref("Field"),
+    table_id: ref("Table"),
+    fk_target_field_id: ref("Field"),
     field_ref: walkMbql,
   }),
 );
 
 const walkDashboard = byObject((dashboard) =>
-  entity("dashboards", {
-    collection_id: ref("collections"),
+  entity("Dashboard", {
+    collection_id: ref("Collection"),
     creator_id: userRef,
     made_public_by_id: userRef,
     parameters: items(walkParameter),
-    tabs: items(entity("dashboardTabs", {})),
+    tabs: items(entity("DashboardTab", {})),
     dashcards: items(
-      entity("dashboardCards", {
-        card_id: ref("cards"),
-        action_id: ref("actions"),
+      entity("DashboardCard", {
+        card_id: ref("Card"),
+        action_id: ref("Action"),
         dashboard_tab_id: dashboardTabRef(dashboard.entity_id),
         parameter_mappings: items(walkParameterMapping),
-        series: items(fields({ card_id: ref("cards") })),
+        series: items(fields({ card_id: ref("Card") })),
         visualization_settings: walkVisualizationSettings,
       }),
     ),
@@ -46,39 +46,46 @@ const walkDashboard = byObject((dashboard) =>
 );
 
 const walkIncrementalStrategy = fields({
-  "checkpoint-filter-field-id": ref("fields"),
+  "checkpoint-filter-field-id": ref("Field"),
 });
 
 const walkTransformSource = fields({
   query: walkQuery,
   "source-tables": items(
-    fields({ database_id: ref("databases"), table_id: ref("tables") }),
+    fields({ database_id: ref("Database"), table_id: ref("Table") }),
   ),
-  "source-database": ref("databases"),
+  "source-database": ref("Database"),
   "source-incremental-strategy": walkIncrementalStrategy,
 });
 
-const walkTransformTags = items(fields({ tag_id: ref("transformTags") }));
+const walkTransformTarget = fields({
+  database: ref("Database"),
+  "target-incremental-strategy": fields({
+    "unique-key": items(fields({ "field-id": ref("Field") })),
+  }),
+});
+
+const walkTransformTags = items(fields({ tag_id: ref("TransformTag") }));
 
 export const KIND_WALKS: Readonly<Record<Kind, Walk>> = {
-  action: entity("actions", {
-    collection_id: ref("collections"),
-    model_id: ref("cards"),
+  Action: entity("Action", {
+    collection_id: ref("Collection"),
+    model_id: ref("Card"),
     creator_id: userRef,
     made_public_by_id: userRef,
-    implicit: items(fields({ table_id: ref("tables") })),
+    implicit: items(fields({ table_id: ref("Table") })),
     query: items(
-      fields({ database_id: ref("databases"), dataset_query: walkQuery }),
+      fields({ database_id: ref("Database"), dataset_query: walkQuery }),
     ),
     parameters: items(walkParameter),
     parameter_mappings: items(walkParameterMapping),
     visualization_settings: walkVisualizationSettings,
   }),
-  card: entity("cards", {
-    database_id: ref("databases"),
-    collection_id: ref("collections"),
-    dashboard_id: ref("dashboards"),
-    document_id: ref("documents"),
+  Card: entity("Card", {
+    database_id: ref("Database"),
+    collection_id: ref("Collection"),
+    dashboard_id: ref("Dashboard"),
+    document_id: ref("Document"),
     creator_id: userRef,
     made_public_by_id: userRef,
     dataset_query: walkQuery,
@@ -87,47 +94,47 @@ export const KIND_WALKS: Readonly<Record<Kind, Walk>> = {
     visualization_settings: walkVisualizationSettings,
     result_metadata: walkResultMetadata,
   }),
-  collection: entity("collections", {
-    parent_id: ref("collections"),
+  Collection: entity("Collection", {
+    parent_id: ref("Collection"),
     personal_owner_id: userRef,
   }),
-  dashboard: walkDashboard,
-  document: entity("documents", {
-    collection_id: ref("collections"),
+  Dashboard: walkDashboard,
+  Document: entity("Document", {
+    collection_id: ref("Collection"),
     creator_id: userRef,
     made_public_by_id: userRef,
     document: walkProseMirror,
   }),
-  measure: entity("measures", {
+  Measure: entity("Measure", {
     creator_id: userRef,
-    table_id: ref("tables"),
+    table_id: ref("Table"),
     definition: walkQuery,
   }),
-  pythonLibrary: entity("pythonLibraries", {}),
-  query: walkQuery,
-  segment: entity("segments", {
+  PythonLibrary: entity("PythonLibrary", {}),
+  Query: walkQuery,
+  Segment: entity("Segment", {
     creator_id: userRef,
-    table_id: ref("tables"),
+    table_id: ref("Table"),
     definition: walkQuery,
   }),
-  snippet: entity("snippets", {
-    collection_id: ref("collections"),
+  NativeQuerySnippet: entity("NativeQuerySnippet", {
+    collection_id: ref("Collection"),
     creator_id: userRef,
     template_tags: values(walkTemplateTag),
   }),
-  transform: entity("transforms", {
-    source_database_id: ref("databases"),
+  Transform: entity("Transform", {
+    source_database_id: ref("Database"),
     source: walkTransformSource,
-    target: fields({ database: ref("databases") }),
-    collection_id: ref("collections"),
+    target: walkTransformTarget,
+    collection_id: ref("Collection"),
     creator_id: userRef,
     owner_user_id: userRef,
     tags: walkTransformTags,
   }),
-  transformJob: entity("transformJobs", { job_tags: walkTransformTags }),
-  transformTag: entity("transformTags", {}),
-  transformTest: entity("transformTests", {
-    transform_id: ref("transforms"),
+  TransformJob: entity("TransformJob", { job_tags: walkTransformTags }),
+  TransformTag: entity("TransformTag", {}),
+  TransformTest: entity("TransformTest", {
+    transform_id: ref("Transform"),
     creator_id: userRef,
   }),
 };

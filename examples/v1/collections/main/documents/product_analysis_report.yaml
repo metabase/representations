@@ -30,6 +30,28 @@ document:
           - type: bold
         - type: text
           text: " category dominates in total revenue."
+    - type: paragraph
+      content:
+        - type: text
+          text: "See also "
+        - type: smartLink
+          attrs:
+            model: dashboard
+            entityId:
+              - model: Dashboard
+                id: Q_jD-f-9clKLFZ2TfUG2h
+        - type: text
+          text: " and the "
+        - type: smartLink
+          attrs:
+            model: table
+            entityId:
+              - model: Database
+                id: Sample Database
+              - model: Table
+                id: PRODUCTS
+        - type: text
+          text: " table."
     - type: heading
       attrs:
         level: 2

@@ -29,8 +29,7 @@
     "type-check": "tsc --noEmit",
     "lint-eslint": "eslint --max-warnings 0 --report-unused-disable-directives scripts src",
     "lint-format": "oxfmt --check scripts src",
-    "test": "bun test",
-    "validate-examples": "bun run scripts/validate-examples.ts"
+    "test": "bun test"
   },
   "dependencies": {
     "ajv": "^8.17.1",

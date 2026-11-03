@@ -1,0 +1,63 @@
+name: Native Orders Model
+entity_id: H9L5S8JKGmH3Sddsrb671
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+type: model
+display: table
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/native
+      native: SELECT ID, PRODUCT_ID, TOTAL FROM ORDERS
+result_metadata:
+- name: ID
+  display_name: ID
+  base_type: type/BigInteger
+  semantic_type: type/PK
+  id:
+  - Sample Database
+  - null
+  - ORDERS
+  - ID
+  table_id:
+  - Sample Database
+  - null
+  - ORDERS
+  field_ref:
+  - field
+  - ID
+  - base-type: type/BigInteger
+- name: PRODUCT_ID
+  display_name: Product
+  base_type: type/Integer
+  semantic_type: type/FK
+  id:
+  - Sample Database
+  - null
+  - ORDERS
+  - PRODUCT_ID
+  table_id:
+  - Sample Database
+  - null
+  - ORDERS
+  fk_target_field_id:
+  - Sample Database
+  - null
+  - PRODUCTS
+  - ID
+  field_ref:
+  - field
+  - PRODUCT_ID
+  - base-type: type/Integer
+- name: TOTAL
+  display_name: Total
+  base_type: type/Float
+  field_ref:
+  - field
+  - TOTAL
+  - base-type: type/Float
+visualization_settings: {}
+serdes/meta:
+- model: Card

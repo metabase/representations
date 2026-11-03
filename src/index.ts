@@ -13,7 +13,7 @@ export type {
   JsonPrimitive,
   JsonValue,
 } from "./json.js";
-export { KIND_SPECS, KINDS, type Kind, type KindSpec } from "./kinds.js";
+export { getPortableKind, KIND_SCHEMAS, KINDS, type Kind } from "./kinds.js";
 export {
   mergeInstanceRefs,
   mergePortableRefs,

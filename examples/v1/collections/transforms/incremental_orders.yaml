@@ -1,0 +1,32 @@
+name: Incremental Orders
+entity_id: RzL5PDNkrUIms86-v1N0b
+creator_id: admin@example.com
+owner_user_id: admin@example.com
+source_database_id: Sample Database
+source:
+  type: query
+  query:
+    "lib/type": mbql/query
+    database: Sample Database
+    stages:
+      - "lib/type": mbql.stage/mbql
+        source-table:
+        - Sample Database
+        - null
+        - ORDERS
+  source-incremental-strategy:
+    type: checkpoint
+    checkpoint-filter-field-id:
+    - Sample Database
+    - null
+    - ORDERS
+    - ID
+target:
+  database: Sample Database
+  type: table-incremental
+  schema: TRANSFORMS
+  name: incremental_orders
+  target-incremental-strategy:
+    type: append
+serdes/meta:
+- model: Transform

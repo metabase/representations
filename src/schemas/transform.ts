@@ -77,6 +77,41 @@ export const transformSchema: JsonObject = {
           type: "string",
           description: "Target table name",
         },
+        "target-incremental-strategy": {
+          type: "object",
+          description:
+            "How an incremental run writes its rows: append them, or merge them on a unique key",
+          properties: {
+            type: {
+              type: "string",
+              enum: ["append", "merge"],
+            },
+            "unique-key": {
+              type: "array",
+              description: "The columns a merge matches rows on",
+              items: {
+                type: "object",
+                properties: {
+                  name: {
+                    type: "string",
+                    description: "Column name",
+                  },
+                  "field-id": {
+                    description:
+                      "Field FK of the column, null until the target table exists",
+                    type: ["array", "null"],
+                    if: {
+                      type: "array",
+                    },
+                    then: {
+                      $ref: "common/id.json#/$defs/field_id",
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
     creator_id: {

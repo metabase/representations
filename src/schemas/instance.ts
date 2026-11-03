@@ -65,15 +65,19 @@ function toInstanceNode(value: JsonValue): JsonValue {
 }
 
 function withIntegerForeignKey(node: JsonObject): JsonObject {
-  if (!isForeignKeyRef(node.then) || !isJsonObject(node.if)) {
+  const nullableKey = isForeignKeyRef(node.then) && isJsonObject(node.if);
+  if (!nullableKey && !isForeignKeyRef(node)) {
     return node;
   }
-  const portableType = node.if.type;
+  const { description: _description, ...foreignKey } = node;
+  if (!nullableKey || !isJsonObject(node.if)) {
+    return foreignKey;
+  }
   return {
-    ...node,
+    ...foreignKey,
     ...(node.type === undefined
       ? {}
-      : { type: replaceType(node.type, portableType) }),
+      : { type: replaceType(node.type, node.if.type) }),
     if: { ...node.if, type: "integer" },
   };
 }

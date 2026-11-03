@@ -92,5 +92,23 @@ dashcards:
   visualization_settings:
     virtual_card:
       display: placeholder
+- entity_id: -pvBd_813wSxXgChMbGoW
+  card_id: null
+  row: 9
+  col: 12
+  size_x: 8
+  size_y: 2
+  parameter_mappings: []
+  series: []
+  visualization_settings:
+    virtual_card:
+      display: link
+    link:
+      entity:
+        id:
+        - Sample Database
+        - null
+        - PRODUCTS
+        model: table
 serdes/meta:
 - model: Dashboard

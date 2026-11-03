@@ -18,13 +18,13 @@ import { walkMbql } from "./mbql.js";
 import { dashboardTabRef } from "./paths.js";
 
 const LINK_MODELS: Readonly<Record<string, RefModel>> = {
-  card: "cards",
-  dataset: "cards",
-  question: "cards",
-  collection: "collections",
-  dashboard: "dashboards",
-  database: "databases",
-  table: "tables",
+  card: "Card",
+  dataset: "Card",
+  question: "Card",
+  collection: "Collection",
+  dashboard: "Dashboard",
+  database: "Database",
+  table: "Table",
 };
 
 function linkRef(linkModel: JsonValue | undefined): Walk {
@@ -74,11 +74,11 @@ const walkLinkEntity = byObject((entity) =>
 );
 
 const walkVisualizerSource = fields({
-  sourceId: embeddedRef("cards", /^card:(.+)$/, (id) => `card:${id}`),
+  sourceId: embeddedRef("Card", /^card:(.+)$/, (id) => `card:${id}`),
 });
 
 const walkVisualizerName = embeddedRef(
-  "cards",
+  "Card",
   /^\$_card:(.+)_name$/,
   (id) => `$_card:${id}_name`,
 );

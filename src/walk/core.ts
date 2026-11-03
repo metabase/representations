@@ -107,7 +107,7 @@ export function values(walk: Walk): Walk {
 
 export function entries(
   walkKey: Walk,
-  walkValue: (value: JsonValue) => Walk | null,
+  walkOf: (value: JsonValue) => Walk | null,
 ): Walk {
   return (value, visitor) => {
     if (!isJsonObject(value)) {
@@ -115,7 +115,7 @@ export function entries(
     }
     return Object.fromEntries(
       Object.entries(value).map(([key, child]) => {
-        const walk = walkValue(child);
+        const walk = walkOf(child);
         return walk === null
           ? [key, child]
           : [String(walkKey(key, visitor)), walk(child, visitor)];

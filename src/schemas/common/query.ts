@@ -1608,7 +1608,7 @@ export const querySchema: JsonObject = {
             },
           },
           then: {
-            required: ["snippet-name", "snippet-id"],
+            required: ["snippet-name"],
             properties: {
               "snippet-name": {
                 type: "string",

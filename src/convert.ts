@@ -1,13 +1,14 @@
 import { isJsonObject, type JsonValue } from "./json.js";
-import { KIND_SPECS, type Kind } from "./kinds.js";
+import type { Kind } from "./kinds.js";
 import {
+  isPortableRef,
   portableKey,
   toInstanceRefs,
   toPortableRefs,
-  type InstanceRefEntry,
+  type RefEntry,
   type InstanceRefs,
   type InstanceToPortable,
-  type PortableRefEntry,
+  type PortableRef,
   type PortableRefs,
   type PortableToInstance,
 } from "./refs.js";
@@ -29,9 +30,7 @@ export function getPortableRefs<K extends Kind>(
   kind: K,
   entity: PortableEntity<NoInfer<K>>,
 ): PortableRefs {
-  return structuredClone(
-    toPortableRefs(walkToInstance(kind, entity, {}).unresolved),
-  );
+  return toPortableRefs(walkToInstance(kind, entity, {}).unresolved);
 }
 
 /** `entity` with each portable reference replaced by its instance id from `ids`, and its own `id` added. */
@@ -40,9 +39,7 @@ export function getInstanceEntity<K extends Kind>(
   entity: PortableEntity<NoInfer<K>>,
   ids: PortableToInstance,
 ): Conversion<InstanceEntity<K>, PortableRefs> {
-  const { value, unresolved } = structuredClone(
-    walkToInstance(kind, entity, ids),
-  );
+  const { value, unresolved } = walkToInstance(kind, entity, ids);
   return unresolved.length > 0
     ? { ok: false, unresolved: toPortableRefs(unresolved) }
     : { ok: true, value: value as InstanceEntity<K> };
@@ -62,9 +59,7 @@ export function getPortableEntity<K extends Kind>(
   entity: InstanceEntity<NoInfer<K>>,
   refs: InstanceToPortable,
 ): Conversion<PortableEntity<K>, InstanceRefs> {
-  const { value, unresolved } = structuredClone(
-    walkToPortable(kind, entity, refs),
-  );
+  const { value, unresolved } = walkToPortable(kind, entity, refs);
   return unresolved.length > 0
     ? { ok: false, unresolved: toInstanceRefs(unresolved) }
     : { ok: true, value: withSerdesMeta(kind, value) as PortableEntity<K> };
@@ -74,8 +69,8 @@ function walkToInstance(
   kind: Kind,
   entity: JsonValue,
   ids: PortableToInstance,
-): Walked<PortableRefEntry> {
-  const unresolved: PortableRefEntry[] = [];
+): Walked<RefEntry<PortableRef>> {
+  const unresolved: RefEntry<PortableRef>[] = [];
   const value = KIND_WALKS[kind](entity, {
     direction: "toInstance",
     visit: (model, ref) => {
@@ -88,36 +83,36 @@ function walkToInstance(
       return ref;
     },
   });
-  return { value, unresolved };
+  return structuredClone({ value, unresolved });
 }
 
 function walkToPortable(
   kind: Kind,
   entity: JsonValue,
   refs: InstanceToPortable,
-): Walked<InstanceRefEntry> {
-  const unresolved: InstanceRefEntry[] = [];
+): Walked<RefEntry<number>> {
+  const unresolved: RefEntry<number>[] = [];
   const value = KIND_WALKS[kind](entity, {
     direction: "toPortable",
     visit: (model, id) => {
       const modelRefs = refs[model] ?? {};
-      if (Object.hasOwn(modelRefs, id)) {
-        return modelRefs[id];
+      const ref = Object.hasOwn(modelRefs, id) ? modelRefs[id] : undefined;
+      if (ref !== undefined && isPortableRef(model, ref)) {
+        return ref;
       }
       unresolved.push([model, id]);
       return id;
     },
   });
-  return { value, unresolved };
+  return structuredClone({ value, unresolved });
 }
 
 function withSerdesMeta(kind: Kind, value: JsonValue): JsonValue {
-  const { serdesModel } = KIND_SPECS[kind];
-  if (serdesModel === null || !isJsonObject(value) || "serdes/meta" in value) {
+  if (kind === "Query" || !isJsonObject(value) || "serdes/meta" in value) {
     return value;
   }
   return {
     ...value,
-    "serdes/meta": [{ model: serdesModel, id: value.entity_id ?? null }],
+    "serdes/meta": [{ model: kind, id: value.entity_id ?? null }],
   };
 }

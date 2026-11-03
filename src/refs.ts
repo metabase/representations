@@ -1,29 +1,29 @@
 import { isJsonArray, type JsonValue } from "./json.js";
 
-/** The models an entity can reference. */
+/** The models an entity can reference, spelled as in `serdes/meta`. */
 export const REF_MODELS = [
-  "databases",
-  "tables",
-  "fields",
-  "users",
-  "collections",
-  "cards",
-  "dashboards",
-  "dashboardTabs",
-  "dashboardCards",
-  "documents",
-  "segments",
-  "measures",
-  "snippets",
-  "transforms",
-  "transformTags",
-  "transformJobs",
-  "transformTests",
-  "actions",
-  "pythonLibraries",
+  "Database",
+  "Table",
+  "Field",
+  "User",
+  "Collection",
+  "Card",
+  "Dashboard",
+  "DashboardTab",
+  "DashboardCard",
+  "Document",
+  "Segment",
+  "Measure",
+  "NativeQuerySnippet",
+  "Transform",
+  "TransformTag",
+  "TransformJob",
+  "TransformTest",
+  "Action",
+  "PythonLibrary",
 ] as const;
 
-/** A model an entity can reference, such as `tables` or `cards`. */
+/** A model an entity can reference, spelled as in `serdes/meta`, such as `Table` or `Card`. */
 export type RefModel = (typeof REF_MODELS)[number];
 
 /** A table by name: `[database, schema, table]`, with a null schema for schemaless databases. */
@@ -61,8 +61,7 @@ export type InstanceToPortable = Partial<
   Record<RefModel, Readonly<Record<number, PortableRef>>>
 >;
 
-export type PortableRefEntry = [model: RefModel, ref: PortableRef];
-export type InstanceRefEntry = [model: RefModel, id: number];
+export type RefEntry<Ref> = [model: RefModel, ref: Ref];
 
 const ENTITY_ID = /^[A-Za-z0-9_-]{21}$/;
 
@@ -76,12 +75,12 @@ export function isPortableRef(
   value: JsonValue,
 ): value is PortableRef {
   switch (model) {
-    case "tables":
+    case "Table":
       return isPath(value) && value.length === 3;
-    case "fields":
+    case "Field":
       return isPath(value) && value.length >= 4;
-    case "databases":
-    case "users":
+    case "Database":
+    case "User":
       return typeof value === "string";
     default:
       return typeof value === "string" && ENTITY_ID.test(value);
@@ -108,24 +107,24 @@ export function mergeInstanceRefs(...refs: InstanceRefs[]): InstanceRefs {
   return toInstanceRefs(refs.flatMap(refEntries));
 }
 
-export function toPortableRefs(entries: PortableRefEntry[]): PortableRefs {
+export function toPortableRefs(entries: RefEntry<PortableRef>[]): PortableRefs {
   return groupByModel(entries, portableKey);
 }
 
-export function toInstanceRefs(entries: InstanceRefEntry[]): InstanceRefs {
+export function toInstanceRefs(entries: RefEntry<number>[]): InstanceRefs {
   return groupByModel(entries, (id) => id);
 }
 
 function refEntries<Ref>(
   refs: Partial<Record<RefModel, Ref[]>>,
-): [RefModel, Ref][] {
+): RefEntry<Ref>[] {
   return REF_MODELS.flatMap((model) =>
-    (refs[model] ?? []).map((ref): [RefModel, Ref] => [model, ref]),
+    (refs[model] ?? []).map((ref): RefEntry<Ref> => [model, ref]),
   );
 }
 
 function groupByModel<Ref>(
-  entries: [RefModel, Ref][],
+  entries: RefEntry<Ref>[],
   keyOf: (ref: Ref) => string | number,
 ): Partial<Record<RefModel, Ref[]>> {
   const groups = new Map<RefModel, Map<string | number, Ref>>();

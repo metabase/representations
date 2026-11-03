@@ -6,22 +6,22 @@ export function dashboardTabRef(
   dashboardEntityId: JsonValue | undefined,
 ): Walk {
   return pathRef(
-    "dashboardTabs",
+    "DashboardTab",
     (path) => (isJsonArray(path) ? path[1] : undefined),
     (tabEntityId) => [dashboardEntityId ?? null, tabEntityId],
   );
 }
 
-export function serdesEntityRef(model: RefModel, serdesModel: string): Walk {
+export function serdesEntityRef(model: RefModel): Walk {
   return pathRef(
     model,
-    (path) => serdesPathId(path, serdesModel),
-    (entityId) => [{ model: serdesModel, id: entityId }],
+    (path) => serdesPathId(path, model),
+    (entityId) => [{ model, id: entityId }],
   );
 }
 
 export const serdesTableRef = pathRef(
-  "tables",
+  "Table",
   (path) => {
     const database = serdesPathId(path, "Database");
     const table = serdesPathId(path, "Table");

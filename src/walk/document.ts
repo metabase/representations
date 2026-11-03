@@ -8,12 +8,12 @@ import {
 } from "./core.js";
 import { serdesEntityRef, serdesTableRef } from "./paths.js";
 
-const serdesCardRef = serdesEntityRef("cards", "Card");
+const serdesCardRef = serdesEntityRef("Card");
 
 const SMART_LINK_REFS: Readonly<Record<string, Walk>> = {
   card: serdesCardRef,
   dataset: serdesCardRef,
-  dashboard: serdesEntityRef("dashboards", "Dashboard"),
+  dashboard: serdesEntityRef("Dashboard"),
   table: serdesTableRef,
 };
 
