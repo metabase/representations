@@ -105,21 +105,23 @@ export function values(walk: Walk): Walk {
     (isJsonArray(value) ? walkItems : walkEntries)(value, visitor);
 }
 
-export function keys(
+export function entries(
   walkKey: Walk,
   walkValue: (value: JsonValue) => Walk | null,
 ): Walk {
-  return byObject(
-    (object) => (_value, visitor) =>
-      Object.fromEntries(
-        Object.entries(object).map(([key, child]) => {
-          const walk = walkValue(child);
-          return walk === null
-            ? [key, child]
-            : [String(walkKey(key, visitor)), walk(child, visitor)];
-        }),
-      ),
-  );
+  return (value, visitor) => {
+    if (!isJsonObject(value)) {
+      return value;
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, child]) => {
+        const walk = walkValue(child);
+        return walk === null
+          ? [key, child]
+          : [String(walkKey(key, visitor)), walk(child, visitor)];
+      }),
+    );
+  };
 }
 
 export function entity(
@@ -127,13 +129,17 @@ export function entity(
   walks: Readonly<Record<string, Walk>>,
 ): Walk {
   const walkId = ref(model);
-  return byObject(({ id: _id, ...object }) => (_value, visitor) => {
+  return (value, visitor) => {
+    if (!isJsonObject(value)) {
+      return value;
+    }
+    const { id: _id, ...object } = value;
     if (visitor.direction === "toPortable" || object.entity_id === undefined) {
       return walkFields(object, walks, unchanged, visitor);
     }
     const id = walkId(object.entity_id, visitor);
     return { id, ...walkFields(object, walks, unchanged, visitor) };
-  });
+  };
 }
 
 export function jsonString(walk: Walk): Walk {

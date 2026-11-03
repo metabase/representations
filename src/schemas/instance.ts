@@ -8,9 +8,6 @@ import {
 const ID_SCHEMA = "common/id.json";
 const IDENTITY_DEF = "entity_id";
 const FOREIGN_KEY_REF = /(?:^|\/)id\.json#\/\$defs\/(\w+)$/;
-const NEW_ROW_DEFS = new Set(["dashboard_tab_id"]);
-const NEW_ROW_NOTE =
-  "negative for a new dashboard tab or dashboard card in a dashboard update";
 
 export function toInstanceSchemas<Name extends string>(
   portableSchemas: Readonly<Record<Name, JsonObject>>,
@@ -41,10 +38,10 @@ function toInstanceIdSchema(schema: JsonObject): JsonObject {
 
 function instanceForeignKey(def: string): JsonObject {
   const target = def.replace(/_(id|path)$/, "").replaceAll("_", " ");
-  return NEW_ROW_DEFS.has(def)
+  return def === "dashboard_tab_id"
     ? {
         type: "integer",
-        description: `Instance id of the referenced ${target}, ${NEW_ROW_NOTE}`,
+        description: `Instance id of the referenced ${target}, negative for a new tab in a dashboard update`,
       }
     : {
         type: "integer",
@@ -114,7 +111,7 @@ function withInstanceId(node: JsonObject): JsonObject {
   return {
     ...node,
     properties: {
-      id: { type: "integer", description: `Instance id, ${NEW_ROW_NOTE}` },
+      id: { type: "integer", description: "Instance id" },
       ...node.properties,
     },
   };

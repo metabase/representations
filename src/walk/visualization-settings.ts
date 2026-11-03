@@ -6,7 +6,7 @@ import {
   fields,
   items,
   jsonString,
-  keys,
+  entries,
   lookup,
   ref,
   sequence,
@@ -39,7 +39,7 @@ const walkDimensionMapping = fields({
   target: fields({ id: walkMbqlJson, dimension: walkMbql }),
 });
 
-const walkClickParameterMapping = keys(walkMbqlJson, (mapping) =>
+const walkClickParameterMapping = entries(walkMbqlJson, (mapping) =>
   isJsonObject(mapping) &&
   isJsonObject(mapping.target) &&
   mapping.target.type === "dimension"
@@ -47,36 +47,47 @@ const walkClickParameterMapping = keys(walkMbqlJson, (mapping) =>
     : null,
 );
 
-const walkClickLink = sequence(
-  byObject((behavior) =>
-    fields({
-      targetId: linkRef(behavior.linkType),
-      parameterMapping: walkClickParameterMapping,
-    }),
-  ),
-  byObject((behavior) => fields({ tabId: dashboardTabRef(behavior.targetId) })),
+const walkClickParameters = fields({
+  parameterMapping: walkClickParameterMapping,
+});
+
+const walkClickTarget = byObject((behavior) =>
+  fields({ targetId: linkRef(behavior.linkType) }),
+);
+
+const walkClickTargetTab = byObject((behavior) =>
+  fields({ tabId: dashboardTabRef(behavior.targetId) }),
 );
 
 const walkClickBehavior = byObject((behavior) =>
   behavior.type === "link"
-    ? walkClickLink
-    : fields({ parameterMapping: walkClickParameterMapping }),
+    ? sequence(walkClickParameters, walkClickTarget, walkClickTargetTab)
+    : walkClickParameters,
 );
 
-const walkColumnSettings = keys(walkMbqlJson, () =>
-  fields({ click_behavior: walkClickBehavior }),
-);
+const walkColumnSetting = fields({ click_behavior: walkClickBehavior });
+
+const walkColumnSettings = entries(walkMbqlJson, () => walkColumnSetting);
 
 const walkLinkEntity = byObject((entity) =>
   fields({ id: linkRef(entity.model) }),
 );
 
-const walkVisualizerColumn = sequence(
-  fields({
-    sourceId: embeddedRef("cards", /^card:(.+)$/, (id) => `card:${id}`),
-  }),
-  embeddedRef("cards", /^\$_card:(.+)_name$/, (id) => `$_card:${id}_name`),
+const walkVisualizerSource = fields({
+  sourceId: embeddedRef("cards", /^card:(.+)$/, (id) => `card:${id}`),
+});
+
+const walkVisualizerName = embeddedRef(
+  "cards",
+  /^\$_card:(.+)_name$/,
+  (id) => `$_card:${id}_name`,
 );
+
+const walkVisualizerColumn: Walk = (value, visitor) =>
+  (isJsonObject(value) ? walkVisualizerSource : walkVisualizerName)(
+    value,
+    visitor,
+  );
 
 export const walkVisualizationSettings = fields(
   {

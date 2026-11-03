@@ -67,6 +67,6 @@ export type SchemaName = keyof typeof schemas;
 export const portableSchemas: Readonly<Record<SchemaName, JsonObject>> =
   schemas;
 
-/** JSON Schemas of the instance format: every foreign key a numeric id, and `serdes/meta` optional. */
+/** JSON Schemas of the instance format: every foreign key a numeric id, an `id` beside each `entity_id`, and `serdes/meta` optional. */
 export const instanceSchemas: Readonly<Record<SchemaName, JsonObject>> =
   toInstanceSchemas(portableSchemas);

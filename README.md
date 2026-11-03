@@ -15,7 +15,11 @@ This repository contains the specification, the JSON Schemas, and examples of th
 
 An entity references other things in two ways:
 
-- **Portable**, as the YAML files do: a database by name, a user by email, a table as `[database, schema, table]`, a field as `[database, schema, table, field]` (followed by the path of a JSON-unfolded field), and Metabase content by its 21-character `entity_id`. A few slots wrap these: a dashboard card names its tab as `[dashboard entity_id, tab entity_id]`, and a document names cards, dashboards and tables as serialization paths such as `[{model: Card, id: entity_id}]`.
+- **Portable**, as the YAML files do: a database by name, a user by email, a table as `[database, schema, table]`, a field as `[database, schema, table, field]` (followed by the path of a JSON-unfolded field), and Metabase content by its 21-character `entity_id`. A few slots wrap these:
+  - a dashboard card, and a click behavior that opens a dashboard tab, name the tab as `[dashboard entity_id, tab entity_id]`;
+  - a document names cards, dashboards and tables as serialization paths, such as `[{model: Card, id: entity_id}]`;
+  - visualizer settings name a card inside a string, as `card:<entity_id>` or `$_card:<entity_id>_name`;
+  - column settings and click behaviors key their entries by a field reference written as JSON text.
 - **Instance**, as the Metabase API does: the numeric id each of those has in one Metabase.
 
 The package converts an entity between the two without a Metabase. The caller resolves the references in between, usually with API requests, in two passes:
@@ -35,16 +39,22 @@ if (!card.ok) {
 }
 
 const refs = getPortableRefs("card", card.value);
-// refs.cards: ["f1C68pznmrpN1F5xFDj6d"], the card's own entity_id
-// refs.databases: ["Sample Database"]
-// refs.tables: [["Sample Database", "PUBLIC", "ORDERS"]]
-// refs.collections: ["M-Q4pcV0qkiyJ0kiSWECl"], ...
+// {
+//   cards: ["f1C68pznmrpN1F5xFDj6d"],
+//   collections: ["M-Q4pcV0qkiyJ0kiSWECl"],
+//   users: ["admin@example.com"],
+//   databases: ["Sample Database"],
+//   tables: [["Sample Database", null, "PRODUCTS"]],
+//   fields: [["Sample Database", null, "PRODUCTS", "PRICE"], ...],
+// }
 
 const conversion = getInstanceEntity("card", card.value, {
   cards: { f1C68pznmrpN1F5xFDj6d: 1 },
-  databases: { "Sample Database": 2 },
-  tables: { [portableKey(["Sample Database", "PUBLIC", "ORDERS"])]: 3 },
-  collections: { "M-Q4pcV0qkiyJ0kiSWECl": 4 },
+  collections: { "M-Q4pcV0qkiyJ0kiSWECl": 2 },
+  users: { "admin@example.com": 3 },
+  databases: { "Sample Database": 4 },
+  tables: { [portableKey(["Sample Database", null, "PRODUCTS"])]: 5 },
+  fields: { [portableKey(["Sample Database", null, "PRODUCTS", "PRICE"])]: 6 },
   // ...
 });
 if (!conversion.ok) {
@@ -52,9 +62,11 @@ if (!conversion.ok) {
 }
 ```
 
-The other direction is alike: `validateInstance`, then `getInstanceRefs`, then `getPortableEntity` with the portable reference of each id.
+A references object lists only the models an entity references, each reference once. The other direction is alike: `validateInstance`, then `getInstanceRefs`, then `getPortableEntity` with the portable reference of each id.
 
-An entity, and each of a dashboard's tabs and cards, has an identity of its own. The instance form keeps its `entity_id` and adds its `id`, so `getPortableRefs` lists the entity's own `entity_id`, in the ref model that `KIND_SPECS[kind].refModel` names. An entity that is not in the instance yet needs an id too: the Metabase API ignores the `id` of a new entity, and takes a negative id for a new dashboard tab or dashboard card. The portable form drops `id`, so `getInstanceRefs` does not list it, and `getPortableEntity` passes `serdes/meta` through, adding `[{model, id: entity_id}]` when it is missing.
+An entity, and each of a dashboard's tabs and cards, has an identity of its own. The instance form keeps its `entity_id` and adds its `id`, so `getPortableRefs` lists those entity ids too: the entity's own first, in the ref model that `KIND_SPECS[kind].refModel` names, and tabs and cards in `dashboardTabs` and `dashboardCards`. An entity that is not in the instance yet still needs an id, and any integer converts: the Metabase API ignores the `id` of a new entity, and takes a negative id for a new dashboard tab or dashboard card. The portable form drops `id`, so `getInstanceRefs` does not list it, and `getPortableEntity` passes `serdes/meta` through, adding `[{model, id: entity_id}]` when it is missing.
+
+A number where a portable reference belongs passes through unchanged, as Metabase's own import keeps it. The schemas reject one in the slots they describe, such as query field references; settings and result metadata are open objects, so a number there is taken as an instance id.
 
 ## API
 

@@ -171,6 +171,17 @@ export const transformSchema: JsonObject = {
     },
   },
   $defs: {
+    incremental_strategy: {
+      type: "object",
+      description: "Incremental execution strategy",
+      properties: {
+        "checkpoint-filter-field-id": {
+          description:
+            "Field FK of the column that marks rows already processed",
+          $ref: "common/id.json#/$defs/field_id",
+        },
+      },
+    },
     query_source: {
       type: "object",
       description: "Query-based source (MBQL or native)",
@@ -185,8 +196,7 @@ export const transformSchema: JsonObject = {
           $ref: "common/query.json",
         },
         "source-incremental-strategy": {
-          type: "object",
-          description: "Incremental execution strategy",
+          $ref: "#/$defs/incremental_strategy",
         },
       },
     },
@@ -236,8 +246,7 @@ export const transformSchema: JsonObject = {
           $ref: "common/id.json#/$defs/database_id",
         },
         "source-incremental-strategy": {
-          type: "object",
-          description: "Incremental execution strategy",
+          $ref: "#/$defs/incremental_strategy",
         },
       },
     },

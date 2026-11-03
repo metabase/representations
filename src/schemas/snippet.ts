@@ -43,8 +43,10 @@ export const snippetSchema: JsonObject = {
     },
     template_tags: {
       type: "object",
-      description: "Template tag definitions (usually empty)",
-      additionalProperties: true,
+      description: "Template tag definitions by name (usually empty)",
+      additionalProperties: {
+        $ref: "common/query.json#/$defs/template_tag",
+      },
       default: {},
     },
     created_at: {

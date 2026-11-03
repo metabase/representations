@@ -17,17 +17,14 @@ const CLAUSE_REFS: Readonly<Record<string, Walk>> = {
   segment: ref("segments"),
 };
 
-const walkOptions = fields(
-  { "source-field": ref("fields") },
-  lazy(() => walkMbql),
-);
-
 export const walkMbql: Walk = (value, visitor) => {
   if (isJsonArray(value)) {
     return walkClause(value, visitor);
   }
   return isJsonObject(value) ? walkOptions(value, visitor) : value;
 };
+
+const walkOptions = fields({ "source-field": ref("fields") }, walkMbql);
 
 function walkClause(clause: JsonArray, visitor: Visitor): JsonArray {
   const [head, options] = clause;

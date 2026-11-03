@@ -5,6 +5,7 @@ import {
   getInstanceRefs,
   getPortableEntity,
   getPortableRefs,
+  KIND_SPECS,
   portableKey,
   validateInstance,
   validatePortable,
@@ -21,6 +22,7 @@ import {
   type TablePath,
   REF_MODELS,
 } from "./index.js";
+import { isJsonArray, isJsonObject } from "./json.js";
 
 const eid = (label: string) => label.padEnd(21, "0");
 
@@ -351,6 +353,67 @@ const DOCUMENT_FIXTURE: JsonObject = {
   "serdes/meta": meta("Document", DOCUMENT),
 };
 
+const SEGMENT_FIXTURE: JsonObject = {
+  name: "Big orders",
+  entity_id: SEGMENT,
+  creator_id: ADMIN,
+  table_id: ORDERS,
+  definition: {
+    "lib/type": "mbql/query",
+    database: DB,
+    stages: [
+      {
+        "lib/type": "mbql.stage/mbql",
+        "source-table": ORDERS,
+        filters: [[">", {}, ["field", {}, ORDERS_TOTAL], 100]],
+      },
+    ],
+  },
+  "serdes/meta": meta("Segment", SEGMENT),
+};
+
+const SNIPPET_FIXTURE: JsonObject = {
+  name: "active",
+  entity_id: SNIPPET,
+  creator_id: ADMIN,
+  content: "active = true AND {{#orders}}",
+  collection_id: COLLECTION,
+  template_tags: {
+    "#orders": {
+      type: "card",
+      name: "#orders",
+      id: "orders",
+      "card-id": CARD,
+    },
+  },
+  "serdes/meta": meta("NativeQuerySnippet", SNIPPET),
+};
+
+const TRANSFORM_FIXTURE: JsonObject = {
+  name: "Order totals",
+  entity_id: TRANSFORM,
+  creator_id: ADMIN,
+  source_database_id: DB,
+  source: {
+    type: "query",
+    query: MBQL_QUERY,
+    "source-incremental-strategy": {
+      type: "checkpoint",
+      "checkpoint-filter-field-id": ORDERS_TOTAL,
+    },
+  },
+  target: {
+    type: "table",
+    database: DB,
+    schema: "PUBLIC",
+    name: "order_totals",
+  },
+  collection_id: COLLECTION,
+  owner_user_id: ADMIN,
+  tags: [{ entity_id: eid("tagLink"), tag_id: TAG, position: 0 }],
+  "serdes/meta": meta("Transform", TRANSFORM),
+};
+
 const FIXTURES: [Kind, JsonObject][] = [
   ["query", MBQL_QUERY],
   ["query", NATIVE_QUERY],
@@ -367,27 +430,7 @@ const FIXTURES: [Kind, JsonObject][] = [
       "serdes/meta": meta("Collection", COLLECTION),
     },
   ],
-  [
-    "segment",
-    {
-      name: "Big orders",
-      entity_id: SEGMENT,
-      creator_id: ADMIN,
-      table_id: ORDERS,
-      definition: {
-        "lib/type": "mbql/query",
-        database: DB,
-        stages: [
-          {
-            "lib/type": "mbql.stage/mbql",
-            "source-table": ORDERS,
-            filters: [[">", {}, ["field", {}, ORDERS_TOTAL], 100]],
-          },
-        ],
-      },
-      "serdes/meta": meta("Segment", SEGMENT),
-    },
-  ],
+  ["segment", SEGMENT_FIXTURE],
   [
     "measure",
     {
@@ -409,52 +452,8 @@ const FIXTURES: [Kind, JsonObject][] = [
       "serdes/meta": meta("Measure", MEASURE),
     },
   ],
-  [
-    "snippet",
-    {
-      name: "active",
-      entity_id: SNIPPET,
-      creator_id: ADMIN,
-      content: "active = true AND {{#orders}}",
-      collection_id: COLLECTION,
-      template_tags: {
-        "#orders": {
-          type: "card",
-          name: "#orders",
-          id: "orders",
-          "card-id": CARD,
-        },
-      },
-      "serdes/meta": meta("NativeQuerySnippet", SNIPPET),
-    },
-  ],
-  [
-    "transform",
-    {
-      name: "Order totals",
-      entity_id: TRANSFORM,
-      creator_id: ADMIN,
-      source_database_id: DB,
-      source: {
-        type: "query",
-        query: MBQL_QUERY,
-        "source-incremental-strategy": {
-          type: "checkpoint",
-          "checkpoint-filter-field-id": ORDERS_TOTAL,
-        },
-      },
-      target: {
-        type: "table",
-        database: DB,
-        schema: "PUBLIC",
-        name: "order_totals",
-      },
-      collection_id: COLLECTION,
-      owner_user_id: ADMIN,
-      tags: [{ entity_id: eid("tagLink"), tag_id: TAG, position: 0 }],
-      "serdes/meta": meta("Transform", TRANSFORM),
-    },
-  ],
+  ["snippet", SNIPPET_FIXTURE],
+  ["transform", TRANSFORM_FIXTURE],
   [
     "transform",
     {
@@ -533,10 +532,11 @@ const FIXTURES: [Kind, JsonObject][] = [
   ],
 ];
 
-const FIXTURES_BY_NAME: Readonly<Record<string, JsonObject>> =
-  Object.fromEntries(
-    FIXTURES.map(([, fixture]) => [String(fixture.name), fixture]),
-  );
+function serdesMetaModel(fixture: JsonObject): JsonValue {
+  const meta = fixture["serdes/meta"];
+  const last = isJsonArray(meta) ? meta[meta.length - 1] : null;
+  return isJsonObject(last) ? last.model : null;
+}
 
 function validPortable<K extends Kind>(
   kind: K,
@@ -579,7 +579,7 @@ describe("every kind", () => {
   it.each(
     FIXTURES.map(
       ([kind, fixture]) =>
-        [kind, String(fixture.name ?? "query"), fixture] as const,
+        [kind, String(fixture.name ?? fixture.path ?? kind), fixture] as const,
     ),
   )(
     "converts %s (%s) to valid instance entity and back unchanged",
@@ -592,6 +592,26 @@ describe("every kind", () => {
         ok: true,
         value: validPortable(kind, fixture),
       });
+    },
+  );
+});
+
+describe("KIND_SPECS", () => {
+  it.each(
+    FIXTURES.map(
+      ([kind, fixture]) =>
+        [kind, String(fixture.name ?? fixture.path ?? kind), fixture] as const,
+    ),
+  )(
+    "names own ref model and serdes model of %s (%s)",
+    (kind, _name, fixture) => {
+      const { refModel, serdesModel } = KIND_SPECS[kind];
+      const refs = getPortableRefs(kind, validPortable(kind, fixture));
+
+      expect<JsonValue | undefined>(
+        refModel === null ? undefined : refs[refModel]?.[0],
+      ).toBe(fixture.entity_id);
+      expect(serdesMetaModel(fixture)).toBe(serdesModel);
     },
   );
 });
@@ -609,17 +629,8 @@ describe("getPortableRefs", () => {
       cards: [CARD, METRIC],
       dashboards: [DASHBOARD],
       dashboardTabs: [TAB],
-      dashboardCards: [],
-      documents: [],
       segments: [SEGMENT],
       measures: [MEASURE],
-      snippets: [],
-      transforms: [],
-      transformTags: [],
-      transformJobs: [],
-      transformTests: [],
-      actions: [],
-      pythonLibraries: [],
     });
   });
 
@@ -669,7 +680,18 @@ describe("getInstanceEntity", () => {
       ],
       visualization_settings: {
         column_settings: {
-          '["ref",["field",100,null]]': { currency: "USD" },
+          '["ref",["field",100,null]]': {
+            currency: "USD",
+            click_behavior: {
+              targetId: 31,
+              parameterMapping: {
+                '["dimension",["field",103,null]]': {
+                  id: '["dimension",["field",103,null]]',
+                  target: { dimension: ["dimension", ["field", 103, null]] },
+                },
+              },
+            },
+          },
           '["name","sum"]': { decimals: 2 },
         },
         click_behavior: { targetId: 40, tabId: 41 },
@@ -706,30 +728,17 @@ describe("getInstanceEntity", () => {
   });
 
   it("replaces card, dashboard and table paths in document", () => {
-    const [cardEmbed, paragraph] = [
-      { type: "cardEmbed", attrs: { id: 30, name: null } },
-      {
-        type: "paragraph",
-        content: [
-          { type: "smartLink", attrs: { model: "dashboard", entityId: 40 } },
-          { type: "smartLink", attrs: { model: "table", entityId: 10 } },
-        ],
-      },
-    ];
-
     expect(toInstance("document", DOCUMENT_FIXTURE).document).toEqual({
       type: "doc",
-      content: [cardEmbed, paragraph],
-    });
-  });
-
-  it("leaves name references alone", () => {
-    const query = toInstance("query", MBQL_QUERY);
-
-    expect(query).toMatchObject({
-      stages: [
-        {},
-        { fields: [["field", { "base-type": "type/Float" }, "sum"]] },
+      content: [
+        { type: "cardEmbed", attrs: { id: 30, name: null } },
+        {
+          type: "paragraph",
+          content: [
+            { type: "smartLink", attrs: { model: "dashboard", entityId: 40 } },
+            { type: "smartLink", attrs: { model: "table", entityId: 10 } },
+          ],
+        },
       ],
     });
   });
@@ -745,13 +754,9 @@ describe("getInstanceEntity", () => {
       },
     );
 
-    expect(conversion).toMatchObject({
+    expect(conversion).toEqual({
       ok: false,
-      unresolved: {
-        tables: [ORDERS, PRODUCTS],
-        segments: [SEGMENT],
-        cards: [],
-      },
+      unresolved: { tables: [ORDERS, PRODUCTS], segments: [SEGMENT] },
     });
   });
 
@@ -766,7 +771,7 @@ describe("getInstanceEntity", () => {
     expect(instance.id).toBe(20);
   });
 
-  it("resolves only references in refs map, not inherited keys", () => {
+  it("resolves only references in ids map, not inherited keys", () => {
     const query = { ...NATIVE_QUERY, database: "constructor" };
 
     expect(
@@ -787,36 +792,14 @@ describe("getInstanceEntity", () => {
     expect(instance.visualization_settings).toEqual(settings);
   });
 
-  it("replaces references in column click behaviors", () => {
-    expect(toInstance("card", CARD_FIXTURE)).toMatchObject({
-      visualization_settings: {
-        column_settings: {
-          '["ref",["field",100,null]]': {
-            click_behavior: {
-              targetId: 31,
-              parameterMapping: {
-                '["dimension",["field",103,null]]': {
-                  id: '["dimension",["field",103,null]]',
-                  target: { dimension: ["dimension", ["field", 103, null]] },
-                },
-              },
-            },
-          },
-        },
-      },
-    });
-  });
-
   it("replaces card references in snippet template tags", () => {
-    expect(toInstance("snippet", FIXTURES_BY_NAME.active)).toMatchObject({
+    expect(toInstance("snippet", SNIPPET_FIXTURE)).toMatchObject({
       template_tags: { "#orders": { "card-id": 30 } },
     });
   });
 
   it("replaces transform owner and checkpoint field", () => {
-    expect(
-      toInstance("transform", FIXTURES_BY_NAME["Order totals"]),
-    ).toMatchObject({
+    expect(toInstance("transform", TRANSFORM_FIXTURE)).toMatchObject({
       owner_user_id: 2,
       source: {
         "source-incremental-strategy": { "checkpoint-filter-field-id": 100 },
@@ -840,15 +823,14 @@ describe("getInstanceRefs", () => {
       toInstance("dashboard", DASHBOARD_FIXTURE),
     );
 
-    expect(refs).toMatchObject({
+    expect(refs).toEqual({
       users: [2],
       collections: [20],
       cards: [30, 31],
+      actions: [80],
       tables: [10],
       fields: [103],
       dashboardTabs: [41],
-      dashboards: [],
-      dashboardCards: [],
     });
   });
 });
@@ -893,7 +875,7 @@ describe("getPortableEntity", () => {
   it("copies paths out of refs map", () => {
     const conversion = getPortableEntity(
       "segment",
-      toInstance("segment", FIXTURES_BY_NAME["Big orders"]),
+      toInstance("segment", SEGMENT_FIXTURE),
       TO_PORTABLE,
     );
 
@@ -910,7 +892,7 @@ describe("getPortableEntity", () => {
       getPortableEntity("card", instance, { ...TO_PORTABLE, fields: {} }),
     ).toMatchObject({
       ok: false,
-      unresolved: { fields: [101, 102, 100, 103], cards: [] },
+      unresolved: { fields: [101, 102, 100, 103] },
     });
   });
 });

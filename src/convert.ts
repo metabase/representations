@@ -1,4 +1,4 @@
-import { isJsonArray, isJsonObject, type JsonValue } from "./json.js";
+import { isJsonObject, type JsonValue } from "./json.js";
 import { KIND_SPECS, type Kind } from "./kinds.js";
 import {
   portableKey,
@@ -29,7 +29,9 @@ export function getPortableRefs<K extends Kind>(
   kind: K,
   entity: PortableEntity<NoInfer<K>>,
 ): PortableRefs {
-  return toPortableRefs(walkToInstance(kind, entity, {}).unresolved);
+  return structuredClone(
+    toPortableRefs(walkToInstance(kind, entity, {}).unresolved),
+  );
 }
 
 /** `entity` with each portable reference replaced by its instance id from `ids`, and its own `id` added. */
@@ -38,7 +40,9 @@ export function getInstanceEntity<K extends Kind>(
   entity: PortableEntity<NoInfer<K>>,
   ids: PortableToInstance,
 ): Conversion<InstanceEntity<K>, PortableRefs> {
-  const { value, unresolved } = walkToInstance(kind, entity, ids);
+  const { value, unresolved } = structuredClone(
+    walkToInstance(kind, entity, ids),
+  );
   return unresolved.length > 0
     ? { ok: false, unresolved: toPortableRefs(unresolved) }
     : { ok: true, value: value as InstanceEntity<K> };
@@ -58,7 +62,9 @@ export function getPortableEntity<K extends Kind>(
   entity: InstanceEntity<NoInfer<K>>,
   refs: InstanceToPortable,
 ): Conversion<PortableEntity<K>, InstanceRefs> {
-  const { value, unresolved } = walkToPortable(kind, entity, refs);
+  const { value, unresolved } = structuredClone(
+    walkToPortable(kind, entity, refs),
+  );
   return unresolved.length > 0
     ? { ok: false, unresolved: toInstanceRefs(unresolved) }
     : { ok: true, value: withSerdesMeta(kind, value) as PortableEntity<K> };
@@ -96,8 +102,7 @@ function walkToPortable(
     visit: (model, id) => {
       const modelRefs = refs[model] ?? {};
       if (Object.hasOwn(modelRefs, id)) {
-        const ref = modelRefs[id];
-        return isJsonArray(ref) ? [...ref] : ref;
+        return modelRefs[id];
       }
       unresolved.push([model, id]);
       return id;
