@@ -7,12 +7,7 @@ import {
 
 const ID_SCHEMA = "common/id.json";
 const IDENTITY_DEF = "entity_id";
-const WAREHOUSE_DEFS = new Set([
-  "database_id",
-  "table_id",
-  "field_id",
-  "user_id",
-]);
+const INSTANCE_ID = { type: "integer", minimum: 1 };
 const FOREIGN_KEY_REF = /(?:^|\/)id\.json#\/\$defs\/(\w+)$/;
 
 export function toInstanceSchemas<Name extends string>(
@@ -44,16 +39,10 @@ function toInstanceIdSchema(schema: JsonObject): JsonObject {
 
 function instanceForeignKey(def: string): JsonObject {
   const target = def.replace(/_(id|path)$/, "").replaceAll("_", " ");
-  return WAREHOUSE_DEFS.has(def)
-    ? {
-        type: "integer",
-        minimum: 1,
-        description: `Instance id of the referenced ${target}`,
-      }
-    : {
-        type: "integer",
-        description: `Instance id of the referenced ${target}, negative for one that is new`,
-      };
+  return {
+    ...INSTANCE_ID,
+    description: `Instance id of the referenced ${target}`,
+  };
 }
 
 function toInstanceSchema(schema: JsonObject): JsonObject {
@@ -121,10 +110,7 @@ function withInstanceId(node: JsonObject): JsonObject {
   return {
     ...node,
     properties: {
-      id: {
-        type: "integer",
-        description: "Instance id, negative for a new entity",
-      },
+      id: { ...INSTANCE_ID, description: "Instance id" },
       ...node.properties,
     },
   };

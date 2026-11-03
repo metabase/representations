@@ -1,14 +1,17 @@
 import { describe, expect, it } from "bun:test";
 
 import {
-  getInstanceEntities,
-  getPortableEntities,
+  getInstanceEntity,
+  getPortableEntity,
+  getPortableIds,
   getPortableRefs,
+  mergePortableRefs,
   portableKey,
   validateInstance,
   validatePortable,
-  type InstanceItem,
-  type PortableItem,
+  withoutPortableRefs,
+  type Kind,
+  type PortableEntity,
   type PortableRefs,
   type PortableToInstance,
 } from "./index.js";
@@ -18,25 +21,39 @@ import {
   toPortableRefsMap,
 } from "./test-support/examples.js";
 
-const EXAMPLES = readExamples();
-const INSTANCE_IDS = readInstanceIds();
-const PORTABLE_REFS = toPortableRefsMap(INSTANCE_IDS);
+interface Item {
+  file: string;
+  kind: Kind;
+  entity: PortableEntity;
+}
 
-const PORTABLE_ITEMS: PortableItem[] = EXAMPLES.map(({ kind, document }) => {
+const ITEMS: Item[] = readExamples().map(({ file, kind, document }) => {
   const validation = validatePortable(kind, document);
   if (!validation.ok) {
-    throw new Error(JSON.stringify(validation.issues));
+    throw new Error(`${file}: ${JSON.stringify(validation.issues)}`);
   }
-  return { kind, entity: validation.value };
+  return { file, kind, entity: validation.value };
 });
 
-const INSTANCE_ITEMS: InstanceItem[] = (() => {
-  const conversion = getInstanceEntities(PORTABLE_ITEMS, INSTANCE_IDS);
-  if (!conversion.ok) {
-    throw new Error(JSON.stringify(conversion.unresolved));
-  }
-  return conversion.value;
-})();
+const EXTERNAL_IDS = readInstanceIds();
+
+const OWN_IDS = mergePortableRefs(
+  ...ITEMS.map(({ kind, entity }) => getPortableIds(kind, entity)),
+);
+
+const INSTANCE_IDS: PortableToInstance = {
+  ...EXTERNAL_IDS,
+  ...Object.fromEntries(
+    Object.entries(OWN_IDS).map(([model, refs]) => [
+      model,
+      Object.fromEntries(
+        refs.map((ref, index) => [portableKey(ref), index + 1]),
+      ),
+    ]),
+  ),
+};
+
+const PORTABLE_REFS = toPortableRefsMap(INSTANCE_IDS);
 
 function keysByModel(refs: PortableRefs | PortableToInstance) {
   return Object.fromEntries(
@@ -52,27 +69,31 @@ function keysByModel(refs: PortableRefs | PortableToInstance) {
 
 describe("getPortableRefs", () => {
   it("collects references outside examples, which instance ids file lists", () => {
-    expect(keysByModel(getPortableRefs(PORTABLE_ITEMS))).toEqual(
-      keysByModel(INSTANCE_IDS),
+    const refs = mergePortableRefs(
+      ...ITEMS.map(({ kind, entity }) => getPortableRefs(kind, entity)),
+    );
+
+    expect(keysByModel(withoutPortableRefs(refs, OWN_IDS))).toEqual(
+      keysByModel(EXTERNAL_IDS),
     );
   });
 });
 
-describe("getInstanceEntities", () => {
-  it.each(
-    INSTANCE_ITEMS.map((item, index) => [EXAMPLES[index].file, item] as const),
-  )("converts %s to valid instance entity", (_file, { kind, entity }) => {
-    const validation = validateInstance(kind, entity);
+describe("getInstanceEntity and getPortableEntity", () => {
+  it.each(ITEMS.map((item) => [item.file, item] as const))(
+    "convert %s to valid instance entity and back unchanged",
+    (_file, { kind, entity }) => {
+      const instance = getInstanceEntity(kind, entity, INSTANCE_IDS);
+      if (!instance.ok) {
+        throw new Error(JSON.stringify(instance.unresolved));
+      }
+      const validation = validateInstance(kind, instance.value);
 
-    expect(validation.ok ? [] : validation.issues).toEqual([]);
-  });
-});
-
-describe("getPortableEntities", () => {
-  it("converts instance entities of examples back unchanged", () => {
-    expect(getPortableEntities(INSTANCE_ITEMS, PORTABLE_REFS)).toEqual({
-      ok: true,
-      value: PORTABLE_ITEMS,
-    });
-  });
+      expect(validation.ok ? [] : validation.issues).toEqual([]);
+      expect(getPortableEntity(kind, instance.value, PORTABLE_REFS)).toEqual({
+        ok: true,
+        value: entity,
+      });
+    },
+  );
 });

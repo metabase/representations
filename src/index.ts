@@ -1,11 +1,10 @@
 export {
-  getInstanceEntities,
+  getInstanceEntity,
   getInstanceRefs,
-  getPortableEntities,
+  getPortableEntity,
+  getPortableIds,
   getPortableRefs,
   type Conversion,
-  type InstanceItem,
-  type PortableItem,
 } from "./convert.js";
 export { generateEntityId } from "./generate-entity-id.js";
 export { generateUuid } from "./generate-uuid.js";
@@ -17,8 +16,11 @@ export type {
 } from "./json.js";
 export { getPortableKind, KIND_SCHEMAS, KINDS, type Kind } from "./kinds.js";
 export {
+  mergeInstanceRefs,
+  mergePortableRefs,
   portableKey,
   REF_MODELS,
+  withoutPortableRefs,
   type FieldPath,
   type InstanceRefs,
   type InstanceToPortable,
