@@ -1,0 +1,24 @@
+name: "Native Query - Table Variable"
+entity_id: m8ITRSX_Y9pSuBdbV2uEy
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: scalar
+database_id: Sample Database
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/native
+      native: SELECT COUNT(*) AS order_count FROM {{orders}}
+      template-tags:
+        - type: table
+          name: orders
+          id: ab000001-0000-0000-0000-000000000001
+          display-name: Orders
+          table-id:
+          - Sample Database
+          - null
+          - ORDERS
+visualization_settings: {}
+serdes/meta:
+- model: Card
