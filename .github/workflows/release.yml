@@ -9,6 +9,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # npm publish authenticates with the npm token; the GitHub token only
+    # checks out the code.
+    permissions:
+      contents: read
     steps:
       - name: Check out the code
         uses: actions/checkout@v7
