@@ -59,8 +59,8 @@ User content entities reference database objects using natural keys:
 | Reference | Format | Example |
 |-----------|--------|---------|
 | Database FK | database name | `"Sample Database"` |
-| Table FK | `[database, schema, table]` | `["Sample Database", "PUBLIC", "ORDERS"]` |
-| Field FK | `[database, schema, table, field, ...]` | `["Sample Database", "PUBLIC", "ORDERS", "TOTAL"]` |
+| Table FK | `[database, schema, table]` | `["Sample Database", null, "ORDERS"]` |
+| Field FK | `[database, schema, table, field, ...]` | `["Sample Database", null, "ORDERS", "TOTAL"]` |
 | Collection FK | entity_id of collection | `"M-Q4pcV0qkiyJ0kiSWECl"` |
 | Card FK | entity_id of card | `"f1C68pznmrpN1F5xFDj6d"` |
 | Dashboard FK | entity_id of dashboard | `"Q_jD-f-9clKLFZ2TfUG2h"` |
@@ -68,7 +68,7 @@ User content entities reference database objects using natural keys:
 
 For schemaless databases, the schema component is `null` (e.g., `["My Database", null, "my_table"]`).
 
-For JSON-unfolded fields, the Field FK extends beyond 4 elements with the nested path: `["Sample Database", "PUBLIC", "EVENTS", "DATA", "user", "name"]` represents the JSON path `DATA.user.name`.
+For JSON-unfolded fields, the Field FK extends beyond 4 elements with the nested path: `["Sample Database", null, "EVENTS", "DATA", "user", "name"]` represents the JSON path `DATA.user.name`.
 
 ### SerDes Meta
 
@@ -201,11 +201,11 @@ stages:
 - "lib/type": mbql.stage/mbql
   source-table:               # Table FK
   - Sample Database
-  - PUBLIC
+  - null
   - PRODUCTS
 ```
 
-This is equivalent to `SELECT * FROM PUBLIC.PRODUCTS`.
+This is equivalent to `SELECT * FROM PRODUCTS`.
 
 ### Source Table
 
@@ -214,7 +214,7 @@ This is equivalent to `SELECT * FROM PUBLIC.PRODUCTS`.
 ```yaml
 source-table:
 - Sample Database
-- PUBLIC
+- null
 - PRODUCTS
 ```
 
@@ -248,7 +248,7 @@ stages:
 - "lib/type": mbql.stage/mbql
   source-table:
   - Sample Database
-  - PUBLIC
+  - null
   - ORDERS
   aggregation:
   - - count
@@ -257,7 +257,7 @@ stages:
   - - field
     - temporal-unit: month
     - - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       - CREATED_AT
 - "lib/type": mbql.stage/mbql
@@ -280,7 +280,7 @@ Fields are referenced using a `field` clause with options as the second argument
 - field
 - {}                          # field options (always a map, never null)
 - - Sample Database           # database name
-  - PUBLIC                    # schema (null for schemaless)
+  - null                    # schema (null for schemaless)
   - ORDERS                   # table name
   - TOTAL                    # field name
 ```
@@ -308,11 +308,11 @@ Use `source-field` to specify the FK field in the source table that links to the
 - field
 - source-field:
   - Sample Database
-  - PUBLIC
+  - null
   - ORDERS
   - PRODUCT_ID
 - - Sample Database
-  - PUBLIC
+  - null
   - PRODUCTS
   - TITLE
 ```
@@ -325,12 +325,12 @@ For **multi-stage queries** (when `source-card` is set), additionally set `sourc
 - field
 - source-field:
   - Sample Database
-  - PUBLIC
+  - null
   - ORDERS
   - PRODUCT_ID
   source-field-name: PRODUCT_ID
 - - Sample Database
-  - PUBLIC
+  - null
   - PRODUCTS
   - TITLE
 ```
@@ -341,12 +341,12 @@ When the source (FK) table is itself joined via an explicit `joins` clause, use 
 - field
 - source-field:
   - Sample Database
-  - PUBLIC
+  - null
   - ORDERS
   - PRODUCT_ID
   source-field-join-alias: Joined Orders
 - - Sample Database
-  - PUBLIC
+  - null
   - PRODUCTS
   - TITLE
 ```
@@ -376,13 +376,13 @@ fields:
 - - field
   - {}
   - - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     - TOTAL
 - - field
   - {}
   - - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     - CREATED_AT
 - - expression
@@ -397,7 +397,7 @@ fields:
 - - field
   - {}
   - - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     - TOTAL
 - - expression
@@ -408,10 +408,10 @@ expressions:
   - "lib/expression-name": Profit
   - - field
     - {}
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
   - - field
     - {}
-    - [Sample Database, PUBLIC, ORDERS, TAX]
+    - [Sample Database, null, ORDERS, TAX]
 ```
 
 ### Joins
@@ -424,7 +424,7 @@ joins:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
   conditions:
   - - =
@@ -432,13 +432,13 @@ joins:
     - - field
       - {}
       - - Sample Database
-        - PUBLIC
+        - null
         - ORDERS
         - PRODUCT_ID
     - - field
       - {}
       - - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
         - ID
   alias: Products
@@ -460,7 +460,7 @@ Joined fields are referenced with a `join-alias` option:
 - field
 - join-alias: Products
 - - Sample Database
-  - PUBLIC
+  - null
   - PRODUCTS
   - TITLE
 ```
@@ -476,13 +476,13 @@ expressions:
   - - field
     - {}
     - - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       - TOTAL
   - - field
     - {}
     - - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       - TAX
 ```
@@ -510,7 +510,7 @@ filters:
   - - field
     - {}
     - - Sample Database
-      - PUBLIC
+      - null
       - PRODUCTS
       - PRICE
   - 10
@@ -519,7 +519,7 @@ filters:
   - - field
     - {}
     - - Sample Database
-      - PUBLIC
+      - null
       - PRODUCTS
       - PRICE
   - 100
@@ -536,7 +536,7 @@ filters:
     - - field
       - {}
       - - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
         - CATEGORY
     - Widget
@@ -545,7 +545,7 @@ filters:
     - - field
       - {}
       - - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
         - CATEGORY
     - Gadget
@@ -562,7 +562,7 @@ breakout:
 - - field
   - temporal-unit: month
   - - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     - CREATED_AT
 ```
@@ -580,7 +580,7 @@ aggregation:
   - - field
     - base-type: type/Float
     - - Sample Database
-      - PUBLIC
+      - null
       - ORDERS
       - TOTAL
 ```
@@ -596,7 +596,7 @@ order-by:
   - - field
     - {}
     - - Sample Database
-      - PUBLIC
+      - null
       - PRODUCTS
       - PRICE
 ```
@@ -631,13 +631,13 @@ The `temporal-unit` field option groups a datetime column into time buckets. Thi
 breakout:
 - - field
   - temporal-unit: month
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 
 # Breakout by day of week
 breakout:
 - - field
   - temporal-unit: day-of-week
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 ```
 
 Bucketing units truncate the datetime (e.g., `month` groups `2024-03-15` into `2024-03-01`). Extraction units extract a numeric component (e.g., `day-of-week` returns 1–7).
@@ -661,7 +661,7 @@ breakout:
   - binning:
       strategy: num-bins
       num-bins: 10
-  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - [Sample Database, null, PRODUCTS, PRICE]
 
 # Bins of width 25
 breakout:
@@ -669,7 +669,7 @@ breakout:
   - binning:
       strategy: bin-width
       bin-width: 25
-  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - [Sample Database, null, PRODUCTS, PRICE]
 ```
 
 ---
@@ -692,13 +692,13 @@ breakout:
   - {}
   - - field
     - {}
-    - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+    - [Sample Database, null, PRODUCTS, PRICE]
   - 50
 - - "!="
   - {}
   - - field
     - {}
-    - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
+    - [Sample Database, null, PRODUCTS, CATEGORY]
   - Doohickey
 ```
 
@@ -721,7 +721,7 @@ breakout:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
+  - [Sample Database, null, PRODUCTS, CATEGORY]
 - Widget
 
 # Multi-value equals (IN)
@@ -729,7 +729,7 @@ breakout:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
+  - [Sample Database, null, PRODUCTS, CATEGORY]
 - Widget
 - Gadget
 - Gizmo
@@ -739,7 +739,7 @@ breakout:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - [Sample Database, null, PRODUCTS, PRICE]
 - 10
 - 100
 
@@ -748,10 +748,10 @@ breakout:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, LATITUDE]
+  - [Sample Database, null, PEOPLE, LATITUDE]
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, LONGITUDE]
+  - [Sample Database, null, PEOPLE, LONGITUDE]
 - 40.8    # north latitude
 - -74.1   # west longitude
 - 40.6    # south latitude
@@ -772,13 +772,13 @@ breakout:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, DISCOUNT]
+  - [Sample Database, null, ORDERS, DISCOUNT]
 
 - not-empty
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, EMAIL]
+  - [Sample Database, null, PEOPLE, EMAIL]
 ```
 
 #### String
@@ -798,7 +798,7 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 - case-sensitive: false
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, TITLE]
+  - [Sample Database, null, PRODUCTS, TITLE]
 - widget
 
 # Multiple values (empty options)
@@ -806,7 +806,7 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, NAME]
+  - [Sample Database, null, PEOPLE, NAME]
 - John
 - Jane
 
@@ -815,7 +815,7 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 - case-sensitive: false
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, NAME]
+  - [Sample Database, null, PEOPLE, NAME]
 - John
 - Jane
 - Charlie
@@ -836,7 +836,7 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 - -30
 - day
 
@@ -845,7 +845,7 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 - current
 - month
 
@@ -854,7 +854,7 @@ All string filter operators accept a `case-sensitive` option (default: `true`). 
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 - -30
 - day
 - -1
@@ -898,7 +898,7 @@ aggregation:
   - {}
   - - field
     - base-type: type/Float
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
 
 # Multiple aggregations
 aggregation:
@@ -908,7 +908,7 @@ aggregation:
   - {}
   - - field
     - base-type: type/Float
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
 ```
 
 #### Cumulative
@@ -924,7 +924,7 @@ aggregation:
   - {}
   - - field
     - base-type: type/Float
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
 ```
 
 #### Statistical
@@ -943,7 +943,7 @@ aggregation:
   - {}
   - - field
     - base-type: type/Float
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
   - 0.9
 ```
 
@@ -965,7 +965,7 @@ aggregation:
     - {}
     - - field
       - {}
-      - [Sample Database, PUBLIC, ORDERS, TOTAL]
+      - [Sample Database, null, ORDERS, TOTAL]
     - 100
 
 # Share
@@ -976,7 +976,7 @@ aggregation:
     - {}
     - - field
       - {}
-      - [Sample Database, PUBLIC, PRODUCTS, CATEGORY]
+      - [Sample Database, null, PRODUCTS, CATEGORY]
     - Widget
 ```
 
@@ -991,7 +991,7 @@ aggregation:
     name: total_revenue
   - - field
     - base-type: type/Float
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
 ```
 
 #### Metric and Measure References
@@ -1036,10 +1036,10 @@ expressions:
   - "lib/expression-name": Profit
   - - field
     - {}
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
   - - field
     - {}
-    - [Sample Database, PUBLIC, ORDERS, TAX]
+    - [Sample Database, null, ORDERS, TAX]
 
 # Date arithmetic: CREATED_AT + 7 days
 expressions:
@@ -1047,7 +1047,7 @@ expressions:
   - "lib/expression-name": Due Date
   - - field
     - {}
-    - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+    - [Sample Database, null, ORDERS, CREATED_AT]
   - - interval
     - {}
     - 7
@@ -1073,14 +1073,14 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, DISCOUNT]
+  - [Sample Database, null, ORDERS, DISCOUNT]
 
 # Power
 - power
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, RATING]
+  - [Sample Database, null, PRODUCTS, RATING]
 - 2
 
 # Square root
@@ -1088,7 +1088,7 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - [Sample Database, null, PRODUCTS, PRICE]
 ```
 
 #### String Functions
@@ -1117,11 +1117,11 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, NAME]
+  - [Sample Database, null, PEOPLE, NAME]
 - " <"
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, EMAIL]
+  - [Sample Database, null, PEOPLE, EMAIL]
 - ">"
 
 # Substring (characters 1-3)
@@ -1129,7 +1129,7 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, TITLE]
+  - [Sample Database, null, PRODUCTS, TITLE]
 - 1
 - 3
 
@@ -1138,7 +1138,7 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, EMAIL]
+  - [Sample Database, null, PEOPLE, EMAIL]
 - "@example.com"
 - "@company.com"
 
@@ -1147,7 +1147,7 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, EMAIL]
+  - [Sample Database, null, PEOPLE, EMAIL]
 - "^[^@]+"
 
 # Domain from URL
@@ -1155,7 +1155,7 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PEOPLE, SOURCE]
+  - [Sample Database, null, PEOPLE, SOURCE]
 ```
 
 #### Temporal Functions
@@ -1195,7 +1195,7 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 - 7
 - day
 
@@ -1204,7 +1204,7 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 - - now
   - {}
 - month
@@ -1214,14 +1214,14 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 
 # Convert timezone
 - convert-timezone
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, CREATED_AT]
+  - [Sample Database, null, ORDERS, CREATED_AT]
 - America/New_York
 - UTC
 ```
@@ -1239,7 +1239,7 @@ Extraction units for `temporal-extract`: `year-of-era`, `quarter-of-year`, `mont
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+  - [Sample Database, null, PRODUCTS, PRICE]
 ```
 
 #### Conditional
@@ -1259,14 +1259,14 @@ expressions:
         - {}
         - - field
           - {}
-          - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+          - [Sample Database, null, PRODUCTS, PRICE]
         - 100
       - Premium
     - - - "<="
         - {}
         - - field
           - {}
-          - [Sample Database, PUBLIC, PRODUCTS, PRICE]
+          - [Sample Database, null, PRODUCTS, PRICE]
         - 20
       - Budget
   - Standard  # default (4th positional arg)
@@ -1276,7 +1276,7 @@ expressions:
 - {}
 - - field
   - {}
-  - [Sample Database, PUBLIC, ORDERS, DISCOUNT]
+  - [Sample Database, null, ORDERS, DISCOUNT]
 - 0
 ```
 
@@ -1294,14 +1294,14 @@ aggregation:
   - {}
   - - field
     - base-type: type/Float
-    - [Sample Database, PUBLIC, ORDERS, TOTAL]
+    - [Sample Database, null, ORDERS, TOTAL]
 - - offset
   - {}
   - - sum
     - {}
     - - field
       - base-type: type/Float
-      - [Sample Database, PUBLIC, ORDERS, TOTAL]
+      - [Sample Database, null, ORDERS, TOTAL]
   - -1
 ```
 
@@ -1463,7 +1463,7 @@ native:
       - field
       - {}
       - - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
         - CATEGORY
       widget-type: string/=
@@ -1501,7 +1501,7 @@ native:
       - field
       - {}
       - - Sample Database
-        - PUBLIC
+        - null
         - ORDERS
         - CREATED_AT
 ```
@@ -1524,7 +1524,7 @@ native:
       - field
       - {}
       - - Sample Database
-        - PUBLIC
+        - null
         - ORDERS
         - CREATED_AT
 ```
@@ -1554,10 +1554,10 @@ native:
       card-id: f1C68pznmrpN1F5xFDj6d
 ```
 
-Compiled SQL (assuming the card's query is `SELECT * FROM PUBLIC.PRODUCTS`):
+Compiled SQL (assuming the card's query is `SELECT * FROM PRODUCTS`):
 
 ```sql
-WITH products_question AS (SELECT * FROM PUBLIC.PRODUCTS)
+WITH products_question AS (SELECT * FROM PRODUCTS)
 SELECT * FROM products_question WHERE PRICE > 50
 ```
 
@@ -1613,11 +1613,11 @@ native:
       display-name: Source Table
       table-id:
       - Sample Database
-      - PUBLIC
+      - null
       - PRODUCTS
 ```
 
-Compiled SQL (with `PUBLIC.PRODUCTS` selected): `SELECT * FROM PUBLIC.PRODUCTS`
+Compiled SQL (with `PRODUCTS` selected): `SELECT * FROM PRODUCTS`
 
 ---
 
@@ -2000,7 +2000,7 @@ click_behavior:
         - - field
           - {}
           - - Sample Database
-            - PUBLIC
+            - null
             - PRODUCTS
             - ID
 ```
@@ -2069,14 +2069,14 @@ values_source_config:
   - field
   - {}
   - - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
     - ID
   label_field:
   - field
   - {}
   - - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
     - TITLE
 ```
@@ -2148,7 +2148,7 @@ target:
 - dimension
 - - field
   - - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
     - CATEGORY
   - null
@@ -2326,7 +2326,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
 visualization_settings: {}
 collection_id: M-Q4pcV0qkiyJ0kiSWECl
@@ -2441,7 +2441,7 @@ implicit:
 - kind: row/update
   table_id:
   - Sample Database
-  - PUBLIC
+  - null
   - ORDERS
 query: []
 parameters: []
@@ -2629,7 +2629,7 @@ dashcards:
     - dimension
     - - field
       - - Sample Database
-        - PUBLIC
+        - null
         - PRODUCTS
         - CATEGORY
       - null
@@ -2821,7 +2821,7 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - PRODUCTS
     filters:
     - - =
@@ -2829,7 +2829,7 @@ definition:
       - - field
         - {}
         - - Sample Database
-          - PUBLIC
+          - null
           - PRODUCTS
           - CATEGORY
       - Widget
@@ -2874,7 +2874,7 @@ definition:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     aggregation:
     - - sum
@@ -2882,7 +2882,7 @@ definition:
       - - field
         - base-type: type/Float
         - - Sample Database
-          - PUBLIC
+          - null
           - ORDERS
           - TOTAL
 serdes/meta:
@@ -2963,7 +2963,7 @@ source:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - PUBLIC
+      - null
       - PRODUCTS
 ```
 
@@ -3002,7 +3002,7 @@ source:
   source-tables:
   - alias: products
     database_id: Sample Database
-    schema: PUBLIC
+    schema: null
     table: PRODUCTS
   source-database: Sample Database
 ```
@@ -3172,12 +3172,12 @@ source:
     - "lib/type": mbql.stage/mbql
       source-table:
       - Sample Database
-      - PUBLIC
+      - null
       - PRODUCTS
 target:
   database: Sample Database
   type: table
-  schema: PUBLIC
+  schema: null
   name: product_summary
 collection_id: M-Q4pcV0qkiyJ0kiSWECl
 serdes/meta:
@@ -3280,7 +3280,7 @@ dataset_query:
   - "lib/type": mbql.stage/mbql
     source-table:
     - Sample Database
-    - PUBLIC
+    - null
     - ORDERS
     limit: 100
 visualization_settings: {}
