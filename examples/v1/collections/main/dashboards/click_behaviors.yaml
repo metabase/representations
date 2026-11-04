@@ -27,7 +27,35 @@ dashcards:
         - CATEGORY
       - null
   series: []
-  visualization_settings: {}
+  visualization_settings:
+    column_settings:
+      '["ref",["field",["Sample Database",null,"PRODUCTS","CATEGORY"],null]]':
+        click_behavior:
+          type: link
+          linkType: question
+          targetId: niT030tJnQ8wmvMOEK_i0
+          parameterMapping:
+            '["dimension",["field",["Sample Database",null,"PRODUCTS","CATEGORY"],{"source-field":["Sample Database",null,"ORDERS","PRODUCT_ID"]}]]':
+              id: '["dimension",["field",["Sample Database",null,"PRODUCTS","CATEGORY"],{"source-field":["Sample Database",null,"ORDERS","PRODUCT_ID"]}]]'
+              source:
+                id: CATEGORY
+                name: Category
+                type: column
+              target:
+                id: '["dimension",["field",["Sample Database",null,"PRODUCTS","CATEGORY"],{"source-field":["Sample Database",null,"ORDERS","PRODUCT_ID"]}]]'
+                type: dimension
+                dimension:
+                - dimension
+                - - field
+                  - - Sample Database
+                    - null
+                    - PRODUCTS
+                    - CATEGORY
+                  - source-field:
+                    - Sample Database
+                    - null
+                    - ORDERS
+                    - PRODUCT_ID
 - entity_id: iMNmMMABHvbbiVT3ufez6
   card_id: UEWVldEEZ-3sYUjjN54qz
   row: 0
@@ -36,7 +64,15 @@ dashcards:
   size_y: 9
   parameter_mappings: []
   series: []
-  visualization_settings: {}
+  visualization_settings:
+    click_behavior:
+      type: link
+      linkType: dashboard
+      targetId: 7RZUq1g5o1C5ws_e3ppKf
+      tabId:
+      - 7RZUq1g5o1C5ws_e3ppKf
+      - frlnbZFzBEzun9_GwdiZd
+      parameterMapping: {}
 - entity_id: RasgF0LvnoJlu7ModLrqv
   card_id: dYD1j3pQtJdctg8duByUL
   row: 9

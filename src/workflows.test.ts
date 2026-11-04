@@ -3,9 +3,11 @@ import { readdirSync, readFileSync } from "fs";
 import yaml from "js-yaml";
 import { join, resolve } from "path";
 
-import { isRecord } from "./values.js";
-
 const WORKFLOWS = resolve(import.meta.dirname, "..", ".github", "workflows");
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 type Step = Record<string, unknown>;
 type RunStep = {
@@ -25,15 +27,15 @@ function workflowJobs(): { workflow: string; job: string; steps: Step[] }[] {
       const doc: unknown = yaml.load(
         readFileSync(join(WORKFLOWS, workflow), "utf8"),
       );
-      if (!isRecord(doc) || !isRecord(doc.jobs)) {
+      if (!isJsonObject(doc) || !isJsonObject(doc.jobs)) {
         throw new Error(`${workflow} has no map of jobs`);
       }
       return Object.entries(doc.jobs).map(([job, body]) => {
-        if (!isRecord(body) || !Array.isArray(body.steps)) {
+        if (!isJsonObject(body) || !Array.isArray(body.steps)) {
           throw new Error(`${workflow} ${job} has no list of steps`);
         }
         const steps: unknown[] = body.steps;
-        return { workflow, job, steps: steps.filter(isRecord) };
+        return { workflow, job, steps: steps.filter(isJsonObject) };
       });
     });
 }
@@ -68,7 +70,7 @@ function actionSteps(action: string): ActionStep[] {
   return workflowJobs().flatMap(({ workflow, job, steps }) =>
     steps.flatMap((step) =>
       typeof step.uses === "string" && step.uses.startsWith(`${action}@`)
-        ? [{ workflow, job, inputs: isRecord(step.with) ? step.with : {} }]
+        ? [{ workflow, job, inputs: isJsonObject(step.with) ? step.with : {} }]
         : [],
     ),
   );

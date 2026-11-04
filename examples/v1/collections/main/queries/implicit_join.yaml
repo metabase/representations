@@ -1,0 +1,54 @@
+name: Orders by Product Category
+entity_id: niT030tJnQ8wmvMOEK_i0
+collection_id: cOlQuErIeS0ExAmPlE2x1
+creator_id: admin@example.com
+display: table
+dataset_query:
+  "lib/type": mbql/query
+  database: Sample Database
+  stages:
+    - "lib/type": mbql.stage/mbql
+      source-table:
+      - Sample Database
+      - null
+      - ORDERS
+      aggregation:
+      - - count
+        - {}
+      breakout:
+      - - field
+        - base-type: type/Text
+          source-field:
+          - Sample Database
+          - null
+          - ORDERS
+          - PRODUCT_ID
+        - - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
+visualization_settings:
+  table.columns:
+  - name: CATEGORY
+    enabled: true
+    fieldRef:
+    - field
+    - - Sample Database
+      - null
+      - PRODUCTS
+      - CATEGORY
+    - source-field:
+      - Sample Database
+      - null
+      - ORDERS
+      - PRODUCT_ID
+  - name: count
+    enabled: true
+    fieldRef:
+    - aggregation
+    - 0
+  column_settings:
+    '["ref",["field",["Sample Database",null,"PRODUCTS","CATEGORY"],{"source-field":["Sample Database",null,"ORDERS","PRODUCT_ID"]}]]':
+      column_title: Product Category
+serdes/meta:
+- model: Card

@@ -6,7 +6,7 @@ implicit:
 - kind: row/update
   table_id:
   - Sample Database
-  - PUBLIC
+  - null
   - ORDERS
 query: []
 parameters: []
