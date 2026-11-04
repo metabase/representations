@@ -1,0 +1,4 @@
+identifier: thumbs
+enabled: true
+serdes/meta:
+- model: CustomVizPlugin
