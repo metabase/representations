@@ -2744,7 +2744,7 @@ The `smartLink` node uses the same path format for `entityId`, but the `model` c
 
 #### Card Embed Height
 
-A `cardEmbed` takes its height from the `resizeNode` around it. With no `resizeNode`, Metabase shows only the card's title. Wrap each top-level `cardEmbed` or `flexContainer` in a `resizeNode`. `height` defaults to 442 and `minHeight` to 280, so you can leave out `attrs`.
+Wrap each top-level `cardEmbed` or `flexContainer` in a `resizeNode`. With no `resizeNode`, Metabase shows only the card's title. `height` defaults to 442 and `minHeight` to 280, so you can leave out `attrs`.
 
 ### Example
 
@@ -2766,9 +2766,6 @@ document:
     - type: text
       text: "Overview of product performance metrics."
   - type: resizeNode
-    attrs:
-      height: 442
-      minHeight: 280
     content:
     - type: cardEmbed
       attrs:

@@ -15,9 +15,6 @@ document:
         - type: text
           text: "This document provides an overview of product performance metrics. The embedded query below shows aggregated stats by category."
     - type: resizeNode
-      attrs:
-        height: 442
-        minHeight: 280
       content:
         - type: cardEmbed
           attrs:

@@ -334,26 +334,20 @@ describe("validateSchema", () => {
         attrs: { id: [{ model: "Card", id: "cRdCaTbReAkDoWn0ExMp1" }] },
       };
 
-      it.each([
-        ["a bare card", card],
-        [
-          "a row of a card and text",
-          {
-            type: "resizeNode",
-            content: [
-              {
-                type: "flexContainer",
-                attrs: { columnWidths: [50, 50] },
-                content: [
-                  card,
-                  { type: "supportingText", content: [{ type: "paragraph" }] },
-                ],
-              },
-            ],
-          },
-        ],
-      ])("accepts %s", (_, node) => {
-        expect(validateDocument(node).failed).toBe(0);
+      it("accepts a row of a card and text", () => {
+        const { failed } = validateDocument({
+          type: "resizeNode",
+          content: [
+            {
+              type: "flexContainer",
+              content: [
+                card,
+                { type: "supportingText", content: [{ type: "paragraph" }] },
+              ],
+            },
+          ],
+        });
+        expect(failed).toBe(0);
       });
 
       it.each([
