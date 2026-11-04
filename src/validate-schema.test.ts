@@ -313,6 +313,63 @@ describe("validateSchema", () => {
       });
     });
 
+    describe("document nodes", () => {
+      const validateDocument = (node: Record<string, unknown>) => {
+        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "main", "report.yaml"),
+          yaml.dump({
+            name: "Report",
+            entity_id: "dOc1PrOdAnAlYsIsRpTx2",
+            creator_id: "internal@metabase.com",
+            document: { type: "doc", content: [node] },
+            "serdes/meta": [{ model: "Document" }],
+          }),
+        );
+        return validateSchema({ folder: workdir });
+      };
+
+      const card = {
+        type: "cardEmbed",
+        attrs: { id: [{ model: "Card", id: "cRdCaTbReAkDoWn0ExMp1" }] },
+      };
+
+      it.each([
+        ["a bare card", card],
+        [
+          "a row of a card and text",
+          {
+            type: "resizeNode",
+            content: [
+              {
+                type: "flexContainer",
+                attrs: { columnWidths: [50, 50] },
+                content: [
+                  card,
+                  { type: "supportingText", content: [{ type: "paragraph" }] },
+                ],
+              },
+            ],
+          },
+        ],
+      ])("accepts %s", (_, node) => {
+        expect(validateDocument(node).failed).toBe(0);
+      });
+
+      it.each([
+        ["an unknown node type", { type: "madeUpNode" }],
+        [
+          "a card with a bad reference in a resizeNode",
+          {
+            type: "resizeNode",
+            content: [{ type: "cardEmbed", attrs: { id: 42 } }],
+          },
+        ],
+      ])("rejects %s", (_, node) => {
+        expect(validateDocument(node).failed).toBe(1);
+      });
+    });
+
     it("fails files with an unknown model", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(

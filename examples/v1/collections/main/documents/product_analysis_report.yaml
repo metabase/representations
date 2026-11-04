@@ -14,12 +14,17 @@ document:
       content:
         - type: text
           text: "This document provides an overview of product performance metrics. The embedded query below shows aggregated stats by category."
-    - type: cardEmbed
+    - type: resizeNode
       attrs:
-        id:
-          - model: Card
-            id: cRdCaTbReAkDoWn0ExMp1
-        name: Category Breakdown
+        height: 442
+        minHeight: 280
+      content:
+        - type: cardEmbed
+          attrs:
+            id:
+              - model: Card
+                id: cRdCaTbReAkDoWn0ExMp1
+            name: Category Breakdown
     - type: paragraph
       content:
         - type: text
