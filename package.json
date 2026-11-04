@@ -1,14 +1,21 @@
 {
   "name": "@metabase/representations",
   "version": "2.0.0",
-  "description": "Validate Metabase representations and convert them between portable and instance references",
+  "description": "Zod schemas of Metabase representations, with portable or instance references",
   "license": "SEE LICENSE IN LICENSE.txt",
   "repository": {
     "type": "git",
     "url": "https://github.com/metabase/representations.git"
   },
   "homepage": "https://github.com/metabase/representations",
-  "keywords": ["metabase", "representation", "serialization", "yaml", "schema", "validator"],
+  "keywords": [
+    "metabase",
+    "representation",
+    "serialization",
+    "yaml",
+    "schema",
+    "validator"
+  ],
   "publishConfig": {
     "access": "public"
   },
@@ -32,9 +39,10 @@
     "test": "bun test"
   },
   "dependencies": {
-    "ajv": "^8.17.1",
-    "ajv-formats": "^3.0.1",
     "nanoid": "^5.1.9"
+  },
+  "peerDependencies": {
+    "zod": "^4.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -46,6 +54,7 @@
     "js-yaml": "^4.1.0",
     "oxfmt": "^0.45.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.58.2"
+    "typescript-eslint": "^8.58.2",
+    "zod": "^4.4.2"
   }
 }

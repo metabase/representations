@@ -3,9 +3,11 @@ import { readdirSync, readFileSync } from "fs";
 import yaml from "js-yaml";
 import { join, resolve } from "path";
 
-import { isJsonObject } from "./json.js";
-
 const WORKFLOWS = resolve(import.meta.dirname, "..", ".github", "workflows");
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
 type Step = Record<string, unknown>;
 type RunStep = {
