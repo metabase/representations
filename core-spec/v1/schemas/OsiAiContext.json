@@ -1,0 +1,246 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "OsiAiContext",
+  "description" : "An OsiAiContext as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.osi.schema.external-osi-ai-context",
+  "definitions" : {
+    "metabase.lib.schema.id.table" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-table"
+    },
+    "metabase.lib.schema.id.external-database" : {
+      "description" : "A Database as serialization references it, by name.",
+      "type" : "string"
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.osi.schema..osi-ai-context.update" : {
+      "description" : "What an update (or insert) of a OsiAiContext accepts: every column of `:osi_ai_context` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_local_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "ai_context" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.osi.schema..osi-ai-context.ai-context"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.osi.schema..osi-ai-context.ai-context" : {
+      "description" : "The `:ai_context` column of a OsiAiContext, decoded.",
+      "type" : "object",
+      "properties" : {
+        "synonyms" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "maxLength" : 1000
+          },
+          "maxItems" : 50
+        },
+        "instructions" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "maxLength" : 5000
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "examples" : {
+          "type" : "array",
+          "items" : {
+            "type" : "string",
+            "maxLength" : 1000
+          },
+          "maxItems" : 50
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.osi.schema.osi-ai-context" : {
+      "description" : "What an update (or insert) of a OsiAiContext accepts: every column of `:osi_ai_context` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_local_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "ai_context" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.osi.schema..osi-ai-context.ai-context"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-table" : {
+      "type" : "array",
+      "prefixItems" : [ {
+        "$ref" : "#/definitions/metabase.lib.schema.id.external-database"
+      }, {
+        "type" : [ "string", "null" ]
+      }, {
+        "type" : "string"
+      } ],
+      "items" : false,
+      "minItems" : 3
+    },
+    "metabase.osi.schema.external-osi-ai-context" : {
+      "description" : "What an update (or insert) of a OsiAiContext accepts: every column of `:osi_ai_context` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "entity_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "ai_context" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.osi.schema..osi-ai-context.ai-context"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_local_id" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "$ref" : "#/definitions/metabase.lib.schema.id.table"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    }
+  }
+}

@@ -42,7 +42,7 @@ dataset_query:
             - CREATED_AT
           widget-type: date/range
         - type: temporal-unit
-          sectionId: date
+          sectionid: date
           name: created_at
           id: bb000003-0000-0000-0000-000000000003
           display-name: Group By

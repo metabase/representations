@@ -2,10 +2,6 @@ name: Average Revenue Per Order
 entity_id: dc8eiyLh9S0IKwV_UuvTz
 creator_id: admin@example.com
 description: Uses Total Revenue and Order Count measures
-table_id:
-- Sample Database
-- null
-- ORDERS
 definition:
   "lib/type": mbql/query
   database: Sample Database

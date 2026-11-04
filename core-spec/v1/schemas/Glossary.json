@@ -1,0 +1,192 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "Glossary",
+  "description" : "A Glossary as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.glossary.schema.external-glossary",
+  "definitions" : {
+    "metabase.glossary.schema.external-glossary" : {
+      "description" : "What an update (or insert) of a Glossary accepts: every column of `:glossary` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "minLength" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "term" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "definition" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.glossary.schema.glossary" : {
+      "description" : "What an update (or insert) of a Glossary accepts: every column of `:glossary` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "minLength" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "term" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "definition" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.glossary.schema..glossary.update" : {
+      "description" : "What an update (or insert) of a Glossary accepts: every column of `:glossary` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "minLength" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "term" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "definition" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.user" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-user"
+    },
+    "metabase.lib.schema.id.external-user" : {
+      "description" : "A User as serialization references it, by email.",
+      "type" : "string"
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    }
+  }
+}

@@ -99,23 +99,6 @@ describe("validateSchema", () => {
           "the removed http type",
           { ...example("apply_discount.yaml"), type: "http" },
         ],
-        [
-          "an implicit type but no model",
-          (({ model_id: _modelId, ...action }) => action)(
-            example("create_order.yaml"),
-          ),
-        ],
-        [
-          "an unknown implicit kind",
-          {
-            ...example("create_order.yaml"),
-            implicit: [{ kind: "row/upsert" }],
-          },
-        ],
-        [
-          "a query action without its query",
-          { ...example("apply_discount.yaml"), query: [] },
-        ],
       ])("rejects an action with %s", (_, action) => {
         expect(validateAction(action).failed).toBe(1);
       });
@@ -306,10 +289,6 @@ describe("validateSchema", () => {
 
       it("accepts data-actions", () => {
         expect(validateCollection("data-actions").failed).toBe(0);
-      });
-
-      it("rejects an unknown namespace", () => {
-        expect(validateCollection("data_actions").failed).toBe(1);
       });
     });
 

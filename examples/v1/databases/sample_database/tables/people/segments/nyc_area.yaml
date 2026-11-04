@@ -2,10 +2,6 @@ name: NYC Area People
 entity_id: D2R9JpvI8sMfYWqfPsTkx
 creator_id: admin@example.com
 description: People located within the NYC bounding box
-table_id:
-- Sample Database
-- null
-- PEOPLE
 definition:
   "lib/type": mbql/query
   database: Sample Database

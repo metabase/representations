@@ -1,0 +1,369 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "FieldValues",
+  "description" : "A FieldValues as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.warehouse-schema.schema.external-field-values",
+  "definitions" : {
+    "metabase.warehouse-schema.schema.external-field-values" : {
+      "description" : "What an update (or insert) of a FieldValues accepts: every column of `:metabase_fieldvalues` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "hash_key" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "values" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "number"
+                }, {
+                  "type" : "boolean"
+                }, {
+                  "type" : "string",
+                  "format" : "uuid"
+                } ]
+              }, {
+                "type" : "null"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "human_readable_values" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "number"
+                }, {
+                  "type" : "boolean"
+                }, {
+                  "type" : "string",
+                  "format" : "uuid"
+                } ]
+              }, {
+                "type" : "null"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "has_more_values" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.warehouse-schema.schema.field-values" : {
+      "description" : "What an update (or insert) of a FieldValues accepts: every column of `:metabase_fieldvalues` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "values" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "number"
+                }, {
+                  "type" : "boolean"
+                }, {
+                  "type" : "string",
+                  "format" : "uuid"
+                } ]
+              }, {
+                "type" : "null"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "has_more_values" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "hash_key" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "human_readable_values" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "number"
+                }, {
+                  "type" : "boolean"
+                }, {
+                  "type" : "string",
+                  "format" : "uuid"
+                } ]
+              }, {
+                "type" : "null"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "last_used_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.warehouse-schema.schema..field-values.update" : {
+      "description" : "What an update (or insert) of a FieldValues accepts: every column of `:metabase_fieldvalues` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "values" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "number"
+                }, {
+                  "type" : "boolean"
+                }, {
+                  "type" : "string",
+                  "format" : "uuid"
+                } ]
+              }, {
+                "type" : "null"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "has_more_values" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "hash_key" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "human_readable_values" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "number"
+                }, {
+                  "type" : "boolean"
+                }, {
+                  "type" : "string",
+                  "format" : "uuid"
+                } ]
+              }, {
+                "type" : "null"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "last_used_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.field" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-field"
+    },
+    "metabase.lib.schema.id.external-field" : {
+      "type" : "array",
+      "prefixItems" : [ {
+        "$ref" : "#/definitions/metabase.lib.schema.id.external-database"
+      }, {
+        "type" : [ "string", "null" ]
+      }, {
+        "type" : "string"
+      } ],
+      "items" : {
+        "type" : "string"
+      },
+      "minItems" : 4
+    },
+    "metabase.lib.schema.id.external-database" : {
+      "description" : "A Database as serialization references it, by name.",
+      "type" : "string"
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    }
+  }
+}

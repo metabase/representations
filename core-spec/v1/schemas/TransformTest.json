@@ -1,0 +1,388 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "TransformTest",
+  "description" : "A TransformTest as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.external-transform-test",
+  "definitions" : {
+    "metabase.lib.schema.id.external-user" : {
+      "description" : "A User as serialization references it, by email.",
+      "type" : "string"
+    },
+    "metabase-enterprise.transform-testing.schema.column" : {
+      "description" : "A column of inline test data, with the type its cells are cast to.\n\n  A cast target, which on some engines is not a type name the warehouse ever reports: MySQL takes\n  `SIGNED` and reports `BIGINT`.",
+      "type" : "object",
+      "properties" : {
+        "name" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        },
+        "cast_type" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        }
+      },
+      "required" : [ "name", "cast_type" ],
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.transform" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-transform"
+    },
+    "metabase-enterprise.transform-testing.schema.external-transform-test" : {
+      "description" : "A transform test as a client writes it, without the transform it covers.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "type" : "string"
+        },
+        "expectations" : {
+          "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.expectations"
+        },
+        "transform_id" : {
+          "$ref" : "#/definitions/metabase.lib.schema.id.transform"
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "name" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        },
+        "inputs" : {
+          "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.inputs"
+        },
+        "creator_id" : {
+          "$ref" : "#/definitions/metabase.lib.schema.id.user"
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "name", "inputs", "expectations", "entity_id", "transform_id", "creator_id" ],
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.transform-testing.schema..transform-test.definition" : {
+      "description" : "A transform test as a client writes it, without the transform it covers.",
+      "type" : "object",
+      "properties" : {
+        "inputs" : {
+          "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.inputs"
+        },
+        "name" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "expectations" : {
+          "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.expectations"
+        }
+      },
+      "required" : [ "name", "inputs", "expectations" ],
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.transform-testing.schema.rows-data" : {
+      "description" : "Test data written out in the request: the columns, with the type each is cast to, and the rows.\n\n  A row's keys are the declared column names, exactly: the query reads each row by those names, so a key that names\n  no column would be dropped and a column a row leaves out would become a null cell, neither of which the author\n  asked for.",
+      "type" : "object",
+      "properties" : {
+        "columns" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.column"
+          },
+          "minItems" : 1
+        },
+        "format" : {
+          "const" : "rows"
+        },
+        "rows" : {
+          "type" : "array",
+          "items" : {
+            "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.row"
+          }
+        }
+      },
+      "required" : [ "format", "columns", "rows" ],
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.transform-testing.schema.table" : {
+      "description" : "A table read by the transform under test, by schema and name.",
+      "type" : "object",
+      "properties" : {
+        "schema" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        }
+      },
+      "required" : [ "name" ],
+      "additionalProperties" : false
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.lib.schema.id.user" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-user"
+    },
+    "metabase-enterprise.transform-testing.schema.row" : {
+      "description" : "Value must be a map.",
+      "anyOf" : [ {
+        "type" : "object",
+        "additionalProperties" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "boolean"
+            }, {
+              "type" : "number"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        }
+      }, {
+        "description" : "Value must be a map."
+      } ]
+    },
+    "metabase-enterprise.transform-testing.schema.transform-test" : {
+      "description" : "A transform test as a client writes it, without the transform it covers.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "type" : "string"
+        },
+        "expectations" : {
+          "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.expectations"
+        },
+        "transform_id" : {
+          "$ref" : "#/definitions/metabase.lib.schema.id.transform"
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "name" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        },
+        "updated_at" : {
+          "type" : "string",
+          "format" : "date-time"
+        },
+        "created_at" : {
+          "type" : "string",
+          "format" : "date-time"
+        },
+        "inputs" : {
+          "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.inputs"
+        },
+        "creator_id" : {
+          "$ref" : "#/definitions/metabase.lib.schema.id.user"
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "name", "inputs", "expectations", "id", "entity_id", "transform_id", "creator_id", "created_at", "updated_at" ],
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.transform-testing.schema.input" : {
+      "description" : "An input table of the transform under test, replaced with test data.",
+      "anyOf" : [ {
+        "description" : "Test data returned by a SQL query run against the transform's source database.",
+        "type" : "object",
+        "properties" : {
+          "format" : {
+            "const" : "sql"
+          },
+          "table" : {
+            "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.table"
+          },
+          "sql" : {
+            "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+          }
+        },
+        "required" : [ "table", "format", "sql" ],
+        "additionalProperties" : false
+      }, {
+        "description" : "Test data written out in the request: the columns, with the type each is cast to, and the rows.\n\n  A row's keys are the declared column names, exactly: the query reads each row by those names, so a key that names\n  no column would be dropped and a column a row leaves out would become a null cell, neither of which the author\n  asked for.",
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.column"
+            },
+            "minItems" : 1
+          },
+          "table" : {
+            "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.table"
+          },
+          "format" : {
+            "const" : "rows"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.row"
+            }
+          }
+        },
+        "required" : [ "table", "format", "columns", "rows" ],
+        "additionalProperties" : false
+      } ]
+    },
+    "metabase-enterprise.transform-testing.schema.expectation" : {
+      "description" : "A check on the output of the transform under test.",
+      "anyOf" : [ {
+        "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema..expectation.equals"
+      }, {
+        "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema..expectation.empty"
+      } ]
+    },
+    "metabase-enterprise.transform-testing.schema.expectations" : {
+      "description" : "The checks run against the transform's output. Names must be unique within a test,\n  case-sensitively.",
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.expectation"
+      }
+    },
+    "metabase.lib.schema.id.external-transform" : {
+      "description" : "A Transform as serialization references it, by entity id.",
+      "type" : "string"
+    },
+    "metabase-enterprise.transform-testing.schema..expectation.equals" : {
+      "description" : "A check that the transform output holds exactly the declared rows, over exactly the declared columns.",
+      "anyOf" : [ {
+        "description" : "Test data returned by a SQL query run against the transform's source database.",
+        "type" : "object",
+        "properties" : {
+          "format" : {
+            "const" : "sql"
+          },
+          "type" : {
+            "const" : "equals"
+          },
+          "name" : {
+            "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+          },
+          "sql" : {
+            "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+          }
+        },
+        "required" : [ "type", "name", "format", "sql" ],
+        "additionalProperties" : false
+      }, {
+        "description" : "Test data written out in the request: the columns, with the type each is cast to, and the rows.\n\n  A row's keys are the declared column names, exactly: the query reads each row by those names, so a key that names\n  no column would be dropped and a column a row leaves out would become a null cell, neither of which the author\n  asked for.",
+        "type" : "object",
+        "properties" : {
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.column"
+            },
+            "minItems" : 1
+          },
+          "type" : {
+            "const" : "equals"
+          },
+          "name" : {
+            "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+          },
+          "format" : {
+            "const" : "rows"
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.row"
+            }
+          }
+        },
+        "required" : [ "type", "name", "format", "columns", "rows" ],
+        "additionalProperties" : false
+      } ]
+    },
+    "metabase-enterprise.transform-testing.schema.inputs" : {
+      "description" : "Test data for the tables the transform reads. Every table it reads needs one, and an input for\n  a table it does not read is refused.",
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/definitions/metabase-enterprise.transform-testing.schema.input"
+      }
+    },
+    "metabase.lib.schema.common.non-blank-string" : {
+      "type" : "string",
+      "minLength" : 1
+    },
+    "metabase-enterprise.transform-testing.schema..expectation.empty" : {
+      "description" : "A check that a SQL query over the transform output returns no rows.",
+      "type" : "object",
+      "properties" : {
+        "name" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        },
+        "type" : {
+          "const" : "empty"
+        },
+        "sql" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        }
+      },
+      "required" : [ "type", "name", "sql" ],
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.transform-testing.schema.sql-data" : {
+      "description" : "Test data returned by a SQL query run against the transform's source database.",
+      "type" : "object",
+      "properties" : {
+        "format" : {
+          "const" : "sql"
+        },
+        "sql" : {
+          "$ref" : "#/definitions/metabase.lib.schema.common.non-blank-string"
+        }
+      },
+      "required" : [ "format", "sql" ],
+      "additionalProperties" : false
+    }
+  }
+}

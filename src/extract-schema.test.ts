@@ -25,7 +25,7 @@ describe("extractSchema", () => {
 
     const files = readdirSync(target);
     expect(files.length).toBeGreaterThan(0);
-    expect(files.some((f) => f.endsWith(".yaml"))).toBe(true);
+    expect(files.some((f) => f.endsWith(".json"))).toBe(true);
   });
 
   it("creates the target folder if it does not exist", () => {

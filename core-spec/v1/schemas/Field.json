@@ -1,0 +1,1543 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "Field",
+  "description" : "A Field as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.warehouse-schema.schema.external-field",
+  "definitions" : {
+    "metabase.lib.schema.metadata.fingerprint..fingerprint.type-specific" : {
+      "description" : "Schema for type-specific fingerprint information.",
+      "type" : "object",
+      "properties" : {
+        "type/Date" : {
+          "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint..fingerprint.temporal"
+        },
+        "type/Number" : {
+          "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint..fingerprint.number"
+        },
+        "type/Text" : {
+          "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint..fingerprint.text"
+        },
+        "type/DateTime" : {
+          "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint..fingerprint.temporal"
+        },
+        "type/Time" : {
+          "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint..fingerprint.temporal"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-field" : {
+      "type" : "array",
+      "prefixItems" : [ {
+        "$ref" : "#/definitions/metabase.lib.schema.id.external-database"
+      }, {
+        "type" : [ "string", "null" ]
+      }, {
+        "type" : "string"
+      } ],
+      "items" : {
+        "type" : "string"
+      },
+      "minItems" : 4
+    },
+    "metabase.warehouse-schema.schema..dimension.update" : {
+      "description" : "What an update (or insert) of a Dimension accepts: every column of `:dimension` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "human_readable_field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.field" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-field"
+    },
+    "metabase.lib.schema.id.table" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-table"
+    },
+    "metabase.lib.schema.id.external-database" : {
+      "description" : "A Database as serialization references it, by name.",
+      "type" : "string"
+    },
+    "metabase.warehouse-schema.schema.field" : {
+      "description" : "What an update (or insert) of a Field accepts: every column of `:metabase_field` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "points_of_interest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "preview_display" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_partitioned" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_default" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "unique_field_helper" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_required" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_defective_duplicate" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "settings" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.warehouse-schema.schema..field.settings"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fingerprint" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.fingerprint"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "visibility_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "base_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "last_analyzed" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "custom_position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "$ref" : "#/definitions/metabase.lib.schema.id.field"
+        },
+        "coercion_strategy" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "json_unfolding" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name_field" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.queries.schema..param-field.name-field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fingerprint_version" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "dimensions" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase.warehouse-schema.schema.dimension"
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_sensitivity" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "semantic_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_auto_increment" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "table_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.table"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "has_field_values" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_generated" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "nfc_path" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "type" : "string"
+              }, {
+                "type" : "string"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "target" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.warehouse-schema.schema.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "effective_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "parent_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_pk" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "active" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "dimension_interestingness" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_nullable" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_indexed" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fk_target_field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.metadata.fingerprint..fingerprint.number" : {
+      "description" : "Schema for fingerprint information for Fields deriving from `:type/Number`.",
+      "type" : "object",
+      "properties" : {
+        "mode-fraction" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "min" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "q1" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "max" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "avg" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "sd" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "skewness" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "q3" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "top-3-fraction" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "excess-kurtosis" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "zero-fraction" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.warehouse-schema.schema..field.update" : {
+      "description" : "What an update (or insert) of a Field accepts: every column of `:metabase_field` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "points_of_interest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "preview_display" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_partitioned" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_default" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_required" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_defective_duplicate" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "settings" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.warehouse-schema.schema..field.settings"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fingerprint" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.fingerprint"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "visibility_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "base_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "last_analyzed" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "custom_position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "coercion_strategy" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "json_unfolding" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fingerprint_version" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_sensitivity" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "semantic_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_auto_increment" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "table_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.table"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "has_field_values" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_generated" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "nfc_path" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "type" : "string"
+              }, {
+                "type" : "string"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "effective_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "parent_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_pk" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "active" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "dimension_interestingness" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_nullable" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_indexed" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fk_target_field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.warehouse-schema.schema..field.settings" : {
+      "description" : "Value must be a map.",
+      "type" : "object",
+      "properties" : { }
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.warehouse-schema.schema.dimension" : {
+      "description" : "What an update (or insert) of a Dimension accepts: every column of `:dimension` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "human_readable_field" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.warehouse-schema.schema.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "human_readable_field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.metadata.fingerprint.percent" : {
+      "description" : "Schema for something represting a percentage. A floating-point value between (inclusive) 0 and 1.",
+      "type" : "number"
+    },
+    "metabase.lib.schema.metadata.fingerprint..fingerprint.text" : {
+      "description" : "Schema for fingerprint information for Fields deriving from `:type/Text`.",
+      "type" : "object",
+      "properties" : {
+        "mode-fraction" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "percent-json" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "percent-blank" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "percent-url" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "percent-state" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "percent-email" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "max-length" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "average-length" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "min-length" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "top-3-fraction" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.metadata.fingerprint.fingerprint" : {
+      "description" : "Schema for a Field 'fingerprint' generated as part of the analysis stage. Used to power the 'classification'\n   sub-stage of analysis. Stored as the `fingerprint` column of Field.",
+      "type" : "object",
+      "properties" : {
+        "type" : {
+          "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint..fingerprint.type-specific"
+        },
+        "global" : {
+          "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint..fingerprint.global"
+        },
+        "experimental" : {
+          "type" : "object",
+          "properties" : { },
+          "additionalProperties" : false
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.metadata.fingerprint..fingerprint.global" : {
+      "description" : "Fingerprint values that Fields of all types should have.",
+      "type" : "object",
+      "properties" : {
+        "distinct-count" : {
+          "type" : "integer"
+        },
+        "nil%" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-table" : {
+      "type" : "array",
+      "prefixItems" : [ {
+        "$ref" : "#/definitions/metabase.lib.schema.id.external-database"
+      }, {
+        "type" : [ "string", "null" ]
+      }, {
+        "type" : "string"
+      } ],
+      "items" : false,
+      "minItems" : 3
+    },
+    "metabase.lib.schema.metadata.fingerprint..fingerprint.temporal" : {
+      "description" : "Schema for fingerprint information for Fields deriving from `:type/Temporal`.",
+      "type" : "object",
+      "properties" : {
+        "mode-fraction" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "earliest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "latest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "skewness" : {
+          "anyOf" : [ {
+            "type" : "number"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "weekday-distribution" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "hour-distribution" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "top-3-fraction" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.metadata.fingerprint.percent"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.queries.schema..param-field.name-field" : {
+      "description" : "A Field trimmed to the columns a parameter widget needs, as the `:name_field` hydration attaches it.",
+      "type" : "object",
+      "properties" : {
+        "settings" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.warehouse-schema.schema..field.settings"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "base_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "$ref" : "#/definitions/metabase.lib.schema.id.field"
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "semantic_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "table_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.table"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "has_field_values" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "effective_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fk_target_field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id", "table_id", "display_name", "base_type", "effective_type", "name", "semantic_type", "has_field_values", "fk_target_field_id", "settings" ],
+      "additionalProperties" : false
+    },
+    "metabase.warehouse-schema.schema.external-field" : {
+      "description" : "What an update (or insert) of a Field accepts: every column of `:metabase_field` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "points_of_interest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "preview_display" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_partitioned" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_default" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "unique_field_helper" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_required" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_defective_duplicate" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "settings" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.warehouse-schema.schema..field.settings"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "visibility_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "base_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "coercion_strategy" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "json_unfolding" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_sensitivity" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_position" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "semantic_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_auto_increment" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "table_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.table"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "has_field_values" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_generated" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "nfc_path" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "anyOf" : [ {
+                "type" : "string"
+              }, {
+                "type" : "string"
+              } ]
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "effective_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "parent_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_pk" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "active" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_is_nullable" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "database_indexed" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "fk_target_field_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.field"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    }
+  }
+}

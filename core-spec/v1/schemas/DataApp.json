@@ -1,0 +1,297 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "DataApp",
+  "description" : "A DataApp as serialization writes it, with portable references in place of ids, its slug, display name, and bundle\n  path under the keys of its manifest, and its bundle as a resource file.",
+  "$ref" : "#/definitions/metabase.data-apps.schema.external-data-app",
+  "definitions" : {
+    "metabase.data-apps.schema.allowed-host" : {
+      "description" : "An origin a data app's sandboxed bundle may fetch: scheme, host with an optional `*.` subdomain wildcard, and an\n   optional port.",
+      "type" : "string",
+      "pattern" : "^https?://(\\*\\.)?[a-z0-9-]+(\\.[a-z0-9-]+)*(:\\d+)?$"
+    },
+    "metabase.data-apps.schema.description" : {
+      "description" : "A data app's optional one-line summary, nil when blank.",
+      "anyOf" : [ {
+        "type" : "string",
+        "maxLength" : 255
+      }, {
+        "type" : "null"
+      } ]
+    },
+    "metabase.data-apps.schema.bundle-path" : {
+      "description" : "The path of a data app's bundle, relative to the app's directory and inside it.",
+      "type" : "string",
+      "minLength" : 1
+    },
+    "metabase.data-apps.schema.external-data-app" : {
+      "description" : "What an update (or insert) of a DataApp accepts: every column of `:data_app` except `id` and the `bundle_hash` the\n  model computes, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "path" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.bundle-path"
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "name" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.display-name"
+        },
+        "slug" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.slug"
+        },
+        "version" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.version"
+        },
+        "allowed_hosts" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.allowed-hosts"
+        },
+        "serdes/resources" : {
+          "type" : "object",
+          "additionalProperties" : {
+            "type" : "string"
+          }
+        },
+        "description" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.description"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.data-apps.schema.allowed-hosts" : {
+      "description" : "The origins a data app's sandboxed bundle may fetch, `[]` when nil.",
+      "type" : "array",
+      "items" : {
+        "$ref" : "#/definitions/metabase.data-apps.schema.allowed-host"
+      }
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.data-apps.schema.bundle" : {
+      "description" : "A data app's bundle bytes.",
+      "type" : "string",
+      "format" : "byte"
+    },
+    "metabase.data-apps.schema.display-name" : {
+      "description" : "A data app's display name.",
+      "type" : "string",
+      "minLength" : 1
+    },
+    "metabase.data-apps.schema.slug" : {
+      "description" : "A data app's slug: lowercase letters and numbers separated by single dashes, at most 100 characters.",
+      "allOf" : [ {
+        "type" : "string",
+        "maxLength" : 100
+      }, {
+        "type" : "string",
+        "pattern" : "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      } ]
+    },
+    "metabase.lib.schema.id.external-collection" : {
+      "description" : "A Collection as serialization references it, by entity id.",
+      "type" : "string"
+    },
+    "metabase.data-apps.schema.data-app" : {
+      "description" : "What an update (or insert) of a DataApp accepts: every column of `:data_app` except `id` and the `bundle_hash` the\n  model computes, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "enabled" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "name" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.slug"
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.data-apps.schema.bundle"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.display-name"
+        },
+        "version" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.version"
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle_hash" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "allowed_hosts" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.allowed-hosts"
+        },
+        "resource_collection_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.description"
+        },
+        "bundle_path" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.bundle-path"
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.collection" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-collection"
+    },
+    "metabase.data-apps.schema.version" : {
+      "description" : "The data app contract version an app was built for, 1 when it declares none.",
+      "type" : "integer",
+      "minimum" : 1
+    },
+    "metabase.data-apps.schema..data-app.update" : {
+      "description" : "What an update (or insert) of a DataApp accepts: every column of `:data_app` except `id` and the `bundle_hash` the\n  model computes, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "enabled" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.slug"
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.data-apps.schema.bundle"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.display-name"
+        },
+        "version" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.version"
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "allowed_hosts" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.allowed-hosts"
+        },
+        "resource_collection_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.description"
+        },
+        "bundle_path" : {
+          "$ref" : "#/definitions/metabase.data-apps.schema.bundle-path"
+        }
+      },
+      "additionalProperties" : false
+    }
+  }
+}

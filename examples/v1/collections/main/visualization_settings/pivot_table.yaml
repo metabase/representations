@@ -32,7 +32,8 @@ dataset_query:
         - ORDERS
         - CREATED_AT
     joins:
-    - stages:
+    - "lib/type": mbql/join
+      stages:
       - "lib/type": mbql.stage/mbql
         source-table:
         - Sample Database
