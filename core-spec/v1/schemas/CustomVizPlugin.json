@@ -1,0 +1,386 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "CustomVizPlugin",
+  "description" : "A CustomVizPlugin as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase-enterprise.custom-viz-plugin.schema.external-custom-viz-plugin",
+  "definitions" : {
+    "metabase-enterprise.custom-viz-plugin.schema.external-custom-viz-plugin" : {
+      "description" : "What an update (or insert) of a CustomVizPlugin accepts: every column of `:custom_viz_plugin` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "enabled" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "identifier" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "byte"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle_hash" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "manifest" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase-enterprise.custom-viz-plugin.schema..custom-viz-plugin.manifest"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "metabase_version" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.custom-viz-plugin.schema.custom-viz-plugin" : {
+      "description" : "What an update (or insert) of a CustomVizPlugin accepts: every column of `:custom_viz_plugin` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "enabled" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "status" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "error_message" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "identifier" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "byte"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle_hash" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "manifest" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase-enterprise.custom-viz-plugin.schema..custom-viz-plugin.manifest"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "dev_bundle_url" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "metabase_version" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.custom-viz-plugin.schema..custom-viz-plugin.update" : {
+      "description" : "What an update (or insert) of a CustomVizPlugin accepts: every column of `:custom_viz_plugin` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "enabled" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "status" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "error_message" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "identifier" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string",
+              "format" : "byte"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "bundle_hash" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "manifest" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase-enterprise.custom-viz-plugin.schema..custom-viz-plugin.manifest"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "dev_bundle_url" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "metabase_version" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase-enterprise.custom-viz-plugin.schema..custom-viz-plugin.manifest" : {
+      "description" : "The `:manifest` column of a CustomVizPlugin, decoded.",
+      "type" : "object",
+      "properties" : {
+        "metabase" : {
+          "anyOf" : [ {
+            "type" : "object",
+            "properties" : {
+              "version" : {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "null"
+                } ]
+              }
+            },
+            "additionalProperties" : false
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "sdk" : {
+          "anyOf" : [ {
+            "type" : "object",
+            "properties" : {
+              "version" : {
+                "anyOf" : [ {
+                  "type" : "string"
+                }, {
+                  "type" : "null"
+                } ]
+              }
+            },
+            "additionalProperties" : false
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    }
+  }
+}

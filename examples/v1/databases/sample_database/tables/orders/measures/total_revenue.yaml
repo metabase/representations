@@ -1,10 +1,6 @@
 name: Total Revenue
 entity_id: 8WteUpyQQqObrxLv4KQ-j
 creator_id: admin@example.com
-table_id:
-- Sample Database
-- null
-- ORDERS
 definition:
   "lib/type": mbql/query
   database: Sample Database

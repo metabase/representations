@@ -1,0 +1,570 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "Timeline",
+  "description" : "A Timeline as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.timeline.schema.external-timeline",
+  "definitions" : {
+    "metabase.timeline.schema.external-timeline-event" : {
+      "description" : "What an update (or insert) of a TimelineEvent accepts: every column of `:timeline_event` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "timezone" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "timestamp" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.models.schema.external-date"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "archived" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "time_matters" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-user" : {
+      "description" : "A User as serialization references it, by email.",
+      "type" : "string"
+    },
+    "metabase.timeline.schema.timeline-event" : {
+      "description" : "What an update (or insert) of a TimelineEvent accepts: every column of `:timeline_event` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "timezone" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "timestamp" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "archived" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "timeline_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "time_matters" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.timeline.schema..timeline.update" : {
+      "description" : "What an update (or insert) of a Timeline accepts: every column of `:timeline` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "archived" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "default" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.user" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-user"
+    },
+    "metabase.timeline.schema..timeline-event.update" : {
+      "description" : "What an update (or insert) of a TimelineEvent accepts: every column of `:timeline_event` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "timezone" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "timestamp" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "archived" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "timeline_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "time_matters" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.models.schema.external-date" : {
+      "description" : "A timestamp as serialization exports it, or as ingestion parses it back from an `_at` key.",
+      "anyOf" : [ {
+        "type" : "string"
+      }, {
+        "type" : "string",
+        "format" : "date-time"
+      } ]
+    },
+    "metabase.timeline.schema.timeline" : {
+      "description" : "What an update (or insert) of a Timeline accepts: every column of `:timeline` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "archived" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "default" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.timeline.schema.external-timeline" : {
+      "description" : "What an update (or insert) of a Timeline accepts: every column of `:timeline` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "archived" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "events" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase.timeline.schema.external-timeline-event"
+            }
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "creator_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "default" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "icon" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-collection" : {
+      "description" : "A Collection as serialization references it, by entity id.",
+      "type" : "string"
+    },
+    "metabase.lib.schema.id.collection" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-collection"
+    }
+  }
+}

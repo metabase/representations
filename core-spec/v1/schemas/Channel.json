@@ -1,0 +1,371 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "Channel",
+  "description" : "A Channel as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.channel.schema.external-channel",
+  "definitions" : {
+    "metabase.channel.schema.email-details" : {
+      "description" : "The connection `:details` of a `:channel/email` channel: an optional SMTP host and port, as email is otherwise configured by settings.",
+      "type" : "object",
+      "properties" : {
+        "host" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "port" : {
+          "anyOf" : [ {
+            "type" : "integer"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.channel.schema.external-channel" : {
+      "description" : "[[details-by-type]] as a schema, for the row schemas below.",
+      "anyOf" : [ {
+        "description" : "The columns of a Channel selected from the app DB that every type of Channel has.",
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "$ref" : "#/definitions/metabase.channel.schema.http-details"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "type" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "serdes/meta" : {
+            "$ref" : "#/definitions/metabase.models.schema.external-meta"
+          }
+        },
+        "required" : [ "name", "type", "details" ],
+        "additionalProperties" : false
+      }, {
+        "description" : "The columns of a Channel selected from the app DB that every type of Channel has.",
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "$ref" : "#/definitions/metabase.channel.schema.slack-details"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "type" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "serdes/meta" : {
+            "$ref" : "#/definitions/metabase.models.schema.external-meta"
+          }
+        },
+        "required" : [ "name", "type", "details" ],
+        "additionalProperties" : false
+      }, {
+        "description" : "The columns of a Channel selected from the app DB that every type of Channel has.",
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "anyOf" : [ {
+              "$ref" : "#/definitions/metabase.channel.schema.email-details"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "type" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "serdes/meta" : {
+            "$ref" : "#/definitions/metabase.models.schema.external-meta"
+          }
+        },
+        "required" : [ "name", "type" ],
+        "additionalProperties" : false
+      }, {
+        "description" : "The columns of a Channel selected from the app DB that every type of Channel has.",
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "$ref" : "#/definitions/metabase.channel.schema.test-details"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "description" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "type" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "serdes/meta" : {
+            "$ref" : "#/definitions/metabase.models.schema.external-meta"
+          }
+        },
+        "required" : [ "name", "type", "details" ],
+        "additionalProperties" : false
+      } ]
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.channel.schema..channel.details-by-type" : {
+      "description" : "[[details-by-type]] as a schema, for the row schemas below.",
+      "anyOf" : [ {
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "$ref" : "#/definitions/metabase.channel.schema.http-details"
+          }
+        },
+        "required" : [ "details" ],
+        "additionalProperties" : false
+      }, {
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "$ref" : "#/definitions/metabase.channel.schema.slack-details"
+          }
+        },
+        "required" : [ "details" ],
+        "additionalProperties" : false
+      }, {
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "anyOf" : [ {
+              "$ref" : "#/definitions/metabase.channel.schema.email-details"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "additionalProperties" : false
+      }, {
+        "type" : "object",
+        "properties" : {
+          "details" : {
+            "$ref" : "#/definitions/metabase.channel.schema.test-details"
+          }
+        },
+        "required" : [ "details" ],
+        "additionalProperties" : false
+      } ]
+    },
+    "metabase.channel.schema..channel.columns" : {
+      "description" : "The columns of a Channel selected from the app DB that every type of Channel has.",
+      "type" : "object",
+      "properties" : {
+        "created_at" : {
+          "type" : "string",
+          "format" : "date-time"
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "name" : {
+          "type" : "string"
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "type" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "string"
+          } ]
+        },
+        "active" : {
+          "type" : "boolean"
+        },
+        "updated_at" : {
+          "type" : "string",
+          "format" : "date-time"
+        }
+      },
+      "required" : [ "id", "name", "type", "created_at", "updated_at" ],
+      "additionalProperties" : false
+    },
+    "metabase.channel.schema.http-details" : {
+      "description" : "The connection `:details` of a `:channel/http` channel.",
+      "type" : "object",
+      "properties" : {
+        "fe-form-type" : {
+          "type" : "string",
+          "enum" : [ "api-key", "bearer", "basic", "none" ]
+        },
+        "url" : {
+          "description" : "value must be a valid URL."
+        },
+        "auth-method" : {
+          "type" : "string",
+          "enum" : [ "none", "header", "query-param", "request-body" ]
+        },
+        "auth-info" : {
+          "description" : "Value must be a map.",
+          "anyOf" : [ {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }, {
+            "description" : "Value must be a map."
+          } ]
+        },
+        "method" : {
+          "type" : "string",
+          "enum" : [ "get", "post", "put" ]
+        }
+      },
+      "required" : [ "url", "auth-method" ],
+      "additionalProperties" : false
+    },
+    "metabase.channel.schema.slack-details" : {
+      "description" : "The connection `:details` of a `:channel/slack` channel.",
+      "type" : "object",
+      "properties" : {
+        "channel" : {
+          "type" : "string"
+        }
+      },
+      "required" : [ "channel" ],
+      "additionalProperties" : false
+    },
+    "metabase.channel.schema.test-details" : {
+      "description" : "The `:details` of the test-only `:channel/metabase-test` channel, which exists so a test can drive a connection test\n  down each of its branches. `metabase.notification.test-util`'s `can-connect?` reads `:return-type` and then either\n  returns `:return-value` or throws with it as `ex-data`, so what `:return-value` may be depends on which:\n\n  - `\"return-value\"` -- the boolean `can-connect?` returns. `true` is the success branch (`{:ok true}`); `false` is\n    the failure one, echoed back as the 400's `{:connection-result false}`.\n  - `\"throw\"` -- the `ex-data` of the thrown exception, which the endpoint hands back as the 400's `:data`. The\n    field-keyed error map a connection check reports a bad detail with, as in `{:errors {:email \"Invalid email\"}}`.",
+      "anyOf" : [ {
+        "type" : "object",
+        "properties" : { },
+        "additionalProperties" : false
+      }, {
+        "type" : "object",
+        "properties" : {
+          "return-type" : {
+            "const" : "return-value"
+          },
+          "return-value" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "return-type", "return-value" ],
+        "additionalProperties" : false
+      }, {
+        "type" : "object",
+        "properties" : {
+          "return-type" : {
+            "const" : "throw"
+          },
+          "return-value" : {
+            "type" : "object",
+            "properties" : {
+              "errors" : {
+                "type" : "object",
+                "properties" : {
+                  "email" : {
+                    "type" : "string"
+                  }
+                },
+                "additionalProperties" : false
+              }
+            },
+            "required" : [ "errors" ],
+            "additionalProperties" : false
+          }
+        },
+        "required" : [ "return-type", "return-value" ],
+        "additionalProperties" : false
+      } ]
+    }
+  }
+}

@@ -1,0 +1,581 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "TableUserSettings",
+  "description" : "A TableUserSettings as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.warehouse-schema.schema.external-table-user-settings",
+  "definitions" : {
+    "metabase.lib.schema.id.external-user" : {
+      "description" : "A User as serialization references it, by email.",
+      "type" : "string"
+    },
+    "metabase.warehouse-schema.schema.external-table-user-settings" : {
+      "description" : "What an update (or insert) of a TableUserSettings accepts: every column of\n  `:metabase_table_user_settings`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "points_of_interest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_layer_set" : {
+          "type" : "boolean"
+        },
+        "data_source_set" : {
+          "type" : "boolean"
+        },
+        "visibility_type_set" : {
+          "type" : "boolean"
+        },
+        "visibility_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_authority" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_layer" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "show_in_getting_started" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "owner_email" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "owner_user_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description_set" : {
+          "type" : "boolean"
+        },
+        "table_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.table"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_source" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_published" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_order" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.table" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-table"
+    },
+    "metabase.lib.schema.id.external-database" : {
+      "description" : "A Database as serialization references it, by name.",
+      "type" : "string"
+    },
+    "metabase.warehouse-schema.schema.table-user-settings" : {
+      "description" : "What an update (or insert) of a TableUserSettings accepts: every column of\n  `:metabase_table_user_settings`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "points_of_interest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_layer_set" : {
+          "type" : "boolean"
+        },
+        "data_source_set" : {
+          "type" : "boolean"
+        },
+        "visibility_type_set" : {
+          "type" : "boolean"
+        },
+        "points_of_interest_set" : {
+          "type" : "boolean"
+        },
+        "visibility_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_authority" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats_set" : {
+          "type" : "boolean"
+        },
+        "data_layer" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "show_in_getting_started" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "owner_email" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "owner_user_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description_set" : {
+          "type" : "boolean"
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "table_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.table"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_source" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_published" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_order" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.lib.schema.id.user" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-user"
+    },
+    "metabase.warehouse-schema.schema..table-user-settings.update" : {
+      "description" : "What an update (or insert) of a TableUserSettings accepts: every column of\n  `:metabase_table_user_settings`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "points_of_interest" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_layer_set" : {
+          "type" : "boolean"
+        },
+        "data_source_set" : {
+          "type" : "boolean"
+        },
+        "visibility_type_set" : {
+          "type" : "boolean"
+        },
+        "points_of_interest_set" : {
+          "type" : "boolean"
+        },
+        "visibility_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_authority" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats_set" : {
+          "type" : "boolean"
+        },
+        "data_layer" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "show_in_getting_started" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "owner_email" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "owner_user_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.user"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description_set" : {
+          "type" : "boolean"
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "table_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.table"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "display_name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "data_source" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_published" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "caveats" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_type" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "field_order" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-table" : {
+      "type" : "array",
+      "prefixItems" : [ {
+        "$ref" : "#/definitions/metabase.lib.schema.id.external-database"
+      }, {
+        "type" : [ "string", "null" ]
+      }, {
+        "type" : "string"
+      } ],
+      "items" : false,
+      "minItems" : 3
+    },
+    "metabase.lib.schema.id.external-collection" : {
+      "description" : "A Collection as serialization references it, by entity id.",
+      "type" : "string"
+    },
+    "metabase.lib.schema.id.collection" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-collection"
+    }
+  }
+}

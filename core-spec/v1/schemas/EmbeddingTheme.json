@@ -1,0 +1,184 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "EmbeddingTheme",
+  "description" : "An EmbeddingTheme as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.embedding.schema.external-embedding-theme",
+  "definitions" : {
+    "metabase.embedding.schema.external-embedding-theme" : {
+      "description" : "What an update (or insert) of a EmbeddingTheme accepts: every column of `:embedding_theme` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "settings" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.embedding.schema..embedding-theme.settings"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.embedding.schema.embedding-theme" : {
+      "description" : "What an update (or insert) of a EmbeddingTheme accepts: every column of `:embedding_theme` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "settings" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.embedding.schema..embedding-theme.settings"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_default" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.embedding.schema..embedding-theme.update" : {
+      "description" : "What an update (or insert) of a EmbeddingTheme accepts: every column of `:embedding_theme` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "settings" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.embedding.schema..embedding-theme.settings"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "is_default" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.embedding.schema..embedding-theme.settings" : {
+      "description" : "Value must be a map.",
+      "anyOf" : [ {
+        "type" : "object",
+        "additionalProperties" : { }
+      }, {
+        "description" : "Value must be a map."
+      } ]
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    }
+  }
+}

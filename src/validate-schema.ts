@@ -4,7 +4,7 @@ import { readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
 import { createRequire } from "node:module";
-import { resolve } from "path";
+import { basename, resolve } from "path";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
@@ -47,12 +47,6 @@ export type ValidateSchemaResult = {
   failed: number;
 };
 
-function extractModel(schema: any): string | null {
-  const items = schema?.properties?.["serdes/meta"]?.items;
-  const props = items?.properties ?? items?.items?.properties;
-  return props?.model?.const ?? null;
-}
-
 function getModel(doc: any): string | null {
   const meta = doc?.["serdes/meta"];
   if (!Array.isArray(meta) || meta.length === 0) {
@@ -73,31 +67,13 @@ export function validateSchema({
   });
   addFormats(ajv);
 
-  for (const file of globSync("common/*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    ajv.addSchema(body, file);
-  }
-
-  const schemas: Record<string, any> = {};
-  for (const file of globSync("*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    const model = extractModel(raw);
-    if (model) {
-      schemas[model] = body;
-    } else {
-      ajv.addSchema(body, file);
-    }
-  }
-
+  // Each schema is generated from Metabase as `<Model>.json`.
   const validators: Record<string, ValidateFunction> = {};
-  for (const [model, schema] of Object.entries(schemas)) {
-    validators[model] = ajv.compile(schema);
+  for (const file of globSync("*.json", { cwd: schemasDir })) {
+    const { $schema: _$schema, ...body } = JSON.parse(
+      readFileSync(resolve(schemasDir, file), "utf8"),
+    );
+    validators[basename(file, ".json")] = ajv.compile(body);
   }
 
   const files = globSync(IMPORT_PATHS, { cwd: folder });

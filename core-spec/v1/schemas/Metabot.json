@@ -1,0 +1,403 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "title" : "Metabot",
+  "description" : "A Metabot as serialization writes it, with portable references in place of ids.",
+  "$ref" : "#/definitions/metabase.metabot.schema.external-metabot",
+  "definitions" : {
+    "metabase.metabot.schema.metabot" : {
+      "description" : "What an update (or insert) of a Metabot accepts: every column of `:metabot` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "use_verified_content" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.models.schema.external-meta" : {
+      "description" : "The `:serdes/meta` path of a serialized entity: its containers, outermost first, then the entity itself. A file\n  stores just the `:model` of the entity, and its nested entities store none.",
+      "type" : "array",
+      "items" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "model" : {
+            "type" : "string"
+          },
+          "label" : {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "null"
+            } ]
+          }
+        },
+        "required" : [ "model" ],
+        "additionalProperties" : false
+      }
+    },
+    "metabase.metabot.schema.metabot-prompt" : {
+      "description" : "What an update (or insert) of a MetabotPrompt accepts: every column of `:metabot_prompt` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "model" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "id" : {
+          "description" : "value must be an integer greater than zero.",
+          "type" : "integer",
+          "minimum" : 1
+        },
+        "metabot_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "card_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.card"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "prompt" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "required" : [ "id" ],
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-card" : {
+      "description" : "A Card as serialization references it, by entity id.",
+      "type" : "string"
+    },
+    "metabase.metabot.schema.external-metabot" : {
+      "description" : "What an update (or insert) of a Metabot accepts: every column of `:metabot` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "use_verified_content" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "prompts" : {
+          "anyOf" : [ {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/definitions/metabase.metabot.schema.external-metabot-prompt"
+            }
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.metabot.schema..metabot.update" : {
+      "description" : "What an update (or insert) of a Metabot accepts: every column of `:metabot` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "use_verified_content" : {
+          "anyOf" : [ {
+            "type" : "boolean"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "name" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "description" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "collection_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.collection"
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.external-collection" : {
+      "description" : "A Collection as serialization references it, by entity id.",
+      "type" : "string"
+    },
+    "metabase.metabot.schema.external-metabot-prompt" : {
+      "description" : "What an update (or insert) of a MetabotPrompt accepts: every column of `:metabot_prompt` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "prompt" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "model" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "card_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.card"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "serdes/meta" : {
+          "$ref" : "#/definitions/metabase.models.schema.external-meta"
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.collection" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-collection"
+    },
+    "metabase.metabot.schema..metabot-prompt.update" : {
+      "description" : "What an update (or insert) of a MetabotPrompt accepts: every column of `:metabot_prompt` except `id`, all optional.",
+      "type" : "object",
+      "properties" : {
+        "updated_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "model" : {
+          "anyOf" : [ {
+            "anyOf" : [ {
+              "type" : "string"
+            }, {
+              "type" : "string"
+            } ]
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "card_id" : {
+          "anyOf" : [ {
+            "$ref" : "#/definitions/metabase.lib.schema.id.card"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "entity_id" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "prompt" : {
+          "anyOf" : [ {
+            "type" : "string"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "created_at" : {
+          "anyOf" : [ {
+            "type" : "string",
+            "format" : "date-time"
+          }, {
+            "type" : "null"
+          } ]
+        },
+        "metabot_id" : {
+          "anyOf" : [ {
+            "description" : "value must be an integer greater than zero.",
+            "type" : "integer",
+            "minimum" : 1
+          }, {
+            "type" : "null"
+          } ]
+        }
+      },
+      "additionalProperties" : false
+    },
+    "metabase.lib.schema.id.card" : {
+      "$ref" : "#/definitions/metabase.lib.schema.id.external-card"
+    }
+  }
+}

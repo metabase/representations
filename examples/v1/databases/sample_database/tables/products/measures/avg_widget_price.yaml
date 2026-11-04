@@ -2,10 +2,6 @@ name: Average Widget Price
 entity_id: K7cMzOau9SI2h8hCx936w
 creator_id: admin@example.com
 description: Average price of Widget products — uses Widget Products segment and Average Product Price measure
-table_id:
-- Sample Database
-- null
-- PRODUCTS
 definition:
   "lib/type": mbql/query
   database: Sample Database

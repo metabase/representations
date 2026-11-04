@@ -1,10 +1,6 @@
 name: Order Count
 entity_id: DBap2523KuN4Lt-cYrUjF
 creator_id: admin@example.com
-table_id:
-- Sample Database
-- null
-- ORDERS
 definition:
   "lib/type": mbql/query
   database: Sample Database

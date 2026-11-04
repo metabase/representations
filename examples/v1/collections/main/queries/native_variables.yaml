@@ -18,14 +18,14 @@ dataset_query:
           AND {{is_active}}
       template-tags:
         - type: number
-          sectionId: number
+          sectionid: number
           name: min_total
           id: aa000001-0000-0000-0000-000000000001
           display-name: Minimum Total
           default: 50
           required: true
         - type: date
-          sectionId: date
+          sectionid: date
           name: after_date
           id: aa000002-0000-0000-0000-000000000002
           display-name: After Date
@@ -36,7 +36,7 @@ dataset_query:
           display-name: User ID
           default: '1'
         - type: boolean
-          sectionId: boolean
+          sectionid: boolean
           name: is_active
           id: aa000004-0000-0000-0000-000000000004
           display-name: Is Active
