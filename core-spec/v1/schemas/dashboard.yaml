@@ -199,14 +199,16 @@ $defs:
         then: { $ref: "common/id.yaml#/$defs/entity_id" }
       dashboard_tab_id:
         description: >
-          Tab FK as [dashboard_entity_id, tab_entity_id], null for untabbed cards.
-        type: [array, "null"]
-        if: { type: array }
-        then:
-          items:
-            $ref: "common/id.yaml#/$defs/entity_id"
-          minItems: 2
-          maxItems: 2
+          Tab FK as the tab's entity_id, or as [dashboard_entity_id, tab_entity_id] in older exports,
+          null for untabbed cards.
+        anyOf:
+          - type: "null"
+          - $ref: "common/id.yaml#/$defs/entity_id"
+          - type: array
+            items:
+              $ref: "common/id.yaml#/$defs/entity_id"
+            minItems: 2
+            maxItems: 2
       inline_parameters:
         type: array
         description: >
