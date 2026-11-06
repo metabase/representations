@@ -38,9 +38,11 @@ const validateCard = ajv.compile(loadSchema("card.yaml"));
 
 // The example entity in the spec's Custom Viz Plugin section.
 const PLUGIN = {
+  entity_id: "cUsToMvIzPlUgIn0ExAmP",
   identifier: "thumbs",
-  enabled: true,
-  "serdes/meta": [{ model: "CustomVizPlugin", id: "thumbs", label: "thumbs" }],
+  "serdes/meta": [
+    { model: "CustomVizPlugin", id: "cUsToMvIzPlUgIn0ExAmP", label: "thumbs" },
+  ],
 };
 
 describe("custom viz plugin schema", () => {
@@ -49,6 +51,7 @@ describe("custom viz plugin schema", () => {
     [
       "only the required fields",
       {
+        entity_id: "cUsToMvIzPlUgIn0ExAmP",
         identifier: "thumbs",
         "serdes/meta": [{ model: "CustomVizPlugin" }],
       },
@@ -74,6 +77,8 @@ describe("custom viz plugin schema", () => {
   };
 
   it.each([
+    ["no entity_id", without("entity_id")],
+    ["an entity_id that isn't a NanoID", { ...PLUGIN, entity_id: "thumbs" }],
     ["no identifier", without("identifier")],
     ["an empty identifier", { ...PLUGIN, identifier: "" }],
     ["an identifier with a colon", { ...PLUGIN, identifier: "acme:thumbs" }],
@@ -112,7 +117,6 @@ describe("custom viz plugin schema", () => {
         ],
       },
     ],
-    ["enabled that isn't a boolean", { ...PLUGIN, enabled: "yes" }],
     [
       "a created_at that isn't a timestamp",
       { ...PLUGIN, created_at: "yesterday" },

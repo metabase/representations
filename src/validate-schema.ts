@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
 import { createRequire } from "node:module";
-import { basename, dirname, resolve } from "path";
+import { dirname, resolve } from "path";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
@@ -56,13 +56,6 @@ const CHECKS: Record<string, Check> = {
   CustomVizPlugin(doc, fullPath) {
     const errors: ValidationError[] = [];
     const dir = dirname(fullPath);
-    const directory = basename(dir);
-    if (doc.identifier !== directory) {
-      errors.push({
-        path: "/identifier",
-        message: `must equal the directory's name "${directory}"`,
-      });
-    }
     if (!existsSync(resolve(dir, "dist", "index.js"))) {
       errors.push({
         path: "/",
@@ -79,8 +72,9 @@ const CHECKS: Record<string, Check> = {
       return errors;
     }
     let name: unknown;
+    let icon: unknown;
     try {
-      name = JSON.parse(readFileSync(manifestPath, "utf8")).name;
+      ({ name, icon } = JSON.parse(readFileSync(manifestPath, "utf8")));
     } catch (e: any) {
       errors.push({
         path: "/",
@@ -94,6 +88,14 @@ const CHECKS: Record<string, Check> = {
       errors.push({
         path: "/identifier",
         message: `must equal the manifest's name ${JSON.stringify(name)}`,
+      });
+    }
+    // The icon is the one asset an instance serves, and Metabase accepts it
+    // only as an SVG file: it refuses the upload and fails the import otherwise.
+    if (typeof icon === "string" && !icon.toLowerCase().endsWith(".svg")) {
+      errors.push({
+        path: "/",
+        message: `manifest icon ${JSON.stringify(icon)} must be an SVG file`,
       });
     }
     return errors;

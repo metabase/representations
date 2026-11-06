@@ -2,26 +2,26 @@ $schema: https://json-schema.org/draft/2020-12/schema
 title: Custom Viz Plugin
 description: >
   The `custom_viz_plugin.yaml` at the root of a custom viz plugin's directory,
-  `custom_viz_plugins/<identifier>/custom_viz_plugin.yaml`: the plugin's own
-  serialized entity. Unlike other entities it has no `entity_id`: its
-  `identifier` is its identity.
+  `custom_viz_plugins/<directory>/custom_viz_plugin.yaml`: the plugin's own
+  serialized entity, identified by its `entity_id` like every other. Its
+  `identifier` must be the manifest's `name`, which this file can't check.
+  The directory's name is not significant.
 type: object
 required:
+  - entity_id
   - identifier
   - serdes/meta
 properties:
+  entity_id:
+    $ref: "common/id.yaml#/$defs/entity_id"
   identifier:
     type: string
     description: >
       The plugin's identifier: letters, digits, spaces, `.`, `_` and `-`,
       starting with a letter or digit and not ending with a space. It names
-      the plugin's directory and the `custom:<identifier>` display type, and
+      the `custom:<identifier>` display type, and
       `:` separates the parts of `custom:<identifier>:<setting>` keys.
     pattern: '^[A-Za-z0-9]([A-Za-z0-9 ._-]*[A-Za-z0-9._-])?$'
-  enabled:
-    type: boolean
-    description: >
-      Whether cards and dashboards may use the plugin. `true` when absent.
   created_at:
     type: string
     format: date-time
@@ -38,10 +38,10 @@ properties:
       properties:
         id:
           type: string
-          description: Entity identifier (matches identifier)
+          description: Entity identifier (matches entity_id)
         label:
           type: string
-          description: The plugin's identifier
+          description: The plugin's identifier, slugified
         model:
           type: string
           const: CustomVizPlugin

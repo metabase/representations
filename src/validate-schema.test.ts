@@ -100,21 +100,28 @@ describe("validateSchema", () => {
           : [];
       };
 
-      it("passes when the identifier, directory and manifest agree", () => {
+      it("passes when the identifier and manifest agree", () => {
         const { passed, failed } = validateSchema({ folder: workdir });
         expect(passed).toBe(1);
         expect(failed).toBe(0);
       });
 
-      it("fails when the directory's name differs", () => {
-        renameSync(
-          join(workdir, PLUGIN),
-          join(workdir, "custom_viz_plugins", "Thumbs"),
+      it("fails when the entity has no entity_id, like any other entity", () => {
+        writeFileSync(
+          join(workdir, ENTITY),
+          "identifier: thumbs\nserdes/meta:\n- model: CustomVizPlugin\n",
         );
 
-        expect(messages()).toEqual([
-          'must equal the directory\'s name "Thumbs"',
-        ]);
+        expect(messages()).toEqual(["must have required property 'entity_id'"]);
+      });
+
+      it("passes whatever the directory is called", () => {
+        renameSync(
+          join(workdir, PLUGIN),
+          join(workdir, "custom_viz_plugins", "Thumbs Up"),
+        );
+
+        expect(messages()).toEqual([]);
       });
 
       it("fails when the manifest's name differs", () => {
@@ -129,6 +136,26 @@ describe("validateSchema", () => {
         writeFileSync(join(workdir, MANIFEST), '{ "icon": "icon.svg" }\n');
 
         expect(messages()).toEqual(["metabase-plugin.json has no name"]);
+      });
+
+      it("fails when the manifest's icon is not an SVG file", () => {
+        writeFileSync(
+          join(workdir, MANIFEST),
+          '{ "name": "thumbs", "icon": "icon.png" }\n',
+        );
+
+        expect(messages()).toEqual([
+          'manifest icon "icon.png" must be an SVG file',
+        ]);
+      });
+
+      it("accepts an SVG icon whatever the case of its extension", () => {
+        writeFileSync(
+          join(workdir, MANIFEST),
+          '{ "name": "thumbs", "icon": "./Icon.SVG" }\n',
+        );
+
+        expect(messages()).toEqual([]);
       });
 
       it("fails when the bundle is missing", () => {
@@ -161,7 +188,7 @@ describe("validateSchema", () => {
         writeFileSync(join(workdir, MANIFEST), '{ "name": "thumbs-down" }\n');
 
         expect(messages()).toEqual([
-          'must equal the directory\'s name "thumbs"',
+          "must have required property 'entity_id'",
           'must equal the manifest\'s name "thumbs-down"',
         ]);
       });

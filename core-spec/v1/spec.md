@@ -37,7 +37,7 @@ Metabase uses two ways of identifying entities: `entity_id` (NanoID) and natural
 
 ### NanoID
 
-`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Every entity carries one except a [Custom Viz Plugin](#custom-viz-plugin), whose `identifier` is its identity. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **unique per entity type** within an instance — no two entities of the same type may share the same `entity_id`.
+`entity_id` is a 21-character [NanoID](https://github.com/ai/nanoid) string (alphabet: `A-Za-z0-9_-`). It is the primary portable identifier used in cross-references. Every entity carries one. Once assigned, it does not change — the entity can be renamed or moved, but the `entity_id` remains stable. Entity IDs must be **unique per entity type** within an instance — no two entities of the same type may share the same `entity_id`.
 
 Generate a NanoID with the `nanoid` CLI:
 
@@ -96,7 +96,7 @@ serdes/meta:
 
 **Important:** Metabase ignores directory structure when importing — all collection relationships are determined solely by each entity's `collection_id` field. The layout below is how Metabase represents user content when exporting; it mirrors the collection hierarchy on disk for readability, but only `collection_id` is authoritative.
 
-Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (segments and measures, plus each Library-published table's metadata, which this spec doesn't cover), `python_libraries/` (also accepted as `python-libraries/`), `transforms/`, and `glossary/` (glossary terms, which this spec doesn't cover), plus each data app's `data_apps/<slug>/data_app.yaml` and each custom viz plugin's `custom_viz_plugins/<identifier>/custom_viz_plugin.yaml`. Files outside these directories are ignored during import.
+Metabase only checks for importable YAML files in these top-level directories: `actions/`, `collections/`, `databases/` (segments and measures, plus each Library-published table's metadata, which this spec doesn't cover), `python_libraries/` (also accepted as `python-libraries/`), `transforms/`, and `glossary/` (glossary terms, which this spec doesn't cover), plus each data app's `data_apps/<slug>/data_app.yaml` and each custom viz plugin's `custom_viz_plugins/<directory>/custom_viz_plugin.yaml`. Files outside these directories are ignored during import.
 
 Collections are organized by namespace. The `main` namespace holds regular content (cards, dashboards, etc.), `snippets` holds SQL snippet collections, `transforms` holds transform entities, `data_actions` holds the `data-actions` namespace, its root and collections of query actions without a model (see Action), and `data_apps` holds the `data-apps` namespace, the collections of data apps (see Data App). Subcollections must set `parent_id` to the entity_id of their parent collection. All entity types within a collection are stored flat in the same folder — there are no `cards/`, `dashboards/` subdirectories.
 
@@ -110,12 +110,12 @@ export-root/
 │       ├── data_app.yaml                   # Manifest
 │       └── dist/index.js                   # Built bundle, at the manifest's `path`
 ├── custom_viz_plugins/                     # Custom viz plugins (see Custom Viz Plugin)
-│   └── {identifier}/
+│   └── {directory}/
 │       ├── custom_viz_plugin.yaml          # The plugin's entity
 │       ├── metabase-plugin.json            # The bundle's manifest
 │       └── dist/
 │           ├── index.js                    # Built bundle
-│           └── assets/                     # The icon the manifest names
+│           └── assets/                     # The SVG icon the manifest names
 ├── collections/
 │   ├── data_apps/                          # `data-apps` namespace: each data app's collection
 │   │   ├── {collection_slug}.yaml          # The app's collection (sibling of its folder)
@@ -3363,25 +3363,27 @@ serdes/meta:
 
 ## Custom Viz Plugin
 
-A custom viz plugin adds a visualization to an instance: a bundle built with `@metabase/custom-viz` that cards render with `display: custom:<identifier>`. It lives in its own directory, `custom_viz_plugins/{identifier}/`, and is loaded when Metabase imports the repository. Like a data app, it is not a single YAML file: it is the plugin's serialized entity with the built bundle beside it, unpacked. It owns no collection and no content; cards that use it live wherever they live and name it only through their `display`.
+A custom viz plugin adds a visualization to an instance: a bundle built with `@metabase/custom-viz` that cards render with `display: custom:<identifier>`. It lives in its own directory under `custom_viz_plugins/`, and is loaded when Metabase imports the repository. Like a data app, it is not a single YAML file: it is the plugin's serialized entity with the built bundle beside it, unpacked. It owns no collection and no content; cards that use it live wherever they live and name it only through their `display`.
 
 ### Directory Layout
 
 ```
 custom_viz_plugins/
-└── {identifier}/
+└── {directory}/
     ├── custom_viz_plugin.yaml          # The plugin's entity (see below)
     ├── metabase-plugin.json            # The bundle's manifest
     └── dist/
         ├── index.js                    # Built bundle
-        └── assets/                     # The icon the manifest names
+        └── assets/                     # The SVG icon the manifest names
 ```
 
-The bundle is the output of `npm run build` in a `@metabase/custom-viz` project, laid out as the project is: the manifest at the root, the JavaScript at `dist/index.js`, and its icon under `dist/assets/`. It is the same set of files the project's `pack` command archives for upload through Admin; the repository holds them unpacked so a change to the plugin is reviewable.
+The bundle is the output of `npm run build` in a `@metabase/custom-viz` project, laid out as the project is: the manifest at the root, the JavaScript at `dist/index.js`, and its SVG icon under `dist/assets/`. It is the same set of files the project's `pack` command archives for upload through Admin; the repository holds them unpacked so a change to the plugin is reviewable. Every file is text, so a plugin diffs and reviews like the rest of the repository.
 
-**Identity.** A plugin has no `entity_id`: its `identifier` is its identity, and it is what cards reference. The identifier appears three times, and all three must agree or the pull fails naming the file: the directory's name `{identifier}`, the entity's `identifier`, and the `name` in `metabase-plugin.json`. An identifier is letters, digits, spaces, `.`, `_` and `-`, starting with a letter or digit and not ending with a space: it names a directory, and `:` separates the parts of the `custom:<identifier>:<setting>` keys in visualization settings. Renaming a plugin means every card that uses it changes `display`.
+**Identity.** A plugin is identified by its `entity_id`, like every other entity. Its `identifier` is a unique natural key: it is what cards reference, and the entity's `identifier` and the `name` in `metabase-plugin.json` must agree, or the plugin loads in an error state naming the mismatch. The directory's name is not checked: Metabase exports a plugin to its identifier slugified (lower-cased, characters other than letters, digits, `_` and `.` replaced by `_`), adding a suffix such as `_2` when two plugins' slugs coincide, as it does for collections. A directory added by hand can have any name, but an export writes the plugin's YAML and bundle to the slugified identifier and leaves files Metabase doesn't own where they are, so if you keep source beside the bundle, name the directory with the slug. An instance that already holds a plugin with the file's identifier under another `entity_id` refuses the import and asks for that plugin to be deleted first; cards keep working once the repository's plugin is pulled, since they reference the identifier. An identifier is letters, digits, spaces, `.`, `_` and `-`, starting with a letter or digit and not ending with a space, and `:` separates the parts of the `custom:<identifier>:<setting>` keys in visualization settings. Renaming a plugin means every card that uses it changes `display`.
 
-Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is ignored, as are dotfiles. Source files a developer keeps beside the bundle (`src/`, `package.json`) are ignored too. The files loaded are the manifest, `dist/index.js`, and the icon the manifest names under `dist/assets/`, which is exactly what `pack` archives. Other files under `dist/` are ignored.
+Other YAML in the plugin's directory is the plugin's own and is ignored, as are dotfiles. Source files a developer keeps beside the bundle (`src/`, `package.json`) are ignored too. The files loaded are the manifest, `dist/index.js`, and the icon the manifest names under `dist/assets/`, which is exactly what `pack` archives. Other files under `dist/` are ignored.
+
+**Icon.** The icon is the one asset an instance serves, and it must be an SVG file: `icon` in the manifest ends in `.svg` (any case). A bitmap icon (PNG, JPEG, GIF, WebP, ...) fails the plugin: `pack` refuses to archive it, an instance refuses the upload, and an import records the plugin as an error naming the icon. The validator fails the entity the same way.
 
 ### Entity
 
@@ -3389,10 +3391,12 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `identifier` | string | Yes | The plugin's identifier, equal to its directory's name and the manifest's `name` |
-| `enabled` | boolean | No | Whether cards and dashboards may use the plugin. `true` when absent |
+| `entity_id` | string | Yes | NanoID, the plugin's identity |
+| `identifier` | string | Yes | The plugin's identifier, equal to the manifest's `name` |
 | `created_at` | string | No | ISO 8601 timestamp |
 | `serdes/meta` | array | Yes | Identity path with `model: CustomVizPlugin` |
+
+Whether a plugin is enabled is each instance's own setting and is not in the file.
 
 ### Manifest
 
@@ -3401,7 +3405,7 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | The plugin's identifier; must equal the entity's `identifier`. Without it the plugin has no identity, and the validator fails the entity |
-| `icon` | string | No | Filename of the plugin's icon under `dist/assets/` |
+| `icon` | string | No | Filename of the plugin's icon under `dist/assets/`; must be an SVG file (`.svg`) |
 | `metabase.version` | string | No | Semver range of Metabase versions the plugin supports (e.g., `">=1.64 <1.66"`); an instance outside it warns |
 | `sdk.version` | string | No | Version of `@metabase/custom-viz` the bundle was built with. `pack` stamps it into the archived copy, so it is usually absent on disk; an instance only warns when it's missing or mismatched |
 
@@ -3410,8 +3414,8 @@ Other YAML under `custom_viz_plugins/{identifier}/` is the plugin's own and is i
 **`custom_viz_plugins/thumbs/custom_viz_plugin.yaml`:**
 
 ```yaml
+entity_id: cUsToMvIzPlUgIn0ExAmP
 identifier: thumbs
-enabled: true
 serdes/meta:
 - model: CustomVizPlugin
 ```
@@ -3468,7 +3472,7 @@ serdes/meta:
 ## Version History
 
 - **1.7.0**: Custom Viz Plugin
-  - New `CustomVizPlugin` entity at `custom_viz_plugins/{identifier}/custom_viz_plugin.yaml`, keyed by `identifier` rather than `entity_id`, with its bundle unpacked beside it
+  - New `CustomVizPlugin` entity at `custom_viz_plugins/{directory}/custom_viz_plugin.yaml`, with its bundle unpacked beside it
   - Card `display` accepts `custom:<identifier>`; custom visualization settings documented
 - **1.0.0**: Initial release
   - Entity key system (NanoID and foreign key references)
