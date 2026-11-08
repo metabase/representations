@@ -1445,7 +1445,7 @@ When no value is provided, the entire `WHERE {{tag}}` clause is omitted (the que
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `dimension` | array | Yes | Field clause: `[field, options, Field FK]` (see [Field References](#field-references)) |
+| `field-id` | array | Yes | Field FK of the field to filter (see [Field References](#field-references)). Older exports have a `dimension` field clause `[field, options, Field FK]` instead, which is still accepted. |
 | `widget-type` | string | Yes | Filter widget type — any value from [Parameter Types](#parameter-types) |
 | `default` | any | No | Default filter value |
 | `required` | boolean | No | Whether a value must be provided |
@@ -1459,13 +1459,11 @@ native:
       name: category_filter
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Category
-      dimension:
-      - field
-      - {}
-      - - Sample Database
-        - PUBLIC
-        - PRODUCTS
-        - CATEGORY
+      field-id:
+      - Sample Database
+      - PUBLIC
+      - PRODUCTS
+      - CATEGORY
       widget-type: string/=
       default: null
 ```
@@ -1482,11 +1480,11 @@ A temporal grouping variable. Metabase replaces the tag with a `DATE_TRUNC(unit,
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `dimension` | array | Yes | Field clause: `[field, options, Field FK]` — the temporal column to group |
+| `field-id` | array | Yes | Field FK of the temporal column to group. Older exports have a `dimension` field clause `[field, options, Field FK]` instead, which is still accepted. |
 | `default` | string | No | Default temporal unit (e.g., `month`) |
-| `alias` | string | No | Overrides the SQL column name used inside the generated expression. By default Metabase uses the column name from `dimension` (e.g., `CREATED_AT`). When the SQL uses a table alias, set `alias` to match so the generated expression references the correct name. |
+| `alias` | string | No | Overrides the SQL column name used inside the generated expression. By default Metabase uses the column name of `field-id` (e.g., `CREATED_AT`). When the SQL uses a table alias, set `alias` to match so the generated expression references the correct name. |
 
-Without `alias` — Metabase uses the column name from `dimension` (`CREATED_AT`):
+Without `alias` — Metabase uses the column name of `field-id` (`CREATED_AT`):
 
 ```yaml
 native:
@@ -1497,13 +1495,11 @@ native:
       id: a1b2c3d4-e5f6-7890-abcd-ef1234567890
       display-name: Created At
       default: month
-      dimension:
-      - field
-      - {}
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - CREATED_AT
+      field-id:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      - CREATED_AT
 ```
 
 Compiled SQL (value `month`): `SELECT DATE_TRUNC('month', CREATED_AT) AS created_at, COUNT(*) FROM ORDERS GROUP BY DATE_TRUNC('month', CREATED_AT)`
@@ -1520,13 +1516,11 @@ native:
       display-name: Created At
       default: month
       alias: o.CREATED_AT
-      dimension:
-      - field
-      - {}
-      - - Sample Database
-        - PUBLIC
-        - ORDERS
-        - CREATED_AT
+      field-id:
+      - Sample Database
+      - PUBLIC
+      - ORDERS
+      - CREATED_AT
 ```
 
 Compiled SQL (value `month`): `SELECT DATE_TRUNC('month', o.CREATED_AT) AS created_at, COUNT(*) FROM ORDERS o GROUP BY DATE_TRUNC('month', o.CREATED_AT)`
