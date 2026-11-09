@@ -2701,6 +2701,7 @@ The `document` field contains a recursive tree of nodes. The root node is always
 | `tableRow` | Table row (contains `tableCell` or `tableHeader` nodes) |
 | `tableCell` | Table cell |
 | `tableHeader` | Table header cell |
+| `supportingText` | Text cell next to a card in a `flexContainer` (contains `paragraph`, `heading`, `bulletList`, `orderedList`, `blockquote`, or `codeBlock` nodes) |
 
 **Block nodes (with attrs):**
 
@@ -2709,6 +2710,8 @@ The `document` field contains a recursive tree of nodes. The root node is always
 | `heading` | Heading block | `level` (integer 1–6) |
 | `image` | Image embed | `src` (string). Optional: `alt`, `title` |
 | `cardEmbed` | Embedded card/query | `id` (card reference path, see below). Optional: `name` |
+| `resizeNode` | Gives its child a height (contains one `cardEmbed` or `flexContainer`, see below) | None. Optional: `height`, `minHeight` (pixels) |
+| `flexContainer` | Row of side-by-side cells (contains 1–3 `cardEmbed` or `supportingText` nodes) | None. Optional: `columnWidths` (array of width percentages) |
 | `smartLink` | Reference to another entity | `entityId` (entity reference path), `model` (string) |
 
 **Inline nodes:**
@@ -2733,6 +2736,10 @@ The `id` attribute of a `cardEmbed` node is a **serdes path** — an array with 
 
 The `smartLink` node uses the same path format for `entityId`, but the `model` can be any entity type (card, dashboard, collection, table, etc.).
 
+#### Card Embed Height
+
+Wrap each top-level `cardEmbed` or `flexContainer` in a `resizeNode`. With no `resizeNode`, Metabase shows only the card's title. `height` defaults to 442 and `minHeight` to 280, so you can leave out `attrs`.
+
 ### Example
 
 ```yaml
@@ -2752,12 +2759,14 @@ document:
     content:
     - type: text
       text: "Overview of product performance metrics."
-  - type: cardEmbed
-    attrs:
-      id:
-      - model: Card
-        id: h5F2EjHsRd73Dqqh8sAtd
-      name: Basic Aggregations
+  - type: resizeNode
+    content:
+    - type: cardEmbed
+      attrs:
+        id:
+        - model: Card
+          id: h5F2EjHsRd73Dqqh8sAtd
+        name: Basic Aggregations
   - type: bulletList
     content:
     - type: listItem
