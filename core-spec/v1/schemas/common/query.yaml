@@ -591,9 +591,15 @@ $defs:
           properties:
             type: { const: dimension }
         then:
-          required: [dimension, widget-type]
+          required: [widget-type]
+          anyOf:
+            - required: [field-id]
+            - required: [dimension]
           properties:
+            field-id:
+              $ref: "id.yaml#/$defs/field_id"
             dimension:
+              description: Field clause the tag maps to, in older exports; use field-id instead.
               $ref: "#/$defs/expression"
             widget-type:
               type: string
@@ -605,9 +611,14 @@ $defs:
           properties:
             type: { const: temporal-unit }
         then:
-          required: [dimension]
+          anyOf:
+            - required: [field-id]
+            - required: [dimension]
           properties:
+            field-id:
+              $ref: "id.yaml#/$defs/field_id"
             dimension:
+              description: Field clause the tag maps to, in older exports; use field-id instead.
               $ref: "#/$defs/expression"
             alias:
               type: string
