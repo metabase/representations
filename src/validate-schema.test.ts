@@ -40,6 +40,29 @@ describe("validateSchema", () => {
       expect(failed).toBe(0);
     });
 
+    it.each(["constructor", "toString", "__proto__", "hasOwnProperty"])(
+      "rejects unknown model %s even when it names an Object property",
+      (model) => {
+        mkdirSync(join(workdir, "collections"), { recursive: true });
+        writeFileSync(
+          join(workdir, "collections", "unknown.yaml"),
+          yaml.dump({ "serdes/meta": [{ model }] }),
+        );
+
+        expect(validateSchema({ folder: workdir })).toEqual({
+          passed: 0,
+          failed: 1,
+          results: [
+            {
+              file: "collections/unknown.yaml",
+              status: "fail",
+              errors: [{ path: "/", message: `unknown model "${model}"` }],
+            },
+          ],
+        });
+      },
+    );
+
     it("fails files missing serdes/meta", () => {
       mkdirSync(join(workdir, "collections", "main"), { recursive: true });
       writeFileSync(
