@@ -26,7 +26,7 @@ jobs:
 
       - name: Start Metabase
         env:
-          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
+          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.STAGING_MB_ALL_FEATURES_TOKEN }}
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
