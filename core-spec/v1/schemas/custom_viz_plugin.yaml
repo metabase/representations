@@ -18,11 +18,10 @@ properties:
   identifier:
     type: string
     description: >
-      The plugin's identifier: letters, digits, spaces, `.`, `_` and `-`,
-      starting with a letter or digit and not ending with a space. It names
+      The plugin's identifier, any non-empty string without `:`. It names
       the `custom:<identifier>` display type, and
       `:` separates the parts of `custom:<identifier>:<setting>` keys.
-    pattern: '^[A-Za-z0-9]([A-Za-z0-9 ._-]*[A-Za-z0-9._-])?$'
+    pattern: '^[^:]+$'
   created_at:
     type: string
     format: date-time

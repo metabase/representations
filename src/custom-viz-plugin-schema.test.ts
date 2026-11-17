@@ -65,6 +65,10 @@ describe("custom viz plugin schema", () => {
       "an identifier with spaces",
       { ...PLUGIN, identifier: "Calendar Heatmap" },
     ],
+    [
+      "an identifier a directory can't be named after",
+      { ...PLUGIN, identifier: "@acme/thumbs #2" },
+    ],
   ])("accepts %s", (_, plugin) => {
     expect(validatePlugin(plugin), JSON.stringify(validatePlugin.errors)).toBe(
       true,
@@ -82,26 +86,6 @@ describe("custom viz plugin schema", () => {
     ["no identifier", without("identifier")],
     ["an empty identifier", { ...PLUGIN, identifier: "" }],
     ["an identifier with a colon", { ...PLUGIN, identifier: "acme:thumbs" }],
-    ["an identifier with a slash", { ...PLUGIN, identifier: "acme/thumbs" }],
-    [
-      "an identifier with a backslash",
-      { ...PLUGIN, identifier: "acme\\thumbs" },
-    ],
-    [
-      "an identifier ending with a space",
-      { ...PLUGIN, identifier: "sun burst " },
-    ],
-    [
-      "an identifier starting with a space",
-      { ...PLUGIN, identifier: " sun burst" },
-    ],
-    ["an identifier starting with a dot", { ...PLUGIN, identifier: ".thumbs" }],
-    [
-      "an identifier starting with a dash",
-      { ...PLUGIN, identifier: "-thumbs" },
-    ],
-    ["an identifier with an @", { ...PLUGIN, identifier: "@acme/thumbs" }],
-    ["an identifier with a #", { ...PLUGIN, identifier: "thumbs#2" }],
     ["no serdes/meta", without("serdes/meta")],
     [
       "serdes/meta of another model",
@@ -151,6 +135,7 @@ describe("card display", () => {
     ["a custom visualization", "custom:thumbs"],
     ["a custom visualization with dots and dashes", "custom:acme.viz-2"],
     ["a custom visualization with spaces", "custom:Calendar Heatmap"],
+    ["a custom visualization with a slash", "custom:acme/thumbs"],
   ])("accepts %s", (_, display) => {
     const card = { ...CARD, display };
     expect(validateCard(card), JSON.stringify(validateCard.errors)).toBe(true);
@@ -160,9 +145,6 @@ describe("card display", () => {
     ["an unknown display type", "thumbs"],
     ["a custom prefix with no identifier", "custom:"],
     ["a custom identifier with a colon", "custom:acme:thumbs"],
-    ["a custom identifier with a slash", "custom:acme/thumbs"],
-    ["a custom identifier starting with a dot", "custom:.thumbs"],
-    ["a custom identifier ending with a space", "custom:thumbs "],
   ])("rejects %s", (_, display) => {
     expect(validateCard({ ...CARD, display })).toBe(false);
   });
