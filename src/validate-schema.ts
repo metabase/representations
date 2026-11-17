@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
 import { createRequire } from "node:module";
-import { dirname, resolve } from "path";
+import { basename, dirname, resolve } from "path";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
@@ -33,24 +33,70 @@ export type ValidationError = {
   message: string;
 };
 
+// Warnings flag what Metabase imports but would not export as written; they
+// never fail a file.
 export type ValidationResult =
-  | { file: string; model: string; status: "ok" }
+  | {
+      file: string;
+      model: string;
+      status: "ok";
+      warnings: ValidationError[];
+    }
   | {
       file: string;
       model?: string;
       status: "fail";
       errors: ValidationError[];
+      warnings: ValidationError[];
     };
 
 export type ValidateSchemaResult = {
   results: ValidationResult[];
   passed: number;
   failed: number;
+  warned: number;
 };
 
 // Rules a schema can't express because they reach outside the file: its
 // path, or a sibling file. Keyed by model, like the validators.
 type Check = (doc: any, fullPath: string) => ValidationError[];
+
+// Mirrors `slugify-name` in Metabase's
+// `metabase-enterprise.serialization.v2.storage.util`, which names the
+// directory an export writes a plugin to. Valid identifiers are ASCII, so its
+// byte and character limits are the same 100-character cap.
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}_.]/gu, "_")
+    .slice(0, 100);
+}
+
+const WARNINGS: Record<string, Check> = {
+  CustomVizPlugin(doc, fullPath) {
+    if (typeof doc.identifier !== "string") {
+      return [];
+    }
+    const directory = basename(dirname(fullPath));
+    const slug = slugify(doc.identifier);
+    // An export adds `_2`, `_3`, ... when two plugins' slugs coincide.
+    const suffix = directory.startsWith(slug)
+      ? directory.slice(slug.length)
+      : null;
+    if (suffix === "" || (suffix !== null && /^_\d+$/.test(suffix))) {
+      return [];
+    }
+    return [
+      {
+        path: "/",
+        message:
+          `directory ${JSON.stringify(directory)} is not the slugified identifier ` +
+          `${JSON.stringify(slug)}: an export moves the plugin's YAML and bundle there ` +
+          `and leaves other files behind`,
+      },
+    ];
+  },
+};
 
 const CHECKS: Record<string, Check> = {
   CustomVizPlugin(doc, fullPath) {
@@ -158,7 +204,7 @@ export function validateSchema({
   const files = globSync(IMPORT_PATHS, { cwd: folder });
 
   if (files.length === 0) {
-    return { results: [], passed: 0, failed: 0 };
+    return { results: [], passed: 0, failed: 0, warned: 0 };
   }
 
   const results: ValidationResult[] = [];
@@ -174,6 +220,7 @@ export function validateSchema({
         file,
         status: "fail",
         errors: [{ path: "/", message: `invalid YAML: ${e.message}` }],
+        warnings: [],
       });
       continue;
     }
@@ -184,6 +231,7 @@ export function validateSchema({
         file,
         status: "fail",
         errors: [{ path: "/", message: "missing serdes/meta or model" }],
+        warnings: [],
       });
       continue;
     }
@@ -194,6 +242,7 @@ export function validateSchema({
         file,
         status: "fail",
         errors: [{ path: "/", message: `unknown model "${model}"` }],
+        warnings: [],
       });
       continue;
     }
@@ -205,11 +254,12 @@ export function validateSchema({
           message: e.message ?? "",
         }));
     errors.push(...(CHECKS[model]?.(doc, fullPath) ?? []));
+    const warnings = WARNINGS[model]?.(doc, fullPath) ?? [];
 
     results.push(
       errors.length === 0
-        ? { file, model, status: "ok" }
-        : { file, model, status: "fail", errors },
+        ? { file, model, status: "ok", warnings }
+        : { file, model, status: "fail", errors, warnings },
     );
   }
 
@@ -217,5 +267,6 @@ export function validateSchema({
     results,
     passed: results.filter((r) => r.status === "ok").length,
     failed: results.filter((r) => r.status === "fail").length,
+    warned: results.filter((r) => r.warnings.length > 0).length,
   };
 }

@@ -87,13 +87,17 @@ import {
   validateSchema,
 } from "@metabase/representations";
 
-const { results, passed, failed } = validateSchema({
+const { results, passed, failed, warned } = validateSchema({
   folder: "./my-export",
 });
 
 for (const result of results) {
   if (result.status === "fail") {
     console.log(result.file, result.errors);
+  }
+  // Warnings flag what Metabase imports but would not export as written.
+  if (result.warnings.length > 0) {
+    console.log(result.file, result.warnings);
   }
 }
 

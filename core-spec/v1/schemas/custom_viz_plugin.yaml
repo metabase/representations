@@ -5,7 +5,8 @@ description: >
   `custom_viz_plugins/<directory>/custom_viz_plugin.yaml`: the plugin's own
   serialized entity, identified by its `entity_id` like every other. Its
   `identifier` must be the manifest's `name`, which this file can't check.
-  The directory's name is not significant.
+  Metabase imports a plugin from any directory, but exports it to its
+  identifier slugified, so the validator warns about any other name.
 type: object
 required:
   - entity_id

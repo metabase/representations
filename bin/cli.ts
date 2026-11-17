@@ -60,7 +60,7 @@ function parseCount(raw: string | undefined): number {
 
 function handleValidateSchema(values: ParsedValues): void {
   const folder = values.folder ?? process.cwd();
-  const { results, passed, failed } = validateSchema({ folder });
+  const { results, passed, failed, warned } = validateSchema({ folder });
 
   if (results.length === 0) {
     console.error(`No YAML files found in ${folder}`);
@@ -68,17 +68,24 @@ function handleValidateSchema(values: ParsedValues): void {
   }
 
   for (const result of results) {
-    if (result.status === "ok") {
-      continue;
-    }
     const path = relative(process.cwd(), `${folder}/${result.file}`);
-    console.error(`FAIL  ${path}${result.model ? ` (${result.model})` : ""}`);
-    for (const error of result.errors) {
-      console.error(`      ${error.path} ${error.message}`);
+    const label = `${path}${result.model ? ` (${result.model})` : ""}`;
+    if (result.status === "fail") {
+      console.error(`FAIL  ${label}`);
+      for (const error of result.errors) {
+        console.error(`      ${error.path} ${error.message}`);
+      }
+    }
+    if (result.warnings.length > 0) {
+      console.error(`WARN  ${label}`);
+      for (const warning of result.warnings) {
+        console.error(`      ${warning.path} ${warning.message}`);
+      }
     }
   }
 
-  console.log(`\n${passed} passed, ${failed} failed`);
+  const warnedSummary = warned > 0 ? `, ${warned} with warnings` : "";
+  console.log(`\n${passed} passed, ${failed} failed${warnedSummary}`);
   process.exit(failed > 0 ? 1 : 0);
 }
 

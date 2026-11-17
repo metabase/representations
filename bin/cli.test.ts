@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "bun:test";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "fs";
+import { cpSync, existsSync, mkdtempSync, readdirSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join, resolve } from "path";
 
@@ -183,6 +183,35 @@ describe("cli", () => {
       } finally {
         rmSync(empty, { recursive: true, force: true });
       }
+    });
+
+    describe("with warnings", () => {
+      let workdir: string;
+
+      beforeEach(() => {
+        workdir = mkdtempSync(join(tmpdir(), "representations-cli-warn-"));
+        cpSync(
+          join(REPO_ROOT, "examples", "v1", "custom_viz_plugins", "thumbs"),
+          join(workdir, "custom_viz_plugins", "Thumbs Up"),
+          { recursive: true },
+        );
+      });
+
+      afterEach(() => {
+        rmSync(workdir, { recursive: true, force: true });
+      });
+
+      it("prints warnings but still exits 0", () => {
+        const { stdout, stderr, exitCode } = runCli([
+          "validate-schema",
+          "--folder",
+          workdir,
+        ]);
+        expect(exitCode).toBe(0);
+        expect(stderr).toContain("WARN  ");
+        expect(stderr).toContain('is not the slugified identifier "thumbs"');
+        expect(stdout).toContain("1 passed, 0 failed, 1 with warnings");
+      });
     });
   });
 

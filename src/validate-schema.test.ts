@@ -100,6 +100,28 @@ describe("validateSchema", () => {
           : [];
       };
 
+      const warnings = () => {
+        const [result] = validateSchema({ folder: workdir }).results;
+        return result.warnings.map((w) => w.message);
+      };
+
+      const moveTo = (directory: string) =>
+        renameSync(
+          join(workdir, PLUGIN),
+          join(workdir, "custom_viz_plugins", directory),
+        );
+
+      const renameIdentifier = (identifier: string) => {
+        writeFileSync(
+          join(workdir, ENTITY),
+          `entity_id: cUsToMvIzPlUgIn0ExAmP\nidentifier: ${identifier}\nserdes/meta:\n- model: CustomVizPlugin\n`,
+        );
+        writeFileSync(
+          join(workdir, MANIFEST),
+          JSON.stringify({ name: identifier }),
+        );
+      };
+
       it("passes when the identifier and manifest agree", () => {
         const { passed, failed } = validateSchema({ folder: workdir });
         expect(passed).toBe(1);
@@ -115,14 +137,46 @@ describe("validateSchema", () => {
         expect(messages()).toEqual(["must have required property 'entity_id'"]);
       });
 
-      it("passes whatever the directory is called", () => {
-        renameSync(
-          join(workdir, PLUGIN),
-          join(workdir, "custom_viz_plugins", "Thumbs Up"),
-        );
+      it("passes without warnings when the directory is the slugified identifier", () => {
+        expect(warnings()).toEqual([]);
+      });
+
+      it("passes whatever the directory is called, warning when it isn't the slug", () => {
+        moveTo("Thumbs Up");
+
+        const { passed, failed, warned } = validateSchema({ folder: workdir });
+        expect([passed, failed, warned]).toEqual([1, 0, 1]);
+        expect(warnings()).toEqual([
+          'directory "Thumbs Up" is not the slugified identifier "thumbs": an export moves the plugin\'s YAML and bundle there and leaves other files behind',
+        ]);
+      });
+
+      it.each([
+        ["thumbs-up", "thumbs_up"],
+        ["Thumbs Up", "thumbs_up"],
+        ["Thumbs.Up", "thumbs.up"],
+      ])("accepts %s in a directory named %s", (identifier, directory) => {
+        renameIdentifier(identifier);
+        moveTo(directory);
 
         expect(messages()).toEqual([]);
+        expect(warnings()).toEqual([]);
       });
+
+      it("accepts the suffix an export adds when slugs coincide", () => {
+        moveTo("thumbs_2");
+
+        expect(warnings()).toEqual([]);
+      });
+
+      it.each([["thumbs-up"], ["thumbs_x"], ["thumbs_"], ["thumbsup"]])(
+        "warns about a directory named %s",
+        (directory) => {
+          moveTo(directory);
+
+          expect(warnings()).toHaveLength(1);
+        },
+      );
 
       it("fails when the manifest's name differs", () => {
         writeFileSync(join(workdir, MANIFEST), '{ "name": "thumbs-up" }\n');
