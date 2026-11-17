@@ -99,7 +99,7 @@ $defs:
       # Restrict to known node types
       - properties:
           type:
-            enum: [doc, paragraph, blockquote, codeBlock, bulletList, orderedList, listItem, table, tableRow, tableCell, tableHeader, hardBreak, heading, image, cardEmbed, smartLink, text]
+            enum: [doc, paragraph, blockquote, codeBlock, bulletList, orderedList, listItem, table, tableRow, tableCell, tableHeader, hardBreak, heading, image, cardEmbed, resizeNode, flexContainer, supportingText, smartLink, text]
       # heading
       - if: { properties: { type: { const: heading } } }
         then:
