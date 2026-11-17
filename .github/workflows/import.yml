@@ -26,11 +26,13 @@ jobs:
 
       - name: Start Metabase
         env:
-          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.MB_PREMIUM_EMBEDDING_TOKEN }}
+          MB_PREMIUM_EMBEDDING_TOKEN: ${{ secrets.STAGING_MB_ALL_FEATURES_TOKEN }}
+          MB_RUN_MODE: e2e
         run: |
           docker pull metabase/metabase-enterprise-head:latest
           docker run -d --name metabase \
             -e MB_PREMIUM_EMBEDDING_TOKEN \
+            -e MB_RUN_MODE \
             -v "$RUNNER_TEMP/sync-repo:/sync-repo:ro" \
             -p 3000:3000 \
             metabase/metabase-enterprise-head:latest
