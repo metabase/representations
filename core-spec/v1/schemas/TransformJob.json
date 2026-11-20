@@ -1,0 +1,527 @@
+{
+  "$ref": "#/definitions/metabase.transforms.schema.external-transform-job",
+  "definitions": {
+    "metabase.util.cron.CronScheduleString": {
+      "description": "value must be a non-blank string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "metabase.lib.schema.id.external-transform-tag": {
+      "description": "A TransformTag as serialization references it, by entity id.",
+      "type": "string"
+    },
+    "metabase.transforms.schema..transform-job.schedule": {
+      "description": "The `:schedule` column of a TransformJob: a Quartz cron expression.",
+      "$ref": "#/definitions/metabase.util.cron.CronScheduleString"
+    },
+    "metabase.models.schema.external-meta": {
+      "description": "The `:serdes/meta` of a serialized entity, which names its model.",
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "model"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "metabase.transforms.schema.external-transform-job-transform-tag": {
+      "description": "A TransformJobTransformTag as serialization writes it, with portable references in place of ids.",
+      "type": "object",
+      "properties": {
+        "tag_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.transform-tag"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serdes/meta": {
+          "$ref": "#/definitions/metabase.models.schema.external-meta"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.lib.schema.id.transform-tag": {
+      "$ref": "#/definitions/metabase.lib.schema.id.external-transform-tag"
+    },
+    "metabase.transforms.schema.transform-job-transform-tag": {
+      "description": "A TransformJobTransformTag as selected from the app DB: every column of `:transform_job_transform_tag`.",
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "anyOf": [
+            {
+              "description": "value must be an integer greater than zero.",
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tag_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.transform-tag"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "description": "value must be an integer greater than zero.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "metabase.transforms.schema..transform-job.update": {
+      "description": "What an update (or insert) of a TransformJob accepts: every column of `:transform_job` except `id`, all optional.",
+      "type": "object",
+      "properties": {
+        "built_in_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ui_display_type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.transforms.schema..transform-job.schedule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.transforms.schema.transform-job": {
+      "description": "A TransformJob as selected from the app DB: every column of `:transform_job`.",
+      "type": "object",
+      "properties": {
+        "built_in_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ui_display_type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "description": "value must be an integer greater than zero.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.transforms.schema..transform-job.schedule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "active": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "metabase.transforms.schema..transform-job-transform-tag.update": {
+      "description": "What an update (or insert) of a TransformJobTransformTag accepts: every column of `:transform_job_transform_tag` except `id`, all optional.",
+      "type": "object",
+      "properties": {
+        "job_id": {
+          "anyOf": [
+            {
+              "description": "value must be an integer greater than zero.",
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tag_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.transform-tag"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "position": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.lib.schema.common.keyword": {
+      "description": "A keyword, normalized from its name.",
+      "type": "string"
+    },
+    "metabase.transforms.schema.external-transform-job": {
+      "description": "A TransformJob as serialization writes it, with portable references in place of ids.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schedule": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.transforms.schema..transform-job.schedule"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "built_in_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ui_display_type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serdes/meta": {
+          "$ref": "#/definitions/metabase.models.schema.external-meta"
+        },
+        "job_tags": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/metabase.transforms.schema.external-transform-job-transform-tag"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -2,10 +2,6 @@ name: Recent Mid-Range Products
 entity_id: wdYkSSArR5ymVGa0pvb47
 creator_id: admin@example.com
 description: Products created in last year, priced 20-100, not null rating
-table_id:
-- Sample Database
-- null
-- PRODUCTS
 definition:
   "lib/type": mbql/query
   database: Sample Database

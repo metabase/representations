@@ -1,0 +1,52 @@
+{
+  "$ref": "#/definitions/metabase.settings.schema.external-setting",
+  "definitions": {
+    "metabase.settings.schema.external-setting": {
+      "description": "A Setting as serialization writes it: its key, and its value as a string.",
+      "type": "object",
+      "properties": {
+        "serdes/meta": {
+          "$ref": "#/definitions/metabase.models.schema.external-meta"
+        },
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "additionalProperties": false
+    },
+    "metabase.models.schema.external-meta": {
+      "description": "The `:serdes/meta` of a serialized entity, which names its model.",
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "model"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    }
+  }
+}

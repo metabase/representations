@@ -1,0 +1,663 @@
+{
+  "$ref": "#/definitions/metabase.collections.schema.external-collection",
+  "definitions": {
+    "metabase.lib.schema.id.external-user": {
+      "description": "A User as serialization references it, by email.",
+      "type": "string"
+    },
+    "metabase.collections.schema.external-collection": {
+      "description": "A Collection as serialization writes it, with portable references in place of ids.",
+      "type": "object",
+      "properties": {
+        "archive_operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authority_level": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_sample": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serdes/meta": {
+          "$ref": "#/definitions/metabase.models.schema.external-meta"
+        },
+        "is_remote_synced": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.collections.schema..collection.name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archived": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.collections.schema..collection.type"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.collection"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "personal_owner_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.user"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archived_directly": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.collections.schema.root-collection": {
+      "description": "The placeholder for the Root Collection, which has no row, as `metabase.collections.models.collection.root` builds it.",
+      "type": "object",
+      "properties": {
+        "can_delete": {
+          "type": "boolean"
+        },
+        "authority_level": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "const": "root"
+        },
+        "effective_ancestors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/metabase.collections.schema.collection"
+          }
+        },
+        "effective_location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_remote_synced": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string"
+        },
+        "can_write": {
+          "type": "boolean"
+        },
+        "parent_id": {
+          "type": "null"
+        },
+        "can_restore": {
+          "type": "boolean"
+        },
+        "metabase.collections.models.collection.root/is-root?": {
+          "const": true
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_personal": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "metabase.collections.models.collection.root/is-root?"
+      ],
+      "additionalProperties": false
+    },
+    "metabase.models.schema.external-meta": {
+      "description": "The `:serdes/meta` of a serialized entity, which names its model.",
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "model"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    },
+    "metabase.lib.schema.id.user": {
+      "$ref": "#/definitions/metabase.lib.schema.id.external-user"
+    },
+    "metabase.collections.schema..collection.update": {
+      "description": "What an update (or insert) of a Collection accepts: every column of `:collection` except `id`, all optional.",
+      "type": "object",
+      "properties": {
+        "archive_operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authority_level": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_sample": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_remote_synced": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.collections.schema..collection.name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archived": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.collections.schema..collection.type"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "personal_owner_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.user"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archived_directly": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.collections.schema..collection.name": {
+      "description": "value must be a non-blank string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "metabase.collections.schema..collection.type": {
+      "description": "The `:type` column of a Collection: nil for a regular Collection, or one of these special types.",
+      "type": "string",
+      "enum": [
+        "trash",
+        "tenant-specific-root-collection",
+        "instance-analytics",
+        "library",
+        "library-data",
+        "library-metrics",
+        "library-dashboards"
+      ]
+    },
+    "metabase.lib.schema.common.keyword": {
+      "description": "A keyword, normalized from its name.",
+      "type": "string"
+    },
+    "metabase.lib.schema.id.external-collection": {
+      "description": "A Collection as serialization references it, by entity id.",
+      "type": "string"
+    },
+    "metabase.collections.schema.collection": {
+      "description": "A Collection as selected from the app DB: every column of `:collection`.",
+      "type": "object",
+      "properties": {
+        "archive_operation_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authority_level": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_sample": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/definitions/metabase.lib.schema.id.collection"
+        },
+        "effective_ancestors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/metabase.collections.schema.collection-or-root"
+          }
+        },
+        "effective_location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_remote_synced": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.collections.schema..collection.name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slug": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archived": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "location": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "can_write": {
+          "type": "boolean"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.collections.schema..collection.type"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "namespace": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.common.keyword"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "is_personal": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "personal_owner_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.user"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "archived_directly": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "metabase.lib.schema.id.collection": {
+      "$ref": "#/definitions/metabase.lib.schema.id.external-collection"
+    },
+    "metabase.collections.schema.collection-or-root": {
+      "description": "A Collection row, or the Root Collection placeholder.",
+      "anyOf": [
+        {
+          "$ref": "#/definitions/metabase.collections.schema.root-collection"
+        },
+        {
+          "$ref": "#/definitions/metabase.collections.schema.collection"
+        }
+      ]
+    }
+  }
+}

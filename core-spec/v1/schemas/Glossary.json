@@ -1,0 +1,207 @@
+{
+  "$ref": "#/definitions/metabase.glossary.schema.external-glossary",
+  "definitions": {
+    "metabase.glossary.schema.external-glossary": {
+      "description": "A Glossary as serialization writes it, with portable references in place of ids.",
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "anyOf": [
+            {
+              "description": "value must be a non-blank string.",
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "term": {
+          "$ref": "#/definitions/metabase.glossary.schema..glossary.term"
+        },
+        "definition": {
+          "$ref": "#/definitions/metabase.glossary.schema..glossary.definition"
+        },
+        "creator_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.user"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serdes/meta": {
+          "$ref": "#/definitions/metabase.models.schema.external-meta"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.glossary.schema.glossary": {
+      "description": "A Glossary as selected from the app DB: every column of `:glossary`.",
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "anyOf": [
+            {
+              "description": "value must be a non-blank string.",
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "term": {
+          "$ref": "#/definitions/metabase.glossary.schema..glossary.term"
+        },
+        "definition": {
+          "$ref": "#/definitions/metabase.glossary.schema..glossary.definition"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "creator_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.user"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "description": "value must be an integer greater than zero.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "metabase.glossary.schema..glossary.update": {
+      "description": "What an update (or insert) of a Glossary accepts: every column of `:glossary` except `id`, all optional.",
+      "type": "object",
+      "properties": {
+        "entity_id": {
+          "anyOf": [
+            {
+              "description": "value must be a non-blank string.",
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "term": {
+          "$ref": "#/definitions/metabase.glossary.schema..glossary.term"
+        },
+        "definition": {
+          "$ref": "#/definitions/metabase.glossary.schema..glossary.definition"
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "creator_id": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/metabase.lib.schema.id.user"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.glossary.schema..glossary.term": {
+      "description": "value must be a non-blank string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "metabase.glossary.schema..glossary.definition": {
+      "description": "value must be a non-blank string.",
+      "type": "string",
+      "minLength": 1
+    },
+    "metabase.lib.schema.id.user": {
+      "$ref": "#/definitions/metabase.lib.schema.id.external-user"
+    },
+    "metabase.lib.schema.id.external-user": {
+      "description": "A User as serialization references it, by email.",
+      "type": "string"
+    },
+    "metabase.models.schema.external-meta": {
+      "description": "The `:serdes/meta` of a serialized entity, which names its model.",
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "model"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    }
+  }
+}

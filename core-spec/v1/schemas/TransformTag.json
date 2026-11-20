@@ -1,0 +1,217 @@
+{
+  "$ref": "#/definitions/metabase.transforms.schema.external-transform-tag",
+  "definitions": {
+    "metabase.transforms.schema.external-transform-tag": {
+      "description": "A TransformTag as serialization writes it, with portable references in place of ids.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "built_in_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "serdes/meta": {
+          "$ref": "#/definitions/metabase.models.schema.external-meta"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.transforms.schema.transform-tag": {
+      "description": "A TransformTag as selected from the app DB: every column of `:transform_tag`.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "built_in_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "description": "value must be an integer greater than zero.",
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "metabase.transforms.schema..transform-tag.update": {
+      "description": "What an update (or insert) of a TransformTag accepts: every column of `:transform_tag` except `id`, all optional.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "entity_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "description": "value must be a valid date/time/datetime",
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "built_in_type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "metabase.models.schema.external-meta": {
+      "description": "The `:serdes/meta` of a serialized entity, which names its model.",
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "model"
+          ],
+          "additionalProperties": false
+        }
+      ],
+      "items": false,
+      "minItems": 1,
+      "maxItems": 1
+    }
+  }
+}
