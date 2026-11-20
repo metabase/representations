@@ -12,16 +12,14 @@ query:
       - "lib/type": mbql.stage/native
         native: "UPDATE ORDERS SET DISCOUNT = {{discount}} WHERE ID = {{order_id}}"
         template-tags:
-          discount:
-            type: number
-            name: discount
-            id: 0b6f6e0a-5c2b-4c47-9a4e-4f3d2c1b0a99
-            display-name: Discount
-          order_id:
-            type: number
-            name: order_id
-            id: 7d2f1c3e-9b8a-4e6d-8c5b-1a2b3c4d5e6f
-            display-name: Order ID
+        - type: number
+          name: discount
+          id: 0b6f6e0a-5c2b-4c47-9a4e-4f3d2c1b0a99
+          display-name: Discount
+        - type: number
+          name: order_id
+          id: 7d2f1c3e-9b8a-4e6d-8c5b-1a2b3c4d5e6f
+          display-name: Order ID
 parameters:
 - id: discount
   name: Discount

@@ -2,10 +2,6 @@ name: Premium Widgets
 entity_id: 2hxhoN3HrQJIaWc5umpBn
 creator_id: admin@example.com
 description: Widget products priced above $50 — refines the Widget Products segment
-table_id:
-- Sample Database
-- null
-- PRODUCTS
 definition:
   "lib/type": mbql/query
   database: Sample Database

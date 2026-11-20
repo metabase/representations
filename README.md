@@ -7,7 +7,7 @@ This repository contains the specification and examples for the Metabase Represe
 ## Contents
 
 - **[core-spec/v1/spec.md](core-spec/v1/spec.md)** — Full specification (v1.0.0) covering entity keys, folder structure, MBQL and native queries, parameters, and all entity types.
-- **[core-spec/v1/schemas/](core-spec/v1/schemas/)** — YAML schemas (JSON Schema format) for each entity type.
+- **[core-spec/v1/schemas/schema.json](core-spec/v1/schemas/schema.json)** — One JSON Schema with a property per entity type, generated from Metabase with `bun run generate-schemas --metabase <path to a Metabase checkout>`.
 - **[examples/v1/](examples/v1/)** — Complete examples using the Sample Database.
 - **[CONTRIBUTING.md](https://github.com/metabase/representations/blob/main/CONTRIBUTING.md)** — How releases and alpha builds from a pull request are published.
 
@@ -52,7 +52,7 @@ Omit `--file` to write `spec.md` into the current directory.
 
 ### Extracting schemas
 
-Copy the bundled schemas (preserving folder structure) into a target directory:
+Copy the bundled schema into a target directory:
 
 ```sh
 npx @metabase/representations extract-schema --folder ./schemas

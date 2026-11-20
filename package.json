@@ -35,6 +35,7 @@
     "lint-eslint": "eslint --max-warnings 0 --report-unused-disable-directives bin scripts src",
     "lint-format": "oxfmt --check bin scripts src",
     "test": "bun test",
+    "generate-schemas": "bun run scripts/generate-schemas.ts",
     "validate-schema": "bun run bin/cli.ts validate-schema --folder examples/v1"
   },
   "dependencies": {

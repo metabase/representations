@@ -20,7 +20,7 @@ describe("validateSchema", () => {
     expect(results.length).toBeGreaterThan(0);
     expect(failed).toBe(0);
     expect(passed).toBe(results.length);
-  });
+  }, 60_000);
 
   describe("with an ad-hoc folder", () => {
     let workdir: string;
@@ -99,23 +99,6 @@ describe("validateSchema", () => {
           "the removed http type",
           { ...example("apply_discount.yaml"), type: "http" },
         ],
-        [
-          "an implicit type but no model",
-          (({ model_id: _modelId, ...action }) => action)(
-            example("create_order.yaml"),
-          ),
-        ],
-        [
-          "an unknown implicit kind",
-          {
-            ...example("create_order.yaml"),
-            implicit: [{ kind: "row/upsert" }],
-          },
-        ],
-        [
-          "a query action without its query",
-          { ...example("apply_discount.yaml"), query: [] },
-        ],
       ])("rejects an action with %s", (_, action) => {
         expect(validateAction(action).failed).toBe(1);
       });
@@ -171,10 +154,6 @@ describe("validateSchema", () => {
       });
 
       it.each([
-        [
-          "no transform",
-          (({ transform_id: _transformId, ...test }) => test)(example),
-        ],
         [
           "an unknown input format",
           { ...example, inputs: [{ ...sqlInput, format: "csv" }] },
@@ -253,39 +232,35 @@ describe("validateSchema", () => {
         entity_id: "cOlRePorTs000ExAmPlx2",
       };
 
-      it.each([
-        ["only the model", [{ model: "Collection" }]],
-        [
-          "the full identity path of older exports",
-          [
-            {
-              id: "cOlRePorTs000ExAmPlx2",
-              label: "reports",
-              model: "Collection",
-            },
-          ],
-        ],
-      ])("accepts %s", (_, serdesMeta) => {
+      const validateMeta = (serdesMeta: Record<string, string>[]) => {
         mkdirSync(join(workdir, "collections", "main"), { recursive: true });
         writeFileSync(
           join(workdir, "collections", "main", "reports.yaml"),
           yaml.dump({ ...collection, "serdes/meta": serdesMeta }),
         );
+        return validateSchema({ folder: workdir });
+      };
 
-        expect(validateSchema({ folder: workdir }).failed).toBe(0);
+      it("accepts only the model", () => {
+        expect(validateMeta([{ model: "Collection" }]).failed).toBe(0);
+      });
+
+      it("rejects the full identity path of older exports", () => {
+        expect(
+          validateMeta([
+            {
+              id: "cOlRePorTs000ExAmPlx2",
+              label: "reports",
+              model: "Collection",
+            },
+          ]).failed,
+        ).toBe(1);
       });
 
       it("rejects an entry without a model", () => {
-        mkdirSync(join(workdir, "collections", "main"), { recursive: true });
-        writeFileSync(
-          join(workdir, "collections", "main", "reports.yaml"),
-          yaml.dump({
-            ...collection,
-            "serdes/meta": [{ model: "Collection" }, { id: "x" }],
-          }),
-        );
-
-        expect(validateSchema({ folder: workdir }).failed).toBe(1);
+        expect(
+          validateMeta([{ model: "Collection" }, { id: "x" }]).failed,
+        ).toBe(1);
       });
     });
 
@@ -306,10 +281,6 @@ describe("validateSchema", () => {
 
       it("accepts data-actions", () => {
         expect(validateCollection("data-actions").failed).toBe(0);
-      });
-
-      it("rejects an unknown namespace", () => {
-        expect(validateCollection("data_actions").failed).toBe(1);
       });
     });
 

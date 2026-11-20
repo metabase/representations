@@ -1,10 +1,6 @@
 name: Large Orders
 entity_id: OaFXAvEzPvu9ZXW5PUMRa
 creator_id: admin@example.com
-table_id:
-- Sample Database
-- null
-- ORDERS
 definition:
   "lib/type": mbql/query
   database: Sample Database

@@ -28,6 +28,5 @@ dataset_query:
 visualization_settings: {}
 parameters: []
 parameter_mappings: []
-created_at: "2025-01-15T10:00:00Z"
 serdes/meta:
 - model: Card

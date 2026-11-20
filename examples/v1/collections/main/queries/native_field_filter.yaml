@@ -21,39 +21,33 @@ dataset_query:
           name: category_filter
           id: bb000001-0000-0000-0000-000000000001
           display-name: Category
-          dimension:
-          - field
-          - {}
-          - - Sample Database
-            - null
-            - PRODUCTS
-            - CATEGORY
+          field-id:
+          - Sample Database
+          - null
+          - PRODUCTS
+          - CATEGORY
           widget-type: string/=
         - type: dimension
           name: date_filter
           id: bb000002-0000-0000-0000-000000000002
           display-name: Order Date
-          dimension:
-          - field
-          - {}
-          - - Sample Database
-            - null
-            - ORDERS
-            - CREATED_AT
+          field-id:
+          - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
           widget-type: date/range
         - type: temporal-unit
-          sectionId: date
+          sectionid: date
           name: created_at
           id: bb000003-0000-0000-0000-000000000003
           display-name: Group By
           default: month
-          dimension:
-          - field
-          - {}
-          - - Sample Database
-            - null
-            - ORDERS
-            - CREATED_AT
+          field-id:
+          - Sample Database
+          - null
+          - ORDERS
+          - CREATED_AT
 visualization_settings: {}
 serdes/meta:
 - model: Card

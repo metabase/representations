@@ -47,12 +47,6 @@ export type ValidateSchemaResult = {
   failed: number;
 };
 
-function extractModel(schema: any): string | null {
-  const items = schema?.properties?.["serdes/meta"]?.items;
-  const props = items?.properties ?? items?.items?.properties;
-  return props?.model?.const ?? null;
-}
-
 function getModel(doc: any): string | null {
   const meta = doc?.["serdes/meta"];
   if (!Array.isArray(meta) || meta.length === 0) {
@@ -61,45 +55,52 @@ function getModel(doc: any): string | null {
   return meta[meta.length - 1]?.model ?? null;
 }
 
+const SCHEMA_FILE = resolve(PACKAGE_ROOT, "core-spec/v1/schemas/schema.json");
+
+const SCHEMA_KEY = "schema.json";
+
+type Schema = {
+  properties: Record<string, unknown>;
+};
+
+const validators = new Map<string, ValidateFunction | null>();
+
+let compiler: { ajv: Ajv2020; schema: Schema } | undefined;
+
+function getCompiler() {
+  if (!compiler) {
+    const schema: Schema = JSON.parse(readFileSync(SCHEMA_FILE, "utf8"));
+    const ajv = addFormats(
+      new Ajv2020({
+        allErrors: true,
+        strictTuples: false,
+        allowUnionTypes: true,
+      }),
+    );
+    ajv.addSchema(schema, SCHEMA_KEY);
+    compiler = { ajv, schema };
+  }
+  return compiler;
+}
+
+function compileValidator(model: string): ValidateFunction | null {
+  const { ajv, schema } = getCompiler();
+  if (!Object.hasOwn(schema.properties, model)) {
+    return null;
+  }
+  return ajv.compile({ $ref: `${SCHEMA_KEY}#/properties/${model}` });
+}
+
+function getValidator(model: string): ValidateFunction | null {
+  if (!validators.has(model)) {
+    validators.set(model, compileValidator(model));
+  }
+  return validators.get(model) ?? null;
+}
+
 export function validateSchema({
   folder,
 }: ValidateSchemaOptions): ValidateSchemaResult {
-  const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
-
-  const ajv = new Ajv2020({
-    allErrors: true,
-    strictTuples: false,
-    allowUnionTypes: true,
-  });
-  addFormats(ajv);
-
-  for (const file of globSync("common/*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    ajv.addSchema(body, file);
-  }
-
-  const schemas: Record<string, any> = {};
-  for (const file of globSync("*.yaml", { cwd: schemasDir })) {
-    const raw = yaml.load(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    ) as any;
-    const { $schema: _$schema, ...body } = raw;
-    const model = extractModel(raw);
-    if (model) {
-      schemas[model] = body;
-    } else {
-      ajv.addSchema(body, file);
-    }
-  }
-
-  const validators: Record<string, ValidateFunction> = {};
-  for (const [model, schema] of Object.entries(schemas)) {
-    validators[model] = ajv.compile(schema);
-  }
-
   const files = globSync(IMPORT_PATHS, { cwd: folder });
 
   if (files.length === 0) {
@@ -133,7 +134,7 @@ export function validateSchema({
       continue;
     }
 
-    const validate = validators[model];
+    const validate = getValidator(model);
     if (!validate) {
       results.push({
         file,
