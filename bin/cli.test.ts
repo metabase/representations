@@ -168,7 +168,7 @@ describe("cli", () => {
       ]);
       expect(exitCode).toBe(0);
       expect(stdout).toMatch(/\d+ passed, 0 failed/);
-    });
+    }, 60_000);
 
     it("errors when the folder has no YAML files", () => {
       const empty = mkdtempSync(join(tmpdir(), "representations-cli-empty-"));

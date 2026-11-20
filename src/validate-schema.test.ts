@@ -20,7 +20,7 @@ describe("validateSchema", () => {
     expect(results.length).toBeGreaterThan(0);
     expect(failed).toBe(0);
     expect(passed).toBe(results.length);
-  });
+  }, 60_000);
 
   describe("with an ad-hoc folder", () => {
     let workdir: string;

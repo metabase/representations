@@ -1,10 +1,10 @@
 import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 import type { FormatsPlugin } from "ajv-formats";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
 import { createRequire } from "node:module";
-import { basename, resolve } from "path";
+import { resolve } from "path";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
@@ -55,26 +55,38 @@ function getModel(doc: any): string | null {
   return meta[meta.length - 1]?.model ?? null;
 }
 
-export function validateSchema({
-  folder,
-}: ValidateSchemaOptions): ValidateSchemaResult {
-  const schemasDir = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
+const SCHEMAS_DIR = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
 
-  const ajv = new Ajv2020({
+const MODEL_NAME = /^[A-Za-z]+$/;
+
+const ajv = addFormats(
+  new Ajv2020({
     allErrors: true,
     strictTuples: false,
     allowUnionTypes: true,
-  });
-  addFormats(ajv);
+  }),
+);
 
-  const validators: Record<string, ValidateFunction> = {};
-  for (const file of globSync("*.json", { cwd: schemasDir })) {
-    const { $schema: _$schema, ...body } = JSON.parse(
-      readFileSync(resolve(schemasDir, file), "utf8"),
-    );
-    validators[basename(file, ".json")] = ajv.compile(body);
+const validators = new Map<string, ValidateFunction | null>();
+
+function compileValidator(model: string): ValidateFunction | null {
+  const file = resolve(SCHEMAS_DIR, `${model}.json`);
+  if (!MODEL_NAME.test(model) || !existsSync(file)) {
+    return null;
   }
+  return ajv.compile(JSON.parse(readFileSync(file, "utf8")));
+}
 
+function getValidator(model: string): ValidateFunction | null {
+  if (!validators.has(model)) {
+    validators.set(model, compileValidator(model));
+  }
+  return validators.get(model) ?? null;
+}
+
+export function validateSchema({
+  folder,
+}: ValidateSchemaOptions): ValidateSchemaResult {
   const files = globSync(IMPORT_PATHS, { cwd: folder });
 
   if (files.length === 0) {
@@ -108,7 +120,7 @@ export function validateSchema({
       continue;
     }
 
-    const validate = validators[model];
+    const validate = getValidator(model);
     if (!validate) {
       results.push({
         file,
