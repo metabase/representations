@@ -62,18 +62,28 @@ if (!values.metabase) {
 const metabase = resolve(values.metabase);
 const portArgs = values.port ? ["--port", values.port] : [];
 
+const json = execFileSync(
+  "./bin/mage",
+  ["print-json-schema", ...portArgs, ...Object.values(MODEL_SCHEMAS)],
+  { cwd: metabase, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+);
+const { properties, ...schema } = JSON.parse(json);
+
 rmSync(SCHEMAS_DIR, { recursive: true, force: true });
 mkdirSync(SCHEMAS_DIR, { recursive: true });
-
-for (const [model, schema] of Object.entries(MODEL_SCHEMAS)) {
-  const json = execFileSync(
-    "./bin/mage",
-    ["print-json-schema", ...portArgs, schema],
-    { cwd: metabase, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
-  );
-  writeFileSync(
-    resolve(SCHEMAS_DIR, `${model}.json`),
-    `${JSON.stringify(JSON.parse(json), null, 2)}\n`,
-  );
-  console.log(`${model}.json`);
-}
+writeFileSync(
+  resolve(SCHEMAS_DIR, "schema.json"),
+  `${JSON.stringify(
+    {
+      ...schema,
+      properties: Object.fromEntries(
+        Object.entries(MODEL_SCHEMAS).map(([model, keyword]) => [
+          model,
+          properties[keyword.slice(1)],
+        ]),
+      ),
+    },
+    null,
+    2,
+  )}\n`,
+);

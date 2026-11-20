@@ -7,30 +7,25 @@ import { resolve } from "path";
 
 const addFormats: FormatsPlugin = createRequire(import.meta.url)("ajv-formats");
 
-const SCHEMAS = resolve(
+const SCHEMA_FILE = resolve(
   import.meta.dirname,
   "..",
   "core-spec",
   "v1",
   "schemas",
+  "schema.json",
 );
 
-const loadSchema = (file: string) => {
-  // `$schema` is dropped as the validator drops it.
-  const { $schema: _schema, ...body } = JSON.parse(
-    readFileSync(resolve(SCHEMAS, file), "utf8"),
-  );
-  return body;
-};
-
-// Set up as `validateSchema` sets up Ajv.
 const ajv = new Ajv2020({
   allErrors: true,
   strictTuples: false,
   allowUnionTypes: true,
 });
 addFormats(ajv);
-const validateManifest = ajv.compile(loadSchema("DataApp.json"));
+ajv.addSchema(JSON.parse(readFileSync(SCHEMA_FILE, "utf8")), "schema.json");
+const validateManifest = ajv.compile({
+  $ref: "schema.json#/properties/DataApp",
+});
 
 // The example manifest in the spec's Data App section.
 const MANIFEST = {

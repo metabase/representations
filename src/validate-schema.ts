@@ -1,6 +1,6 @@
 import { Ajv2020, type ValidateFunction } from "ajv/dist/2020.js";
 import type { FormatsPlugin } from "ajv-formats";
-import { existsSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import { globSync } from "glob";
 import yaml from "js-yaml";
 import { createRequire } from "node:module";
@@ -55,26 +55,40 @@ function getModel(doc: any): string | null {
   return meta[meta.length - 1]?.model ?? null;
 }
 
-const SCHEMAS_DIR = resolve(PACKAGE_ROOT, "core-spec/v1/schemas");
+const SCHEMA_FILE = resolve(PACKAGE_ROOT, "core-spec/v1/schemas/schema.json");
 
-const MODEL_NAME = /^[A-Za-z]+$/;
+const SCHEMA_KEY = "schema.json";
 
-const ajv = addFormats(
-  new Ajv2020({
-    allErrors: true,
-    strictTuples: false,
-    allowUnionTypes: true,
-  }),
-);
+type Schema = {
+  properties: Record<string, unknown>;
+};
 
 const validators = new Map<string, ValidateFunction | null>();
 
+let compiler: { ajv: Ajv2020; schema: Schema } | undefined;
+
+function getCompiler() {
+  if (!compiler) {
+    const schema: Schema = JSON.parse(readFileSync(SCHEMA_FILE, "utf8"));
+    const ajv = addFormats(
+      new Ajv2020({
+        allErrors: true,
+        strictTuples: false,
+        allowUnionTypes: true,
+      }),
+    );
+    ajv.addSchema(schema, SCHEMA_KEY);
+    compiler = { ajv, schema };
+  }
+  return compiler;
+}
+
 function compileValidator(model: string): ValidateFunction | null {
-  const file = resolve(SCHEMAS_DIR, `${model}.json`);
-  if (!MODEL_NAME.test(model) || !existsSync(file)) {
+  const { ajv, schema } = getCompiler();
+  if (!Object.hasOwn(schema.properties, model)) {
     return null;
   }
-  return ajv.compile(JSON.parse(readFileSync(file, "utf8")));
+  return ajv.compile({ $ref: `${SCHEMA_KEY}#/properties/${model}` });
 }
 
 function getValidator(model: string): ValidateFunction | null {
